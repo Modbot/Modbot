@@ -8,7 +8,9 @@ public static class SupporterProviders
 {
     public const string Kofi = "kofi";
 
-    public static bool IsKnown(string? provider) => provider is Kofi;
+    public const string Patreon = "patreon";
+
+    public static bool IsKnown(string? provider) => provider is Kofi or Patreon;
 }
 
 /// <summary>Whether a supporter's roles are on or off.</summary>
@@ -50,7 +52,7 @@ public static class SupporterLimits
 /// <remarks>
 /// A tier is made the first time a payment names it (with no roles yet) or by staff. Which site it
 /// belongs to is <see cref="Provider"/>; <see cref="Key"/> is how that site names it (Ko-fi: the
-/// tier's name), so Patreon can add its own rows without a second mapping.
+/// tier's name; Patreon: the tier's id, with the title in <see cref="Name"/>).
 /// </remarks>
 public class SupporterTier
 {
@@ -154,7 +156,7 @@ public class SupporterPayment
 
     public string Provider { get; set; } = SupporterProviders.Kofi;
 
-    /// <summary>The site's own code for the payment (Ko-fi: the transaction id on the receipt).</summary>
+    /// <summary>The site's own code for the payment (Ko-fi: the transaction id on the receipt; Patreon: the member id and the charge date).</summary>
     public string Code { get; set; } = string.Empty;
 
     public Guid SupporterId { get; set; }

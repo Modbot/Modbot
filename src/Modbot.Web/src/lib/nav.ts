@@ -121,8 +121,8 @@ export const NAV = [
   // Votes members answer with a button in a Discord channel, and how each one stands (batch 4).
   // After Giveaways; it needs See posts like Marketing. No `g` letter.
   { id: 'votes', label: 'Votes', group: 'Community', needs: 'ViewPosts', words: ['poll', 'vote', 'question'] },
-  // Ko-fi supporters, the roles each tier gives and who is still to be matched (batch 4). After Votes. No `g` letter.
-  { id: 'supporters', label: 'Supporters', group: 'Community', needs: 'ManageSettings', words: ['ko-fi', 'kofi', 'tiers', 'donate'] },
+  // Ko-fi and Patreon supporters, the roles each tier gives and who is still to be matched (batch 4). After Votes. No `g` letter.
+  { id: 'supporters', label: 'Supporters', group: 'Community', needs: 'ManageSettings', words: ['ko-fi', 'kofi', 'patreon', 'tiers', 'donate'] },
   // Saved lists of people, each a name and the giveaway rules, and who is in each now (lists
   // design). After Giveaways, whose rules they are. Needs See members and See profiles both: a
   // list's rules can ask about bans, flags and 18+ verification, so who is in "banned twice" is

@@ -580,6 +580,51 @@ public class UserPurgerTests : AnalyticsTestBase
         Assert.Equal("code" + DiscordBystander, Assert.Single(await read.SupporterPayments.AsNoTracking().ToListAsync(Ct)).Code);
     }
 
+    /// <summary>A Patreon supporter matched to the account goes with their payments, as a Ko-fi one does.</summary>
+    [Fact]
+    public async Task ThePatreonSupporterMatchedToTheirDiscordAccount_Goes_WithTheirPayments()
+    {
+        const string DiscordSubject = "7411";
+
+        await using (var setup = Database.NewContext())
+        {
+            await setup.Supporters.ExecuteDeleteAsync(Ct);
+            await setup.SupporterCodes.ExecuteDeleteAsync(Ct);
+
+            var supporter = new Supporter
+            {
+                Provider = SupporterProviders.Patreon,
+                PayerId = "patreon-payer",
+                Name = "Patron",
+                DiscordUserId = DiscordSubject,
+                FirstPaidAt = Start,
+                LastPaidAt = Start,
+                PaidThrough = Start.AddMonths(1),
+                UpdatedAt = Start,
+            };
+            setup.Supporters.Add(supporter);
+            setup.SupporterPayments.Add(new SupporterPayment
+            {
+                Provider = SupporterProviders.Patreon,
+                Code = "member|2026-01-01T00:00:00Z",
+                SupporterId = supporter.Id,
+                PaidAt = Start,
+                ReceivedAt = Start,
+            });
+            await setup.SaveChangesAsync(Ct);
+        }
+
+        await using (var context = Database.NewContext())
+        {
+            var result = await NewPurger(context).PurgeAsync(FactPlatform.Discord, DiscordSubject, ct: Ct);
+            Assert.Equal(1, result.SupportersDeleted);
+        }
+
+        await using var read = Database.NewContext();
+        Assert.Empty(await read.Supporters.AsNoTracking().ToListAsync(Ct));
+        Assert.Empty(await read.SupporterPayments.AsNoTracking().ToListAsync(Ct));
+    }
+
     /// <summary>
     /// A supporter staff moved off the purged account still names it as the one a role was given to.
     /// A purge clears that name and the role on the other supporter's row, for the Discord account and

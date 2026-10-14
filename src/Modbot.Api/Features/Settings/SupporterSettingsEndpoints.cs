@@ -11,28 +11,41 @@ using Modbot.Core.Supporters;
 
 namespace Modbot.Api.Features.Settings;
 
-/// <summary>Settings → Supporters, as stored. The verification token is never returned.</summary>
+/// <summary>Settings → Supporters, as stored. The verification token and the webhook secret are never returned.</summary>
 /// <param name="KofiOn">Modbot takes in Ko-fi's payment messages.</param>
 /// <param name="TokenStored">Whether a verification token is saved.</param>
 /// <param name="ThanksText">The direct message a new supporter gets, with {name} and {tier} filled in. Empty sends none.</param>
 /// <param name="WebhookAddress">The address to give Ko-fi, built from the public address; null until that is set.</param>
 /// <param name="MostThanksLength">The longest the message may be.</param>
+/// <param name="PatreonOn">Modbot takes in Patreon's membership messages.</param>
+/// <param name="PatreonSecretStored">Whether a Patreon webhook secret is saved.</param>
+/// <param name="PatreonWebhookAddress">The address to give Patreon, built from the public address; null until that is set.</param>
 public sealed record SupporterSettingsResponse(
     bool KofiOn,
     bool TokenStored,
     string ThanksText,
     string? WebhookAddress,
-    int MostThanksLength);
+    int MostThanksLength,
+    bool PatreonOn,
+    bool PatreonSecretStored,
+    string? PatreonWebhookAddress);
 
 /// <summary>A change to Settings → Supporters. A field left out is not changed.</summary>
 /// <param name="VerificationToken">The token from Ko-fi's webhook page. Left out or empty keeps the saved one.</param>
-public sealed record SupporterSettingsUpdate(bool? KofiOn, string? VerificationToken, string? ThanksText);
+/// <param name="PatreonWebhookSecret">The secret from Patreon's webhook page. Left out or empty keeps the saved one.</param>
+public sealed record SupporterSettingsUpdate(
+    bool? KofiOn,
+    string? VerificationToken,
+    string? ThanksText,
+    bool? PatreonOn = null,
+    string? PatreonWebhookSecret = null);
 
 /// <summary>
-/// Settings → Supporters: whether Ko-fi's payment messages are taken in, the verification token that
-/// proves they came from Ko-fi, and the thank-you message. Needs Manage settings. The token is kept
-/// encrypted and never returned; the change is recorded as a secret changed, never what to. Turning
-/// Ko-fi on adds Manage Roles to the bot's invite link.
+/// Settings → Supporters: whether Ko-fi's payment messages and Patreon's membership messages are taken
+/// in, the verification token and the webhook secret that prove they came from there, and the thank-you
+/// message. Needs Manage settings. The token and the secret are kept encrypted and never returned; the
+/// change is recorded as a secret changed, never what to. Turning Ko-fi or Patreon on adds Manage Roles
+/// to the bot's invite link.
 /// </summary>
 public static class SupporterSettingsEndpoints
 {
@@ -48,7 +61,9 @@ public static class SupporterSettingsEndpoints
                 => Results.Ok(View(await db.GetSettingsAsync(ct))))
             .WithName("GetSupporterSettings")
             .WithSummary("Get supporter settings")
-            .WithDescription("Whether Ko-fi is on, whether a verification token is saved (never the token), the thank-you message and the address to give Ko-fi.")
+            .WithDescription(
+                "Whether Ko-fi and Patreon are on, whether a verification token or a Patreon webhook secret is saved (never the "
+                + "token or the secret), the thank-you message and the addresses to give Ko-fi and Patreon.")
             .Produces<SupporterSettingsResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -66,6 +81,11 @@ public static class SupporterSettingsEndpoints
                 if (token is not null && (token.Length > SupporterLimits.MostTokenLength || token.Any(char.IsWhiteSpace)))
                     return Results.BadRequest(new { error = "This is not a verification token." });
 
+                var secret = string.IsNullOrWhiteSpace(body.PatreonWebhookSecret) ? null : body.PatreonWebhookSecret.Trim();
+
+                if (secret is not null && (secret.Length > SupporterLimits.MostTokenLength || secret.Any(char.IsWhiteSpace)))
+                    return Results.BadRequest(new { error = "This is not a webhook secret." });
+
                 var thanks = body.ThanksText?.Trim();
 
                 if (thanks is { Length: > SupporterLimits.MostThanksLength })
@@ -79,11 +99,19 @@ public static class SupporterSettingsEndpoints
                 if (onAfter && token is null && string.IsNullOrEmpty(settings.KofiVerificationTokenEncrypted))
                     return Results.BadRequest(new { error = "Save the verification token first." });
 
+                var patreonOnAfter = body.PatreonOn ?? settings.PatreonOn;
+                var secretChanged = secret is not null && secret != protector.Unprotect(settings.PatreonWebhookSecretEncrypted);
+
+                if (patreonOnAfter && secret is null && string.IsNullOrEmpty(settings.PatreonWebhookSecretEncrypted))
+                    return Results.BadRequest(new { error = "Save the webhook secret first." });
+
                 var thanksAfter = thanks is null ? settings.SupporterThanksText : (thanks.Length > 0 ? thanks : null);
 
                 var change = new SettingsChange("supporters")
                     .Field("kofiOn", settings.KofiOn, onAfter)
                     .Secret("kofiVerificationToken", tokenChanged)
+                    .Field("patreonOn", settings.PatreonOn, patreonOnAfter)
+                    .Secret("patreonWebhookSecret", secretChanged)
                     .Field("thanksText", settings.SupporterThanksText, thanksAfter);
 
                 if (change.IsEmpty)
@@ -94,6 +122,9 @@ public static class SupporterSettingsEndpoints
                 settings.KofiOn = onAfter;
                 if (tokenChanged)
                     settings.KofiVerificationTokenEncrypted = protector.Protect(token!);
+                settings.PatreonOn = patreonOnAfter;
+                if (secretChanged)
+                    settings.PatreonWebhookSecretEncrypted = protector.Protect(secret!);
                 settings.SupporterThanksText = thanksAfter;
 
                 await db.SaveChangesAsync(ct);
@@ -105,9 +136,10 @@ public static class SupporterSettingsEndpoints
             .WithName("SetSupporterSettings")
             .WithSummary("Update supporter settings")
             .WithDescription(
-                "Switch Ko-fi on or off, save the verification token from Ko-fi's webhook page (kept encrypted, never returned) "
-                + "and set the thank-you message. Ko-fi cannot be switched on without a token. While Ko-fi is on the bot's "
-                + "invite link asks for Manage Roles, so a bot added earlier has to be added again from the new link.")
+                "Switch Ko-fi or Patreon on or off, save the verification token from Ko-fi's webhook page or the webhook secret from "
+                + "Patreon's (kept encrypted, never returned) and set the thank-you message. Neither can be switched on without its "
+                + "token or secret. While either is on the bot's invite link asks for Manage Roles, so a bot added earlier has to be "
+                + "added again from the new link.")
             .Accepts<SupporterSettingsUpdate>("application/json")
             .Produces<SupporterSettingsResponse>()
             .Produces(StatusCodes.Status400BadRequest)
@@ -122,5 +154,8 @@ public static class SupporterSettingsEndpoints
             !string.IsNullOrEmpty(settings.KofiVerificationTokenEncrypted),
             settings.SupporterThanksText ?? string.Empty,
             string.IsNullOrWhiteSpace(settings.PublicAddress) ? null : settings.PublicAddress.Trim().TrimEnd('/') + KofiWebhookEndpoint.Path,
-            SupporterLimits.MostThanksLength);
+            SupporterLimits.MostThanksLength,
+            settings.PatreonOn,
+            !string.IsNullOrEmpty(settings.PatreonWebhookSecretEncrypted),
+            string.IsNullOrWhiteSpace(settings.PublicAddress) ? null : settings.PublicAddress.Trim().TrimEnd('/') + PatreonWebhookEndpoint.Path);
 }

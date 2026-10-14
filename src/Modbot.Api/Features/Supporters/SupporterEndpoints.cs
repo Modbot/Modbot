@@ -56,10 +56,12 @@ public sealed record SupporterView(
     string? Code);
 
 /// <param name="KofiOn">Ko-fi is switched on in Settings.</param>
+/// <param name="PatreonOn">Patreon is switched on in Settings.</param>
 /// <param name="BotCanManageRoles">The bot holds Manage Roles in the server.</param>
 /// <param name="GroupRoles">The VRChat group's roles, as the last read of the group found them.</param>
 public sealed record SupportersResponse(
     bool KofiOn,
+    bool PatreonOn,
     bool BotCanManageRoles,
     IReadOnlyList<SupporterTierView> Tiers,
     IReadOnlyList<SupporterView> Supporters,
@@ -80,7 +82,7 @@ public sealed record SupporterLinkBody(string DiscordUserId);
 /// change is recorded as a settings change.
 /// </summary>
 /// <remarks>
-/// The payments themselves arrive at <see cref="KofiWebhookEndpoint.Path"/>; the roles are given and
+/// The payments themselves arrive at <see cref="KofiWebhookEndpoint.Path"/> and <see cref="PatreonWebhookEndpoint.Path"/>; the roles are given and
 /// taken back by the role job in the bot (<c>SupporterRoles</c>), which this wakes.
 /// </remarks>
 public static class SupporterEndpoints
@@ -385,9 +387,10 @@ public static class SupporterEndpoints
                 .ToListAsync(ct))
             .ToHashSet(StringComparer.Ordinal);
 
-        // The latest code for each: the one on the newest receipt.
+        // The latest code for each: the one on the newest receipt. Only Ko-fi has a receipt code for a
+        // supporter to give staff; Patreon's is a member id and a date.
         var codes = (await db.SupporterPayments.AsNoTracking()
-                .Where(p => ids.Contains(p.SupporterId))
+                .Where(p => p.Provider == SupporterProviders.Kofi && ids.Contains(p.SupporterId))
                 .Select(p => new { p.SupporterId, p.Code, p.PaidAt })
                 .ToListAsync(ct))
             .GroupBy(p => p.SupporterId)
@@ -401,6 +404,7 @@ public static class SupporterEndpoints
 
         return new SupportersResponse(
             settings.KofiOn,
+            settings.PatreonOn,
             botCanManageRoles,
             [.. tiers.Select(t => new SupporterTierView(
                 t.Id, t.Provider, t.Name, t.DiscordRoleId, t.VRChatRoleId, paidUp.GetValueOrDefault(t.Id)))],

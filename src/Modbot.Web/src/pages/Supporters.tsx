@@ -9,10 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { api, ApiError, type DiscordMember } from '@/lib/api'
 import { dateTime } from '@/lib/format'
-import { supporterApi, supporterMatches, type Supporter, type SupporterList, type SupporterTier } from '@/lib/supporters'
+import { providerLabel, supporterApi, supporterMatches, type Supporter, type SupporterList, type SupporterTier } from '@/lib/supporters'
 
 /**
- * Who pays through Ko-fi, which Discord role and VRChat group role each tier gives, and who
+ * Who pays through Ko-fi or Patreon, which Discord role and VRChat group role each tier gives, and who
  * is still waiting to be matched to a Discord account. Needs Manage settings.
  */
 export function Supporters() {
@@ -55,7 +55,7 @@ export function Supporters() {
 
   return (
     <div className="flex flex-col gap-3">
-      {list.kofiOn && !list.botCanManageRoles && (
+      {(list.kofiOn || list.patreonOn) && !list.botCanManageRoles && (
         <Card>
           <CardContent>
             <Outcome tone="problem">Bot needs Manage Roles</Outcome>
@@ -171,6 +171,7 @@ function TierRow({
     <div className="flex max-w-lg flex-col gap-2 border-b border-b-(length:--hairline) pb-3">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{tier.name}</span>
+        <Badge variant="outline">{providerLabel(tier.provider)}</Badge>
         <Badge variant="outline">{tier.supporters}</Badge>
       </div>
       <RolePicker label="Discord role" value={discordRoleId} onChange={setDiscordRoleId} needsAssign />
@@ -227,6 +228,7 @@ function SupporterRow({ supporter, onChanged }: { supporter: Supporter; onChange
     <div className="flex flex-col gap-2 border-b border-b-(length:--hairline) pb-2">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{supporter.discordName ?? supporter.name}</span>
+        <Badge variant="outline">{providerLabel(supporter.provider)}</Badge>
         {supporter.tierName && <Badge variant="secondary">{supporter.tierName}</Badge>}
         <Badge variant={active ? 'ok' : 'outline'}>{active ? 'Active' : 'Ended'}</Badge>
         {!supporter.discordUserId && <Badge variant="warn">Not matched</Badge>}

@@ -592,6 +592,70 @@
         "security": [ ]
       }
     },
+    "/api/supporters/patreon": {
+      "post": {
+        "tags": [
+          "Supporters"
+        ],
+        "summary": "Take in a Patreon membership message",
+        "description": "Patreon calls this when a membership is made, changed or deleted, and when a charge goes through or fails. The body is signed with the webhook secret from Patreon (hex HMAC-MD5 in X-Patreon-Signature); a message with no signature or the wrong one is refused (401) and nothing is read. An active patron with a tier gets that tier's roles; a patron whose charge was declined keeps them until three days after the charge; a pledge that ended keeps them until the paid month is up and three days more. Anything else is answered 200 and ignored. Answers 404 while Patreon is off or no secret is saved.",
+        "operationId": "TakePatreonMembership",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [ ]
+      }
+    },
     "/api/audit/visits": {
       "get": {
         "tags": [
@@ -15508,7 +15572,7 @@
           "Settings"
         ],
         "summary": "Get supporter settings",
-        "description": "Whether Ko-fi is on, whether a verification token is saved (never the token), the thank-you message and the address to give Ko-fi.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Whether Ko-fi and Patreon are on, whether a verification token or a Patreon webhook secret is saved (never the token or the secret), the thank-you message and the addresses to give Ko-fi and Patreon.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetSupporterSettings",
         "responses": {
           "200": {
@@ -15556,7 +15620,7 @@
           "Settings"
         ],
         "summary": "Update supporter settings",
-        "description": "Switch Ko-fi on or off, save the verification token from Ko-fi's webhook page (kept encrypted, never returned) and set the thank-you message. Ko-fi cannot be switched on without a token. While Ko-fi is on the bot's invite link asks for Manage Roles, so a bot added earlier has to be added again from the new link.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Switch Ko-fi or Patreon on or off, save the verification token from Ko-fi's webhook page or the webhook secret from Patreon's (kept encrypted, never returned) and set the thank-you message. Neither can be switched on without its token or secret. While either is on the bot's invite link asks for Manage Roles, so a bot added earlier has to be added again from the new link.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetSupporterSettings",
         "requestBody": {
           "content": {
@@ -67633,7 +67697,10 @@
           "tokenStored",
           "thanksText",
           "webhookAddress",
-          "mostThanksLength"
+          "mostThanksLength",
+          "patreonOn",
+          "patreonSecretStored",
+          "patreonWebhookAddress"
         ],
         "type": "object",
         "properties": {
@@ -67655,6 +67722,18 @@
           "mostThanksLength": {
             "type": "integer",
             "format": "int32"
+          },
+          "patreonOn": {
+            "type": "boolean"
+          },
+          "patreonSecretStored": {
+            "type": "boolean"
+          },
+          "patreonWebhookAddress": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -67679,6 +67758,18 @@
             ]
           },
           "thanksText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "patreonOn": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "patreonWebhookSecret": {
             "type": [
               "null",
               "string"
@@ -67868,6 +67959,7 @@
       "SupportersResponse": {
         "required": [
           "kofiOn",
+          "patreonOn",
           "botCanManageRoles",
           "tiers",
           "supporters",
@@ -67877,6 +67969,9 @@
         "type": "object",
         "properties": {
           "kofiOn": {
+            "type": "boolean"
+          },
+          "patreonOn": {
             "type": "boolean"
           },
           "botCanManageRoles": {

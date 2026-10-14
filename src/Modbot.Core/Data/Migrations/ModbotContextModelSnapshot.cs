@@ -9677,6 +9677,14 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("onboarding_complete");
 
+                    b.Property<bool>("PatreonOn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("patreon_on");
+
+                    b.Property<string>("PatreonWebhookSecretEncrypted")
+                        .HasColumnType("text")
+                        .HasColumnName("patreon_webhook_secret_encrypted");
+
                     b.Property<bool>("PostsPaused")
                         .HasColumnType("boolean")
                         .HasColumnName("posts_paused");

@@ -36,6 +36,7 @@ export type Supporter = {
 
 export type SupporterList = {
   kofiOn: boolean
+  patreonOn: boolean
   botCanManageRoles: boolean
   tiers: SupporterTier[]
   supporters: Supporter[]
@@ -51,12 +52,31 @@ export type SupporterSettings = {
   /** The address to give Ko-fi; null until the public address is set. */
   webhookAddress: string | null
   mostThanksLength: number
+  patreonOn: boolean
+  /** Whether a Patreon webhook secret is saved; the secret itself is never sent back. */
+  patreonSecretStored: boolean
+  /** The address to give Patreon; null until the public address is set. */
+  patreonWebhookAddress: string | null
 }
 
 export type SupporterSettingsInput = {
   kofiOn?: boolean
   verificationToken?: string
   thanksText?: string
+  patreonOn?: boolean
+  patreonWebhookSecret?: string
+}
+
+/** The name of the site a supporter or a tier came from. */
+export function providerLabel(provider: string): string {
+  switch (provider) {
+    case 'kofi':
+      return 'Ko-fi'
+    case 'patreon':
+      return 'Patreon'
+    default:
+      return provider
+  }
 }
 
 export const supporterApi = {

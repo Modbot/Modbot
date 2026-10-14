@@ -73,8 +73,8 @@ public static class DiscordInvite
         if (settings.DiscordSnapshotRestoreOn)
             permissions |= ManageRoles;
 
-        // Supporter perks give and take the roles each Ko-fi tier is set to, which needs Manage Roles.
-        if (settings.KofiOn)
+        // Supporter perks give and take the roles each Ko-fi or Patreon tier is set to, which needs Manage Roles.
+        if (settings.KofiOn || settings.PatreonOn)
             permissions |= ManageRoles;
 
         // The join gate gives the member role, removes people who do not finish when the operator

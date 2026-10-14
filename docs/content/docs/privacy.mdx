@@ -190,6 +190,12 @@ wherever you choose to store them. These pages describe what is kept and how it 
   person who types `/supporter-code` gets a short code, kept with their Discord account. A
   [purge](/moderation/purge) deletes the supporter matched to that Discord account, and their code; no retention window touches it.
   Nothing is sent to Modbot Cloud, and Discord sees the direct message and the roles.
+- [Patreon supporters](/integrations/patreon): off until you turn on **Patreon** in **Settings**. Once on, Patreon sends
+  Modbot a message when a pledge is made, changed or ended and when a charge goes through or fails. For each patron
+  Modbot keeps the name they pledged under, their tier, their Discord account when matched, when they were charged,
+  which roles it gave, and Patreon's member id with the date of each charge. Their email address is never read or
+  stored. A [purge](/moderation/purge) deletes the supporter matched to that Discord account; no retention window
+  touches it. Nothing is sent to Modbot Cloud, and Discord sees the direct message and the roles.
 - [Account links](/discord/account-links): the tab shows only counts. When staff press **Start reminder**, the bot
   sends each Discord member who has not linked one direct message with the link page, one every 30 seconds, and keeps
   for each person their Discord id, whether the message was sent or could not reach them, when, and Discord's reason if

@@ -636,8 +636,9 @@ public static class ApiSurface
         // Votes: a question with a button for each option, posted in a channel.
         app.MapVotes();
 
-        // Supporters: Ko-fi's payment messages in, tiers and the roles each gives, who pays.
+        // Supporters: Ko-fi's and Patreon's messages in, tiers and the roles each gives, who pays.
         app.MapKofiWebhook();
+        app.MapPatreonWebhook();
         app.MapSupporters();
 
         // Which group role goes with which Discord role, which side decides, and whether bans

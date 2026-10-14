@@ -1,0 +1,90 @@
+---
+title: Patreon supporters
+description: Giving patrons a Discord role and a VRChat group role for the tier they pledge at, thanking them, and taking the roles back when a pledge ends or a charge is declined.
+---
+
+Modbot can give your Patreon patrons their perks, the same way it does for [Ko-fi](/integrations/ko-fi).
+When somebody pledges, Modbot gives them the **Discord role** and the **VRChat group role** you chose
+for their tier and sends them a thank-you message. When the pledge ends, or a charge is declined,
+Modbot takes the roles back.
+
+Patreon calls Modbot, not the other way round. This page covers the webhook, which is all Modbot needs
+from Patreon to count patrons. Your Modbot must be reachable from the internet at the **Public
+address** in **Settings**, **Server**, because Patreon sends each message to it.
+
+You set it up in **Settings**, **Patreon**, and look after the tiers and people on the **Supporters**
+page (**Community**), which lists Ko-fi and Patreon supporters together and shows which site each came
+from. Both need [**Change settings**](/accounts/roles-and-permissions#change-settings).
+
+## Set it up
+
+1. In Patreon's developer portal, open **Webhooks** and add a webhook for your campaign.
+2. Copy the **Webhook address** shown in Modbot under **Settings**, **Patreon** into the webhook's
+   **URI**. If it says **Public address not set**, set the public address first.
+3. Pick these triggers: `members:pledge:create`, `members:pledge:update`, `members:pledge:delete`,
+   `members:create`, `members:update` and `members:delete`. Patreon sends `members:update` when a
+   charge goes through or fails, so that one matters most.
+4. Save the webhook and copy its **secret**. In Modbot, paste it into **Webhook secret** and click
+   **Save**. The page shows **Webhook secret: Saved**, and never shows it again. It is kept encrypted.
+5. Turn the **Patreon** switch on. Until it is on, the address answers as if it were not there.
+6. Patreon has a button to send a test message. Use it, then look at the **Supporters** page.
+
+Patreon signs every message with the secret. A message with no signature or a wrong one is refused,
+and nothing in it is read.
+
+These steps come from Patreon's published webhook documentation and have not been checked against
+Patreon's current screens.
+
+## Tiers and roles
+
+On the **Supporters** page, each tier has a **Discord role** and a **VRChat group role**. Either can
+be left empty.
+
+- A tier appears by itself the first time a patron is at it, with no roles. Pick its roles to start
+  giving them. Its name is the tier's title on Patreon, and it is renamed here if you rename it there.
+- A patron who is entitled to several tiers is counted at the one that costs the most.
+- A patron who is entitled to no tier is not counted.
+- Changing a tier's roles applies to everyone on it within a minute.
+- A tier cannot be deleted while paid-up supporters are on it.
+
+The thank-you message is the one under **Settings**, **Ko-fi**. It is the same for both sites.
+
+## When the roles come off
+
+| What Patreon says | What Modbot does |
+|---|---|
+| The patron is active | Gives the tier's roles. They last for the month the last paid charge covers; until Patreon charges them, a month from when the pledge was first seen. |
+| A charge was declined | The roles stay until **3 days** after the declined charge, then come off. |
+| The pledge ended (deleted, or a former patron) | The roles stay until the paid month is up, and the same **3 days** more, then come off. |
+
+A later message that says the patron is active again gives the roles back, and they are thanked again.
+Cancelling a free or gifted membership sends no pledge-deleted message.
+
+Modbot only takes back roles it gave itself. A role you gave by hand is never touched.
+
+## Matching a patron to their Discord account
+
+Roles need a Discord account, and Patreon's message does not say which one. A new patron shows as
+**Not matched** on the **Supporters** page until staff press **Match**, search for their name in the
+Discord server and press **Match** again. Their later charges match by themselves. A patron is told
+from another by Patreon's member id, which does not change when they change their email address.
+
+The VRChat group role goes to the VRChat account linked to their Discord account (see
+[Account links](/discord/account-links)). A supporter with no linked VRChat account shows
+**No linked VRChat**; their Discord role is given, and the VRChat role follows when they link.
+
+## Permissions
+
+Giving a Discord role needs the **Manage Roles** permission, and the bot's own role must sit above the
+roles it gives. The VRChat side uses Modbot's own VRChat login, which needs the group permission to give
+and take away roles; a refusal from VRChat is shown on the supporter's row. The **Bot invite link** asks
+for Manage Roles while Patreon or Ko-fi is on. A bot added earlier has to be added again from the new
+link.
+
+## What Modbot keeps
+
+For each patron: the name they pledged under, their tier, their Discord account once matched, when
+they were charged, which roles Modbot gave, and Patreon's member id with the date of each charge. Their
+**email address is never read or stored**. The webhook secret is kept encrypted and never shown again.
+Nothing is sent to Modbot Cloud. A [purge](/moderation/purge) deletes the supporter matched to that
+Discord account, with their payments; no retention window touches it.

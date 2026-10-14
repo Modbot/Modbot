@@ -28,7 +28,7 @@ public sealed record SupporterIntakeOutcome(string Result, Guid? SupporterId);
 /// <see cref="SupporterCodes">code</see> is in the payment's message.
 /// </para>
 /// </remarks>
-public sealed class SupporterIntake(ModbotContext db)
+public sealed partial class SupporterIntake(ModbotContext db)
 {
     public const string Taken = "taken";
     public const string Ignored = "ignored";

@@ -825,7 +825,7 @@ public class Settings
     /// </summary>
     public bool DiscordSnapshotRestoreOn { get; set; }
 
-    // --- Supporters (Ko-fi) ---
+    // --- Supporters (Ko-fi and Patreon) ---
 
     /// <summary>
     /// Whether Modbot takes in Ko-fi's payment messages. Off to start, and it cannot go on without a
@@ -839,6 +839,19 @@ public class Settings
     /// Never returned by the API.
     /// </summary>
     public string? KofiVerificationTokenEncrypted { get; set; }
+
+    /// <summary>
+    /// Whether Modbot takes in Patreon's membership messages. Off to start, and it cannot go on without a
+    /// webhook secret. Turning it on makes the bot's invite link ask for Manage Roles.
+    /// </summary>
+    public bool PatreonOn { get; set; }
+
+    /// <summary>
+    /// The secret from Patreon's webhook page, encrypted like every other secret (see
+    /// <c>ISecretProtector</c>). Every message is signed with it; one whose signature does not match is
+    /// refused. Never returned by the API.
+    /// </summary>
+    public string? PatreonWebhookSecretEncrypted { get; set; }
 
     /// <summary>
     /// The direct message a new supporter gets, with {name} and {tier} filled in. Null sends none.
