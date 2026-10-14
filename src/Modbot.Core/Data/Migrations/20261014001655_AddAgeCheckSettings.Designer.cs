@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261013233244_AddAgeCheckSettings")]
+    [Migration("20261014001655_AddAgeCheckSettings")]
     partial class AddAgeCheckSettings
     {
         /// <inheritdoc />
@@ -828,6 +828,75 @@ namespace Modbot.Core.Data.Migrations
                         .HasDatabaseName("ix_api_key_key_hash");
 
                     b.ToTable("api_key", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.Appeal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("CaseFileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_file_id");
+
+                    b.Property<DateTimeOffset?>("DecidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decided_at");
+
+                    b.Property<Guid?>("DecidedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("decided_by_user_id");
+
+                    b.Property<string>("DecidedByUsername")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("decided_by_username");
+
+                    b.Property<DateTimeOffset>("LoggedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("logged_at");
+
+                    b.Property<Guid>("LoggedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("logged_by_user_id");
+
+                    b.Property<string>("LoggedByUsername")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("logged_by_username");
+
+                    b.Property<string>("Note")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("note");
+
+                    b.Property<int>("Outcome")
+                        .HasColumnType("integer")
+                        .HasColumnName("outcome");
+
+                    b.Property<DateOnly>("ReceivedOn")
+                        .HasColumnType("date")
+                        .HasColumnName("received_on");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_appeal");
+
+                    b.HasIndex("ReceivedOn")
+                        .HasDatabaseName("ix_appeal_received_on");
+
+                    b.HasIndex("UserId", "ReceivedOn")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("ix_appeal_person");
+
+                    b.ToTable("appeal", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.BanReason", b =>
@@ -7364,6 +7433,70 @@ namespace Modbot.Core.Data.Migrations
                         .HasName("pk_other_instance_name");
 
                     b.ToTable("other_instance_name", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.Partner", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.PrimitiveCollection<string[]>("Contacts")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("contacts");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Envoy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("envoy");
+
+                    b.Property<string>("GroupId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("group_id");
+
+                    b.Property<string>("LastCollabNote")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("last_collab_note");
+
+                    b.Property<DateOnly?>("LastCollabOn")
+                        .HasColumnType("date")
+                        .HasColumnName("last_collab_on");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_partner");
+
+                    b.HasIndex("LastCollabOn")
+                        .HasDatabaseName("ix_partner_last_collab");
+
+                    b.ToTable("partner", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.PersonWatch", b =>
