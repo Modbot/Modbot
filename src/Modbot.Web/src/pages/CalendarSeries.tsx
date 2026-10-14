@@ -101,7 +101,7 @@ export function CalendarSeries({ eventId, onBack }: { eventId: string; onBack: (
             <CardTitle>Every date</CardTitle>
           </CardHeader>
           {data.dates.length === 0 ? (
-            <EmptyRow onTryAgain={null}>Nothing recorded for this event yet.</EmptyRow>
+            <EmptyRow>Nothing recorded for this event yet.</EmptyRow>
           ) : (
             <Table
               head={
