@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { api, ApiError, type BlueskySettings } from '@/lib/api'
 import { timeOfDay } from '@/lib/format'
+import { useStillAhead } from '@/lib/useStillAhead'
 import { ConfirmButton, Fact, Field, Outcome, PasswordField, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 
@@ -431,17 +432,4 @@ function TagsCard({ settings, onSaved }: { settings: BlueskySettings; onSaved: (
       <Field label="Tags on every post" mono value={tags} maxLength={400} placeholder="#VRChat" onChange={setTyped} />
     </SettingsCard>
   )
-}
-
-/** A time Bluesky or the guard holds Modbot until, while it is still ahead; null once it has passed. */
-function useStillAhead(until: string | null): string | null {
-  const [passed, setPassed] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!until) return
-    const timer = window.setTimeout(() => setPassed(until), Math.max(0, new Date(until).getTime() - Date.now()))
-    return () => window.clearTimeout(timer)
-  }, [until])
-
-  return until && passed !== until ? until : null
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { api, ApiError, type GoogleCalendarCheck, type GoogleCalendarSettings } from '@/lib/api'
 import { timeOfDay } from '@/lib/format'
+import { useStillAhead } from '@/lib/useStillAhead'
 import { ConfirmButton, Fact, Field, Outcome, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 
@@ -297,22 +298,6 @@ function SendingCard({
       </Switch>
     </SettingsCard>
   )
-}
-
-/**
- * The time Google limits Modbot until, while it is still ahead; null once it has passed, so Check
- * comes back by itself. The server sends it only while it is ahead.
- */
-function useStillAhead(until: string | null): string | null {
-  const [passed, setPassed] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!until) return
-    const timer = window.setTimeout(() => setPassed(until), Math.max(0, new Date(until).getTime() - Date.now()))
-    return () => window.clearTimeout(timer)
-  }, [until])
-
-  return until && passed !== until ? until : null
 }
 
 function LinksCard({ links }: { links: NonNullable<GoogleCalendarSettings['links']> }) {

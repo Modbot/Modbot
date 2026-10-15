@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { api, ApiError, type TwitchPostPlaces, type TwitchSettings } from '@/lib/api'
 import { timeOfDay } from '@/lib/format'
 import { placesEqual, TWITCH_WORDS } from '@/lib/twitch'
+import { useStillAhead } from '@/lib/useStillAhead'
 import { ConfirmButton, Fact, Field, NumberField, Outcome, PasswordField, Placeholder, Switch } from '../fields'
 import { PostPlacesPicker } from '../PostPlacesPicker'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
@@ -274,17 +275,4 @@ function WordButtons({ onInsert }: { onInsert: (word: string) => void }) {
       ))}
     </div>
   )
-}
-
-/** The time Twitch limits Modbot until, while it is still ahead; null once it has passed. */
-function useStillAhead(until: string | null): string | null {
-  const [passed, setPassed] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!until) return
-    const timer = window.setTimeout(() => setPassed(until), Math.max(0, new Date(until).getTime() - Date.now()))
-    return () => window.clearTimeout(timer)
-  }, [until])
-
-  return until && passed !== until ? until : null
 }

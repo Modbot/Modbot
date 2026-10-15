@@ -16,6 +16,7 @@ import { usePageState } from '@/lib/listPage'
 import type { FilterChip } from '@/lib/filters'
 import { can } from '@/lib/permissions'
 import { followLink } from '@/lib/router'
+import { useStillAhead } from '@/lib/useStillAhead'
 
 /**
  * The Bluesky page: the group's account laid out the way Bluesky draws a profile (banner, round
@@ -271,17 +272,4 @@ function ProfileReplies() {
   const [chips, setChips] = useState(NO_CHIPS)
 
   return <AuditLogList chips={chips} starts={REPLY_STARTS} onChange={setChips} fixed={REPLY_CHIPS} place="popup" />
-}
-
-/** A time Bluesky holds Modbot until, while it is still ahead; null once it has passed. */
-function useStillAhead(until: string | null): string | null {
-  const [passed, setPassed] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!until) return
-    const timer = window.setTimeout(() => setPassed(until), Math.max(0, new Date(until).getTime() - Date.now()))
-    return () => window.clearTimeout(timer)
-  }, [until])
-
-  return until && passed !== until ? until : null
 }
