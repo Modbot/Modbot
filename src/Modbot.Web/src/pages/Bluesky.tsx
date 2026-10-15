@@ -220,14 +220,17 @@ function ProfilePosts() {
     if (gone) at.restart()
   }, [gone, at])
 
+  // A read of another page (the one just left) is not shown, so a restart doesn't flash "No posts sent."
+  const shown = read !== null && read.page === at.page ? read : null
+
   if (error) return <EmptyRow tone="danger" onTryAgain={() => setTries((n) => n + 1)}>{error}</EmptyRow>
-  if (!read || gone) return <EmptyRow tone="loading" />
-  if (read.posts.length === 0) return <EmptyRow>No posts sent.</EmptyRow>
+  if (!shown || gone) return <EmptyRow tone="loading" />
+  if (shown.posts.length === 0) return <EmptyRow>No posts sent.</EmptyRow>
 
   return (
     <>
       <ul>
-        {read.posts.map((post) => (
+        {shown.posts.map((post) => (
           <li
             key={post.postId}
             className="flex flex-col gap-1 border-b border-b-(length:--hairline) px-(--panel-pad) py-3 last:border-b-0"
@@ -252,7 +255,7 @@ function ProfilePosts() {
           </li>
         ))}
       </ul>
-      <Pager at={at} pages={Math.ceil(read.total / read.pageSize)} />
+      <Pager at={at} pages={Math.ceil(shown.total / shown.pageSize)} />
     </>
   )
 }
