@@ -332,7 +332,8 @@ public sealed class BlueskyProfileTests(PostgresFixture db)
         Assert.Equal(BlueskyProfileEndpoints.NothingToSave, await ErrorOfAsync(empty));
 
         var notAForm = await host.SendJsonAsync(HttpMethod.Put, Path, new { displayName = "Json" }, cookie, Ct);
-        Assert.Equal(HttpStatusCode.BadRequest, notAForm.StatusCode);
+        // The route takes multipart forms only, so a JSON body is turned away before the handler runs.
+        Assert.Equal(HttpStatusCode.UnsupportedMediaType, notAForm.StatusCode);
 
         AssertNothingWasWritten(bluesky);
     }
@@ -938,7 +939,7 @@ public sealed class BlueskyProfileTests(PostgresFixture db)
         Assert.Equal(7, counted.GetProperty("likes").GetInt32());
         Assert.Equal(2, counted.GetProperty("reposts").GetInt32());
         Assert.Equal(1, counted.GetProperty("replies").GetInt32());
-        Assert.NotEqual(JsonValueKind.Null, counted.GetProperty("countedAt").ValueKind);
+        Assert.NotEqual(JsonValueKind.Null, counted.GetProperty("at").ValueKind);
 
         var notCounted = posts.Single(p => p.GetProperty("title").GetString() == "Not counted");
         Assert.Equal(JsonValueKind.Null, notCounted.GetProperty("counts").ValueKind);
