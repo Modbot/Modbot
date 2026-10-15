@@ -82,6 +82,7 @@ external_key IS NOT NULL` (named `ux_post_kind_external_key`; one "We're live on
 | `check_at` | When Modbot next looks on the site for a post that got no clear answer. |
 | `may_be_sent` | The last attempt got no clear answer and no look has settled it: the post may be on the site. |
 | `send_if_missing` | A person pressed Try again on such a post: when the look finds nothing, send. |
+| `like_count`, `repost_count`, `reply_count`, `counted_at` | Bluesky only (post numbers, §4.2e): the numbers under a posted post when last counted, and when. Null until the first count. Written without raising the post's version. |
 | `updated_at` | For a waiting row, when it started waiting (§4.1). |
 
 Unique `(post_id, network)`: one Discord channel per post (decision 16).
@@ -418,6 +419,35 @@ rule, Posting, Pause all posting, and a 429 never tried again. A failed one show
 - **After it is made** the post is left alone: a date changed or cancelled later does not edit,
   delete or repost it.
 
+### 4.2e Bluesky post numbers (added 2026-10-14)
+
+Each Posted Bluesky destination shows its likes, reposts and replies on the Marketing list, beside its
+Bluesky badge: a heart, a repost and a reply icon with a count each, and nothing before the first
+count. Step 1 of 2; replies, mentions and quotes into the audit log and the Now page are step 2.
+
+- **Where from**: `app.bsky.feed.getPosts` on the public AppView (`public.api.bsky.app`), no sign-in.
+  The lexicon (`lexicons/app/bsky/feed/getPosts.json` in bluesky-social/atproto) takes `uris` with
+  `maxLength: 25`; each `app.bsky.feed.defs#postView` has `likeCount`, `repostCount`, `replyCount` and
+  `quoteCount`. Modbot keeps the first three. The call goes through `BlueskyClient` on the guarded
+  HTTP client like every other Bluesky call (`BlueskyClient.PostCountsAsync`).
+- **When**: `PostBlueskyCounts`, the last step but one of `PostBlueskyService`'s thirty-second pass. A
+  destination in `posted` with `posted_at` within 30 days is counted when `counted_at` is null or 30
+  minutes old; one call a pass asks for 25 at most, never-counted first, then the longest ago. An older
+  post keeps its last numbers. A post missing from the answer (deleted on Bluesky) keeps its last
+  numbers, and `counted_at` moves on so it is not asked for again at once.
+- **A 429 is never retried.** The pass stops: `settings.bluesky_counts_stopped_until` (the reset time
+  Bluesky gives, else 15 minutes, between 1 minute and 24 hours: `BlueskyErrors.StopUntil`) holds it. It
+  is apart from `bluesky_stopped_until`, because the public API is another server from the account's
+  own, and a limit on the numbers must not stop posting.
+- **Rate limit: NOT MEASURED** (§4.3.4 of the foundation spec). No measurement for the public API's
+  `getPosts` is in the spec's table, `.agent/research/`, `RateLimitOptions.cs` or the `libs/` clones.
+  Placeholder: one call every 10 seconds (`PostBlueskyCounts.CallGap`, the one used for similar write
+  lanes); the pass makes one call and the loop runs every 30 seconds, so it is not reached.
+- **Health**: any failure writes `settings.bluesky_counts_error` and `_at`; the Posts card on Health
+  shows "Bluesky · Post numbers · <words>" until a read goes through, which clears it.
+- **API**: a Bluesky destination's `bluesky.counts` (`likes`, `reposts`, `replies`, `at`), null before
+  the first count; `GET /api/posts/health` gains `countsError` and `countsErrorAt`.
+
 ### 4.3 Edits and the version
 
 Every change a person saves says which `version` it read. A change while a destination is `sending`
@@ -569,6 +599,7 @@ Operational category, moderation retention (kept).
 | Discord | title, text, picture file, one role mention | the channel's readers; followers' servers if published |
 | VRChat | title, text, picture (uploaded to Modbot's VRChat account, only while uploads are on), roles, visibility, notify | group members (or the roles picked), or everyone on vrchat.com |
 | Bluesky (step 3a) | the handle to Bluesky's public API, the DID to plc.directory, the app password and session to the account's server; a post's text (its own, or title and text) and, with a link, a card with the title, the link and a small copy of the picture | public, and permanent once copied |
+| Bluesky post numbers | the addresses of posts sent in the last 30 days (25 a request) to Bluesky's public API, no sign-in | nobody; the answer is the counts |
 | Bluesky weekly line-up | the group's name, the title and time of each public date in the next seven days and the Google calendar's public page, to the account's server | everyone: public on Bluesky |
 | Bluesky sign-in (step 3b) | to the sign-in server the account's server names: Modbot's client id (its public address), the handle as a hint, PKCE, signed client assertions and DPoP proofs; that server reads the client document (name, addresses, the public half of Modbot's key) | the sign-in server |
 

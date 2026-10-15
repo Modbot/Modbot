@@ -278,6 +278,21 @@ public class PostDestination
     /// <summary>The permission the site said Modbot lacks, when it said so.</summary>
     public string? MissingPermission { get; set; }
 
+    /// <summary>Bluesky: how many likes the post had when last counted. Null until the first count.</summary>
+    public int? LikeCount { get; set; }
+
+    /// <summary>Bluesky: how many reposts the post had when last counted.</summary>
+    public int? RepostCount { get; set; }
+
+    /// <summary>Bluesky: how many replies the post had when last counted.</summary>
+    public int? ReplyCount { get; set; }
+
+    /// <summary>
+    /// Bluesky: when the numbers were last counted, or last looked for. A post gone from Bluesky keeps
+    /// its last numbers and this moves on, so it is not asked for again at once.
+    /// </summary>
+    public DateTimeOffset? CountedAt { get; set; }
+
     /// <summary>The destination this one answers, for a Bluesky reply under an earlier post.</summary>
     public Guid? ReplyToId { get; set; }
 

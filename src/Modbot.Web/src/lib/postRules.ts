@@ -35,7 +35,12 @@ export type BlueskyDestination = {
   cardPictureId: string | null
   /** The post's picture the copy was made from. */
   cardPictureFrom: string | null
+  /** The numbers under a sent post when last counted; null (or missing) before the first count. */
+  counts?: BlueskyCounts | null
 }
+
+/** The likes, reposts and replies of a sent Bluesky post, and when they were counted. */
+export type BlueskyCounts = { likes: number; reposts: number; replies: number; at: string }
 
 export type PostDestination = {
   id: string
@@ -203,6 +208,9 @@ export type PostsHealth = {
   /** Why pinning the next event on the Bluesky profile failed, until it goes through. */
   pinError: string | null
   pinErrorAt: string | null
+  /** Why reading the numbers under sent Bluesky posts failed, until a read goes through. Missing from an older server. */
+  countsError?: string | null
+  countsErrorAt?: string | null
 }
 
 export type PostSettings = {

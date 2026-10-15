@@ -528,6 +528,18 @@ public class Settings
     /// <summary>When <see cref="BlueskyPinError"/> was last set.</summary>
     public DateTimeOffset? BlueskyPinErrorAt { get; set; }
 
+    /// <summary>
+    /// While Bluesky's public API limits the reading of post numbers, when it may be asked again. Apart
+    /// from <see cref="BlueskyStoppedUntil"/>: that one is the account's own server, this is another.
+    /// </summary>
+    public DateTimeOffset? BlueskyCountsStoppedUntil { get; set; }
+
+    /// <summary>Why the last try to read post numbers failed, in plain words; shown on Health. Null once a read goes through.</summary>
+    public string? BlueskyCountsError { get; set; }
+
+    /// <summary>When <see cref="BlueskyCountsError"/> was last set.</summary>
+    public DateTimeOffset? BlueskyCountsErrorAt { get; set; }
+
     /// <summary>Post the week's line-up (the next seven days' public dates) on Bluesky once a week. Off to start.</summary>
     public bool BlueskyLineupOn { get; set; }
 

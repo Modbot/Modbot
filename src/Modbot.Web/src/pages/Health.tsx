@@ -760,7 +760,11 @@ function PostsCard({ now }: { now: string }) {
     }
   }, [now])
 
-  if (!health || (!health.paused && health.holds.length === 0 && health.problems.length === 0 && !health.pinError)) return null
+  if (
+    !health ||
+    (!health.paused && health.holds.length === 0 && health.problems.length === 0 && !health.pinError && !health.countsError)
+  )
+    return null
 
   return (
     <Part id="posts" title="Posts" state={health.paused ? <State tone="warn">Paused</State> : undefined}>
@@ -795,6 +799,17 @@ function PostsCard({ now }: { now: string }) {
             <>
               {' ('}
               <Ago iso={health.pinErrorAt} now={now} />)
+            </>
+          )}
+        </p>
+      )}
+      {health.countsError && (
+        <p className="max-w-3xl text-warn">
+          Bluesky · Post numbers · {health.countsError}
+          {health.countsErrorAt && (
+            <>
+              {' ('}
+              <Ago iso={health.countsErrorAt} now={now} />)
             </>
           )}
         </p>

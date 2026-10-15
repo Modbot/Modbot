@@ -299,6 +299,9 @@ wherever you choose to store them. These pages describe what is kept and how it 
   cancelled dates are not in it), and the public page of the group's Google calendar as a link when there
   is one. The post is public on Bluesky and copied by other services, and it is not changed or deleted
   when a date changes afterwards. No member name, id or head count is in it, and it mentions nobody.
+  About every 30 minutes, Modbot also asks Bluesky's public API, with no sign-in, for the likes,
+  reposts and replies of the posts it made in the last 30 days, sending only those posts' addresses
+  (up to 25 at a time). Nothing about a person is sent.
   With **Sign in with Bluesky** (only when your Modbot has a public `https://` address), there is no
   app password: Modbot finds the account the same way, then asks the sign-in server the account's own
   server names for a sign-in, with the handle and Modbot's public address, and sends you to Bluesky's

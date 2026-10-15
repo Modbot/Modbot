@@ -134,6 +134,7 @@ public static class ApiSurface
         Core.Bluesky.BlueskyServices.AddBluesky(services);
         services.TryAddScoped<Core.Posts.PostClaim>();
         services.TryAddScoped<Features.Posts.PostBlueskySender>();
+        services.TryAddScoped<Features.Posts.PostBlueskyCounts>();
         services.TryAddScoped<Features.Calendar.CalendarBlueskyPlanner>();
         services.TryAddScoped<Features.Calendar.CalendarBlueskyFirstJoin>();
         services.TryAddScoped<Features.Calendar.CalendarBlueskyPin>();

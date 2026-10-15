@@ -8079,6 +8079,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("client_key");
 
+                    b.Property<DateTimeOffset?>("CountedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("counted_at");
+
                     b.Property<string>("Error")
                         .HasMaxLength(1024)
                         .HasColumnType("character varying(1024)")
@@ -8091,6 +8095,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("ExternalId")
                         .HasColumnType("text")
                         .HasColumnName("external_id");
+
+                    b.Property<int?>("LikeCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("like_count");
 
                     b.Property<string>("Link")
                         .HasMaxLength(2048)
@@ -8133,9 +8141,17 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("remove_at");
 
+                    b.Property<int?>("ReplyCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("reply_count");
+
                     b.Property<Guid?>("ReplyToId")
                         .HasColumnType("uuid")
                         .HasColumnName("reply_to_id");
+
+                    b.Property<int?>("RepostCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("repost_count");
 
                     b.Property<bool>("SendIfMissing")
                         .HasColumnType("boolean")
@@ -8949,6 +8965,18 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<DateTimeOffset?>("BlueskyCheckedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("bluesky_checked_at");
+
+                    b.Property<string>("BlueskyCountsError")
+                        .HasColumnType("text")
+                        .HasColumnName("bluesky_counts_error");
+
+                    b.Property<DateTimeOffset?>("BlueskyCountsErrorAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("bluesky_counts_error_at");
+
+                    b.Property<DateTimeOffset?>("BlueskyCountsStoppedUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("bluesky_counts_stopped_until");
 
                     b.Property<string>("BlueskyDid")
                         .HasColumnType("text")

@@ -1,3 +1,4 @@
+import { Heart, MessageCircle, Repeat2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { PostComposer } from '@/components/marketing/PostComposer'
@@ -34,6 +35,7 @@ import {
   vrchatAudience,
   vrchatLength,
   POST_TITLE_MAX,
+  type BlueskyCounts,
   type Post,
   type PostDestination,
   type PostInput,
@@ -405,6 +407,7 @@ function PostRow({
           <Badge variant={TONE_BADGE[shownTone(d.shown)]}>
             {NETWORK_LABEL[d.network]} · {shownLabel(d)}
           </Badge>
+          {d.bluesky?.counts && d.state === 'posted' && <PostNumbers counts={d.bluesky.counts} />}
           {d.targetName && <span className="text-muted-foreground">#{d.targetName}</span>}
           {d.vrChat && <span className="text-muted-foreground">{vrchatAudience(d.vrChat.visibility, d.vrChat.roleNames)}</span>}
           {(d.state === 'failed' || d.notPublished) && d.error && <span className="text-destructive">{d.error}</span>}
@@ -436,6 +439,26 @@ function PostRow({
 
       {error && <Outcome tone="problem">{error}</Outcome>}
     </div>
+  )
+}
+
+/** The likes, reposts and replies under a sent Bluesky post: an icon and a number each. */
+function PostNumbers({ counts }: { counts: BlueskyCounts }) {
+  const items = [
+    { Icon: Heart, label: 'Likes', n: counts.likes },
+    { Icon: Repeat2, label: 'Reposts', n: counts.reposts },
+    { Icon: MessageCircle, label: 'Replies', n: counts.replies },
+  ]
+
+  return (
+    <span className="inline-flex items-center gap-x-3 text-muted-foreground">
+      {items.map(({ Icon, label, n }) => (
+        <span key={label} className="inline-flex items-center gap-1" title={label} aria-label={`${n} ${label.toLowerCase()}`}>
+          <Icon className="size-3.5" aria-hidden />
+          {n}
+        </span>
+      ))}
+    </span>
   )
 }
 

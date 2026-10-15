@@ -27,6 +27,10 @@ public sealed record BlueskyTokens(string AccessJwt, string RefreshJwt, string D
 /// <summary>Where a record is: its <c>at://</c> address and its content id.</summary>
 public sealed record BlueskyRecordRef(string Uri, string Cid);
 
+/// <summary>The numbers Bluesky shows under one post.</summary>
+/// <param name="Uri">The post's <c>at://</c> address.</param>
+public sealed record BlueskyPostCounts(string Uri, int Likes, int Reposts, int Replies);
+
 /// <summary>What Check reads of the account's profile.</summary>
 /// <param name="DisplayName">The display name, or null for none.</param>
 /// <param name="Automated">The profile carries the <c>bot</c> self-label: the account says it is automated.</param>
@@ -196,6 +200,65 @@ public sealed class BlueskyClient(IHttpClientFactory http, IModbotClock clock)
             ? BlueskyResult<(BlueskyRecordRef, JsonObject?)>.Failed(new BlueskyFailure(BlueskyProblem.Other, 200))
             : BlueskyResult<(BlueskyRecordRef, JsonObject?)>.Ok((new BlueskyRecordRef(uri, cid ?? string.Empty), body["value"] as JsonObject));
     }
+
+    /// <summary>
+    /// Bluesky's public API, which answers the post numbers with no sign-in. Not the account's own
+    /// server: <see cref="BlueskyIdentity"/> is for that.
+    /// </summary>
+    public static readonly Uri PublicApi = new("https://public.api.bsky.app/");
+
+    /// <summary>
+    /// The most posts one <see cref="PostCountsAsync"/> call asks for: <c>app.bsky.feed.getPosts</c>
+    /// takes 25 addresses at most (<c>uris</c> has <c>maxLength: 25</c> in the lexicon,
+    /// github.com/bluesky-social/atproto, lexicons/app/bsky/feed/getPosts.json).
+    /// </summary>
+    public const int MostCountedAtOnce = 25;
+
+    /// <summary>
+    /// <c>app.bsky.feed.getPosts</c> on the public API, with no sign-in: the numbers under each post
+    /// asked for. A post that is gone is left out of the answer. The numbers are
+    /// <c>likeCount</c>, <c>repostCount</c> and <c>replyCount</c> of <c>app.bsky.feed.defs#postView</c>
+    /// (github.com/bluesky-social/atproto, lexicons/app/bsky/feed/defs.json).
+    /// </summary>
+    public async Task<BlueskyResult<IReadOnlyList<BlueskyPostCounts>>> PostCountsAsync(IReadOnlyList<string> uris, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(uris);
+
+        if (uris.Count == 0)
+            return BlueskyResult<IReadOnlyList<BlueskyPostCounts>>.Ok([]);
+
+        if (uris.Count > MostCountedAtOnce)
+            throw new ArgumentException($"At most {MostCountedAtOnce} posts at once.", nameof(uris));
+
+        var path = "app.bsky.feed.getPosts?" + string.Join('&', uris.Select(u => "uris=" + Uri.EscapeDataString(u)));
+        var answer = await SendAsync(HttpMethod.Get, PublicApi, path, null, null, signingIn: false, ct).ConfigureAwait(false);
+
+        return answer.Value is { } body
+            ? BlueskyResult<IReadOnlyList<BlueskyPostCounts>>.Ok(CountsOf(body))
+            : BlueskyResult<IReadOnlyList<BlueskyPostCounts>>.Failed(answer.Failure!);
+    }
+
+    /// <summary>Reads the posts of a <c>getPosts</c> answer. A post without an address is skipped; a missing number is 0.</summary>
+    public static IReadOnlyList<BlueskyPostCounts> CountsOf(JsonObject? body)
+    {
+        var counts = new List<BlueskyPostCounts>();
+
+        if (body?["posts"] is not JsonArray posts)
+            return counts;
+
+        foreach (var post in posts)
+        {
+            if (post is not JsonObject view || view["uri"] is not JsonValue uri || !uri.TryGetValue<string>(out var text) || text.Length == 0)
+                continue;
+
+            counts.Add(new BlueskyPostCounts(text, CountOf(view["likeCount"]), CountOf(view["repostCount"]), CountOf(view["replyCount"])));
+        }
+
+        return counts;
+    }
+
+    private static int CountOf(JsonNode? node) =>
+        node is JsonValue value && value.TryGetValue<int>(out var number) && number > 0 ? number : 0;
 
     /// <summary><c>deleteRecord</c>. A record already gone is the caller's to count as deleted.</summary>
     public async Task<BlueskyResult<bool>> DeleteRecordAsync(BlueskyAccess access, string repo, string collection, string rkey, CancellationToken ct)

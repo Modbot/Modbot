@@ -44202,6 +44202,33 @@
           }
         }
       },
+      "BlueskyCountsView": {
+        "required": [
+          "likes",
+          "reposts",
+          "replies",
+          "at"
+        ],
+        "type": "object",
+        "properties": {
+          "likes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reposts": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "replies": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "BlueskyDestinationView": {
         "required": [
           "cardPictureId",
@@ -44222,6 +44249,16 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "counts": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BlueskyCountsView"
+              }
+            ]
           }
         }
       },
@@ -63768,6 +63805,19 @@
             ]
           },
           "pinErrorAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "countsError": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "countsErrorAt": {
             "type": [
               "null",
               "string"

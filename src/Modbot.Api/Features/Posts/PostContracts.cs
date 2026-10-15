@@ -91,7 +91,12 @@ public sealed record VRChatDestinationView(
 /// <summary>A Bluesky destination's own choices.</summary>
 /// <param name="CardPictureId">The small copy of the post's picture Bluesky is sent, or null for none.</param>
 /// <param name="CardPictureFrom">The post's picture the copy was made from.</param>
-public sealed record BlueskyDestinationView(Guid? CardPictureId, Guid? CardPictureFrom);
+/// <param name="Counts">The numbers under the post, or null before the first count.</param>
+public sealed record BlueskyDestinationView(Guid? CardPictureId, Guid? CardPictureFrom, BlueskyCountsView? Counts = null);
+
+/// <summary>The likes, reposts and replies a sent Bluesky post had when last counted.</summary>
+/// <param name="At">When they were counted.</param>
+public sealed record BlueskyCountsView(int Likes, int Reposts, int Replies, DateTimeOffset At);
 
 /// <summary>One site a post goes to, and how it went there.</summary>
 /// <param name="Network"><c>discord</c>, <c>vrchat</c> or <c>bluesky</c>.</param>
@@ -367,9 +372,13 @@ public sealed record PostHealthHold(string Network, string Hold, int Waiting);
 /// <param name="Holds">Sites scheduled posts wait on that are switched off or not set up.</param>
 /// <param name="PinError">Why the last try to pin the next event on the Bluesky profile failed, until a pin goes through. Null when Pin the next event is off or nothing failed.</param>
 /// <param name="PinErrorAt">When that try failed.</param>
+/// <param name="CountsError">Why the last try to read the numbers under sent Bluesky posts failed, until one goes through.</param>
+/// <param name="CountsErrorAt">When that try failed.</param>
 public sealed record PostsHealth(
     bool Paused,
     IReadOnlyList<PostHealthProblem> Problems,
     IReadOnlyList<PostHealthHold> Holds,
     string? PinError = null,
-    DateTimeOffset? PinErrorAt = null);
+    DateTimeOffset? PinErrorAt = null,
+    string? CountsError = null,
+    DateTimeOffset? CountsErrorAt = null);

@@ -853,7 +853,12 @@ internal static class PostRequests
                     BlueskyDestinationView? bluesky = null;
 
                     if (d.Network == PostNetworks.Bluesky)
-                        bluesky = new BlueskyDestinationView(d.SitePictureId, d.SitePictureId is null ? null : PostTexts.BlueskyOptionsOf(d).PictureId);
+                        bluesky = new BlueskyDestinationView(
+                            d.SitePictureId,
+                            d.SitePictureId is null ? null : PostTexts.BlueskyOptionsOf(d).PictureId,
+                            d.LikeCount is { } likes && d.CountedAt is { } countedAt
+                                ? new BlueskyCountsView(likes, d.RepostCount ?? 0, d.ReplyCount ?? 0, countedAt)
+                                : null);
 
                     return new PostDestinationView(
                         d.Id,

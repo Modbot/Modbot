@@ -123,6 +123,15 @@ Once Check has passed, the **Posting** switch appears. It is off to start. On, p
 **Bluesky** go out at their time; off, they wait and show **Off**. The same switch is in **Settings**,
 **Posts**, as **Bluesky posts**.
 
+## Post numbers
+
+A Bluesky post that went out shows its likes, reposts and replies beside its **Bluesky** badge on the
+[Marketing](/moderation/marketing#after-it-goes) tab. Modbot asks Bluesky's public API for them, with no
+sign-in. A post sent in the last 30 days is counted again every 30 minutes; an older one keeps its
+last numbers, and so does a post that is gone from Bluesky. Nothing shows before the first count. If
+Bluesky limits Modbot, Modbot waits until the limit resets, and the problem shows on
+[Health](/self-hosting/health) under **Posts** until a count goes through.
+
 ## Calendar events
 
 An event on the [**Calendar**](/moderation/calendar#bluesky) can post itself here: tick **Bluesky**
@@ -235,6 +244,7 @@ and never sends the request again before then.
 | The weekly line-up: the group's name, and the title and time of each public date in the next seven days, with the link to the Google calendar's public page | The account's own server, and from there public on Bluesky | Only with **Weekly line-up** on, once a week |
 | The account's profile (its name, description, pictures and pinned post), written back with only the pinned post changed | The account's own server, and from there public on Bluesky | Only with **Pin the next event** on, when the pinned post changes |
 | The address of a post Modbot made | The account's own server | When Modbot deletes a post, such as one a changed or cancelled calendar event made |
+| The addresses of the posts Modbot made in the last 30 days, up to 25 in a request | Bluesky's public API, with no sign-in | About every 30 minutes for each post, to read its likes, reposts and replies |
 
 **Posts on Bluesky are public**, and other services copy them. Deleting one removes it from Bluesky,
 not from copies others already took.

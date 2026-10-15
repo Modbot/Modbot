@@ -16,7 +16,8 @@ namespace Modbot.Api.Features.Posts;
 /// first lets <see cref="CalendarBlueskyPlanner"/> make and take down the posts of calendar events, and
 /// <see cref="CalendarBlueskyFirstJoin"/> make the "We're live" replies, <see cref="CalendarBlueskyLineupPass"/>
 /// makes the weekly line-up; <see cref="CalendarBlueskyPin"/>
-/// then keeps the next date's post pinned on the profile.
+/// then keeps the next date's post pinned on the profile. <see cref="PostBlueskyCounts"/> reads the
+/// numbers under sent posts from Bluesky's public API, with its own stop on a rate limit.
 /// </remarks>
 public sealed class PostBlueskyService : BackgroundService
 {
@@ -59,6 +60,10 @@ public sealed class PostBlueskyService : BackgroundService
                     .RunOnceAsync(stoppingToken).ConfigureAwait(false);
 
                 await scope.ServiceProvider.GetRequiredService<PostBlueskySender>()
+                    .RunOnceAsync(stoppingToken).ConfigureAwait(false);
+
+                // The numbers under the posts already sent: one call at most, a limit on it stops only this.
+                await scope.ServiceProvider.GetRequiredService<PostBlueskyCounts>()
                     .RunOnceAsync(stoppingToken).ConfigureAwait(false);
 
                 // The pin comes last, so a date post the sender just sent can be pinned at once.

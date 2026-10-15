@@ -369,4 +369,53 @@ public class PostBlueskyEndpointTests(PostgresFixture db)
         Assert.True(list.GetProperty("sites").GetProperty("blueskyOn").GetBoolean());
         Assert.True(list.GetProperty("sites").GetProperty("blueskySetUp").GetBoolean());
     }
+
+    [Fact]
+    public async Task ASentPostShowsItsNumbers_AndNothingBeforeTheFirstCount()
+    {
+        var (host, _, cookie) = await StartAsync();
+        await using var running = host;
+        var created = await CreateAsync(host, cookie, Body(host, new { }));
+        var postId = created.GetProperty("id").GetGuid();
+        await PostedAsync(postId);
+
+        var before = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, $"/api/posts/{postId}", null, cookie, Ct), Ct);
+        Assert.Equal(JsonValueKind.Null, before.GetProperty("destinations")[0].GetProperty("bluesky").GetProperty("counts").ValueKind);
+
+        var countedAt = host.Clock.UtcNow;
+        await using (var context = db.NewContext())
+        {
+            await context.PostDestinations.Where(d => d.PostId == postId).ExecuteUpdateAsync(
+                u => u.SetProperty(d => d.LikeCount, 7).SetProperty(d => d.RepostCount, 2).SetProperty(d => d.ReplyCount, 0).SetProperty(d => d.CountedAt, countedAt), Ct);
+        }
+
+        var after = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, $"/api/posts/{postId}", null, cookie, Ct), Ct);
+        var counts = after.GetProperty("destinations")[0].GetProperty("bluesky").GetProperty("counts");
+        Assert.Equal(7, counts.GetProperty("likes").GetInt32());
+        Assert.Equal(2, counts.GetProperty("reposts").GetInt32());
+        Assert.Equal(0, counts.GetProperty("replies").GetInt32());
+    }
+
+    [Fact]
+    public async Task AFailedReadOfTheNumbersIsOnHealth_UntilOneGoesThrough()
+    {
+        var (host, _, cookie) = await StartAsync();
+        await using var running = host;
+
+        await SetCountsErrorAsync("Bluesky is limiting Modbot.");
+        var shown = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, "/api/posts/health", null, cookie, Ct), Ct);
+        Assert.Equal("Bluesky is limiting Modbot.", shown.GetProperty("countsError").GetString());
+
+        await SetCountsErrorAsync(null);
+        var none = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, "/api/posts/health", null, cookie, Ct), Ct);
+        Assert.Equal(JsonValueKind.Null, none.GetProperty("countsError").ValueKind);
+    }
+
+    private async Task SetCountsErrorAsync(string? error)
+    {
+        await using var context = db.NewContext();
+        await context.Settings.Where(s => s.Id == 1).ExecuteUpdateAsync(
+            u => u.SetProperty(s => s.BlueskyCountsError, error)
+                .SetProperty(s => s.BlueskyCountsErrorAt, error == null ? (DateTimeOffset?)null : DateTimeOffset.UnixEpoch), Ct);
+    }
 }

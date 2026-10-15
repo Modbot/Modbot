@@ -1059,7 +1059,13 @@ public static class PostEndpoints
             .Select(s => new { s.BlueskyPinError, s.BlueskyPinErrorAt })
             .FirstOrDefaultAsync(ct);
 
-        return new PostsHealth(sites.Paused, problems, holds, pin?.BlueskyPinError, pin?.BlueskyPinErrorAt);
+        var counts = await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1 && s.BlueskyCountsError != null)
+            .Select(s => new { s.BlueskyCountsError, s.BlueskyCountsErrorAt })
+            .FirstOrDefaultAsync(ct);
+
+        return new PostsHealth(
+            sites.Paused, problems, holds, pin?.BlueskyPinError, pin?.BlueskyPinErrorAt, counts?.BlueskyCountsError, counts?.BlueskyCountsErrorAt);
     }
 
     /// <summary>The title, or the first line of the text, the way the list names a post.</summary>
