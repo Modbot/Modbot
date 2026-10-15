@@ -81,6 +81,11 @@ public static class BlueskyProfileEndpoints
                 {
                     return TooBig();
                 }
+                catch (InvalidDataException)
+                {
+                    // A form with no parts, or a broken one, is no form to save from.
+                    return Results.BadRequest(new { error = NothingToSave });
+                }
 
                 string? name = form.TryGetValue("displayName", out var nameValue) ? nameValue.ToString() : null;
                 string? bio = form.TryGetValue("bio", out var bioValue) ? bioValue.ToString() : null;
