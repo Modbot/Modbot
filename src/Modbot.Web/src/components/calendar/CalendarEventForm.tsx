@@ -296,6 +296,14 @@ export function CalendarEventForm({
     announceFirstJoinOnBluesky: input.announceFirstJoinOnBluesky && !!input.publishToBluesky,
   })
 
+  // The picked world's name and picture: the event as saved first (it knows a Seen world the form has not
+  // loaded), then the lists' worlds and Seen's once loaded.
+  const pickedWorld = [
+    ...(event?.worldId ? [{ worldId: event.worldId, name: event.worldName, thumbnailUrl: event.worldThumbnailUrl }] : []),
+    ...lists.flatMap((l) => l.worlds),
+    ...(seenWorlds ?? []),
+  ].find((w) => w.worldId === input.worldId)
+
   const missingList = listMissing({ choice, worldListId: input.worldListId ?? null, worldId: input.worldId })
 
   // The lines to show before a save: what the form leaves empty, a title that is not the template's,
@@ -892,7 +900,7 @@ export function CalendarEventForm({
                 <VRChatPreviews
                   title={input.vrChatTitle || sharedNow().title}
                   description={input.vrChatDescription || sharedNow().description}
-                  picture={vrchatAddress ?? lists.flatMap((l) => l.worlds).find((w) => w.worldId === input.worldId)?.thumbnailUrl ?? null}
+                  picture={vrchatAddress ?? pickedWorld?.thumbnailUrl ?? null}
                   platforms={input.platforms}
                   aboutCount={editingFor('vrchat', shown ?? input).description.count}
                   titleBox={(() => {
@@ -1090,9 +1098,9 @@ export function CalendarEventForm({
                       <WorldListMenu
                         lists={lists}
                         seenWorlds={seenWorlds}
+                        pickedWorld={pickedWorld}
                         onSeenOpen={loadSeenWorlds}
                         listId={input.worldListId ?? null}
-                        worldId={input.worldId}
                         onList={(id) => setInput((current) => ({ ...current, worldListId: id, worldId: null }))}
                         onWorld={(id) =>
                           setInput((current) => ({ ...current, worldListId: null, worldId: id }))
@@ -1444,8 +1452,8 @@ function LinkMenu({ onPick }: { onPick: (link: string) => void }) {
 function WorldListMenu({
   lists,
   seenWorlds,
+  pickedWorld,
   listId,
-  worldId,
   onList,
   onWorld,
   onSeenOpen,
@@ -1453,16 +1461,16 @@ function WorldListMenu({
   lists: WorldList[]
   /** The Seen list's worlds once loaded; null until then. */
   seenWorlds: WorldListWorld[] | null
+  /** The single world picked, when the name is known. */
+  pickedWorld: { worldId: string; name: string | null } | undefined
   listId: string | null
-  worldId: string | null
   onList: (id: string | null) => void
   onWorld: (id: string) => void
   /** The Seen arrow was opened: its worlds are not in `lists`, as it grows with every world Modbot sees. */
   onSeenOpen: () => void
 }) {
   const list = lists.find((l) => l.id === listId)
-  const world = [...lists.flatMap((l) => l.worlds), ...(seenWorlds ?? [])].find((w) => w.worldId === worldId)
-  const shown = list?.name ?? world?.name ?? world?.worldId ?? '—'
+  const shown = list?.name ?? pickedWorld?.name ?? pickedWorld?.worldId ?? '—'
   const item = 'flex cursor-default items-center justify-between gap-2 rounded-sm px-2 py-1.5 outline-none data-[highlighted]:bg-muted'
   const panel =
     'z-50 flex min-w-44 flex-col rounded-sm border border-(length:--hairline) bg-popover p-1 text-popover-foreground shadow-sm'

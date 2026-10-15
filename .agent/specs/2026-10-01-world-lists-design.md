@@ -67,7 +67,7 @@ saving them. The migration `ClearWorldErrorsNeverRead` clears the error on world
 (`LastRefreshedAt` null) so the sweep asks again; worlds that were read keep theirs. It has no undo.
 
 **The event form's list menu** (2026-10-15). A list's name picks the whole list (a shuffle); the arrow beside
-it opens its worlds to pick one. Seen has no arrow: its worlds are not loaded in the form.
+it opens its worlds to pick one. Seen has an arrow too (2026-10-15): its worlds are not loaded with the form but when the arrow opens, from `GET /api/world-lists/seen`.
 
 **A list needs at least one world** (2026-10-15). Saving, or editing, a list with none is refused with
 "A list needs at least one world." (`WorldListEndpoints.Check`, for both the new and the changed list). A
