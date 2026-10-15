@@ -82,6 +82,23 @@ public static class WorldListEndpoints
             .Produces<WorldListsView>()
             .Produces(StatusCodes.Status403Forbidden);
 
+        group.MapGet("/seen", async (
+                [FromServices] ModbotContext db,
+                CancellationToken ct) =>
+            {
+                var seen = await db.WorldLists.AsNoTracking().FirstOrDefaultAsync(l => l.Id == WorldList.SeenId, ct);
+                return seen is null ? Results.NotFound() : Results.Ok((await ViewsAsync(db, [seen], ct))[0]);
+            })
+            .RequiresFlag(ModbotPermissions.ViewCalendar)
+            .WithName("GetSeenWorldList")
+            .WithSummary("Get the Seen list")
+            .WithDescription(
+                "The Seen list with its worlds, and nothing of the other lists. A picker that left the worlds out of "
+                + "the list of lists (seenWorlds=false) asks for them here when someone opens them.")
+            .Produces<WorldListView>()
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+
         group.MapGet("/worlds", async (
                 [FromQuery] string? search,
                 [FromServices] ModbotContext db,

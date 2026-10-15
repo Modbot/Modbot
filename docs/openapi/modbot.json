@@ -35045,6 +35045,66 @@
         ]
       }
     },
+    "/api/world-lists/seen": {
+      "get": {
+        "tags": [
+          "World lists"
+        ],
+        "summary": "Get the Seen list",
+        "description": "The Seen list with its worlds, and nothing of the other lists. A picker that left the worlds out of the list of lists (seenWorlds=false) asks for them here when someone opens them.\n\nNeeds the `ViewCalendar` permission.",
+        "operationId": "GetSeenWorldList",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldListView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/world-lists/worlds": {
       "get": {
         "tags": [

@@ -51,7 +51,7 @@ import type { CardEditing, CardField } from './CardText'
 import { EventPreview, usePreviewAnswer } from './EventPreview'
 import { FillInText } from './FillInText'
 import { NotSetUp } from './NotSetUp'
-import { worldListApi, type WorldList } from '@/lib/worldLists'
+import { worldListApi, type WorldList, type WorldListWorld } from '@/lib/worldLists'
 import { calendarCategoryApi, type CalendarCategoryRow } from '@/lib/calendarCategories'
 import { DISCORD_COVER_ASPECT, pictureFollowingLink, VRCHAT_PICTURE_ASPECT } from '@/lib/eventPicture'
 import { CroppedPicture } from './PictureCrop'
@@ -144,6 +144,21 @@ export function CalendarEventForm({
   const [choices, setChoices] = useState<CalendarInviteChoices>({ staff: [], lists: null })
   const [typedWorld, setTypedWorld] = useState(false)
   const [lists, setLists] = useState<WorldList[]>([])
+  // The Seen list's worlds: not loaded with the form, but when its arrow is first opened, and kept after.
+  const [seenWorlds, setSeenWorlds] = useState<WorldListWorld[] | null>(null)
+  const seenAsked = useRef(false)
+
+  function loadSeenWorlds() {
+    if (seenAsked.current) return
+    seenAsked.current = true
+    worldListApi
+      .seen()
+      .then((seen) => setSeenWorlds(seen.worlds))
+      .catch(() => {
+        // Opening the arrow again tries again.
+        seenAsked.current = false
+      })
+  }
   // The categories made in Modbot, which any number may be ticked on the event.
   const [categoryChoices, setCategoryChoices] = useState<CalendarCategoryRow[]>([])
   // A new event starts on Pick from a list; a saved one with no world shows None.
@@ -1074,6 +1089,8 @@ export function CalendarEventForm({
                     <Labelled label="World list">
                       <WorldListMenu
                         lists={lists}
+                        seenWorlds={seenWorlds}
+                        onSeenOpen={loadSeenWorlds}
                         listId={input.worldListId ?? null}
                         worldId={input.worldId}
                         onList={(id) => setInput((current) => ({ ...current, worldListId: id, worldId: null }))}
@@ -1426,19 +1443,25 @@ function LinkMenu({ onPick }: { onPick: (link: string) => void }) {
 /** The world lists: a list's name picks the whole list (shuffle), its arrow opens its worlds to pick one. */
 function WorldListMenu({
   lists,
+  seenWorlds,
   listId,
   worldId,
   onList,
   onWorld,
+  onSeenOpen,
 }: {
   lists: WorldList[]
+  /** The Seen list's worlds once loaded; null until then. */
+  seenWorlds: WorldListWorld[] | null
   listId: string | null
   worldId: string | null
   onList: (id: string | null) => void
   onWorld: (id: string) => void
+  /** The Seen arrow was opened: its worlds are not in `lists`, as it grows with every world Modbot sees. */
+  onSeenOpen: () => void
 }) {
   const list = lists.find((l) => l.id === listId)
-  const world = lists.flatMap((l) => l.worlds).find((w) => w.worldId === worldId)
+  const world = [...lists.flatMap((l) => l.worlds), ...(seenWorlds ?? [])].find((w) => w.worldId === worldId)
   const shown = list?.name ?? world?.name ?? world?.worldId ?? '—'
   const item = 'flex cursor-default items-center justify-between gap-2 rounded-sm px-2 py-1.5 outline-none data-[highlighted]:bg-muted'
   const panel =
@@ -1462,40 +1485,49 @@ function WorldListMenu({
           <DropdownMenu.Item className={item} onSelect={() => onList(null)}>
             —
           </DropdownMenu.Item>
-          {lists.map((l) =>
-            l.seen ? (
-              // Its worlds are not loaded here: it grows with every world Modbot sees.
-              <DropdownMenu.Item key={l.id} className={item} onSelect={() => onList(l.id)}>
-                {l.name}
-              </DropdownMenu.Item>
-            ) : (
+          {lists.map((l) => {
+            // Seen's worlds are null until its arrow has been opened once.
+            const worlds = l.seen ? seenWorlds : l.worlds
             // The name picks the whole list (shuffle); the arrow, which a tap opens too, lists its worlds.
-            <div key={l.id} className="flex items-stretch">
-              <DropdownMenu.Item className={`${item} flex-1`} onSelect={() => onList(l.id)}>
-                {l.name}
-              </DropdownMenu.Item>
-              <DropdownMenu.Sub>
-                <DropdownMenu.SubTrigger aria-label={`${l.name} worlds`} className={`${item} w-9 justify-center`}>
-                  <ChevronRight className="size-3.5 text-muted-foreground" />
-                </DropdownMenu.SubTrigger>
-                <DropdownMenu.Portal>
-                  <DropdownMenu.SubContent
-                    sideOffset={4}
-                    className={`${panel} max-h-64 overflow-y-auto`}
-                    style={{ fontSize: 'var(--text-small)' }}
-                  >
-                    {l.worlds.map((w) => (
-                      <DropdownMenu.Item key={w.worldId} className={`${item} justify-start`} onSelect={() => onWorld(w.worldId)}>
-                        {w.thumbnailUrl && <img src={w.thumbnailUrl} alt="" className="h-8 w-12 shrink-0 rounded-sm object-cover" />}
-                        {w.name ?? w.worldId}
-                      </DropdownMenu.Item>
-                    ))}
-                  </DropdownMenu.SubContent>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Sub>
-            </div>
-            ),
-          )}
+            return (
+              <div key={l.id} className="flex items-stretch">
+                <DropdownMenu.Item className={`${item} flex-1`} onSelect={() => onList(l.id)}>
+                  {l.name}
+                </DropdownMenu.Item>
+                <DropdownMenu.Sub onOpenChange={l.seen ? (open) => open && onSeenOpen() : undefined}>
+                  <DropdownMenu.SubTrigger aria-label={`${l.name} worlds`} className={`${item} w-9 justify-center`}>
+                    <ChevronRight className="size-3.5 text-muted-foreground" />
+                  </DropdownMenu.SubTrigger>
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.SubContent
+                      sideOffset={4}
+                      collisionPadding={8}
+                      className={`${panel} max-h-64 max-w-(--radix-dropdown-menu-content-available-width) overflow-y-auto`}
+                      style={{ fontSize: 'var(--text-small)' }}
+                    >
+                      {worlds === null ? (
+                        <DropdownMenu.Item disabled className={item}>
+                          …
+                        </DropdownMenu.Item>
+                      ) : (
+                        worlds.map((w) => (
+                          <DropdownMenu.Item
+                            key={w.worldId}
+                            title={w.name ?? w.worldId}
+                            className={`${item} justify-start`}
+                            onSelect={() => onWorld(w.worldId)}
+                          >
+                            {w.thumbnailUrl && <img src={w.thumbnailUrl} alt="" className="h-8 w-12 shrink-0 rounded-sm object-cover" />}
+                            <span className="min-w-0 break-words">{w.name ?? w.worldId}</span>
+                          </DropdownMenu.Item>
+                        ))
+                      )}
+                    </DropdownMenu.SubContent>
+                  </DropdownMenu.Portal>
+                </DropdownMenu.Sub>
+              </div>
+            )
+          })}
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>

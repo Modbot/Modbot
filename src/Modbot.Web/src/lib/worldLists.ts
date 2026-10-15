@@ -67,6 +67,8 @@ export const worldListApi = {
   /** `seenWorlds: false` leaves the Seen list's worlds out, which a picker has no use for. */
   all: (options?: { seenWorlds?: boolean }) =>
     http.request<WorldLists>(options?.seenWorlds === false ? `${base}?seenWorlds=false` : base),
+  /** The Seen list with its worlds, for when someone opens them. */
+  seen: () => http.request<WorldList>(`${base}/seen`),
   search: (text: string) => http.request<CalendarWorld[]>(`${base}/worlds?search=${encodeURIComponent(text)}`),
   /** A world's link or id; a world Modbot has never read is read from VRChat once. */
   find: (text: string) => http.post<CalendarWorld>(`${base}/worlds/find`, { text }),
