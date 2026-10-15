@@ -6,9 +6,9 @@ using Modbot.TestSupport;
 namespace Modbot.Api.Tests.Features.Calendar;
 
 /// <summary>
-/// The reads the event form makes when it opens, which the template editor makes too: the worlds to
-/// pick from and the staff to invite. Somebody who sees the calendar and may change templates, but not
-/// events, reads them; See calendar alone does not.
+/// The read the event form makes when it opens, which the template editor makes too: the staff to
+/// invite. Somebody who sees the calendar and may change templates, but not
+/// events, reads it; See calendar alone does not.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
 public class CalendarEditorReadsTests(PostgresFixture db)
@@ -16,7 +16,6 @@ public class CalendarEditorReadsTests(PostgresFixture db)
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
-    [InlineData("/api/calendar/worlds")]
     [InlineData("/api/calendar/invite-choices")]
     public async Task ATemplateManagerWhoCanSeeTheCalendarMayRead(string path)
     {
@@ -30,7 +29,6 @@ public class CalendarEditorReadsTests(PostgresFixture db)
     }
 
     [Theory]
-    [InlineData("/api/calendar/worlds")]
     [InlineData("/api/calendar/invite-choices")]
     public async Task AnEventManagerStillReads(string path)
     {
@@ -44,7 +42,6 @@ public class CalendarEditorReadsTests(PostgresFixture db)
     }
 
     [Theory]
-    [InlineData("/api/calendar/worlds")]
     [InlineData("/api/calendar/invite-choices")]
     public async Task SeeingTheCalendarAloneMayNotRead(string path)
     {
@@ -57,7 +54,6 @@ public class CalendarEditorReadsTests(PostgresFixture db)
     }
 
     [Theory]
-    [InlineData("/api/calendar/worlds")]
     [InlineData("/api/calendar/invite-choices")]
     public async Task ManageTemplatesWithoutSeeCalendarMayNotRead(string path)
     {

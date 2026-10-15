@@ -493,6 +493,128 @@ public class WorldListEndpointTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task AListWithNoWorlds_IsRefused_WhenMadeAndWhenChanged_AndAnEmptyOneAlreadyThereStaysUntilEdited()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+
+        var made = await host.SendJsonAsync(HttpMethod.Post, "/api/world-lists", ListBody("Nothing"), manager, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, made.StatusCode);
+        Assert.Equal("A list needs at least one world.", (await ApiTestHost.BodyOf(made, Ct)).GetProperty("error").GetString());
+
+        var listId = await CreateListAsync(host, manager, ListBody("Games", ("wrld_only_one", null, null)));
+
+        var emptied = await host.SendJsonAsync(HttpMethod.Put, $"/api/world-lists/{listId}", ListBody("Games"), manager, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, emptied.StatusCode);
+
+        await using (var read = db.NewContext())
+            Assert.Equal(1, await read.WorldListItems.CountAsync(i => i.ListId == listId, Ct));
+
+        // A list that was empty before the rule stays as it is, and shows with no worlds.
+        var oldId = Guid.CreateVersion7();
+        await using (var write = db.NewContext())
+        {
+            write.WorldLists.Add(new WorldList { Id = oldId, Name = "Old empty", CreatedAt = host.Clock.UtcNow, UpdatedAt = host.Clock.UtcNow });
+            await write.SaveChangesAsync(Ct);
+        }
+
+        var lists = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, "/api/world-lists", null, manager, Ct), Ct);
+        var old = lists.GetProperty("lists").EnumerateArray().Single(l => l.GetProperty("id").GetGuid() == oldId);
+        Assert.Empty(old.GetProperty("worlds").EnumerateArray());
+
+        // Edited, it needs a world like any other.
+        var renamed = await host.SendJsonAsync(HttpMethod.Put, $"/api/world-lists/{oldId}", ListBody("Old empty, renamed"), manager, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, renamed.StatusCode);
+    }
+
+    /// <summary>The Seen list as the migration makes it; the tests above empty the table first.</summary>
+    private async Task EnsureSeenListAsync(DateTimeOffset now)
+    {
+        await using var context = db.NewContext();
+        if (await context.WorldLists.AnyAsync(l => l.Id == WorldList.SeenId, Ct))
+            return;
+
+        context.WorldLists.Add(new WorldList { Id = WorldList.SeenId, Name = WorldList.SeenName, CreatedAt = now, UpdatedAt = now });
+        await context.SaveChangesAsync(Ct);
+    }
+
+    [Fact]
+    public async Task TheSeenList_ComesFirst_HoldsEveryWorldButJunk_AndCannotBeChangedOrDeleted()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+        var now = host.Clock.UtcNow;
+
+        await EnsureSeenListAsync(now);
+        await KnowAsync(now, "wrld_seen_read");
+        await CreateListAsync(host, manager, ListBody("A list of mine", ("wrld_seen_read", null, null)));
+
+        await using (var context = db.NewContext())
+        {
+            // Named by a search, not read yet: not junk. Refused by VRChat and an id nothing confirmed: junk.
+            context.VRChatWorlds.AddRange(
+                new VRChatWorld { WorldId = "wrld_seen_searched", Name = "Searched", FirstSeenAt = now, LastSeenAt = now },
+                new VRChatWorld { WorldId = "wrld_seen_refused", FirstSeenAt = now, LastSeenAt = now, RefreshError = "VRChat returned 404" },
+                new VRChatWorld { WorldId = "wrld_seen_unnamed", FirstSeenAt = now, LastSeenAt = now });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var lists = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, "/api/world-lists", null, manager, Ct), Ct);
+        var first = lists.GetProperty("lists").EnumerateArray().First();
+
+        Assert.True(first.GetProperty("seen").GetBoolean());
+        Assert.Equal(WorldList.SeenId, first.GetProperty("id").GetGuid());
+
+        var worldIds = first.GetProperty("worlds").EnumerateArray().Select(w => w.GetProperty("worldId").GetString()).ToArray();
+        Assert.Contains("wrld_seen_read", worldIds);
+        Assert.Contains("wrld_seen_searched", worldIds);
+        Assert.DoesNotContain("wrld_seen_refused", worldIds);
+        Assert.DoesNotContain("wrld_seen_unnamed", worldIds);
+
+        // Any number of players fits a seen world.
+        Assert.All(first.GetProperty("worlds").EnumerateArray(), w => Assert.Equal(System.Text.Json.JsonValueKind.Null, w.GetProperty("minPlayers").ValueKind));
+
+        var changed = await host.SendJsonAsync(
+            HttpMethod.Put, $"/api/world-lists/{WorldList.SeenId}", ListBody("Seen", ("wrld_seen_read", null, null)), manager, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, changed.StatusCode);
+
+        var deleted = await host.SendJsonAsync(HttpMethod.Delete, $"/api/world-lists/{WorldList.SeenId}", null, manager, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, deleted.StatusCode);
+    }
+
+    [Fact]
+    public async Task AnEventPickingFromTheSeenList_GetsAWorldThatIsNotJunk()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+        var now = host.Clock.UtcNow;
+
+        await EnsureSeenListAsync(now);
+        await KnowAsync(now, "wrld_seen_only");
+
+        await using (var context = db.NewContext())
+        {
+            context.VRChatWorlds.AddRange(
+                new VRChatWorld { WorldId = "wrld_seen_refused", FirstSeenAt = now, LastSeenAt = now, RefreshError = "VRChat returned 404" },
+                new VRChatWorld { WorldId = "wrld_seen_unnamed", FirstSeenAt = now, LastSeenAt = now });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        // Every other world Modbot knows from earlier tests is as good as this one, so the pick is one of
+        // the not-junk worlds, never a junk one.
+        var created = await CreateEventAsync(host, manager, EventBody(host, WorldList.SeenId, TimeSpan.FromDays(2)));
+
+        var picked = created.GetProperty("worldId").GetString();
+        Assert.NotNull(picked);
+        Assert.NotEqual("wrld_seen_refused", picked);
+        Assert.NotEqual("wrld_seen_unnamed", picked);
+
+        await using var read = db.NewContext();
+        var row = await read.VRChatWorlds.AsNoTracking().SingleAsync(w => w.WorldId == picked, Ct);
+        Assert.True(row.LastRefreshedAt is not null || (row.RefreshError is null && row.Name is not null));
+    }
+
+    [Fact]
     public async Task SchedulingAnEventPicksItsFirstDate_AndAListInUseCannotBeDeleted()
     {
         await using var host = await StartAsync();

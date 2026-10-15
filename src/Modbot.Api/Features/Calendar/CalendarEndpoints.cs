@@ -1103,31 +1103,6 @@ public static class CalendarEndpoints
             .Produces(StatusCodes.Status409Conflict)
             .Produces(StatusCodes.Status502BadGateway);
 
-        group.MapGet("/worlds", async (
-                HttpContext http,
-                [FromServices] ModbotContext db,
-                CancellationToken ct) =>
-            {
-                if (RefusedWithoutEditorRights(http) is { } refused)
-                    return refused;
-
-                var worlds = await db.VRChatWorlds.AsNoTracking()
-                    .OrderByDescending(w => w.LastSeenAt)
-                    .Take(200)
-                    .Select(w => new CalendarWorldView(w.WorldId, w.Name, w.ThumbnailImageUrl))
-                    .ToListAsync(ct);
-
-                return Results.Ok(worlds);
-            })
-            .RequiresFlag(ModbotPermissions.ViewCalendar)
-            .WithName("ListCalendarWorlds")
-            .WithSummary("List worlds for events")
-            .WithDescription(
-                "Worlds Modbot knows, most recently seen first, to pick an event's world from. "
-                + "Needs Manage calendar or Manage templates, because the template editor picks one too.")
-            .Produces<IReadOnlyList<CalendarWorldView>>()
-            .Produces(StatusCodes.Status403Forbidden);
-
         group.MapGet("/discord-duplicates", async (
                 [FromServices] ModbotContext db,
                 [FromServices] IDiscordServerEvents serverEvents,
@@ -1612,7 +1587,7 @@ public static class CalendarEndpoints
         if (!await db.WorldLists.AnyAsync(l => l.Id == listId, ct))
             return "That world list does not exist.";
 
-        if (!body.Draft && !await db.WorldListItems.AnyAsync(i => i.ListId == listId, ct))
+        if (!body.Draft && (await WorldListContents.FilledAsync(db, [listId], ct)).Count == 0)
             return "That world list has no worlds.";
 
         return null;
@@ -2261,11 +2236,7 @@ public static class CalendarEndpoints
 
         var filledLists = listIds.Count == 0
             ? []
-            : await db.WorldListItems.AsNoTracking()
-                .Where(i => listIds.Contains(i.ListId))
-                .Select(i => i.ListId)
-                .Distinct()
-                .ToListAsync(ct);
+            : await WorldListContents.FilledAsync(db, listIds, ct);
         var inviteListIds = events.Where(e => e.InviteListId != null).Select(e => e.InviteListId!.Value).Distinct().ToList();
         var inviteListNames = inviteListIds.Count == 0
             ? []

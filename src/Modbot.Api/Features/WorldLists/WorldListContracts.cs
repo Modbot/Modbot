@@ -17,13 +17,15 @@ public sealed record WorldListWorldView(string WorldId, string? Name, string? Th
 public sealed record WorldListUseView(Guid EventId, string Title, string State);
 
 /// <param name="UsedBy">Events, not deleted, that pick from it.</param>
+/// <param name="Seen">The automatic list of every world Modbot has seen, which cannot be changed.</param>
 public sealed record WorldListView(
     Guid Id,
     string Name,
     IReadOnlyList<WorldListWorldView> Worlds,
     IReadOnlyList<WorldListUseView> UsedBy,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    bool Seen);
 
 /// <param name="CanManage">The account may make, change and delete lists.</param>
 public sealed record WorldListsView(IReadOnlyList<WorldListView> Lists, bool CanManage);

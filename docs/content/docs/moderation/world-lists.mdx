@@ -12,6 +12,9 @@ fits the people there.
 
 World lists live in Modbot only. Nothing is read from or written to your VRChat favourites.
 
+**Seen** is a list Modbot keeps by itself: every world it has seen, without the ones VRChat refused
+and the ones it only has an id for. It needs no setup and fits any number of players.
+
 ## Who can use it
 
 | To do this | You need |
@@ -27,7 +30,7 @@ calendar**, the page is read-only and **Next game** shows the world picked last,
 **World lists** is in the sidebar, under **Community**, after **Calendar**. Each list shows its name,
 how many worlds it has, the events that pick from it, and its worlds: picture, name (click it for the
 [world popup](/moderation/popups#world-popup)) and players, such as **4–10**, **2+** or **up to 8**.
-**—** means any number.
+**—** means any number. **Seen** is at the bottom of the page, with no **Edit** or **Delete**.
 
 ### Making a list
 
@@ -42,7 +45,12 @@ Click **New list**, or **Edit** on a list.
   on that side.
 - The **×** on a row takes the world out.
 
-Click **Save**. A list can hold up to 500 worlds.
+Click **Save**. A list needs at least one world and can hold up to 500. Saving a list with no worlds is
+refused with **A list needs at least one world.** A list that is already empty stays as it is until you
+edit it.
+
+A message under the box (such as **Wait 7 seconds, then search again.**) goes away when you change what
+is typed.
 
 **Add** takes a world's link or id, or a known world you pick from the search; a name Modbot does not
 know is refused with **No world by that name or id. Paste its link.**
@@ -56,14 +64,14 @@ VRChat's words.
 
 ### Deleting a list
 
-**Delete** asks first. A list that a draft, scheduled or open event picks from cannot be deleted
+**Delete** asks first. **Seen** cannot be deleted. A list that a draft, scheduled or open event picks from cannot be deleted
 (**Delete** is greyed out); change those events to another world or list first. Finished and
 cancelled events keep the last world they had.
 
 ## An event that picks from a list
 
 In the event form, under **Where**, set **World** to **Pick from a list**, then choose the **World
-list**. Everything else about the event works as usual.
+list**. **Seen** is first in the menu. Everything else about the event works as usual.
 
 ### When the world is picked
 
@@ -93,6 +101,9 @@ just played. A world added to the list joins the current round; a world taken ou
 again. The shuffle is saved, so a restart carries on where it was.
 
 Each event has its own shuffle: two events using the same list do not share one.
+
+With **Seen**, the worlds are the ones Modbot has seen when the pick is made, so a world seen since
+joins the round like a world added to a list.
 
 ## Next game
 

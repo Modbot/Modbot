@@ -128,7 +128,8 @@ public sealed class DemoSeeder
         await _db.WorldPicks.ExecuteDeleteAsync(ct);
         await _db.WorldListShuffles.ExecuteDeleteAsync(ct);
         await _db.WorldListItems.ExecuteDeleteAsync(ct);
-        await _db.WorldLists.ExecuteDeleteAsync(ct);
+        // The Seen list is made by a migration, not by the demo, so it stays.
+        await _db.WorldLists.Where(l => l.Id != WorldList.SeenId).ExecuteDeleteAsync(ct);
         await _db.CalendarOpenings.ExecuteDeleteAsync(ct);
         await _db.CalendarEventPlaces.ExecuteDeleteAsync(ct);
         await _db.CalendarOldPosts.ExecuteDeleteAsync(ct);

@@ -11685,6 +11685,15 @@ namespace Modbot.Core.Data.Migrations
                         .HasName("pk_world_list");
 
                     b.ToTable("world_list", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("00000000-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 15, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Name = "Seen",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 15, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        });
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.WorldListItem", b =>

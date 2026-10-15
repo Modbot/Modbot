@@ -53,11 +53,30 @@ pictures, author), but `LastRefreshedAt` is left alone: a search result is not a
 world sweep fills in the rest. A world listed publicly also clears an earlier refusal on its row, so
 the save check accepts it. VRChat's search finds public worlds only; a private world still needs its
 link.
+A message under the box (a wait, a refusal) is about the text it was sent for, so it goes away as soon as
+the text changes (2026-10-15).
 
 **Saving a list** checks only the worlds it adds (not already on that list): each must have a
 `VRChatWorld` row and must not be one VRChat refused (a refresh error and never read). Otherwise the
 save is refused and names the world. Worlds already on the list stay, even ones that went private
 since. Saving no longer makes placeholder rows for unknown ids.
+
+**A list needs at least one world** (2026-10-15). Saving, or editing, a list with none is refused with
+"A list needs at least one world." (`WorldListEndpoints.Check`, for both the new and the changed list). A
+list that is already empty stays as it is until someone edits it; the scheduler and the pick still treat
+it as picking nothing (§5).
+
+**The Seen list** (2026-10-15). One list made by the migration `SeenWorldList`, id
+`WorldList.SeenId`, name **Seen**: every world Modbot has seen, minus the junk. Junk is a world with
+`LastRefreshedAt` null and either a refresh error (VRChat refused it) or no name (an id nothing has
+confirmed); a world read once stays, whatever the sweep's later errors say. A real row, so events,
+templates, shuffles and the delete guard point at it like at any list, but it has **no
+`world_list_item` rows**: `WorldListContents.ItemsAsync` works its worlds out each time a pick, a view
+or the "has a world" check asks, so there is nothing to edit or go stale. Every world fits any number of
+players (no range). `PUT` and `DELETE` on it answer 400 "The Seen list can't be changed."; the 500-world
+cap does not apply. The page lists it read-only, after the lists people made; the event form lists it
+first under **Pick from a list**. The shuffle over it is the ordinary one (§4): a world seen since joins
+the current round, a world that became junk leaves it.
 
 **Players.** Both numbers are optional and at least 1; the most may not be under the fewest. There is
 no upper limit: a world's real capacity is not something Modbot knows (foundation §3.1).
@@ -118,7 +137,9 @@ put back):
 - **Pick again** (Manage calendar), on the event, while the date is **Scheduled**: puts the world back
   and takes the next one in the order. Once the date is open, its instance may already be open in that
   world, so **Next game** is the control instead.
-- An empty list picks nothing; the event has no world until the list has one.
+- An empty list picks nothing; the event has no world until the list has one. Since 2026-10-15 a list
+  cannot be saved with no worlds (`Check` refuses it), so this is only a list made before then, or a
+  list whose worlds were all deleted another way; it stays as it is until someone edits it.
 
 `CalendarEvent.WorldPickedFor` holds the date the event's world was picked for, so the scheduler's
 fifteen-second pass knows which events need a pick without reading another table.

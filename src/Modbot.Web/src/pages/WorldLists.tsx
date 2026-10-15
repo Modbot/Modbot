@@ -73,7 +73,8 @@ export function WorldLists() {
       {data.lists.length === 0 ? (
         <PageMessage>No world lists.</PageMessage>
       ) : (
-        data.lists.map((list) => (
+        // The Seen list can run long, so it comes after the lists people made.
+        [...data.lists].sort((a, b) => Number(a.seen) - Number(b.seen)).map((list) => (
           <ListCard
             key={list.id}
             list={list}
@@ -140,7 +141,7 @@ function ListCard({
           ))}
         </span>
         <div className="flex-1" />
-        {canManage && (
+        {canManage && !list.seen && (
           <span className="flex gap-2">
             <Button size="sm" variant="outline" onClick={onEdit}>
               Edit
@@ -425,7 +426,11 @@ function AddWorld({ onAdd }: { onAdd: (world: CalendarWorld) => void }) {
           aria-label="Add a world"
           placeholder="World name, link or id"
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value)
+            // A wait or a refusal was about the text before this.
+            setProblem(null)
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault()

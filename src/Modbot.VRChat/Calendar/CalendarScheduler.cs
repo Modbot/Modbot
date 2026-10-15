@@ -69,11 +69,7 @@ public sealed class CalendarScheduler
         if (wanting.Count > 0)
         {
             var listIds = wanting.Select(e => e.WorldListId!.Value).Distinct().ToList();
-            var filled = await _db.WorldListItems.AsNoTracking()
-                .Where(i => listIds.Contains(i.ListId))
-                .Select(i => i.ListId)
-                .Distinct()
-                .ToListAsync(ct).ConfigureAwait(false);
+            var filled = await WorldListContents.FilledAsync(_db, listIds, ct).ConfigureAwait(false);
 
             wanting = [.. wanting.Where(e => filled.Contains(e.WorldListId!.Value))];
         }

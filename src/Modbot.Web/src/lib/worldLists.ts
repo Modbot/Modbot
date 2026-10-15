@@ -21,6 +21,8 @@ export type WorldList = {
   usedBy: WorldListUse[]
   createdAt: string
   updatedAt: string
+  /** The automatic list of every world Modbot has seen: shown, never changed. */
+  seen: boolean
 }
 
 export type WorldLists = { lists: WorldList[]; canManage: boolean }

@@ -44,6 +44,9 @@ public static class WorldListEndpoints
     /// <summary>The most worlds one search returns.</summary>
     public const int SearchLimit = 50;
 
+    /// <summary>What a try to change or delete the Seen list is told.</summary>
+    private const string SeenListLocked = "The Seen list can't be changed.";
+
     /// <summary>The most worlds one VRChat search asks for and shows.</summary>
     public const int VRChatSearchLimit = 10;
 
@@ -58,7 +61,11 @@ public static class WorldListEndpoints
                 [FromServices] ModbotContext db,
                 CancellationToken ct) =>
             {
-                var lists = await db.WorldLists.AsNoTracking().OrderBy(l => l.Name).ToListAsync(ct);
+                // The Seen list first, then the people's by name.
+                var lists = await db.WorldLists.AsNoTracking()
+                    .OrderBy(l => l.Id == WorldList.SeenId ? 0 : 1)
+                    .ThenBy(l => l.Name)
+                    .ToListAsync(ct);
 
                 return Results.Ok(new WorldListsView(
                     await ViewsAsync(db, lists, ct),
@@ -67,7 +74,9 @@ public static class WorldListEndpoints
             .RequiresFlag(ModbotPermissions.ViewCalendar)
             .WithName("ListWorldLists")
             .WithSummary("List world lists")
-            .WithDescription("Every world list by name, with its worlds, their players, and the events that pick from it.")
+            .WithDescription(
+                "The Seen list first, then every world list by name, with its worlds, their players, and the events that "
+                + "pick from it. The Seen list holds every world Modbot has seen and cannot be changed.")
             .Produces<WorldListsView>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -194,7 +203,7 @@ public static class WorldListEndpoints
             .WithName("CreateWorldList")
             .WithSummary("Add world list")
             .WithDescription(
-                "Save a world list: a name and its worlds, each with the fewest and most players it is for. "
+                "Save a world list: a name and at least one world, each with the fewest and most players it is for. "
                 + "Every world must be one Modbot knows and VRChat has not refused; a world that is not is "
                 + "named in the 400.")
             .Produces<WorldListView>()
@@ -215,6 +224,9 @@ public static class WorldListEndpoints
                 var list = await db.WorldLists.FirstOrDefaultAsync(l => l.Id == id, ct);
                 if (list is null)
                     return Results.NotFound();
+
+                if (id == WorldList.SeenId)
+                    return Results.BadRequest(new { error = SeenListLocked });
 
                 if (Check(body, out var name, out var worlds) is { } problem)
                     return Results.BadRequest(new { error = problem });
@@ -270,7 +282,8 @@ public static class WorldListEndpoints
             .WithName("UpdateWorldList")
             .WithSummary("Update world list")
             .WithDescription(
-                "Rename a world list or change its worlds and their players. A world taken out is never "
+                "Rename a world list or change its worlds and their players; a list cannot be left with no worlds. The Seen "
+                + "list cannot be changed. A world taken out is never "
                 + "picked again; a world added joins the current round of each event's shuffle. A world "
                 + "added must be one Modbot knows and VRChat has not refused; a world that is not is named "
                 + "in the 400. Worlds already on the list stay.")
@@ -289,6 +302,9 @@ public static class WorldListEndpoints
                 var list = await db.WorldLists.FirstOrDefaultAsync(l => l.Id == id, ct);
                 if (list is null)
                     return Results.NotFound();
+
+                if (id == WorldList.SeenId)
+                    return Results.BadRequest(new { error = SeenListLocked });
 
                 var used = await db.CalendarEvents.AnyAsync(
                     e => e.WorldListId == id
@@ -317,7 +333,7 @@ public static class WorldListEndpoints
             .WithName("DeleteWorldList")
             .WithSummary("Delete world list")
             .WithDescription(
-                "Delete a world list. Refused while a draft, scheduled or open event picks from it. "
+                "Delete a world list. Refused while a draft, scheduled or open event picks from it, and for the Seen list. "
                 + "Finished and cancelled events keep their last world.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status403Forbidden)
@@ -491,6 +507,9 @@ public static class WorldListEndpoints
                 worlds.Add(new WorldListWorldRequest(id, world.MinPlayers, world.MaxPlayers));
         }
 
+        if (worlds.Count == 0)
+            return "A list needs at least one world.";
+
         if (worlds.Count > WorldList.MaxWorlds)
             return $"A list can hold at most {WorldList.MaxWorlds} worlds.";
 
@@ -552,10 +571,9 @@ public static class WorldListEndpoints
     {
         var ids = lists.Select(l => l.Id).ToList();
 
-        var items = await db.WorldListItems.AsNoTracking()
-            .Where(i => ids.Contains(i.ListId))
-            .OrderBy(i => i.Position)
-            .ToListAsync(ct);
+        var items = new List<WorldListItem>();
+        foreach (var list in lists)
+            items.AddRange(await WorldListContents.ItemsAsync(db, list.Id, ct));
 
         var worldIds = items.Select(i => i.WorldId).Distinct().ToList();
         var worlds = await db.VRChatWorlds.AsNoTracking()
@@ -580,6 +598,7 @@ public static class WorldListEndpoints
                 })],
             [.. uses.Where(u => u.ListId == l.Id).Select(u => new WorldListUseView(u.Id, u.Title, u.State))],
             l.CreatedAt,
-            l.UpdatedAt))];
+            l.UpdatedAt,
+            l.Id == WorldList.SeenId))];
     }
 }

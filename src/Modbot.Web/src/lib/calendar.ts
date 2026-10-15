@@ -595,7 +595,6 @@ export const calendarApi = {
   /** Opens the instance for the event's current or next time now. Answers with the event. */
   openNow: (id: string) => http.post<CalendarEvent>(`${base}/events/${id}/open`),
   remove: (id: string) => http.del<void>(`${base}/events/${id}`),
-  worlds: () => http.request<CalendarWorld[]>(`${base}/worlds`),
   /**
    * Uploads a picture to VRChat for the event's VRChat calendar entry and answers with its file id,
    * to save as `vrChatImageId`. `eventId`: the event, when it is already saved.

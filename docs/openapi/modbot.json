@@ -33910,59 +33910,6 @@
         ]
       }
     },
-    "/api/calendar/worlds": {
-      "get": {
-        "tags": [
-          "Calendar"
-        ],
-        "summary": "List worlds for events",
-        "description": "Worlds Modbot knows, most recently seen first, to pick an event's world from. Needs Manage calendar or Manage templates, because the template editor picks one too.\n\nNeeds the `ViewCalendar` permission.",
-        "operationId": "ListCalendarWorlds",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/CalendarWorldView"
-                  }
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Not signed in, or the API key is not valid.",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "apiKey": [ ]
-          },
-          {
-            "session": [ ]
-          }
-        ]
-      }
-    },
     "/api/calendar/discord-duplicates": {
       "get": {
         "tags": [
@@ -34977,7 +34924,7 @@
           "World lists"
         ],
         "summary": "List world lists",
-        "description": "Every world list by name, with its worlds, their players, and the events that pick from it.\n\nNeeds the `ViewCalendar` permission.",
+        "description": "The Seen list first, then every world list by name, with its worlds, their players, and the events that pick from it. The Seen list holds every world Modbot has seen and cannot be changed.\n\nNeeds the `ViewCalendar` permission.",
         "operationId": "ListWorldLists",
         "responses": {
           "200": {
@@ -35025,7 +34972,7 @@
           "World lists"
         ],
         "summary": "Add world list",
-        "description": "Save a world list: a name and its worlds, each with the fewest and most players it is for. Every world must be one Modbot knows and VRChat has not refused; a world that is not is named in the 400.\n\nNeeds the `ManageCalendar` permission.",
+        "description": "Save a world list: a name and at least one world, each with the fewest and most players it is for. Every world must be one Modbot knows and VRChat has not refused; a world that is not is named in the 400.\n\nNeeds the `ManageCalendar` permission.",
         "operationId": "CreateWorldList",
         "requestBody": {
           "content": {
@@ -35340,7 +35287,7 @@
           "World lists"
         ],
         "summary": "Update world list",
-        "description": "Rename a world list or change its worlds and their players. A world taken out is never picked again; a world added joins the current round of each event's shuffle. A world added must be one Modbot knows and VRChat has not refused; a world that is not is named in the 400. Worlds already on the list stay.\n\nNeeds the `ManageCalendar` permission.",
+        "description": "Rename a world list or change its worlds and their players; a list cannot be left with no worlds. The Seen list cannot be changed. A world taken out is never picked again; a world added joins the current round of each event's shuffle. A world added must be one Modbot knows and VRChat has not refused; a world that is not is named in the 400. Worlds already on the list stay.\n\nNeeds the `ManageCalendar` permission.",
         "operationId": "UpdateWorldList",
         "parameters": [
           {
@@ -35429,7 +35376,7 @@
           "World lists"
         ],
         "summary": "Delete world list",
-        "description": "Delete a world list. Refused while a draft, scheduled or open event picks from it. Finished and cancelled events keep their last world.\n\nNeeds the `ManageCalendar` permission.",
+        "description": "Delete a world list. Refused while a draft, scheduled or open event picks from it, and for the Seen list. Finished and cancelled events keep their last world.\n\nNeeds the `ManageCalendar` permission.",
         "operationId": "DeleteWorldList",
         "parameters": [
           {
@@ -72263,7 +72210,8 @@
           "worlds",
           "usedBy",
           "createdAt",
-          "updatedAt"
+          "updatedAt",
+          "seen"
         ],
         "type": "object",
         "properties": {
@@ -72293,6 +72241,9 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "seen": {
+            "type": "boolean"
           }
         }
       },

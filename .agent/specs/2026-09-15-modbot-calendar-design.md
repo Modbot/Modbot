@@ -1399,12 +1399,12 @@ fill themselves in (step 4) are not here.
   Manage calendar, uses every part of the template form (user, 2026-10-13: "any part of the
   template"). So what the form reads or keeps for itself takes See calendar with Manage calendar
   **or** Manage templates, checked in the handler as the list is: `POST /api/calendar/cover`,
-  `POST /api/calendar/picture-link`, `POST /api/calendar/vrchat-picture`, `GET /api/calendar/worlds`,
+  `POST /api/calendar/picture-link`, `POST /api/calendar/vrchat-picture`,
   `GET /api/calendar/invite-choices`, and `GET /api/discord/channels` and `/roles` (which also stay
   open to Change settings). Making, changing and publishing events stays Manage calendar, and so do
   the preview (the template form has the same tabs and cards as the event form since 2026-10-14; it had no Preview tab before) and the World lists page's world search.
-  `POST /api/calendar/vrchat-picture`, `GET /api/calendar/worlds` and `GET /api/calendar/invite-choices`
-  now also need See calendar (before: Manage calendar alone). Picking an invite list on a template needs
+  `POST /api/calendar/vrchat-picture` and `GET /api/calendar/invite-choices`
+  now also need See calendar (before: Manage calendar alone). (`GET /api/calendar/worlds` was removed on 2026-10-15: the form's World menu no longer lists worlds.) Picking an invite list on a template needs
   Manage templates, not the Lists rule (user, 2026-10-13, option A; auto-invite design §9):
   `GET /api/calendar/invite-choices?template=true` returns `lists` (each list's id and name, never its
   members) to Manage templates, and a template save may carry a list. Without `template=true`, and when

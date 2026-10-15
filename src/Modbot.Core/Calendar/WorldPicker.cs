@@ -322,10 +322,7 @@ public sealed class WorldPicker
     }
 
     private Task<List<WorldListItem>> ItemsAsync(Guid listId, CancellationToken ct) =>
-        _db.WorldListItems
-            .Where(i => i.ListId == listId)
-            .OrderBy(i => i.Position)
-            .ToListAsync(ct);
+        WorldListContents.ItemsAsync(_db, listId, ct);
 
     private async Task<WorldListShuffle> ShuffleAsync(Guid listId, Guid eventId, CancellationToken ct)
     {

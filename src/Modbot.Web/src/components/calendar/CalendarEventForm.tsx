@@ -22,7 +22,6 @@ import {
   type CalendarEventInput,
   type CalendarInviteChoices,
   type CalendarRepeat,
-  type CalendarWorld,
 } from '@/lib/calendar'
 import {
   BLUESKY_BEFORE_CHOICES,
@@ -63,9 +62,8 @@ import { DiscordPreviews } from './DiscordPreviews'
 import { PlatformIcons } from './PlatformIcons'
 import { useDiscordCover, useVRChatPicture, vrchatPictureAddress } from './useVRChatPicture'
 import { DiscordPictureField, VRChatPictureField } from './VRChatPictureField'
+import { FROM_LIST, NO_WORLD, OTHER_WORLD, worldChoice } from '@/lib/calendarWorld'
 
-const OTHER_WORLD = '__other__'
-const FROM_LIST = '__list__'
 
 /** How a repeat stops: never, after its last date, or after a number of times. */
 type RepeatEnd = 'never' | 'date' | 'times'
@@ -143,13 +141,13 @@ export function CalendarEventForm({
     const first = initial ?? (event ? inputFrom(event) : blankEvent(new Date()))
     return emptyPlaces ? { ...first, ...NO_PLACES } : first
   })
-  const [worlds, setWorlds] = useState<CalendarWorld[]>([])
   const [choices, setChoices] = useState<CalendarInviteChoices>({ staff: [], lists: null })
   const [typedWorld, setTypedWorld] = useState(false)
   const [lists, setLists] = useState<WorldList[]>([])
   // The categories made in Modbot, which any number may be ticked on the event.
   const [categoryChoices, setCategoryChoices] = useState<CalendarCategoryRow[]>([])
-  const [pickingList, setPickingList] = useState(() => input.worldId === null)
+  // A new event starts on Pick from a list; a saved one with no world shows None.
+  const [pickingList, setPickingList] = useState(() => !event && !template?.id && input.worldId === null)
   // Set once Save or Schedule was refused for a list not chosen, so the field says so.
   const [listMissed, setListMissed] = useState(false)
   // Kept as typed, so a comma can be typed; split when saving.
@@ -199,10 +197,6 @@ export function CalendarEventForm({
   const [edited, setEdited] = useState<ReadonlySet<OwnKey>>(() => ownKeysWithText(input))
 
   useEffect(() => {
-    calendarApi
-      .worlds()
-      .then(setWorlds)
-      .catch(() => setWorlds([]))
     worldListApi
       .all()
       .then((answer) => setLists(answer.lists))
@@ -249,13 +243,8 @@ export function CalendarEventForm({
       [key]: current[key].includes(value) ? current[key].filter((v) => v !== value) : [...current[key], value],
     }))
 
-  const knownWorld = input.worldId !== null && worlds.some((w) => w.worldId === input.worldId)
   const fromList = pickingList || Boolean(input.worldListId)
-  const worldChoice = fromList
-    ? FROM_LIST
-    : typedWorld || (input.worldId !== null && !knownWorld)
-      ? OTHER_WORLD
-      : (input.worldId ?? '')
+  const choice = worldChoice({ fromList, typedWorld, worldId: input.worldId })
 
   const pickRepeatEnd = (next: RepeatEnd) => {
     setRepeatEnd(next)
@@ -293,7 +282,7 @@ export function CalendarEventForm({
   })
 
   // "Pick from a list" with no list chosen would save as an event with no world at all.
-  const listMissing = worldChoice === FROM_LIST && !input.worldListId
+  const listMissing = choice === FROM_LIST && !input.worldListId
 
   // The lines to show before a save: what the form leaves empty, a title that is not the template's,
   // and an event already at that time. The check for that one failing is no reason to hold the save.
@@ -1055,7 +1044,7 @@ export function CalendarEventForm({
                   <Labelled label="World">
                     <Select
                       aria-label="World"
-                      value={worldChoice}
+                      value={choice}
                       onChange={(v) => {
                         if (v === FROM_LIST) {
                           setTypedWorld(false)
@@ -1074,19 +1063,15 @@ export function CalendarEventForm({
                         }
 
                         setTypedWorld(false)
-                        set('worldId', v || null)
+                        set('worldId', null)
                       }}
                     >
-                      {worlds.map((w) => (
-                        <option key={w.worldId} value={w.worldId}>
-                          {w.name ?? w.worldId}
-                        </option>
-                      ))}
+                      <option value={NO_WORLD}>None</option>
                       <option value={OTHER_WORLD}>World id</option>
                       <option value={FROM_LIST}>Pick from a list</option>
                     </Select>
                   </Labelled>
-                  {worldChoice === FROM_LIST && (
+                  {choice === FROM_LIST && (
                     <Labelled label="World list">
                       <WorldListMenu
                         lists={lists}
@@ -1104,7 +1089,7 @@ export function CalendarEventForm({
                       )}
                     </Labelled>
                   )}
-                  {worldChoice === OTHER_WORLD && (
+                  {choice === OTHER_WORLD && (
                     <Field label="World id" value={input.worldId ?? ''} placeholder="wrld_…" onChange={(v) => set('worldId', v.trim() || null)} />
                   )}
                     <Labelled label="Region">

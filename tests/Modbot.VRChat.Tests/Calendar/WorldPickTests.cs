@@ -79,6 +79,39 @@ public class WorldPickTests(PostgresFixture fixture) : CalendarTestBase(fixture)
     }
 
     [Fact]
+    public async Task TheSeenList_IsPlayedLikeAnyList_ButNeverPicksAWorldVRChatRefusedOrOneNobodyNamed()
+    {
+        var now = Clock.UtcNow;
+
+        await using (var context = Database.NewContext())
+        {
+            context.VRChatWorlds.AddRange(
+                new VRChatWorld { WorldId = "wrld_read", Name = "Read", FirstSeenAt = now, LastSeenAt = now, LastRefreshedAt = now },
+                new VRChatWorld { WorldId = "wrld_searched", Name = "Searched", FirstSeenAt = now, LastSeenAt = now },
+                new VRChatWorld { WorldId = "wrld_refused", FirstSeenAt = now, LastSeenAt = now, RefreshError = "VRChat returned 404" },
+                new VRChatWorld { WorldId = "wrld_unnamed", FirstSeenAt = now, LastSeenAt = now });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var e = await AddDailyEventAsync(WorldList.SeenId);
+
+        var picked = new List<string>();
+
+        for (var day = 0; day < 4; day++)
+        {
+            await ScheduleAsync();
+            picked.Add((await EventAsync(e.Id)).WorldId!);
+            Clock.Advance(TimeSpan.FromDays(1));
+        }
+
+        Assert.All(picked, w => Assert.Contains(w, new[] { "wrld_read", "wrld_searched" }));
+
+        // Two seen worlds, so each is played once before either comes round again.
+        Assert.Equal(new[] { "wrld_read", "wrld_searched" }, picked.Take(2).Order(StringComparer.Ordinal));
+        Assert.Equal(new[] { "wrld_read", "wrld_searched" }, picked.Skip(2).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
     public async Task ADatesWorldIsLocked_PassAfterPassAndRestartAfterRestart()
     {
         var listId = await AddListAsync(Games);

@@ -15,6 +15,17 @@ public class WorldList
     /// <summary>How many worlds one list may hold. A size for a form, not a VRChat limit.</summary>
     public const int MaxWorlds = 500;
 
+    /// <summary>
+    /// The id of the Seen list, the one list a migration makes. It has no rows in <c>world_list_item</c>:
+    /// its worlds are every world Modbot has seen, minus the ones nobody should be sent to (see
+    /// <c>WorldListContents</c>). It is a real row so that events, templates and shuffles point at it like
+    /// any list, and nobody can rename, change or delete it.
+    /// </summary>
+    public static readonly Guid SeenId = new("00000000-0000-0000-0000-000000000001");
+
+    /// <summary>The Seen list's name.</summary>
+    public const string SeenName = "Seen";
+
     public Guid Id { get; set; }
 
     public string Name { get; set; } = string.Empty;

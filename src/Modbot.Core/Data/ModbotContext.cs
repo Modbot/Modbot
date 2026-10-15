@@ -3289,6 +3289,15 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedNever();
             entity.Property(e => e.Name).HasMaxLength(WorldList.MaxNameLength);
+
+            // The Seen list, made by the migration that adds it. Its worlds are not stored.
+            entity.HasData(new WorldList
+            {
+                Id = WorldList.SeenId,
+                Name = WorldList.SeenName,
+                CreatedAt = new DateTimeOffset(2026, 10, 15, 0, 0, 0, TimeSpan.Zero),
+                UpdatedAt = new DateTimeOffset(2026, 10, 15, 0, 0, 0, TimeSpan.Zero),
+            });
         });
 
         builder.Entity<WorldListItem>(entity =>
