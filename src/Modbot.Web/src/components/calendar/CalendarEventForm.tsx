@@ -1114,7 +1114,21 @@ export function CalendarEventForm({
                     </Labelled>
                   )}
                   {choice === OTHER_WORLD && (
-                    <Field label="World id" value={input.worldId ?? ''} placeholder="wrld_…" onChange={(v) => set('worldId', v.trim() || null)} />
+                    <div className="flex min-w-0 flex-col gap-1.5">
+                      <Field label="World id" value={input.worldId ?? ''} placeholder="wrld_…" onChange={(v) => set('worldId', v.trim() || null)} />
+                      {(pickedWorld?.name || pickedWorld?.thumbnailUrl) && (
+                        <div className="flex min-w-0 items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
+                          {pickedWorld.thumbnailUrl && (
+                            <img src={pickedWorld.thumbnailUrl} alt="" className="h-8 w-12 shrink-0 rounded-sm object-cover" />
+                          )}
+                          {pickedWorld.name && (
+                            <span className="min-w-0 truncate" title={pickedWorld.name}>
+                              {pickedWorld.name}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )}
                     <Labelled label="Region">
                       <Select value={input.region} onChange={(v) => set('region', v)} aria-label="Region">
