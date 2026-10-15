@@ -72,8 +72,8 @@ it opens its worlds to pick one. Seen has an arrow too (2026-10-15): its worlds 
 **A list needs at least one world** (2026-10-15). Saving, or editing, a list with none is refused with
 "A list needs at least one world." (`WorldListEndpoints.Check`, for both the new and the changed list). A
 list that is already empty stays as it is until someone edits it; the scheduler and the pick still treat
-it as picking nothing (§5). The migration `RemoveUnusedEmptyWorldLists` (2026-10-15) deletes once the empty
-lists that no event (any state), template or shuffle points to; Seen is never touched.
+it as picking nothing (§5). The migration `RemoveUnusedEmptyWorldLists` (2026-10-15) deletes, once, the empty
+lists that no event, template or shuffle points to; Seen is never touched.
 
 **The Seen list** (2026-10-15). One list made by the migration `SeenWorldList`, id
 `WorldList.SeenId`, name **Seen**: every world Modbot has seen, minus the junk. Junk is a world with
