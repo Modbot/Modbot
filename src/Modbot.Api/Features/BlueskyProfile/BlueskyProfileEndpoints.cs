@@ -131,7 +131,7 @@ public static class BlueskyProfileEndpoints
                 return Results.Ok(await service.ReadAsync(true, ct));
             })
             .RequiresFlag(ModbotPermissions.ManageSettings)
-            .Accepts<IFormFile>("multipart/form-data")
+            .Accepts<BlueskyProfileForm>("multipart/form-data")
             .WithName("SetBlueskyProfile")
             .WithSummary("Change the Bluesky profile")
             .WithDescription(

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Modbot.Api.Features.Posts;
 
 namespace Modbot.Api.Features.BlueskyProfile;
@@ -63,3 +64,14 @@ public sealed record BlueskyProfilePostView(Guid PostId, string? Title, string T
 /// <param name="PageSize">How many posts a page holds.</param>
 /// <param name="Total">How many posts Modbot sent to the account.</param>
 public sealed record BlueskyProfilePosts(IReadOnlyList<BlueskyProfilePostView> Posts, int Page, int PageSize, int Total);
+
+
+/// <summary>
+/// The form that changes the profile. It only describes the request for the API reference; the endpoint
+/// reads the form itself, so a field that is not sent stays out of the save.
+/// </summary>
+/// <param name="DisplayName">The new name, at most 64 characters. Empty clears it.</param>
+/// <param name="Bio">The new bio, at most 256 characters. Empty clears it.</param>
+/// <param name="Avatar">The new round picture: a PNG or JPEG under 1 MB.</param>
+/// <param name="Banner">The new wide picture: a PNG or JPEG under 1 MB.</param>
+public sealed record BlueskyProfileForm(string? DisplayName, string? Bio, IFormFile? Avatar, IFormFile? Banner);

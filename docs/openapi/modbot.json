@@ -8388,7 +8388,7 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/IFormFile"
+                "$ref": "#/components/schemas/BlueskyProfileForm"
               }
             }
           },
@@ -44552,6 +44552,49 @@
           }
         }
       },
+      "BlueskyProfileForm": {
+        "required": [
+          "displayName",
+          "bio",
+          "avatar",
+          "banner"
+        ],
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bio": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "avatar": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/IFormFile"
+              }
+            ]
+          },
+          "banner": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/IFormFile"
+              }
+            ]
+          }
+        }
+      },
       "BlueskyProfilePostView": {
         "required": [
           "postId",
@@ -56938,7 +56981,10 @@
         }
       },
       "IFormFile": {
-        "type": "string",
+        "type": [
+          "null",
+          "string"
+        ],
         "format": "binary"
       },
       "ImportRejection": {
