@@ -540,6 +540,28 @@ public class Settings
     /// <summary>When <see cref="BlueskyCountsError"/> was last set.</summary>
     public DateTimeOffset? BlueskyCountsErrorAt { get; set; }
 
+    /// <summary>
+    /// How far the reading of replies, mentions and quotes of the group's Bluesky account has got: the
+    /// newest one seen, so each is written once. Null until the first pass, which starts from then and
+    /// writes nothing from before.
+    /// </summary>
+    public DateTimeOffset? BlueskyRepliesReadAt { get; set; }
+
+    /// <summary>When Bluesky was last asked for replies, mentions and quotes, so the next look waits.</summary>
+    public DateTimeOffset? BlueskyRepliesCheckedAt { get; set; }
+
+    /// <summary>
+    /// While Bluesky limits the reading of replies, mentions and quotes (or it failed), when it may be
+    /// asked again. Apart from <see cref="BlueskyStoppedUntil"/>: a limit on this must not stop posting.
+    /// </summary>
+    public DateTimeOffset? BlueskyRepliesStoppedUntil { get; set; }
+
+    /// <summary>Why the last try to read replies, mentions and quotes failed, in plain words; shown on Health. Null once a read goes through.</summary>
+    public string? BlueskyRepliesError { get; set; }
+
+    /// <summary>When <see cref="BlueskyRepliesError"/> was last set.</summary>
+    public DateTimeOffset? BlueskyRepliesErrorAt { get; set; }
+
     /// <summary>Post the week's line-up (the next seven days' public dates) on Bluesky once a week. Off to start.</summary>
     public bool BlueskyLineupOn { get; set; }
 

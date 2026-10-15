@@ -211,6 +211,9 @@ export type PostsHealth = {
   /** Why reading the numbers under sent Bluesky posts failed, until a read goes through. Missing from an older server. */
   countsError?: string | null
   countsErrorAt?: string | null
+  /** Why reading the replies, mentions and quotes of the Bluesky account failed, until a read goes through. Missing from an older server. */
+  repliesError?: string | null
+  repliesErrorAt?: string | null
 }
 
 export type PostSettings = {

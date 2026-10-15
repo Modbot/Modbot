@@ -238,6 +238,9 @@ public static class BlueskySettingsEndpoints
                     settings.BlueskyPinCheckedAt = null;
                     settings.BlueskyPinError = null;
                     settings.BlueskyPinErrorAt = null;
+
+                    // Replies are read from the new account's start, not from where the old one got to.
+                    ForgetReplies(settings);
                 }
 
                 if (passwordChanged)
@@ -351,6 +354,7 @@ public static class BlueskySettingsEndpoints
                 settings.BlueskyPinCheckedAt = null;
                 settings.BlueskyPinError = null;
                 settings.BlueskyPinErrorAt = null;
+                ForgetReplies(settings);
                 ClearCheck(settings);
 
                 // The stop and the day's sign-in count are kept: both are Bluesky's limits on this
@@ -560,6 +564,15 @@ public static class BlueskySettingsEndpoints
         {
             return null;
         }
+    }
+
+    /// <summary>The reading of replies, mentions and quotes starts again for another account: from then, with no old error.</summary>
+    private static void ForgetReplies(Core.Data.Entities.Settings settings)
+    {
+        settings.BlueskyRepliesReadAt = null;
+        settings.BlueskyRepliesCheckedAt = null;
+        settings.BlueskyRepliesError = null;
+        settings.BlueskyRepliesErrorAt = null;
     }
 
     private static void ClearCheck(Core.Data.Entities.Settings settings)

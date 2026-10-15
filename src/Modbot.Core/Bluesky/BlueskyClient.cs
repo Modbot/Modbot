@@ -27,6 +27,22 @@ public sealed record BlueskyTokens(string AccessJwt, string RefreshJwt, string D
 /// <summary>Where a record is: its <c>at://</c> address and its content id.</summary>
 public sealed record BlueskyRecordRef(string Uri, string Cid);
 
+/// <summary>Somebody else's post that answers, names or quotes the account.</summary>
+/// <param name="Reason"><c>reply</c>, <c>mention</c> or <c>quote</c>.</param>
+/// <param name="Uri">The author's post, as an <c>at://</c> address.</param>
+/// <param name="AuthorDid">Who wrote it.</param>
+/// <param name="AuthorHandle">Their handle; <c>handle.invalid</c> when Bluesky could not confirm it.</param>
+/// <param name="AuthorName">Their display name, or null for none.</param>
+/// <param name="Text">What the post says.</param>
+/// <param name="Answered">For a reply, the address of the post it answers, when Bluesky said.</param>
+/// <param name="IndexedAt">When Bluesky took the post in; the order of the list and where reading stopped.</param>
+public sealed record BlueskyMention(
+    string Reason, string Uri, string AuthorDid, string AuthorHandle, string? AuthorName, string Text, string? Answered, DateTimeOffset IndexedAt);
+
+/// <summary>One page of <see cref="BlueskyClient.MentionsAsync"/>, newest first.</summary>
+/// <param name="Cursor">Where the next page starts, or null when there is none.</param>
+public sealed record BlueskyMentionsPage(IReadOnlyList<BlueskyMention> Mentions, string? Cursor);
+
 /// <summary>The numbers Bluesky shows under one post.</summary>
 /// <param name="Uri">The post's <c>at://</c> address.</param>
 public sealed record BlueskyPostCounts(string Uri, int Likes, int Reposts, int Replies);
@@ -259,6 +275,76 @@ public sealed class BlueskyClient(IHttpClientFactory http, IModbotClock clock)
 
     private static int CountOf(JsonNode? node) =>
         node is JsonValue value && value.TryGetValue<int>(out var number) && number > 0 ? number : 0;
+
+    /// <summary>The reasons <see cref="MentionsAsync"/> asks for. Likes, reposts and follows are left out: too many to be useful.</summary>
+    public static readonly IReadOnlyList<string> MentionReasons = ["reply", "mention", "quote"];
+
+    /// <summary>The most one <see cref="MentionsAsync"/> page holds: <c>limit</c> is 1 to 100 in the lexicon.</summary>
+    public const int MostMentionsAtOnce = 100;
+
+    /// <summary>
+    /// <c>app.bsky.notification.listNotifications</c>, the account's own, newest first: only the
+    /// <see cref="MentionReasons"/>. The parameters are <c>limit</c> (1 to 100), <c>reasons</c> (a
+    /// list), <c>cursor</c>; each notification has <c>uri</c>, <c>author</c> (a profile view with
+    /// <c>did</c>, <c>handle</c>, <c>displayName</c>), <c>reason</c>, <c>reasonSubject</c>, <c>record</c> (the
+    /// author's post, with <c>text</c>, and <c>reply.parent.uri</c> for a reply) and <c>indexedAt</c>
+    /// (github.com/bluesky-social/atproto, lexicons/app/bsky/notification/listNotifications.json). The
+    /// account's server passes it on to the AppView, which needs the <c>rpc</c> permission
+    /// (<see cref="BlueskyOAuth.RepliesScope"/>) for a sign-in with Bluesky.
+    /// </summary>
+    public async Task<BlueskyResult<BlueskyMentionsPage>> MentionsAsync(BlueskyAccess access, string? cursor, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(access);
+
+        var path = "app.bsky.notification.listNotifications?limit=" + MostMentionsAtOnce
+            + string.Concat(MentionReasons.Select(r => "&reasons=" + Uri.EscapeDataString(r)))
+            + (string.IsNullOrEmpty(cursor) ? string.Empty : "&cursor=" + Uri.EscapeDataString(cursor));
+
+        var answer = await SendAsync(HttpMethod.Get, access.Server, path, access, null, signingIn: false, ct).ConfigureAwait(false);
+
+        return answer.Value is { } body
+            ? BlueskyResult<BlueskyMentionsPage>.Ok(MentionsOf(body))
+            : BlueskyResult<BlueskyMentionsPage>.Failed(answer.Failure!);
+    }
+
+    /// <summary>
+    /// Reads a <c>listNotifications</c> answer. A notification of another reason, or without an address,
+    /// an author or a time, is skipped; a post without text reads as empty text.
+    /// </summary>
+    public static BlueskyMentionsPage MentionsOf(JsonObject? body)
+    {
+        var mentions = new List<BlueskyMention>();
+
+        if (body?["notifications"] is JsonArray list)
+        {
+            foreach (var item in list)
+            {
+                if (item is not JsonObject n
+                    || TextOf(n["reason"]) is not { } reason || !MentionReasons.Contains(reason)
+                    || TextOf(n["uri"]) is not { Length: > 0 } uri
+                    || n["author"] is not JsonObject author
+                    || TextOf(author["did"]) is not { Length: > 0 } did
+                    || TextOf(n["indexedAt"]) is not { } indexed
+                    || !DateTimeOffset.TryParse(indexed, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal, out var indexedAt))
+                {
+                    continue;
+                }
+
+                var record = n["record"] as JsonObject;
+                var name = TextOf(author["displayName"]);
+                var answered = reason == "reply" ? TextOf(record?["reply"]?["parent"]?["uri"]) ?? TextOf(n["reasonSubject"]) : null;
+
+                mentions.Add(new BlueskyMention(
+                    reason, uri, did, TextOf(author["handle"]) ?? string.Empty,
+                    string.IsNullOrWhiteSpace(name) ? null : name.Trim(), TextOf(record?["text"]) ?? string.Empty, answered, indexedAt));
+            }
+        }
+
+        return new BlueskyMentionsPage(mentions, TextOf(body?["cursor"]) is { Length: > 0 } next ? next : null);
+    }
+
+    private static string? TextOf(JsonNode? node) =>
+        node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 
     /// <summary><c>deleteRecord</c>. A record already gone is the caller's to count as deleted.</summary>
     public async Task<BlueskyResult<bool>> DeleteRecordAsync(BlueskyAccess access, string repo, string collection, string rkey, CancellationToken ct)

@@ -18,6 +18,15 @@ public class BlueskyOAuthTests
     private const string Public = "https://modbot.example.com";
 
     [Theory]
+    [InlineData(BlueskyOAuth.NarrowScope, true)]
+    [InlineData(BlueskyOAuth.WideScope, true)]
+    [InlineData("atproto repo:app.bsky.feed.post?action=create&action=update&action=delete repo:app.bsky.actor.profile?action=create&action=update blob:image/*", false)]
+    [InlineData("atproto", false)]
+    [InlineData(null, false)]
+    public void ASignInCanReadRepliesOnlyWithTheRepliesScopeOrTheWideOne(string? scope, bool can)
+        => Assert.Equal(can, BlueskyOAuth.CanReadReplies(scope));
+
+    [Theory]
     [InlineData("https://modbot.example.com", true)]
     [InlineData("https://modbot.example.com/", true)]
     [InlineData("https://modbot.example.com:443", true)]
@@ -56,6 +65,7 @@ public class BlueskyOAuthTests
         Assert.Contains("repo:app.bsky.feed.post?action=create&action=update&action=delete", scopes);
         Assert.Contains("repo:app.bsky.actor.profile?action=create&action=update", scopes);
         Assert.Contains("blob:image/*", scopes);
+        Assert.Contains("rpc:app.bsky.notification.listNotifications?aud=did:web:api.bsky.app%23bsky_appview", scopes);
         Assert.Contains("transition:generic", scopes);
 
         var listed = Assert.Single(document["jwks"]!["keys"]!.AsArray())!.AsObject();

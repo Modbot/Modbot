@@ -455,6 +455,12 @@ public static class AuditVisibility
         [FactType.PostUnpinned] = AuditCategory.Operational,
         [FactType.PostPictureUploaded] = AuditCategory.Operational,
 
+        // What the public said to the group on Bluesky: read with the moderation log, which is also
+        // what the Now page's count of them needs (it counts for somebody who may read that log).
+        [FactType.BlueskyReply] = AuditCategory.Moderation,
+        [FactType.BlueskyMention] = AuditCategory.Moderation,
+        [FactType.BlueskyQuote] = AuditCategory.Moderation,
+
         // Twitch: the poll's own records. Live updates reach somebody with See live instances
         // through LiveScope.
         [FactType.TwitchOnline] = AuditCategory.Operational,

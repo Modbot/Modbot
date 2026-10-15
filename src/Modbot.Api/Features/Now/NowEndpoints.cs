@@ -76,6 +76,7 @@ public static class NowEndpoints
         ("joinRequests", [FactType.JoinRequestCreated]),
         ("joins", [FactType.MemberJoined]),
         ("leaves", [FactType.MemberLeft]),
+        ("blueskyReplies", [FactType.BlueskyReply, FactType.BlueskyMention, FactType.BlueskyQuote]),
     ];
 
     public static IEndpointRouteBuilder MapNow(this IEndpointRouteBuilder app)
@@ -114,7 +115,7 @@ public static class NowEndpoints
             .WithDescription(
                 "Called when the Now page opens and every few minutes while it stays on screen. "
                 + "Returns what happened since this account last looked: counts of bans, kicks, "
-                + "case files, notes, flags, join requests, joins and leaves, from the audit log "
+                + "case files, notes, flags, join requests, joins, leaves and Bluesky replies, mentions and quotes, from the audit log "
                 + "only. The counting starts from the last look before the current one, and a "
                 + "look moves it on only after 15 minutes away, so a reload does not reset it. "
                 + "`changes` is null without permission to read the audit log.")

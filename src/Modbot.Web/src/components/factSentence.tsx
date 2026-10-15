@@ -528,6 +528,39 @@ function Quoted({ value }: { value: string | null }) {
   return value ? <> “{value}”</> : null
 }
 
+/** Who wrote a Bluesky post: "Name (@handle)", or whichever of the two Bluesky gave. */
+function blueskyAuthor(p: Parts): string {
+  const name = p.text('displayName')
+  const handle = p.text('handle')
+  if (name && handle) return `${name} (@${handle})`
+  return name ?? (handle ? `@${handle}` : 'Somebody')
+}
+
+/**
+ * A reply, mention or quote on Bluesky: who, what they wrote and the link to the post. The link is
+ * drawn only when it is a bsky.app one, because the payload is text from outside Modbot.
+ */
+function BlueskyPost({ p, did, answers }: { p: Parts; did: string; answers?: string | null }) {
+  const link = p.text('link')
+  return (
+    <>
+      {blueskyAuthor(p)} {did} on Bluesky
+      <Quoted value={p.text('text')} />
+      {answers ? <> (to “{answers}”)</> : null}
+      {link?.startsWith('https://bsky.app/') && (
+        <a
+          href={link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-2 text-link underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          View post
+        </a>
+      )}
+    </>
+  )
+}
+
 /** A post's site by its own name: Discord, VRChat, Bluesky. */
 function siteName(network: string | null): string {
   if (network === 'discord') return 'Discord'
@@ -1880,6 +1913,11 @@ const SENTENCES: Record<string, Sentence> = {
   ),
 
   'modbot.post.picture.upload': (p) => <>{p.actor} uploaded a post picture to VRChat.</>,
+
+  // ── Bluesky replies, mentions and quotes (posts design §4.2.1) ─────────────────────────────
+  'modbot.bluesky.reply': (p) => <BlueskyPost p={p} did="replied" answers={p.text('title')} />,
+  'modbot.bluesky.mention': (p) => <BlueskyPost p={p} did="mentioned the group" />,
+  'modbot.bluesky.quote': (p) => <BlueskyPost p={p} did="quoted a post of the group" />,
 
   // ── Twitch (Twitch design) ──────────────────────────────────────────────────────────────────
   'modbot.twitch.online': (p) => (

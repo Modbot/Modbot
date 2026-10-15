@@ -762,7 +762,7 @@ function PostsCard({ now }: { now: string }) {
 
   if (
     !health ||
-    (!health.paused && health.holds.length === 0 && health.problems.length === 0 && !health.pinError && !health.countsError)
+    (!health.paused && health.holds.length === 0 && health.problems.length === 0 && !health.pinError && !health.countsError && !health.repliesError)
   )
     return null
 
@@ -810,6 +810,17 @@ function PostsCard({ now }: { now: string }) {
             <>
               {' ('}
               <Ago iso={health.countsErrorAt} now={now} />)
+            </>
+          )}
+        </p>
+      )}
+      {health.repliesError && (
+        <p className="max-w-3xl text-warn">
+          Bluesky · Replies and mentions · {health.repliesError}
+          {health.repliesErrorAt && (
+            <>
+              {' ('}
+              <Ago iso={health.repliesErrorAt} now={now} />)
             </>
           )}
         </p>

@@ -938,6 +938,24 @@ public static class FactType
     /// </summary>
     public const string PostPictureUploaded = "modbot.post.picture.upload";
 
+    // ── Bluesky replies, mentions and quotes (posts design §4.2.1) ─────────────────────────
+    //
+    // Somebody else's public post on Bluesky that answers, names or quotes the group's account. No
+    // actor: the author is not a Modbot account and is not a VRChat or Discord person. The subject is
+    // the author's post, by its address on Bluesky. Moderation retention, which is what an unprefixed
+    // `modbot.` type falls to: it is what the public said to the group, and a moderator reads it
+    // with the rest of the log. Payload of all three: `handle`, `displayName`, `text`, `link` (the
+    // post on bsky.app), `did`.
+
+    /// <summary>A reply to a post of the group's account. Payload adds <c>postId</c> and <c>title</c> when the post answered is one Modbot sent.</summary>
+    public const string BlueskyReply = "modbot.bluesky.reply";
+
+    /// <summary>A post that mentions the group's account.</summary>
+    public const string BlueskyMention = "modbot.bluesky.mention";
+
+    /// <summary>A post that quotes a post of the group's account.</summary>
+    public const string BlueskyQuote = "modbot.bluesky.quote";
+
     // ── Twitch (Twitch design) ─────────────────────────────────────────────────────────────
     //
     // The subject is the Twitch stream's id on the Modbot platform. The poll writes the first three,

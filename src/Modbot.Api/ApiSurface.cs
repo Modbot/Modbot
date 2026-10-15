@@ -136,6 +136,7 @@ public static class ApiSurface
         services.TryAddScoped<Features.Posts.PostBlueskySender>();
         services.TryAddSingleton<Features.Posts.PostBlueskyCountsLastCall>();
         services.TryAddScoped<Features.Posts.PostBlueskyCounts>();
+        services.TryAddScoped<Features.Posts.PostBlueskyReplies>();
         services.TryAddScoped<Features.Calendar.CalendarBlueskyPlanner>();
         services.TryAddScoped<Features.Calendar.CalendarBlueskyFirstJoin>();
         services.TryAddScoped<Features.Calendar.CalendarBlueskyPin>();

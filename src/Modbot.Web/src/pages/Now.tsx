@@ -576,6 +576,12 @@ const CHANGE_WORDS: Record<NowChange['kind'], string> = {
   joinRequests: 'join request',
   joins: 'join',
   leaves: 'leave',
+  blueskyReplies: 'Bluesky reply or mention',
+}
+
+/** The plural, where adding an s is not it. */
+const CHANGE_MANY: Partial<Record<NowChange['kind'], string>> = {
+  blueskyReplies: 'Bluesky replies and mentions',
 }
 
 /**
@@ -616,7 +622,7 @@ function SinceLastLooked({ look, changes }: { look: NowLook; changes: NowChange[
               <span key={change.kind} className="whitespace-nowrap">
                 {i > 0 && <span className="text-muted-foreground"> · </span>}
                 <a href={to} onClick={followLink(to)} className="hover:underline">
-                  <span className="font-mono">{change.count}</span> {plural(change.count, CHANGE_WORDS[change.kind])}
+                  <span className="font-mono">{change.count}</span> {plural(change.count, CHANGE_WORDS[change.kind], CHANGE_MANY[change.kind])}
                 </a>
               </span>
             )

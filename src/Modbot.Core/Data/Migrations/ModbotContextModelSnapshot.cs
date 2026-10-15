@@ -9059,6 +9059,26 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("bluesky_problem");
 
+                    b.Property<DateTimeOffset?>("BlueskyRepliesCheckedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("bluesky_replies_checked_at");
+
+                    b.Property<string>("BlueskyRepliesError")
+                        .HasColumnType("text")
+                        .HasColumnName("bluesky_replies_error");
+
+                    b.Property<DateTimeOffset?>("BlueskyRepliesErrorAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("bluesky_replies_error_at");
+
+                    b.Property<DateTimeOffset?>("BlueskyRepliesReadAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("bluesky_replies_read_at");
+
+                    b.Property<DateTimeOffset?>("BlueskyRepliesStoppedUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("bluesky_replies_stopped_until");
+
                     b.Property<string>("BlueskyServer")
                         .HasColumnType("text")
                         .HasColumnName("bluesky_server");

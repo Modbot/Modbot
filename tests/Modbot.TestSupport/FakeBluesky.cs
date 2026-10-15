@@ -59,6 +59,18 @@ public sealed class FakeBluesky : HttpMessageHandler
     /// <summary>The blobs uploaded, by size.</summary>
     public List<int> Blobs { get; } = [];
 
+    /// <summary>
+    /// The account's notifications, as <c>listNotifications</c> gives them (each with <c>reason</c> and
+    /// <c>indexedAt</c>); answered newest first, only the reasons asked for, a page at a time.
+    /// </summary>
+    public List<JsonObject> Notifications { get; } = [];
+
+    /// <summary>The most one <c>listNotifications</c> page holds here; the call's own limit when null.</summary>
+    public int? NotificationPageSize { get; set; }
+
+    /// <summary>A status <c>listNotifications</c> answers with instead of the list (not a rate limit: <see cref="LimitedUntil"/> is that).</summary>
+    public HttpStatusCode? NotificationsStatus { get; set; }
+
     /// <summary>The access token handed out last; every call needing one must carry it.</summary>
     public string? AccessJwt { get; private set; }
 
@@ -270,6 +282,9 @@ public sealed class FakeBluesky : HttpMessageHandler
             case "com.atproto.repo.getRecord":
                 return GetRecord(uri);
 
+            case "app.bsky.notification.listNotifications":
+                return ListNotifications(bearer, uri);
+
             case "com.atproto.repo.uploadBlob":
             {
                 if (Authorised(bearer) is { } refused)
@@ -397,6 +412,38 @@ public sealed class FakeBluesky : HttpMessageHandler
     }
 
     /// <summary>Null when <paramref name="bearer"/> is the access token handed out last and has not ended.</summary>
+    private HttpResponseMessage ListNotifications(string? bearer, Uri uri)
+    {
+        if (Authorised(bearer) is { } refused)
+            return refused;
+
+        if (NotificationsStatus is { } status)
+            return Json(status, Error("InternalServerError", "Scripted"));
+
+        var reasons = uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(pair => pair.Split('=', 2))
+            .Where(parts => Uri.UnescapeDataString(parts[0]) == "reasons" && parts.Length > 1)
+            .Select(parts => Uri.UnescapeDataString(parts[1]))
+            .ToList();
+
+        var limit = int.Parse(Query(uri, "limit") ?? "50", System.Globalization.CultureInfo.InvariantCulture);
+        var size = Math.Min(limit, NotificationPageSize ?? limit);
+        var from = int.Parse(Query(uri, "cursor") ?? "0", System.Globalization.CultureInfo.InvariantCulture);
+
+        var all = Notifications
+            .Where(n => reasons.Count == 0 || reasons.Contains(n["reason"]!.GetValue<string>()))
+            .OrderByDescending(n => DateTimeOffset.Parse(n["indexedAt"]!.GetValue<string>(), System.Globalization.CultureInfo.InvariantCulture))
+            .ToList();
+
+        var page = all.Skip(from).Take(size).Select(n => (JsonNode)n.DeepClone()).ToArray();
+        var answer = new JsonObject { ["notifications"] = new JsonArray(page) };
+
+        if (from + size < all.Count)
+            answer["cursor"] = (from + size).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        return Json(HttpStatusCode.OK, answer);
+    }
+
     private HttpResponseMessage? Authorised(string? bearer)
     {
         if (bearer is null || bearer != AccessJwt)

@@ -2440,7 +2440,7 @@ export type InstanceRow = {
 
 /** How many of one kind of thing happened since the last look at Now, and the fact types counted. */
 export type NowChange = {
-  kind: 'bans' | 'unbans' | 'kicks' | 'warns' | 'caseFiles' | 'notes' | 'flags' | 'joinRequests' | 'joins' | 'leaves'
+  kind: 'bans' | 'unbans' | 'kicks' | 'warns' | 'caseFiles' | 'notes' | 'flags' | 'joinRequests' | 'joins' | 'leaves' | 'blueskyReplies'
   count: number
   types: string[]
 }

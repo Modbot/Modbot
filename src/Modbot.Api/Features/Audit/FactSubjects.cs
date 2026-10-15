@@ -183,6 +183,11 @@ public static class FactSubjects
         [FactType.PostUnpinned] = SubjectKind.Other,
         [FactType.PostPictureUploaded] = SubjectKind.Other,
 
+        // The subject is the author's post on Bluesky, by address: not a person Modbot knows.
+        [FactType.BlueskyReply] = SubjectKind.Other,
+        [FactType.BlueskyMention] = SubjectKind.Other,
+        [FactType.BlueskyQuote] = SubjectKind.Other,
+
         // The subject is the Twitch stream's id: the channel's own, public, about nobody.
         [FactType.TwitchOnline] = SubjectKind.Other,
         [FactType.TwitchUpdated] = SubjectKind.Other,

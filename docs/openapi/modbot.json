@@ -23979,7 +23979,7 @@
           "Now"
         ],
         "summary": "Record a look at Now",
-        "description": "Called when the Now page opens and every few minutes while it stays on screen. Returns what happened since this account last looked: counts of bans, kicks, case files, notes, flags, join requests, joins and leaves, from the audit log only. The counting starts from the last look before the current one, and a look moves it on only after 15 minutes away, so a reload does not reset it. `changes` is null without permission to read the audit log.",
+        "description": "Called when the Now page opens and every few minutes while it stays on screen. Returns what happened since this account last looked: counts of bans, kicks, case files, notes, flags, join requests, joins, leaves and Bluesky replies, mentions and quotes, from the audit log only. The counting starts from the last look before the current one, and a look moves it on only after 15 minutes away, so a reload does not reset it. `changes` is null without permission to read the audit log.",
         "operationId": "LookAtNow",
         "responses": {
           "200": {
@@ -63818,6 +63818,19 @@
             ]
           },
           "countsErrorAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "repliesError": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "repliesErrorAt": {
             "type": [
               "null",
               "string"

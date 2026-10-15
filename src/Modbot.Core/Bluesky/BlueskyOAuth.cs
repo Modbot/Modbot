@@ -127,7 +127,7 @@ public sealed record BlueskyOAuthFinish(
 /// </para>
 /// <para>
 /// <strong>Scopes.</strong> The narrowest Bluesky's permission spec has for posting
-/// (<see cref="NarrowScope"/>: posts, made, replaced and deleted, the profile's pin, and image blobs). A sign-in server
+/// (<see cref="NarrowScope"/>: posts, made, replaced and deleted, the profile's pin, image blobs, and reading replies). A sign-in server
 /// that answers <c>invalid_scope</c> to it is asked once more with <see cref="WideScope"/>, which is
 /// what an app password can do. Whether bsky.social takes the narrow one is not checked yet.
 /// </para>
@@ -150,10 +150,31 @@ public sealed class BlueskyOAuth(IHttpClientFactory http, ISecretProtector prote
     /// The narrowest scopes that post: <c>putRecord</c> needs both create and update on the post
     /// collection, a delete needs delete, and the picture needs an image blob. The profile's
     /// create and update are for pinning a post on it (Pin the next event): a sign-in made before
-    /// that was added lacks it, and the pin waits until Sign in with Bluesky is done again.
+    /// that was added lacks it, and the pin waits until Sign in with Bluesky is done again. The same goes
+    /// for <see cref="RepliesScope"/>, which reading replies, mentions and quotes needs.
     /// </summary>
     public const string NarrowScope =
-        "atproto repo:app.bsky.feed.post?action=create&action=update&action=delete repo:app.bsky.actor.profile?action=create&action=update blob:image/*";
+        "atproto repo:app.bsky.feed.post?action=create&action=update&action=delete repo:app.bsky.actor.profile?action=create&action=update blob:image/* "
+        + RepliesScope;
+
+    /// <summary>
+    /// The one call to Bluesky's AppView the account's own server passes on for Modbot: the list of
+    /// notifications, for replies, mentions and quotes. atproto's permission spec writes it
+    /// <c>rpc:&lt;lexicon method&gt;?aud=&lt;service did&gt;%23&lt;service id&gt;</c>, the <c>#</c> encoded
+    /// (atproto.com/specs/permission); the AppView is <c>did:web:api.bsky.app#bsky_appview</c>
+    /// (the example in atproto.com/guides/permission-sets).
+    /// </summary>
+    public const string RepliesScope = "rpc:app.bsky.notification.listNotifications?aud=did:web:api.bsky.app%23bsky_appview";
+
+    /// <summary>
+    /// Whether a sign-in with this scope may read replies, mentions and quotes: it names
+    /// <see cref="RepliesScope"/>, or it is <see cref="WideScope"/>, which allows every call the
+    /// account's server passes on. A sign-in made before the narrow scope had it does not.
+    /// </summary>
+    public static bool CanReadReplies(string? scope) =>
+        scope is not null
+        && scope.Split(' ', StringSplitOptions.RemoveEmptyEntries).Any(
+            s => s == "transition:generic" || s.StartsWith("rpc:app.bsky.notification.listNotifications", StringComparison.Ordinal));
 
     /// <summary>What an app password can do: asked for only when the narrow scopes are refused.</summary>
     public const string WideScope = "atproto transition:generic";
