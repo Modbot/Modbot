@@ -283,15 +283,15 @@ test('Bluesky’s own text is counted in graphemes, as Bluesky counts', () => {
   assert.equal(countedGraphemes('a'.repeat(301), 300).over, true)
 })
 
-test('the form has an Event tab and one for each service that is on, in a fixed order', () => {
+test('the form has a Shared info tab and one for each service that is on, in a fixed order', () => {
   assert.deepEqual(tabsFor(() => false), ['event'])
   assert.deepEqual(tabsFor(() => true), ['event', 'vrchat', 'discordEvent', 'channelPost', 'googleCalendar', 'bluesky'])
   assert.deepEqual(tabsFor((place) => place === 'bluesky' || place === 'vrchat'), ['event', 'vrchat', 'bluesky'])
 })
 
-test('the tabs are named Event, VRChat, Discord event, Discord post, Google and Bluesky', () => {
+test('the tabs are named Shared info, VRChat, Discord event, Discord post, Google and Bluesky', () => {
   assert.deepEqual(
     tabsFor(() => true).map((tab) => TAB_LABEL[tab]),
-    ['Event', 'VRChat', 'Discord event', 'Discord post', 'Google', 'Bluesky'],
+    ['Shared info', 'VRChat', 'Discord event', 'Discord post', 'Google', 'Bluesky'],
   )
 })

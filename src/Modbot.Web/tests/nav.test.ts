@@ -293,10 +293,10 @@ test('every page shown as part of another points at one in the sidebar', () => {
   }
 })
 
-test('every page in the sidebar has a go-to chord, but Reports, Appeals, Votes, Supporters, Event categories, Partners and Terms and rules: all twenty-six letters are taken', () => {
+test('every page in the sidebar has a go-to chord, but Reports, Appeals, Votes, Supporters, Event categories, Partners, Terms and rules and Bluesky: all twenty-six letters are taken', () => {
   for (const item of NAV) {
     if ('hidden' in item && item.hidden) continue
-    if (item.id === 'reports' || item.id === 'event-categories' || item.id === 'partners' || item.id === 'appeals' || item.id === 'votes' || item.id === 'supporters' || item.id === 'terms-and-rules') continue
+    if (item.id === 'reports' || item.id === 'event-categories' || item.id === 'partners' || item.id === 'appeals' || item.id === 'votes' || item.id === 'supporters' || item.id === 'terms-and-rules' || item.id === 'bluesky') continue
     assert.notEqual(GO_TO_KEYS[item.id], '', `${item.id} has no letter`)
   }
 })
