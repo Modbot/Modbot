@@ -97,6 +97,18 @@ public sealed class WorldSync
                 return new WorldSyncRunResult(SyncOutcome.RateLimited, named, failed, result.ErrorMessage);
             }
 
+            if (!result.Success && !result.IsRefusal)
+            {
+                // VRChat could not be asked (no network, a timeout, a 5xx, a 401, a Cloudflare block):
+                // the world stays unread for the next pass, and this one stops where it is.
+                _log.Information(
+                    "Naming worlds is paused: {Reason}",
+                    result.ErrorMessage ?? $"VRChat returned {result.StatusCode}");
+
+                await RecordPollAsync(ct).ConfigureAwait(false);
+                return new WorldSyncRunResult(SyncOutcome.Failed, named, failed, result.ErrorMessage);
+            }
+
             if (!result.Success || result.Value is not { } world)
             {
                 // Private, deleted, or gone. Written down so the sweep stops asking.

@@ -314,7 +314,7 @@ public static class WorldListEndpoints
             VRChatCallPriority.Interactive,
             ct);
 
-        if (Refused(result))
+        if (result.IsRefusal)
         {
             // Nothing is stored: a row VRChat refused before stays as the sweep left it.
             var typed = !Uri.TryCreate(text?.Trim(), UriKind.Absolute, out _);
@@ -345,15 +345,6 @@ public static class WorldListEndpoints
 
         return Results.Ok(new CalendarWorldView(row.WorldId, row.Name, row.ThumbnailImageUrl));
     }
-
-    /// <summary>
-    /// True when VRChat answered and said no to the world (400, 403, 404...). Not when it could not be
-    /// asked or did not really answer: a 429, a sign-in wait, no network, a Cloudflare block, a 401 or a 5xx.
-    /// </summary>
-    private static bool Refused<T>(VRChatResult<T> result) =>
-        !result.Success
-        && result.StatusCode is >= 400 and < 500 and not 429 and not 401
-        && result.Kind is not (VRChatFailureKind.WafBlocked or VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting);
 
     /// <summary>Checks a request and cleans it up. Returns what is wrong, or null.</summary>
     internal static string? Check(WorldListRequest body, out string name, out List<WorldListWorldRequest> worlds)

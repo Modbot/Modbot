@@ -45,6 +45,16 @@ public readonly record struct VRChatResult<T>(
     /// <summary>True when VRChat rate limited this call. Never retry it (spec 4.3.1).</summary>
     public bool IsRateLimited => StatusCode == 429;
 
+    /// <summary>
+    /// True when VRChat answered and said no to what was asked for (400, 403, 404...). Not when it
+    /// could not be asked or did not really answer: a 429, a sign-in wait, no network, a Cloudflare
+    /// block, a 401 or a 5xx.
+    /// </summary>
+    public bool IsRefusal =>
+        !Success
+        && StatusCode is >= 400 and < 500 and not 429 and not 401
+        && Kind is not (VRChatFailureKind.WafBlocked or VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting);
+
     /// <summary>True when Cloudflare refused the request before VRChat ever saw it.</summary>
     public bool IsWafBlocked => WafCode is not null;
 
