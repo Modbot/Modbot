@@ -27,7 +27,9 @@ namespace Modbot.Api.Features.WorldLists;
 /// <para>
 /// The one VRChat call is <see cref="FindAsync"/>'s, for a pasted world Modbot has never read: the
 /// world sweep's own <c>GetWorld</c> on <c>worlds.read</c>, once, at interactive priority (§2). A 429
-/// cold-stops the bucket and is never retried; the world is kept by its id for the sweep to name.
+/// cold-stops the bucket and is never retried; the world is kept by its id for the sweep to name. An
+/// answer that refuses the world is shown and nothing is stored. Saving a list only takes in worlds
+/// Modbot knows and VRChat has not refused.
 /// </para>
 /// </remarks>
 public static class WorldListEndpoints
@@ -104,9 +106,10 @@ public static class WorldListEndpoints
             .WithName("FindWorldListWorld")
             .WithSummary("Find a world by link or id")
             .WithDescription(
-                "Takes a world's link or id. A world Modbot has never read is read from VRChat once "
-                + "(worlds.read). When VRChat cannot be asked right now, the world comes back by its id "
-                + "with no name, and Modbot names it later.")
+                "Takes a world's link or id. A world Modbot has never read, or one VRChat refused before, "
+                + "is read from VRChat once (worlds.read). When VRChat cannot be asked right now, the world "
+                + "comes back by its id with no name, and Modbot names it later. When VRChat refuses it, "
+                + "nothing is stored and the refusal comes back in the 404.")
             .Produces<CalendarWorldView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -125,6 +128,9 @@ public static class WorldListEndpoints
                 if (Check(body, out var name, out var worlds) is { } problem)
                     return Results.BadRequest(new { error = problem });
 
+                if (await UnknownWorldAsync(db, worlds, new HashSet<string>(), ct) is { } unknown)
+                    return Results.BadRequest(new { error = unknown });
+
                 var now = clock.UtcNow;
                 var list = new WorldList
                 {
@@ -139,7 +145,6 @@ public static class WorldListEndpoints
 
                 db.WorldLists.Add(list);
                 db.WorldListItems.AddRange(Items(list.Id, worlds));
-                await NoteWorldsAsync(db, worlds, now, ct);
                 await db.SaveChangesAsync(ct);
 
                 await facts.RecordAsync(
@@ -152,7 +157,10 @@ public static class WorldListEndpoints
             .RequiresFlag(ModbotPermissions.ManageCalendar)
             .WithName("CreateWorldList")
             .WithSummary("Add world list")
-            .WithDescription("Save a world list: a name and its worlds, each with the fewest and most players it is for.")
+            .WithDescription(
+                "Save a world list: a name and its worlds, each with the fewest and most players it is for. "
+                + "Every world must be one Modbot knows and VRChat has not refused; a world that is not is "
+                + "named in the 400.")
             .Produces<WorldListView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
@@ -181,6 +189,10 @@ public static class WorldListEndpoints
                 if (list.Name == name && before.SequenceEqual(worlds))
                     return Results.Ok((await ViewsAsync(db, [list], ct))[0]);
 
+                var onList = before.Select(w => w.WorldId).ToHashSet(StringComparer.Ordinal);
+                if (await UnknownWorldAsync(db, worlds, onList, ct) is { } unknown)
+                    return Results.BadRequest(new { error = unknown });
+
                 var now = clock.UtcNow;
                 var beforeData = Describe(list.Name, before);
 
@@ -195,7 +207,6 @@ public static class WorldListEndpoints
                 await db.SaveChangesAsync(ct);
 
                 db.WorldListItems.AddRange(Items(list.Id, worlds));
-                await NoteWorldsAsync(db, worlds, now, ct);
                 await db.SaveChangesAsync(ct);
 
                 var ids = worlds.Select(w => w.WorldId).ToHashSet(StringComparer.Ordinal);
@@ -224,7 +235,9 @@ public static class WorldListEndpoints
             .WithSummary("Update world list")
             .WithDescription(
                 "Rename a world list or change its worlds and their players. A world taken out is never "
-                + "picked again; a world added joins the current round of each event's shuffle.")
+                + "picked again; a world added joins the current round of each event's shuffle. A world "
+                + "added must be one Modbot knows and VRChat has not refused; a world that is not is named "
+                + "in the 400. Worlds already on the list stay.")
             .Produces<WorldListView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -289,7 +302,7 @@ public static class WorldListEndpoints
 
         var row = await db.VRChatWorlds.FirstOrDefaultAsync(w => w.WorldId == worldId, ct);
 
-        if (row is { LastRefreshedAt: not null } or { RefreshError: not null })
+        if (row is { LastRefreshedAt: not null })
             return Results.Ok(new CalendarWorldView(row.WorldId, row.Name, row.ThumbnailImageUrl));
 
         var now = clock.UtcNow;
@@ -301,8 +314,18 @@ public static class WorldListEndpoints
             VRChatCallPriority.Interactive,
             ct);
 
-        if (!result.Success && result.StatusCode == StatusCodes.Status404NotFound)
-            return Results.NotFound(new { error = "VRChat has no world with that id." });
+        if (Refused(result))
+        {
+            // Nothing is stored: a row VRChat refused before stays as the sweep left it.
+            var typed = !Uri.TryCreate(text?.Trim(), UriKind.Absolute, out _);
+
+            return Results.NotFound(new
+            {
+                error = typed
+                    ? "No world by that name or id. Paste its link."
+                    : result.ErrorMessage ?? $"VRChat returned {result.StatusCode}.",
+            });
+        }
 
         if (row is null)
         {
@@ -310,8 +333,8 @@ public static class WorldListEndpoints
             db.VRChatWorlds.Add(row);
         }
 
-        // Anything but an answer -- a 429, a sign-in wait, no network -- keeps the world by its id;
-        // the world sweep names it on its next pass. Never retried here (spec 4.3.1).
+        // Anything but an answer -- a 429, a sign-in wait, no network, VRChat down -- keeps the world
+        // by its id; the world sweep names it on its next pass. Never retried here (spec 4.3.1).
         if (result.Success && result.Value is { } world)
         {
             WorldSnapshot.From(world).ApplyTo(row, now);
@@ -322,6 +345,15 @@ public static class WorldListEndpoints
 
         return Results.Ok(new CalendarWorldView(row.WorldId, row.Name, row.ThumbnailImageUrl));
     }
+
+    /// <summary>
+    /// True when VRChat answered and said no to the world (400, 403, 404...). Not when it could not be
+    /// asked or did not really answer: a 429, a sign-in wait, no network, a Cloudflare block, a 401 or a 5xx.
+    /// </summary>
+    private static bool Refused<T>(VRChatResult<T> result) =>
+        !result.Success
+        && result.StatusCode is >= 400 and < 500 and not 429 and not 401
+        && result.Kind is not (VRChatFailureKind.WafBlocked or VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting);
 
     /// <summary>Checks a request and cleans it up. Returns what is wrong, or null.</summary>
     internal static string? Check(WorldListRequest body, out string name, out List<WorldListWorldRequest> worlds)
@@ -373,20 +405,33 @@ public static class WorldListEndpoints
         });
 
     /// <summary>
-    /// Gives each world Modbot has no row for a placeholder holding its id, which the world sweep
-    /// names on its next pass.
+    /// What is wrong with the worlds a save adds, or null. A world not already on the list must be one
+    /// Modbot has a row for and VRChat has not refused; worlds already on it stay, even ones that went
+    /// private since.
     /// </summary>
-    private static async Task NoteWorldsAsync(
-        ModbotContext db, IReadOnlyList<WorldListWorldRequest> worlds, DateTimeOffset now, CancellationToken ct)
+    private static async Task<string?> UnknownWorldAsync(
+        ModbotContext db, IReadOnlyList<WorldListWorldRequest> worlds, ISet<string> onList, CancellationToken ct)
     {
-        var ids = worlds.Select(w => w.WorldId).ToList();
-        var known = await db.VRChatWorlds.AsNoTracking()
-            .Where(w => ids.Contains(w.WorldId))
-            .Select(w => w.WorldId)
-            .ToListAsync(ct);
+        var added = worlds.Select(w => w.WorldId).Where(id => !onList.Contains(id)).ToList();
+        if (added.Count == 0)
+            return null;
 
-        foreach (var id in ids.Except(known, StringComparer.Ordinal))
-            db.VRChatWorlds.Add(new VRChatWorld { WorldId = id, FirstSeenAt = now, LastSeenAt = now });
+        var known = await db.VRChatWorlds.AsNoTracking()
+            .Where(w => added.Contains(w.WorldId))
+            .Select(w => new { w.WorldId, w.Name, w.LastRefreshedAt, w.RefreshError })
+            .ToDictionaryAsync(w => w.WorldId, StringComparer.Ordinal, ct);
+
+        foreach (var id in added)
+        {
+            if (!known.TryGetValue(id, out var row))
+                return $"Modbot does not know the world {id}. Add it with its link.";
+
+            // A world that was read once is real, whatever the sweep's later errors say.
+            if (row.RefreshError is not null && row.LastRefreshedAt is null)
+                return $"VRChat refused the world {row.Name ?? id}.";
+        }
+
+        return null;
     }
 
     private static JsonObject Describe(string name, IReadOnlyList<WorldListWorldRequest> worlds) => new()

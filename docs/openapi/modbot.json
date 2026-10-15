@@ -35025,7 +35025,7 @@
           "World lists"
         ],
         "summary": "Add world list",
-        "description": "Save a world list: a name and its worlds, each with the fewest and most players it is for.\n\nNeeds the `ManageCalendar` permission.",
+        "description": "Save a world list: a name and its worlds, each with the fewest and most players it is for. Every world must be one Modbot knows and VRChat has not refused; a world that is not is named in the 400.\n\nNeeds the `ManageCalendar` permission.",
         "operationId": "CreateWorldList",
         "requestBody": {
           "content": {
@@ -35157,7 +35157,7 @@
           "World lists"
         ],
         "summary": "Find a world by link or id",
-        "description": "Takes a world's link or id. A world Modbot has never read is read from VRChat once (worlds.read). When VRChat cannot be asked right now, the world comes back by its id with no name, and Modbot names it later.\n\nNeeds the `ManageCalendar` permission.",
+        "description": "Takes a world's link or id. A world Modbot has never read, or one VRChat refused before, is read from VRChat once (worlds.read). When VRChat cannot be asked right now, the world comes back by its id with no name, and Modbot names it later. When VRChat refuses it, nothing is stored and the refusal comes back in the 404.\n\nNeeds the `ManageCalendar` permission.",
         "operationId": "FindWorldListWorld",
         "requestBody": {
           "content": {
@@ -35237,7 +35237,7 @@
           "World lists"
         ],
         "summary": "Update world list",
-        "description": "Rename a world list or change its worlds and their players. A world taken out is never picked again; a world added joins the current round of each event's shuffle.\n\nNeeds the `ManageCalendar` permission.",
+        "description": "Rename a world list or change its worlds and their players. A world taken out is never picked again; a world added joins the current round of each event's shuffle. A world added must be one Modbot knows and VRChat has not refused; a world that is not is named in the 400. Worlds already on the list stay.\n\nNeeds the `ManageCalendar` permission.",
         "operationId": "UpdateWorldList",
         "parameters": [
           {

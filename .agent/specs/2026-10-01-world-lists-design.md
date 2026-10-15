@@ -32,10 +32,18 @@ The lists live in Modbot. Nothing is read from or written to VRChat's own favour
 world sweep (`WorldSync`) already uses: one a second, measured, resource-scoped to the world. It runs
 at interactive priority, because a person is waiting on the form. No new endpoint and no new class:
 the read is the sweep's own read, done once, sooner. A 429 cold-stops the bucket and is never retried;
-the world is then kept as its id and the sweep names it on its next pass. VRChat's 404 is shown as
-"VRChat has no world with that id." The id itself is never checked for shape: a link is taken apart
-only to find the id in it (`worldId=` or the part after `/world/`), and anything else is taken as the
-id as typed.
+the world is then kept as its id and the sweep names it on its next pass. So is a sign-in wait, no
+network, a Cloudflare block, a 401 or a 5xx: Modbot could not ask, so it keeps what was typed. Any
+other refusal (400, 403, 404...) is shown in VRChat's words and nothing is stored; text that is not a
+link gets "No world by that name or id. Paste its link." instead. A world VRChat refused before (its
+row has a refresh error and was never read) is asked about again. The id itself is never checked for
+shape: a link is taken apart only to find the id in it (`worldId=` or the part after `/world/`), and
+anything else is taken as the id as typed.
+
+**Saving a list** checks only the worlds it adds (not already on that list): each must have a
+`VRChatWorld` row and must not be one VRChat refused (a refresh error and never read). Otherwise the
+save is refused and names the world. Worlds already on the list stay, even ones that went private
+since. Saving no longer makes placeholder rows for unknown ids.
 
 **Players.** Both numbers are optional and at least 1; the most may not be under the fewest. There is
 no upper limit: a world's real capacity is not something Modbot knows (foundation §3.1).
@@ -150,4 +158,6 @@ and picks. The actor is a staff account, as on every calendar fact.
 
 ## 9. Not checked against the real services
 
-- Whether `GetWorld` answers 404 or 403 for a private world. Either is shown as VRChat's words.
+- Whether `GetWorld` answers 404 or 403 for a private world. Either is now refused and shown as
+  VRChat's words (decided 2026-10-15), so a real private world cannot be added. Whether a typed name
+  such as "Just B Club 4.0" gets 400, 403 or 404 is not known; all three are refused the same way.

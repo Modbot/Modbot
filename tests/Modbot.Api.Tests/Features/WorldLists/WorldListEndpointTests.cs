@@ -5,6 +5,8 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
+using Modbot.VRChat;
+using VRChat.API.Model;
 
 namespace Modbot.Api.Tests.Features.WorldLists;
 
@@ -40,8 +42,37 @@ public class WorldListEndpointTests(PostgresFixture db)
         worlds = worlds.Select(w => new { worldId = w.Id, minPlayers = w.Min, maxPlayers = w.Max }).ToArray(),
     };
 
-    private static async Task<Guid> CreateListAsync(ApiTestHost host, string cookie, object body)
+    /// <summary>Worlds Modbot has read from VRChat, so a list can take them in.</summary>
+    private async Task KnowAsync(DateTimeOffset now, params string[] worldIds)
     {
+        await using var context = db.NewContext();
+
+        foreach (var id in worldIds)
+        {
+            if (await context.VRChatWorlds.AnyAsync(w => w.WorldId == id, Ct))
+                continue;
+
+            context.VRChatWorlds.Add(new VRChatWorld
+            {
+                WorldId = id,
+                Name = id,
+                FirstSeenAt = now,
+                LastSeenAt = now,
+                LastRefreshedAt = now,
+            });
+        }
+
+        await context.SaveChangesAsync(Ct);
+    }
+
+    /// <summary>Makes a list; the worlds in <paramref name="body"/> are first made known, as a search or Add would.</summary>
+    private async Task<Guid> CreateListAsync(ApiTestHost host, string cookie, object body)
+    {
+        var ids = JsonSerializer.SerializeToElement(body).GetProperty("worlds").EnumerateArray()
+            .Select(w => w.GetProperty("worldId").GetString()!)
+            .ToArray();
+        await KnowAsync(host.Clock.UtcNow, ids);
+
         var response = await host.SendJsonAsync(HttpMethod.Post, "/api/world-lists", body, cookie, Ct);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return (await ApiTestHost.BodyOf(response, Ct)).GetProperty("id").GetGuid();
@@ -127,6 +158,7 @@ public class WorldListEndpointTests(PostgresFixture db)
         Assert.False((await ApiTestHost.BodyOf(seen, Ct)).GetProperty("canManage").GetBoolean());
 
         var body = ListBody("Game night", ("wrld_prop", 4, 12));
+        await KnowAsync(host.Clock.UtcNow, "wrld_prop");
         Assert.Equal(HttpStatusCode.Forbidden, (await host.SendJsonAsync(HttpMethod.Post, "/api/world-lists", body, viewer, Ct)).StatusCode);
 
         var id = await CreateListAsync(host, manager, body);
@@ -146,6 +178,166 @@ public class WorldListEndpointTests(PostgresFixture db)
 
         var response = await host.SendJsonAsync(HttpMethod.Post, "/api/world-lists", ListBody("Games", ("wrld_a", 8, 4)), manager, Ct);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    private static Task<HttpResponseMessage> FindAsync(ApiTestHost host, string cookie, string text) =>
+        host.SendJsonAsync(HttpMethod.Post, "/api/world-lists/worlds/find", new { text }, cookie, Ct);
+
+    private async Task<VRChatWorld?> RowOfAsync(string worldId)
+    {
+        await using var context = db.NewContext();
+        return await context.VRChatWorlds.AsNoTracking().FirstOrDefaultAsync(w => w.WorldId == worldId, Ct);
+    }
+
+    [Fact]
+    public async Task ATypedNameVRChatRefuses_IsTurnedDown_AndStoresNothing()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+        host.VRChat.Returns("GetWorld", VRChatResult<World>.Failure(403, "Forbidden"));
+
+        var response = await FindAsync(host, manager, "Just B Club 4.0");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(
+            "No world by that name or id. Paste its link.",
+            (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString());
+        Assert.Null(await RowOfAsync("Just B Club 4.0"));
+    }
+
+    [Fact]
+    public async Task ALinkVRChatRefuses_ShowsVRChatsWords_AndStoresNothing()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+        host.VRChat.Returns("GetWorld", VRChatResult<World>.Failure(404, "World not found"));
+
+        var response = await FindAsync(host, manager, "https://vrchat.com/home/world/wrld_gone_for_good");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("World not found", (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString());
+        Assert.Null(await RowOfAsync("wrld_gone_for_good"));
+    }
+
+    [Theory]
+    [InlineData(429, VRChatFailureKind.RateLimited)]
+    [InlineData(0, VRChatFailureKind.SignInWaiting)]
+    [InlineData(0, VRChatFailureKind.Network)]
+    [InlineData(503, VRChatFailureKind.Other)]
+    public async Task WhenVRChatCannotBeAsked_TheWorldIsKeptByItsId(int status, VRChatFailureKind kind)
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+        var id = $"wrld_busy_{status}_{kind}".ToLowerInvariant();
+        host.VRChat.Returns("GetWorld", VRChatResult<World>.Failure(status, "Not now", kind: kind));
+
+        var response = await FindAsync(host, manager, id);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var row = await RowOfAsync(id);
+        Assert.NotNull(row);
+        Assert.Null(row.LastRefreshedAt);
+    }
+
+    [Fact]
+    public async Task AWorldVRChatFinds_IsAdded_WithItsName()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+        host.VRChat.Returns("GetWorld", new World { Id = "wrld_real_one", Name = "Real One" });
+
+        var response = await FindAsync(host, manager, "wrld_real_one");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("Real One", (await ApiTestHost.BodyOf(response, Ct)).GetProperty("name").GetString());
+        Assert.NotNull((await RowOfAsync("wrld_real_one"))?.LastRefreshedAt);
+    }
+
+    [Fact]
+    public async Task AWorldVRChatRefusedBefore_IsAskedAboutAgain()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+
+        await using (var context = db.NewContext())
+        {
+            context.VRChatWorlds.Add(new VRChatWorld
+            {
+                WorldId = "wrld_refused_once",
+                FirstSeenAt = host.Clock.UtcNow,
+                LastSeenAt = host.Clock.UtcNow,
+                RefreshError = "VRChat returned 403",
+            });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        host.VRChat.Returns("GetWorld", new World { Id = "wrld_refused_once", Name = "Back Again" });
+
+        var response = await FindAsync(host, manager, "wrld_refused_once");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Single(host.VRChat.Calls);
+        Assert.Null((await RowOfAsync("wrld_refused_once"))?.RefreshError);
+    }
+
+    [Fact]
+    public async Task SavingAList_RefusesANewWorldModbotDoesNotKnow_AndMakesNoPlaceholder()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/world-lists", ListBody("Games", ("wrld_made_up_for_a_test", null, null)), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("wrld_made_up_for_a_test", (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString());
+        Assert.Null(await RowOfAsync("wrld_made_up_for_a_test"));
+
+        await using var read = db.NewContext();
+        Assert.Empty(await read.WorldLists.ToListAsync(Ct));
+    }
+
+    [Fact]
+    public async Task SavingAList_RefusesANewWorldVRChatRefused_ButKeepsOnesAlreadyOnTheList()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+        var listId = await CreateListAsync(host, manager, ListBody("Games", ("wrld_stays_a", null, null), ("wrld_stays_b", 2, 6)));
+
+        // One of them is later refused by VRChat, and another world was refused from the start.
+        await using (var context = db.NewContext())
+        {
+            await context.VRChatWorlds.Where(w => w.WorldId == "wrld_stays_b")
+                .ExecuteUpdateAsync(u => u.SetProperty(w => w.LastRefreshedAt, (DateTimeOffset?)null).SetProperty(w => w.RefreshError, "VRChat returned 403"), Ct);
+            context.VRChatWorlds.Add(new VRChatWorld
+            {
+                WorldId = "wrld_never_allowed",
+                FirstSeenAt = host.Clock.UtcNow,
+                LastSeenAt = host.Clock.UtcNow,
+                RefreshError = "VRChat returned 404",
+            });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var unchanged = await host.SendJsonAsync(
+            HttpMethod.Put, $"/api/world-lists/{listId}", ListBody("Games", ("wrld_stays_a", null, null), ("wrld_stays_b", 2, 6)), manager, Ct);
+        Assert.Equal(HttpStatusCode.OK, unchanged.StatusCode);
+
+        var renamed = await host.SendJsonAsync(
+            HttpMethod.Put, $"/api/world-lists/{listId}", ListBody("Party games", ("wrld_stays_a", null, null), ("wrld_stays_b", 2, 8)), manager, Ct);
+        Assert.Equal(HttpStatusCode.OK, renamed.StatusCode);
+
+        var refused = await host.SendJsonAsync(
+            HttpMethod.Put,
+            $"/api/world-lists/{listId}",
+            ListBody("Party games", ("wrld_stays_a", null, null), ("wrld_stays_b", 2, 8), ("wrld_never_allowed", null, null)),
+            manager,
+            Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        Assert.Contains("wrld_never_allowed", (await ApiTestHost.BodyOf(refused, Ct)).GetProperty("error").GetString());
+
+        await using var read = db.NewContext();
+        Assert.Equal(2, await read.WorldListItems.CountAsync(i => i.ListId == listId, Ct));
     }
 
     [Fact]
