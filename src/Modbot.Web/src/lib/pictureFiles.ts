@@ -75,10 +75,11 @@ const BLUESKY_PICTURE_SIDE = 2000
 /**
  * A small JPEG copy of a kept picture for Bluesky's post (posts design §4.2c): at most
  * `maxBytes` (Modbot sends 1,000,000), at most 2000 pixels on its longer side, made smaller and
- * plainer step by step until it fits. Made here because the server has no image library. Throws a
- * plain sentence when even the smallest step does not fit.
+ * plainer step by step until it fits. `side` replaces the 2000 pixels for a picture that needs fewer.
+ * Made here because the server has no image library. Throws a plain sentence when even the smallest
+ * step does not fit.
  */
-export async function smallJpeg(file: Blob, maxBytes: number): Promise<Blob> {
+export async function smallJpeg(file: Blob, maxBytes: number, side = BLUESKY_PICTURE_SIDE): Promise<Blob> {
   const picture = await openPicture(file)
 
   try {
@@ -92,7 +93,7 @@ export async function smallJpeg(file: Blob, maxBytes: number): Promise<Blob> {
     ]
 
     for (const [scale, quality] of steps) {
-      const factor = Math.min(1, BLUESKY_PICTURE_SIDE / longer) * scale
+      const factor = Math.min(1, side / longer) * scale
       const canvas = document.createElement('canvas')
       canvas.width = Math.max(1, Math.round(picture.width * factor))
       canvas.height = Math.max(1, Math.round(picture.height * factor))

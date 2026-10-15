@@ -1,7 +1,7 @@
-import { Heart, MessageCircle, Repeat2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { PostComposer } from '@/components/marketing/PostComposer'
+import { PostNumbers } from '@/components/marketing/PostNumbers'
 import { PostTextField } from '@/components/marketing/PostTextField'
 import { SpotlightChooser } from '@/components/marketing/SpotlightChooser'
 import { Outcome } from '@/components/settings/fields'
@@ -35,7 +35,6 @@ import {
   vrchatAudience,
   vrchatLength,
   POST_TITLE_MAX,
-  type BlueskyCounts,
   type Post,
   type PostDestination,
   type PostInput,
@@ -439,27 +438,6 @@ function PostRow({
 
       {error && <Outcome tone="problem">{error}</Outcome>}
     </div>
-  )
-}
-
-/** The likes, reposts and replies under a sent Bluesky post: an icon and a number each. */
-export function PostNumbers({ counts }: { counts: BlueskyCounts }) {
-  const items = [
-    { Icon: Heart, label: 'Likes', n: counts.likes },
-    { Icon: Repeat2, label: 'Reposts', n: counts.reposts },
-    { Icon: MessageCircle, label: 'Replies', n: counts.replies },
-  ]
-
-  return (
-    <span className="inline-flex items-center gap-x-3 text-muted-foreground">
-      {items.map(({ Icon, label, n }) => (
-        <span key={label} className="inline-flex items-center gap-1" title={label}>
-          <Icon className="size-3.5" aria-hidden />
-          {n}
-          <span className="sr-only">{label.toLowerCase()}</span>
-        </span>
-      ))}
-    </span>
   )
 }
 

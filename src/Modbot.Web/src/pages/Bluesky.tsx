@@ -1,20 +1,21 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AuditLogList } from '@/components/audit/AuditLogList'
 import { EditProfileDialog } from '@/components/bluesky/EditProfileDialog'
+import { PostNumbers } from '@/components/marketing/PostNumbers'
 import { Empty } from '@/components/ListParts'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Pager } from '@/components/Pager'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Notice } from '@/components/ui/notice'
 import { Tabs } from '@/components/ui/tabs'
 import { ApiError, api, type BlueskyProfile, type BlueskyProfilePosts, type CurrentUser } from '@/lib/api'
-import { dateTime } from '@/lib/format'
+import { dateTime, timeOfDay } from '@/lib/format'
 import { settingsPath } from '@/lib/integrations'
 import { usePageState } from '@/lib/listPage'
 import type { FilterChip } from '@/lib/filters'
 import { can } from '@/lib/permissions'
 import { followLink } from '@/lib/router'
-import { PostNumbers } from '@/pages/Marketing'
 
 /**
  * The Bluesky page: the group's account laid out the way Bluesky draws a profile (banner, round
@@ -29,6 +30,7 @@ export function BlueskyPage({ me }: { me: CurrentUser }) {
   const [profile, setProfile] = useState<BlueskyProfile | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
+  const limitedUntil = useStillAhead(profile?.limitedUntil ?? null)
 
   const load = useCallback(
     () =>
@@ -64,7 +66,8 @@ export function BlueskyPage({ me }: { me: CurrentUser }) {
 
   return (
     <div className="flex flex-col gap-3">
-      {profile.state === 'unavailable' && profile.problem && <Notice tone="danger" title={profile.problem} />}
+      {profile.state === 'unavailable' && profile.problem && !limitedUntil && <Notice tone="danger" title={profile.problem} />}
+      {limitedUntil && <Notice tone="danger" title={`Bluesky is limiting Modbot until ${timeOfDay(limitedUntil)}.`} />}
       {profile.saveError && (
         <Notice tone="danger" title="Profile not saved">
           {profile.saveError}
@@ -78,7 +81,7 @@ export function BlueskyPage({ me }: { me: CurrentUser }) {
       </Card>
 
       {profile.canEdit && (
-        <EditProfileDialog open={editing} onOpenChange={setEditing} profile={profile} onSaved={setProfile} />
+        <EditProfileDialog open={editing} onOpenChange={setEditing} profile={profile} limitedUntil={limitedUntil} onSaved={setProfile} />
       )}
     </div>
   )
@@ -210,9 +213,16 @@ function ProfilePosts() {
     }
   }, [at.page, tries])
 
-  if (error) return <Empty tone="danger" onTryAgain={() => setTries((n) => n + 1)}>{error}</Empty>
-  if (!read) return <Empty tone="loading" />
-  if (read.posts.length === 0) return <Empty>No posts sent.</Empty>
+  const gone = read !== null && read.posts.length === 0 && at.page > 1
+
+  // The last post on this page is gone: back to the first page rather than an empty one with no pager.
+  useEffect(() => {
+    if (gone) at.restart()
+  }, [gone, at])
+
+  if (error) return <EmptyRow tone="danger" onTryAgain={() => setTries((n) => n + 1)}>{error}</EmptyRow>
+  if (!read || gone) return <EmptyRow tone="loading" />
+  if (read.posts.length === 0) return <EmptyRow>No posts sent.</EmptyRow>
 
   return (
     <>
@@ -258,4 +268,17 @@ function ProfileReplies() {
   const [chips, setChips] = useState(NO_CHIPS)
 
   return <AuditLogList chips={chips} starts={REPLY_STARTS} onChange={setChips} fixed={REPLY_CHIPS} place="popup" />
+}
+
+/** A time Bluesky holds Modbot until, while it is still ahead; null once it has passed. */
+function useStillAhead(until: string | null): string | null {
+  const [passed, setPassed] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!until) return
+    const timer = window.setTimeout(() => setPassed(until), Math.max(0, new Date(until).getTime() - Date.now()))
+    return () => window.clearTimeout(timer)
+  }, [until])
+
+  return until && passed !== until ? until : null
 }
