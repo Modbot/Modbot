@@ -62,7 +62,7 @@ import { DiscordPreviews } from './DiscordPreviews'
 import { PlatformIcons } from './PlatformIcons'
 import { useDiscordCover, useVRChatPicture, vrchatPictureAddress } from './useVRChatPicture'
 import { DiscordPictureField, VRChatPictureField } from './VRChatPictureField'
-import { FROM_LIST, NO_WORLD, OTHER_WORLD, worldChoice } from '@/lib/calendarWorld'
+import { FROM_LIST, listMissing, NO_WORLD, OTHER_WORLD, worldChoice } from '@/lib/calendarWorld'
 
 
 /** How a repeat stops: never, after its last date, or after a number of times. */
@@ -281,8 +281,7 @@ export function CalendarEventForm({
     announceFirstJoinOnBluesky: input.announceFirstJoinOnBluesky && !!input.publishToBluesky,
   })
 
-  // "Pick from a list" with no list chosen would save as an event with no world at all.
-  const listMissing = choice === FROM_LIST && !input.worldListId
+  const missingList = listMissing({ choice, worldListId: input.worldListId ?? null, worldId: input.worldId })
 
   // The lines to show before a save: what the form leaves empty, a title that is not the template's,
   // and an event already at that time. The check for that one failing is no reason to hold the save.
@@ -315,7 +314,7 @@ export function CalendarEventForm({
   }
 
   const save = async (draft: boolean) => {
-    if (listMissing) {
+    if (missingList) {
       setListMissed(true)
       openTab('event')
       return
@@ -1082,7 +1081,7 @@ export function CalendarEventForm({
                           setInput((current) => ({ ...current, worldListId: null, worldId: id }))
                         }
                       />
-                      {listMissed && listMissing && (
+                      {listMissed && missingList && (
                         <span role="alert" className="text-destructive">
                           Pick a list
                         </span>

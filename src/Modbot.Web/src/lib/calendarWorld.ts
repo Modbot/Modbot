@@ -11,3 +11,11 @@ export function worldChoice(state: { fromList: boolean; typedWorld: boolean; wor
   if (state.fromList) return FROM_LIST
   return state.typedWorld || state.worldId !== null ? OTHER_WORLD : NO_WORLD
 }
+
+/**
+ * "Pick from a list" with nothing picked would save as an event with no world at all. A whole list
+ * or one world from a list both count as picked.
+ */
+export function listMissing(state: { choice: string; worldListId: string | null; worldId: string | null }): boolean {
+  return state.choice === FROM_LIST && !state.worldListId && !state.worldId
+}
