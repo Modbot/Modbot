@@ -1914,7 +1914,7 @@ const SENTENCES: Record<string, Sentence> = {
 
   'modbot.post.picture.upload': (p) => <>{p.actor} uploaded a post picture to VRChat.</>,
 
-  // ── Bluesky replies, mentions and quotes (posts design §4.2.1) ─────────────────────────────
+  // ── Bluesky replies, mentions and quotes (posts design §4.2f) ─────────────────────────────
   'modbot.bluesky.reply': (p) => <BlueskyPost p={p} did="replied" answers={p.text('title')} />,
   'modbot.bluesky.mention': (p) => <BlueskyPost p={p} did="mentioned the group" />,
   'modbot.bluesky.quote': (p) => <BlueskyPost p={p} did="quoted a post of the group" />,

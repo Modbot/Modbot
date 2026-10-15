@@ -411,6 +411,30 @@ public class PostBlueskyEndpointTests(PostgresFixture db)
         Assert.Equal(JsonValueKind.Null, none.GetProperty("countsError").ValueKind);
     }
 
+    [Fact]
+    public async Task AFailedReadOfRepliesAndMentionsIsOnHealth_UntilOneGoesThrough()
+    {
+        var (host, _, cookie) = await StartAsync();
+        await using var running = host;
+
+        await SetRepliesErrorAsync("Sign in with Bluesky again to read replies and mentions.");
+        var shown = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, "/api/posts/health", null, cookie, Ct), Ct);
+        Assert.Equal("Sign in with Bluesky again to read replies and mentions.", shown.GetProperty("repliesError").GetString());
+        Assert.NotEqual(JsonValueKind.Null, shown.GetProperty("repliesErrorAt").ValueKind);
+
+        await SetRepliesErrorAsync(null);
+        var none = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, "/api/posts/health", null, cookie, Ct), Ct);
+        Assert.Equal(JsonValueKind.Null, none.GetProperty("repliesError").ValueKind);
+    }
+
+    private async Task SetRepliesErrorAsync(string? error)
+    {
+        await using var context = db.NewContext();
+        await context.Settings.Where(s => s.Id == 1).ExecuteUpdateAsync(
+            u => u.SetProperty(s => s.BlueskyRepliesError, error)
+                .SetProperty(s => s.BlueskyRepliesErrorAt, error == null ? (DateTimeOffset?)null : DateTimeOffset.UnixEpoch), Ct);
+    }
+
     private async Task SetCountsErrorAsync(string? error)
     {
         await using var context = db.NewContext();

@@ -302,6 +302,14 @@ wherever you choose to store them. These pages describe what is kept and how it 
   About every 30 minutes, Modbot also asks Bluesky's public API, with no sign-in, for the likes,
   reposts and replies of the posts it made in the last 30 days, sending only those posts' addresses
   (up to 25 at a time). Nothing about a person is sent.
+  About every 3 minutes, Modbot also asks the account's own server for the account's new replies,
+  mentions and quotes (a request for its own notifications, which that server passes on to Bluesky). It
+  keeps each one in the [audit log](/moderation/audit-log) as an entry holding the author's handle, name
+  and Bluesky id, what they wrote and the link to their post, and, for a reply, the title of the Modbot
+  post it answers. These are public posts by people outside the group; the entries are kept like the
+  other audit log entries. Likes, reposts and follows are not kept. A Sign in with Bluesky needs one more
+  permission for this, the read of the account's notifications, and a sign-in made before it was added
+  has to sign in again.
   With **Sign in with Bluesky** (only when your Modbot has a public `https://` address), there is no
   app password: Modbot finds the account the same way, then asks the sign-in server the account's own
   server names for a sign-in, with the handle and Modbot's public address, and sends you to Bluesky's

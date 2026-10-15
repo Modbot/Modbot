@@ -938,7 +938,7 @@ public static class FactType
     /// </summary>
     public const string PostPictureUploaded = "modbot.post.picture.upload";
 
-    // ── Bluesky replies, mentions and quotes (posts design §4.2.1) ─────────────────────────
+    // ── Bluesky replies, mentions and quotes (posts design §4.2f) ─────────────────────────
     //
     // Somebody else's public post on Bluesky that answers, names or quotes the group's account. No
     // actor: the author is not a Modbot account and is not a VRChat or Discord person. The subject is

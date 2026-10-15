@@ -448,6 +448,46 @@ count. Step 1 of 2; replies, mentions and quotes into the audit log and the Now 
 - **API**: a Bluesky destination's `bluesky.counts` (`likes`, `reposts`, `replies`, `at`), null before
   the first count; `GET /api/posts/health` gains `countsError` and `countsErrorAt`.
 
+### 4.2f Bluesky replies, mentions and quotes (added 2026-10-14)
+
+New replies, mentions and quotes of the group's Bluesky account become audit log entries, and Now gets
+a line "Bluesky replies and mentions" with a count that opens the audit log at those entries. Step 2 of
+2; builds on the post numbers (§4.2e). Likes, reposts and follows are left out: too many to be useful.
+
+- **Where from**: `app.bsky.notification.listNotifications` on the account's own server, which passes it
+  on to the AppView (`BlueskyClient.MentionsAsync`). The lexicon (`lexicons/app/bsky/notification/
+  listNotifications.json` in bluesky-social/atproto) takes `limit` (1 to 100), `reasons` (a list) and
+  `cursor`; each notification has `uri`, `author` (`did`, `handle`, `displayName`), `reason`,
+  `reasonSubject`, `record` (the author's post: `text`, and `reply.parent.uri` for a reply) and
+  `indexedAt`. Modbot asks for the reasons `reply`, `mention` and `quote` only.
+- **What Modbot keeps** (the user chose this, 2026-10-14): who wrote it (handle, name, DID), their text
+  and a link to the post on bsky.app; for a reply, the Modbot post it answers when it is one Modbot sent
+  (`postId`, `title`). The account's own posts are skipped. Fact types `modbot.bluesky.reply`,
+  `.mention` and `.quote`, source Modbot, no actor, subject the author's post by its address, read with
+  the moderation log, kept like the other entries. Each is written once.
+- **When**: `PostBlueskyReplies`, in `PostBlueskyService`'s pass, at most every 3 minutes. The pages are
+  read newest first until one reaches `settings.bluesky_replies_read_at` (the newest seen), at most
+  three of a hundred, then written oldest first with the mark moving on after each. The first pass has
+  no mark: it starts from then and writes nothing from before.
+- **A 429 is never retried.** The pass stops until the time Bluesky gives
+  (`settings.bluesky_replies_stopped_until`, `BlueskyErrors.StopUntil`), on its own marker apart from
+  posting, so a limit on this read never holds up a post. Any other failure pauses the read for 5
+  minutes.
+- **Rate limit: NOT MEASURED** (§4.3.4 of the foundation spec). The limit on this call is not in the
+  spec's table, `.agent/research/`, `RateLimitOptions.cs` or the `libs/` clones. Placeholder: one read
+  every 3 minutes of at most 3 calls, one after the other (`PostBlueskyReplies.Every`, `MostPages`).
+- **Health**: any failure writes `settings.bluesky_replies_error` and `_at`; the Posts card on Health
+  shows "Bluesky · Replies and mentions · <words>" until a read goes through, which clears it. `GET
+  /api/posts/health` gains `repliesError` and `repliesErrorAt`.
+- **Sign in again**: reading needs the account's own sign-in. An app password already allows it. A
+  Sign in with Bluesky made before this step lacks the permission, `rpc:app.bsky.notification.
+  listNotifications?aud=did:web:api.bsky.app%23bsky_appview` (`BlueskyOAuth.RepliesScope`, now part of
+  the narrow scope beside the pin permission). That is seen from the scope saved with the sign-in, with no
+  call, and Health says "Sign in with Bluesky again to read replies and mentions." One new sign-in
+  also covers the pin permission. There is no other screen for it.
+- **Now**: the change kind `blueskyReplies` counts the three fact types; the line reads "Bluesky
+  replies and mentions" and opens the audit log filtered to those types.
+
 ### 4.3 Edits and the version
 
 Every change a person saves says which `version` it read. A change while a destination is `sending`

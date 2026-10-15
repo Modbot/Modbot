@@ -17,7 +17,7 @@ public sealed record PostBlueskyRepliesPass(int Written, bool Asked);
 
 /// <summary>
 /// Reads the replies, mentions and quotes of the group's Bluesky account and writes each one to the
-/// audit log once (posts design §4.2.1).
+/// audit log once (posts design §4.2f).
 /// </summary>
 /// <remarks>
 /// <para>

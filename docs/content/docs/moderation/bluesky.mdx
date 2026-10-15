@@ -69,11 +69,13 @@ your Modbot from the internet to sign it in, and only an `https://` address with
    **Sign-in: Bluesky**, the account and whether it is marked as automated, as **Check** does.
 
 Modbot never sees the account's password this way. It asks Bluesky only for what posting needs:
-making and deleting posts, pinning a post on the account's profile, and uploading a post's
-picture. If Bluesky does not offer that yet, Modbot asks for what an app password can do instead.
+making and deleting posts, pinning a post on the account's profile, uploading a post's
+picture, and reading the account's replies and mentions. If Bluesky does not offer that yet, Modbot asks for what an app password can do instead.
 
-**A sign-in made before pinning was added cannot pin.** Click **Sign in with Bluesky** again once, so
-Bluesky asks you to allow the profile too. Posting is not affected. An app password already allows it.
+**A sign-in made before pinning was added cannot pin, and one made before replies were read cannot
+read them.** Click **Sign in with Bluesky** again once, so Bluesky asks you to allow what is missing.
+One sign-in covers both. Posting is not affected, and **Health** says
+**Sign in with Bluesky again to read replies and mentions.** An app password already allows it.
 
 **One way of signing in at a time.** Signing in with Bluesky forgets a saved app password, and
 saving an app password ends the sign-in with Bluesky.
@@ -131,6 +133,27 @@ sign-in. A post sent in the last 30 days is counted again every 30 minutes; an o
 last numbers, and so does a post that is gone from Bluesky. Nothing shows before the first count. If
 Bluesky limits Modbot, Modbot waits until the limit resets, and the problem shows on
 [Health](/self-hosting/health) under **Posts** until a count goes through.
+
+## Replies and mentions
+
+New replies, mentions and quotes of the group's Bluesky account are saved in the
+[audit log](/moderation/audit-log) as entries, and [Now](/now#since-you-last-looked) shows a line
+**Bluesky replies and mentions** with a count that opens the audit log at those entries. Each entry
+keeps who wrote it (their name and handle), what they wrote and a link to the post on Bluesky; a reply
+also names the post it answers when Modbot sent that post. Likes, reposts and follows are not saved:
+there are too many to be useful.
+
+Modbot asks the account's own server for them about every 3 minutes, and saves each one once. The
+account's own posts are left out. The first time, it starts from then and saves nothing from before.
+Each pass reads at most the newest 300, so more than that in 3 minutes would leave the oldest out.
+
+Reading needs the account's own sign-in: an app password allows it, and so does a Sign in with Bluesky
+made after replies were added. An older one has to [sign in again](#sign-in-with-bluesky).
+
+If Bluesky limits Modbot, Modbot waits until the limit resets and never asks again before then. Any
+other failure waits 5 minutes. Posting is not held up by either. The problem shows on
+[Health](/self-hosting/health) under **Posts**, as **Bluesky · Replies and mentions**, until a read
+goes through. Bluesky's limit for this call has not been measured, so Modbot's pace is a cautious guess.
 
 ## Calendar events
 
@@ -245,6 +268,7 @@ and never sends the request again before then.
 | The account's profile (its name, description, pictures and pinned post), written back with only the pinned post changed | The account's own server, and from there public on Bluesky | Only with **Pin the next event** on, when the pinned post changes |
 | The address of a post Modbot made | The account's own server | When Modbot deletes a post, such as one a changed or cancelled calendar event made |
 | The addresses of the posts Modbot made in the last 30 days, up to 25 in a request | Bluesky's public API, with no sign-in | About every 30 minutes for each post, to read its likes, reposts and replies |
+| Modbot's sign-in, asking for the account's replies, mentions and quotes (a request for the account's own notifications) | The account's own server, which passes it on to Bluesky | About every 3 minutes, once the account has passed **Check** |
 
 **Posts on Bluesky are public**, and other services copy them. Deleting one removes it from Bluesky,
 not from copies others already took.

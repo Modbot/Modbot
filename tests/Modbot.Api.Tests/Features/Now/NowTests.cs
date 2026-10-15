@@ -128,6 +128,27 @@ public class NowEndpointTests
         Assert.Equal([1, 2, 2], look.Changes.Select(c => c.Count));
     }
 
+    /// <summary>A reply, a mention and a quote of the group's Bluesky account are one line, last in the order.</summary>
+    [Fact]
+    public async Task BlueskyRepliesMentionsAndQuotes_AreOneLine()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        var now = host.Clock.UtcNow;
+
+        await host.WriteFactAsync(Fact(FactType.MemberJoined, "usr_a", now.AddHours(-2)), Ct);
+        await host.WriteFactAsync(Fact(FactType.BlueskyReply, "at://did:plc:a/app.bsky.feed.post/1", now.AddHours(-1)), Ct);
+        await host.WriteFactAsync(Fact(FactType.BlueskyMention, "at://did:plc:b/app.bsky.feed.post/2", now.AddHours(-1)), Ct);
+        await host.WriteFactAsync(Fact(FactType.BlueskyQuote, "at://did:plc:c/app.bsky.feed.post/3", now.AddHours(-1)), Ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, Ct);
+        var look = await LookAsync(host, cookie);
+
+        Assert.NotNull(look.Changes);
+        Assert.Equal(["joins", "blueskyReplies"], look.Changes.Select(c => c.Kind));
+        Assert.Equal([1, 3], look.Changes.Select(c => c.Count));
+    }
+
     [Fact]
     public async Task ComingBack_CountsOnlyWhatHappenedSinceTheLastLook()
     {
