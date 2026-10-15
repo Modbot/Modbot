@@ -1,3 +1,4 @@
+import { CopyButton, PasteButton } from './PasteButton'
 import { Button } from '@/components/ui/button'
 import { around as aroundOf } from '@/lib/calendarOwnText'
 import { cn } from '@/lib/utils'
@@ -47,16 +48,20 @@ export function CardText({
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
-      <FillInText
-        label={label}
-        multiline={multiline}
-        links={links}
-        value={field.value}
-        onChange={field.onChange}
-        onActive={field.onActive}
-        placeholder={field.placeholder}
-        className={cn(IN_CARD, multiline && 'min-h-[2.5em]', className)}
-      />
+      <span className={cn('flex gap-1', multiline ? 'items-start' : 'items-center')}>
+        <FillInText
+          label={label}
+          multiline={multiline}
+          links={links}
+          value={field.value}
+          onChange={field.onChange}
+          onActive={field.onActive}
+          placeholder={field.placeholder}
+          className={cn(IN_CARD, 'min-w-0 flex-1', multiline && 'min-h-[2.5em]', className)}
+        />
+        <CopyButton text={field.value} />
+        <PasteButton onPaste={(t) => field.onChange(field.value + t)} />
+      </span>
       <span
         className={cn('self-end font-mono text-muted-foreground', field.count.over && 'text-destructive')}
         style={{ fontSize: 'var(--text-small)' }}

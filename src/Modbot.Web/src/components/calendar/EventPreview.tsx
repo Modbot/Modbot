@@ -5,8 +5,6 @@ import { Outcome } from '@/components/settings/fields'
 import { ApiError } from '@/lib/api'
 import {
   calendarApi,
-  CATEGORY_LABEL,
-  PLATFORM_LABEL,
   type CalendarEventInput,
   type CalendarGooglePreview,
   type CalendarPreview,
@@ -18,7 +16,7 @@ import { googleRepeatWords } from '@/lib/googleCalendar'
 import { postAround } from '@/lib/calendarOwnText'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 import { cn } from '@/lib/utils'
-import { Around, CardText, UseEventText, type CardEditing } from './CardText'
+import { Around, CardText, type CardEditing } from './CardText'
 
 const when = new Intl.DateTimeFormat(undefined, {
   weekday: 'short',
@@ -135,19 +133,17 @@ export function EventPreview({
       {places.includes('bluesky') && preview.bluesky && (
         <div className="flex flex-col gap-1.5">
           <BlueskyPost post={preview.bluesky} body={editing && <BlueskyBody post={preview.bluesky} editing={editing} />} />
-          {editing && <UseEventText editing={editing} />}
         </div>
       )}
     </div>
   )
 }
 
-function Place({ place, editing, children }: { place: CalendarDestination; editing?: CardEditing | null; children: ReactNode }) {
+function Place({ place, children }: { place: CalendarDestination; editing?: CardEditing | null; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-1.5">
       <h3 className="font-label text-muted-foreground">{DESTINATION_LABEL[place]}</h3>
       {children}
-      {editing && <UseEventText editing={editing} />}
     </section>
   )
 }
@@ -331,22 +327,22 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 const join = (values: string[]) => (values.length > 0 ? values.join(', ') : null)
 
 function VRChatCard({ entry, picture, editing }: { entry: CalendarPreview['vrChat']; picture: ReactNode; editing: CardEditing | null }) {
+  // While editing, the previews above show the picture and title; nothing filled in means nothing to list.
+  // Repeats and languages are drawn in the previews too, so the form leaves them out here.
+  const empty = !picture && !entry.imageId
   return (
     <Place place="vrchat" editing={editing}>
+      {!(editing && empty) && (
       <div className="flex flex-col gap-1.5 rounded-sm border-(length:--hairline) bg-card p-3">
         {picture}
-        {editing ? (
-          <div className="font-label" style={{ fontSize: 'calc(var(--text-base) + 1px)' }}>
-            <CardText field={editing.title} label="Title" links={false} />
-          </div>
-        ) : (
+        {!editing && (
           <div className="font-label [overflow-wrap:anywhere]" style={{ fontSize: 'calc(var(--text-base) + 1px)' }}>
             {entry.title}
           </div>
         )}
-        <Row label="When">{span(entry.startsAt, entry.endsAt)}</Row>
         <Row label="Repeats">
-          {entry.repeat &&
+          {!editing &&
+            entry.repeat &&
             [
               entry.repeat.frequency,
               entry.repeat.every > 1 ? `every ${entry.repeat.every}` : null,
@@ -358,24 +354,10 @@ function VRChatCard({ entry, picture, editing }: { entry: CalendarPreview['vrCha
               .filter(Boolean)
               .join(' · ')}
         </Row>
-        <Row label="Category">{entry.category && (CATEGORY_LABEL[entry.category] ?? entry.category)}</Row>
-        <Row label="Visible to">
-          {entry.visibility && ({ group: 'Group', public: 'Everyone' }[entry.visibility] ?? entry.visibility)}
-        </Row>
-        <Row label="Languages">{join(entry.languages)}</Row>
-        <Row label="Platforms">{join(entry.platforms.map((p) => PLATFORM_LABEL[p] ?? p))}</Row>
-        <Row label="Tags">{join(entry.tags)}</Row>
+        <Row label="Languages">{!editing && join(entry.languages)}</Row>
         <Row label="VRChat image id">{entry.imageId && <span className="font-mono">{entry.imageId}</span>}</Row>
-        <Row label="Notify group members">{entry.notify ? 'Yes' : 'No'}</Row>
-        <Row label="Featured">{entry.featured ? 'Yes' : 'No'}</Row>
-        {editing ? (
-          <div className="pt-1">
-            <CardText field={editing.description} label="Description" multiline />
-          </div>
-        ) : (
-          entry.description && <p className="pt-1 whitespace-pre-wrap [overflow-wrap:anywhere]">{entry.description}</p>
-        )}
       </div>
+      )}
     </Place>
   )
 }

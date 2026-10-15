@@ -49,7 +49,7 @@ export type CalendarTab = 'event' | CalendarServiceTab
 export const SERVICE_TABS: readonly CalendarServiceTab[] = ['vrchat', 'discordEvent', 'channelPost', 'googleCalendar', 'bluesky']
 
 export const TAB_LABEL: Record<CalendarTab, string> = {
-  event: 'Event',
+  event: 'Shared info',
   vrchat: 'VRChat',
   discordEvent: 'Discord event',
   channelPost: 'Discord post',

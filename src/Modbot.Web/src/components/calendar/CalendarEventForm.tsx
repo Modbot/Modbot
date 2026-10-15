@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, Plus } from 'lucide-react'
-import { Popover } from 'radix-ui'
+import { Check, ChevronDown, ChevronRight, Link2, Plus } from 'lucide-react'
+import { DropdownMenu, Popover } from 'radix-ui'
 import { ChannelPicker } from '@/components/discord/ChannelPicker'
 import { RolePicker } from '@/components/discord/RolePicker'
 import { Checkbox, Field, Outcome } from '@/components/settings/fields'
@@ -26,9 +26,7 @@ import {
 } from '@/lib/calendar'
 import {
   BLUESKY_BEFORE_CHOICES,
-  counted,
   DEFAULT_BLUESKY_BEFORE,
-  DESCRIPTION_LIMIT,
   DESTINATION_LABEL,
   DESTINATION_SWITCH,
   DESTINATIONS,
@@ -38,7 +36,6 @@ import {
   SET_UP_LINK,
   TAB_LABEL,
   tabsFor,
-  TITLE_LIMIT,
   type CalendarDestination,
   type CalendarReady,
   type CalendarServiceTab,
@@ -48,9 +45,8 @@ import { calendarTemplateApi } from '@/lib/calendarTemplateApi'
 import { useCanManageSettings } from '@/lib/manageSettings'
 import { AUTO_LINKS, autoLinkOf, cleanFillInName, FILL_IN_TEXTS, fillInKey, fillInMarker, fillInsIn } from '@/lib/calendarFillIns'
 import { addMinutes, fieldsFromInput, joinLength, splitLength } from '@/lib/calendarTemplates'
-import { countOf, OWN_TEXT, ownKeysWithText, placeholderOf, textShown, type OwnKey } from '@/lib/calendarOwnText'
+import { countOf, OWN_TEXT, ownKeysWithText, textShown, type OwnKey } from '@/lib/calendarOwnText'
 import { saveWarnings } from '@/lib/calendarWarnings'
-import { cn } from '@/lib/utils'
 import type { CardEditing, CardField } from './CardText'
 import { EventPreview, usePreviewAnswer } from './EventPreview'
 import { FillInText } from './FillInText'
@@ -60,6 +56,10 @@ import { calendarCategoryApi, type CalendarCategoryRow } from '@/lib/calendarCat
 import { DISCORD_COVER_ASPECT, pictureFollowingLink, VRCHAT_PICTURE_ASPECT } from '@/lib/eventPicture'
 import { CroppedPicture } from './PictureCrop'
 import { usePictureThumbnails } from './usePictureThumbnails'
+import { CopyButton, PasteButton } from './PasteButton'
+import { VRChatPreviews } from './VRChatPreviews'
+import { DiscordPreviews } from './DiscordPreviews'
+import { PlatformIcons } from './PlatformIcons'
 import { useDiscordCover, useVRChatPicture, vrchatPictureAddress } from './useVRChatPicture'
 import { DiscordPictureField, VRChatPictureField } from './VRChatPictureField'
 
@@ -77,6 +77,7 @@ const PREVIEW_WAIT_MS = 400
 
 /** No service has words of its own: a card's text is then the event's. */
 const NO_OWN_TEXT: ReadonlySet<OwnKey> = new Set()
+const DISCORD_PARTS = ['discordEvent', 'channelPost'] as const
 
 /** What "After a number of times" starts at. */
 const FIRST_TIMES = 4
@@ -146,7 +147,7 @@ export function CalendarEventForm({
   const [lists, setLists] = useState<WorldList[]>([])
   // The categories made in Modbot, which any number may be ticked on the event.
   const [categoryChoices, setCategoryChoices] = useState<CalendarCategoryRow[]>([])
-  const [pickingList, setPickingList] = useState(false)
+  const [pickingList, setPickingList] = useState(() => input.worldId === null)
   // Set once Save or Schedule was refused for a list not chosen, so the field says so.
   const [listMissed, setListMissed] = useState(false)
   // Kept as typed, so a comma can be typed; split when saving.
@@ -433,6 +434,9 @@ export function CalendarEventForm({
   // so turning the chip back on does not open the tab again.
   const active: CalendarTab = tabs.includes(tab) ? tab : 'event'
   if (tab !== active) setTab(active)
+  // The Discord event and the channel post share one Discord tab; the part last clicked is the active place.
+  const isDiscord = active === 'discordEvent' || active === 'channelPost'
+  const discordTab = DISCORD_PARTS.find((place) => tabs.includes(place)) ?? null
 
   // Whether a place was turned on by changing its tab, so Schedule asks once.
   const turnedOn = useRef(false)
@@ -508,7 +512,8 @@ export function CalendarEventForm({
     const keys = OWN_TEXT[place]
 
     const field = (key: OwnKey, isTitle: boolean): CardField => {
-      const value = textShown(input, key, edited)
+      // Design mock-up: no shared title or description any more, so each place holds only its own words.
+      const value = input[key] ?? ''
 
       return {
         value,
@@ -520,8 +525,8 @@ export function CalendarEventForm({
           setPutFillIn({ insert })
           if (!isTitle) setPutLink({ insert })
         },
-        placeholder: placeholderOf(input, key, edited),
-        count: countOf(key, value, edited.has(key)),
+        placeholder: '',
+        count: countOf(key, value, true),
         asked: textShown(asked, key, NO_OWN_TEXT),
       }
     }
@@ -564,8 +569,26 @@ export function CalendarEventForm({
     />
   )
 
-  const title = counted(input.title, TITLE_LIMIT)
-  const description = counted(input.description, DESCRIPTION_LIMIT)
+  // The picture link only feeds Discord, so it sits on the Discord tabs (same value on both).
+  const pictureLinkField = (
+    <Field
+      label="Picture link"
+      value={input.imageUrl ?? ''}
+      placeholder="https://"
+      onChange={(v) =>
+        // A link from VRChat fills the VRChat picture too (§15.1).
+        setInput((current) => {
+          const imageUrl = v.trim() || null
+          return {
+            ...current,
+            imageUrl,
+            vrChatImageId: pictureFollowingLink(current.imageUrl, imageUrl, current.vrChatImageId),
+          }
+        })
+      }
+    />
+  )
+
 
   const fillIns = useMemo(() => {
     if (!template) return []
@@ -642,15 +665,6 @@ export function CalendarEventForm({
           </div>
         </Section>
       )}
-      <Section title="Links">
-        <div className="flex flex-wrap items-center gap-2">
-          {AUTO_LINKS.map((link) => (
-            <Button key={link} size="sm" variant="outline" onClick={() => putIn(link)}>
-              {link}
-            </Button>
-          ))}
-        </div>
-      </Section>
     </>
   )
 
@@ -693,9 +707,15 @@ export function CalendarEventForm({
         }
       >
         <Tabs
-          value={active}
+          value={discordTab && isDiscord ? discordTab : active}
           onChange={openTab}
-          tabs={tabs.map((value) => ({ value, label: TAB_LABEL[value], mark: value !== 'event' && (on(value) || (value === 'vrchat' && input.autoOpen)) }))}
+          tabs={tabs
+            .filter((value) => !(value === 'channelPost' && tabs.includes('discordEvent')))
+            .map((value) => ({
+              value,
+              label: value === discordTab ? 'Discord' : TAB_LABEL[value],
+              mark: value !== 'event' && (on(value) || (value === 'vrchat' && input.autoOpen) || (value === discordTab && DISCORD_PARTS.some(on))),
+            }))}
           end={<AddPlace ready={ready} />}
           panelClassName="overflow-visible pt-4"
         >
@@ -703,27 +723,6 @@ export function CalendarEventForm({
             <div className="flex min-w-0 flex-col gap-4">
               {template && <Field label="Name" value={templateName} onChange={setTemplateName} />}
               {insertRows}
-              <Counted label="Title" count={title}>
-                <FillInText
-                  label="Title"
-                  links={false}
-                  value={input.title}
-                  onChange={(v) => set('title', v)}
-                  onActive={(insert) => setPutFillIn({ insert })}
-                />
-              </Counted>
-              <Counted label="Description" count={description}>
-                <FillInText
-                  multiline
-                  label="Description"
-                  value={input.description}
-                  onChange={(v) => set('description', v)}
-                  onActive={(insert) => {
-                    setPutFillIn({ insert })
-                    setPutLink({ insert })
-                  }}
-                />
-              </Counted>
 
               {categoryChoices.length > 0 && (
                 <Section title="Categories">
@@ -854,6 +853,197 @@ export function CalendarEventForm({
 
               <Section title="Where">
                 <div className="grid gap-3 sm:grid-cols-2">
+                  <Labelled label="Platform">
+                    <Select value="vrchat" onChange={() => {}} aria-label="Platform">
+                      <option value="vrchat">VRChat</option>
+                    </Select>
+                  </Labelled>
+                  <Labelled label="Who can join">
+                    <Select value={input.accessType} onChange={(v) => set('accessType', v)} aria-label="Who can join">
+                      <option value="members">Group members</option>
+                      <option value="plus">Members and their friends</option>
+                      <option value="public">Anyone</option>
+                    </Select>
+                  </Labelled>
+                  <Labelled label="Visible to">
+                    <Select value={input.visibility} onChange={(v) => set('visibility', v)} aria-label="Visible to">
+                      <option value="group">Group</option>
+                      <option value="public">Everyone</option>
+                    </Select>
+                  </Labelled>
+                </div>
+              </Section>
+
+            </div>
+          ) : (
+            <div className="flex min-w-0 flex-col gap-4">
+              {active === 'vrchat' && (
+                <VRChatPreviews
+                  title={input.vrChatTitle ?? ""}
+                  description={input.vrChatDescription ?? ""}
+                  picture={vrchatAddress ?? lists.flatMap((l) => l.worlds).find((w) => w.worldId === input.worldId)?.thumbnailUrl ?? null}
+                  platforms={input.platforms}
+                  aboutCount={editingFor('vrchat', shown ?? input).description.count}
+                  titleBox={(() => {
+                    const f = editingFor('vrchat', shown ?? input).title
+                    return (
+                      <span className="flex items-center gap-1">
+                        <FillInText
+                          label="Title"
+                          links={false}
+                          value={f.value}
+                          onChange={f.onChange}
+                          onActive={f.onActive}
+                          placeholder={f.placeholder || 'Add a title'}
+                          className="h-auto min-w-0 flex-1 border-none bg-transparent p-0 text-inherit text-[length:inherit]! font-bold focus-visible:ring-0 empty:before:font-normal empty:before:text-current empty:before:opacity-50"
+                        />
+                        <CopyButton text={f.value} />
+                        <PasteButton onPaste={(t) => f.onChange(f.value + t)} />
+                      </span>
+                    )
+                  })()}
+                  about={(() => {
+                    const f = editingFor('vrchat', shown ?? input).description
+                    return (
+                      <span className="flex items-start gap-1">
+                        <FillInText
+                          multiline
+                          label="About this event"
+                          value={f.value}
+                          onChange={f.onChange}
+                          onActive={f.onActive}
+                          placeholder={f.placeholder || 'Add a description'}
+                          className="min-h-0 min-w-0 flex-1 border-none bg-transparent p-0 font-semibold text-inherit focus-visible:ring-0 empty:before:font-normal empty:before:text-current empty:before:opacity-50"
+                        />
+                        <LinkMenu onPick={putIn} />
+                        <CopyButton text={f.value} />
+                        <PasteButton onPaste={(t) => f.onChange(f.value + t)} />
+                      </span>
+                    )
+                  })()}
+                  repeats={input.repeat !== 'none'}
+                  languages={splitList(languages)}
+                  onLanguages={(list) => setLanguages(list.join(', '))}
+                  eventTags={splitList(tags)}
+                  onEventTags={(list) => setTags(list.join(', '))}
+                  category={input.category}
+                  categoryOptions={Object.fromEntries(categories.map((c) => [c, CATEGORY_LABEL[c] ?? c]))}
+                  onCategory={(v) => set('category', v)}
+                  featured={input.featured}
+                  startsAt={input.startsAt}
+                  endsAt={input.endsAt}
+                  publicEvent={input.visibility === 'public'}
+                />
+              )}
+              {isDiscord &&
+                DISCORD_PARTS.filter((place) => tabs.includes(place)).map((place) => (
+                  <div
+                    key={place}
+                    className="flex min-w-0 flex-col gap-4"
+                    onPointerDownCapture={() => active !== place && setTab(place)}
+                    onFocusCapture={() => active !== place && setTab(place)}
+                  >
+                    <h3 className="font-label text-muted-foreground">{DESTINATION_LABEL[place]}</h3>
+                    {on(place) && !isSetUp(place, ready) && <NotSetUp place={place} newTab />}
+                    {(() => {
+                const e = editingFor(place, shown ?? input)
+                const drawn = answer.preview
+                return (
+                  <DiscordPreviews
+                    key={place}
+                    place={place}
+                    title={e.title.value}
+                    description={e.description.value}
+                    startsAt={input.startsAt}
+                    endsAt={input.endsAt}
+                    location={drawn?.discordEvent?.location ?? null}
+                    picture={discordPreview}
+                    pictureUrl={(place === 'discordEvent' ? drawn?.discordEvent?.coverUrl : drawn?.channelPost?.pictureUrl) ?? input.imageUrl ?? null}
+                    onPicture={chooseEverywhere}
+                    groupName={drawn?.channelPost?.groupName ?? null}
+                    post={drawn?.channelPost ?? null}
+                    colour={input.postColour ?? null}
+                    onColour={(c) => set('postColour', c)}
+                    aboutCount={e.description.count}
+                    titleBox={
+                      <span className="flex items-center gap-1">
+                        <FillInText
+                          label="Title"
+                          links={false}
+                          value={e.title.value}
+                          onChange={e.title.onChange}
+                          onActive={e.title.onActive}
+                          placeholder={e.title.placeholder || 'Add a title'}
+                          className="h-auto min-w-0 flex-1 border-none bg-transparent p-0 text-inherit text-[length:inherit]! font-[inherit] focus-visible:ring-0 empty:before:font-normal empty:before:text-current empty:before:opacity-50"
+                        />
+                        <CopyButton text={e.title.value} />
+                        <PasteButton onPaste={(t) => e.title.onChange(e.title.value + t)} />
+                      </span>
+                    }
+                    about={
+                      <span className="flex items-start gap-1">
+                        <FillInText
+                          multiline
+                          label="Description"
+                          value={e.description.value}
+                          onChange={e.description.onChange}
+                          onActive={e.description.onActive}
+                          placeholder={e.description.placeholder || 'Add a description'}
+                          className="min-h-0 min-w-0 flex-1 border-none bg-transparent p-0 text-inherit text-[length:inherit]! focus-visible:ring-0 empty:before:text-current empty:before:opacity-50"
+                        />
+                        <LinkMenu onPick={putIn} />
+                        <CopyButton text={e.description.value} />
+                        <PasteButton onPaste={(t) => e.description.onChange(e.description.value + t)} />
+                      </span>
+                    }
+                  />
+                )
+                    })()}
+              {place === 'discordEvent' && (
+                <Section>
+                  {pictureLinkField}
+                  {coverField}
+                </Section>
+              )}
+              {place === 'channelPost' && (
+                <Section>
+                  {pictureLinkField}
+                  {!input.publishToDiscord && coverField}
+                  <ChannelPicker
+                    label="Channel"
+                    value={input.channelId ?? ''}
+                    onChange={(id) => set('channelId', id || null)}
+                    needs={['viewChannel', 'sendMessages', 'embedLinks']}
+                    allowNone={false}
+                  />
+                  <RolePicker
+                    label="Mention role"
+                    value={input.mentionRoleId ?? ''}
+                    onChange={(id) => set('mentionRoleId', id || null)}
+                    needsMention
+                  />
+                </Section>
+              )}
+                  </div>
+                ))}
+              {active === 'googleCalendar' ? (
+                google.note === 'notSetUp' ? (
+                  <NotSetUp place="googleCalendar" newTab />
+                ) : (
+                  google.note === 'membersOnly' && (
+                    <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                      Members only
+                    </span>
+                  )
+                )
+              ) : (
+                !isDiscord && on(active) && !isSetUp(active, ready) && <NotSetUp place={active} newTab />
+              )}
+              {!isDiscord && card(active)}
+              {insertRows}
+              {active === 'vrchat' && (
+                <Section>
+                  <div className="grid gap-3 sm:grid-cols-2">
                   <Labelled label="World">
                     <Select
                       aria-label="World"
@@ -879,7 +1069,6 @@ export function CalendarEventForm({
                         set('worldId', v || null)
                       }}
                     >
-                      <option value="">None</option>
                       {worlds.map((w) => (
                         <option key={w.worldId} value={w.worldId}>
                           {w.name ?? w.worldId}
@@ -891,21 +1080,15 @@ export function CalendarEventForm({
                   </Labelled>
                   {worldChoice === FROM_LIST && (
                     <Labelled label="World list">
-                      <Select
-                        aria-label="World list"
-                        value={input.worldListId ?? ''}
-                        onChange={(v) => {
-                          // The list picks the world, date by date: a fixed world left over would be stale.
-                          setInput((current) => ({ ...current, worldListId: v || null, worldId: null }))
-                        }}
-                      >
-                        <option value="">—</option>
-                        {lists.map((l) => (
-                          <option key={l.id} value={l.id}>
-                            {l.name}
-                          </option>
-                        ))}
-                      </Select>
+                      <WorldListMenu
+                        lists={lists}
+                        listId={input.worldListId ?? null}
+                        worldId={input.worldId}
+                        onList={(id) => setInput((current) => ({ ...current, worldListId: id, worldId: null }))}
+                        onWorld={(id) =>
+                          setInput((current) => ({ ...current, worldListId: null, worldId: id, platforms: WORLD_PLATFORMS[id] ?? current.platforms }))
+                        }
+                      />
                       {listMissed && listMissing && (
                         <span role="alert" className="text-destructive">
                           Pick a list
@@ -916,74 +1099,12 @@ export function CalendarEventForm({
                   {worldChoice === OTHER_WORLD && (
                     <Field label="World id" value={input.worldId ?? ''} placeholder="wrld_…" onChange={(v) => set('worldId', v.trim() || null)} />
                   )}
-                  <Labelled label="Who can join">
-                    <Select value={input.accessType} onChange={(v) => set('accessType', v)} aria-label="Who can join">
-                      <option value="members">Group members</option>
-                      <option value="plus">Members and their friends</option>
-                      <option value="public">Anyone</option>
-                    </Select>
-                  </Labelled>
-                  <Labelled label="Visible to">
-                    <Select value={input.visibility} onChange={(v) => set('visibility', v)} aria-label="Visible to">
-                      <option value="group">Group</option>
-                      <option value="public">Everyone</option>
-                    </Select>
-                  </Labelled>
-                  <Labelled label="Region">
-                    <Select value={input.region} onChange={(v) => set('region', v)} aria-label="Region">
-                      <option value="us">US West</option>
-                      <option value="use">US East</option>
-                      <option value="eu">Europe</option>
-                      <option value="jp">Japan</option>
-                    </Select>
-                  </Labelled>
-                </div>
-                <Field
-                  label="Picture link"
-                  value={input.imageUrl ?? ''}
-                  placeholder="https://"
-                  onChange={(v) =>
-                    // A link from VRChat fills the VRChat picture too (§15.1).
-                    setInput((current) => {
-                      const imageUrl = v.trim() || null
-                      return {
-                        ...current,
-                        imageUrl,
-                        vrChatImageId: pictureFollowingLink(current.imageUrl, imageUrl, current.vrChatImageId),
-                      }
-                    })
-                  }
-                />
-              </Section>
-
-            </div>
-          ) : (
-            <div className="flex min-w-0 flex-col gap-4">
-              {active === 'googleCalendar' ? (
-                google.note === 'notSetUp' ? (
-                  <NotSetUp place="googleCalendar" newTab />
-                ) : (
-                  google.note === 'membersOnly' && (
-                    <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                      Members only
-                    </span>
-                  )
-                )
-              ) : (
-                on(active) && !isSetUp(active, ready) && <NotSetUp place={active} newTab />
-              )}
-              {card(active)}
-              {insertRows}
-              {active === 'vrchat' && (
-                <Section>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Labelled label="VRChat category">
-                      <Select value={input.category} onChange={(v) => set('category', v)} aria-label="VRChat category">
-                        {categories.map((c) => (
-                          <option key={c} value={c}>
-                            {CATEGORY_LABEL[c] ?? c}
-                          </option>
-                        ))}
+                    <Labelled label="Region">
+                      <Select value={input.region} onChange={(v) => set('region', v)} aria-label="Region">
+                        <option value="us">US West</option>
+                        <option value="use">US East</option>
+                        <option value="eu">Europe</option>
+                        <option value="jp">Japan</option>
                       </Select>
                     </Labelled>
                     <Field label="Languages" value={languages} placeholder="eng, jpn" onChange={setLanguages} />
@@ -1006,6 +1127,7 @@ export function CalendarEventForm({
                         {PLATFORM_LABEL[p] ?? p}
                       </Checkbox>
                     ))}
+                    <PlatformIcons platforms={input.platforms} />
                   </div>
                   <div className="flex flex-wrap gap-3">
                     <Checkbox checked={input.notifyMembers} onChange={(v) => set('notifyMembers', v)}>
@@ -1033,25 +1155,6 @@ export function CalendarEventForm({
                   <InviteFields input={input} choices={choices} listName={event?.inviteListName ?? null} set={setInstance} />
                 </Section>
               )}
-              {active === 'discordEvent' && coverField}
-              {active === 'channelPost' && (
-                <Section>
-                  {!input.publishToDiscord && coverField}
-                  <ChannelPicker
-                    label="Channel"
-                    value={input.channelId ?? ''}
-                    onChange={(id) => set('channelId', id || null)}
-                    needs={['viewChannel', 'sendMessages', 'embedLinks']}
-                    allowNone={false}
-                  />
-                  <RolePicker
-                    label="Mention role"
-                    value={input.mentionRoleId ?? ''}
-                    onChange={(id) => set('mentionRoleId', id || null)}
-                    needsMention
-                  />
-                </Section>
-              )}
               {active === 'bluesky' && (
                 <Section>
                   <Labelled label="Post it">
@@ -1074,27 +1177,6 @@ export function CalendarEventForm({
         </Tabs>
       </DialogContent>
     </Dialog>
-  )
-}
-
-/** A field with its count beside the label: "12 / 100", red once it is over. */
-function Counted({
-  label,
-  count,
-  children,
-}: {
-  label: string
-  count: { label: string; over: boolean }
-  children: React.ReactNode
-}) {
-  return (
-    <label className="flex min-w-0 flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
-      <span className="flex items-baseline justify-between gap-2">
-        <span className="text-muted-foreground">{label}</span>
-        <span className={cn('font-mono', count.over ? 'text-destructive' : 'text-muted-foreground')}>{count.label}</span>
-      </span>
-      {children}
-    </label>
   )
 }
 
@@ -1301,4 +1383,127 @@ function AddPlace({ ready }: { ready: CalendarReady | null | undefined }) {
       </Popover.Portal>
     </Popover.Root>
   )
+}
+
+/** The link button beside a description: a list of the community's links to put at the caret. */
+function LinkMenu({ onPick }: { onPick: (link: string) => void }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger asChild>
+        <button
+          type="button"
+          aria-label="Insert a link"
+          onMouseDown={(e) => e.preventDefault()}
+          className="flex items-center gap-0.5 rounded-sm px-1 py-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <Link2 className="size-4" />
+          <ChevronDown className="size-3" />
+        </button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          align="end"
+          sideOffset={4}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onCloseAutoFocus={(e) => e.preventDefault()}
+          className="z-50 flex w-52 flex-col rounded-sm border border-(length:--hairline) bg-popover p-1 text-popover-foreground shadow-sm"
+          style={{ fontSize: 'var(--text-small)' }}
+        >
+          {AUTO_LINKS.map((link) => (
+            <button
+              key={link}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                setOpen(false)
+                onPick(link)
+              }}
+              className="rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-muted"
+            >
+              {link}
+            </button>
+          ))}
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  )
+}
+
+/** Design mock-up: the world lists, each opening its worlds on hover; a list itself picks date by date. */
+function WorldListMenu({
+  lists,
+  listId,
+  worldId,
+  onList,
+  onWorld,
+}: {
+  lists: WorldList[]
+  listId: string | null
+  worldId: string | null
+  onList: (id: string | null) => void
+  onWorld: (id: string) => void
+}) {
+  const list = lists.find((l) => l.id === listId)
+  const world = lists.flatMap((l) => l.worlds).find((w) => w.worldId === worldId)
+  const shown = list?.name ?? world?.name ?? world?.worldId ?? '—'
+  const item = 'flex cursor-default items-center justify-between gap-2 rounded-sm px-2 py-1.5 outline-none data-[highlighted]:bg-muted'
+  const panel =
+    'z-50 flex min-w-44 flex-col rounded-sm border border-(length:--hairline) bg-popover p-1 text-popover-foreground shadow-sm'
+
+  return (
+    <>
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <button
+          type="button"
+          aria-label="World list"
+          className="flex h-(--control-h) w-full items-center justify-between rounded-sm border border-(length:--hairline) border-input bg-card px-2.5 text-left"
+        >
+          <span className="truncate">{shown}</span>
+          <ChevronDown className="size-4 text-muted-foreground" />
+        </button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content align="start" sideOffset={4} className={panel} style={{ fontSize: 'var(--text-small)' }}>
+          <DropdownMenu.Item className={item} onSelect={() => onList(null)}>
+            —
+          </DropdownMenu.Item>
+          {lists.map((l) => (
+            <DropdownMenu.Sub key={l.id}>
+              <DropdownMenu.SubTrigger className={item}>
+                {l.name}
+                <ChevronRight className="size-3.5 text-muted-foreground" />
+              </DropdownMenu.SubTrigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.SubContent
+                  sideOffset={4}
+                  className={`${panel} max-h-64 overflow-y-auto`}
+                  style={{ fontSize: 'var(--text-small)' }}
+                >
+                  {l.worlds.map((w) => (
+                    <DropdownMenu.Item key={w.worldId} className={`${item} justify-start`} onSelect={() => onWorld(w.worldId)}>
+                      {w.thumbnailUrl && <img src={w.thumbnailUrl} alt="" className="h-8 w-12 shrink-0 rounded-sm object-cover" />}
+                      {w.name ?? w.worldId}
+                    </DropdownMenu.Item>
+                  ))}
+                </DropdownMenu.SubContent>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Sub>
+          ))}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+    </>
+  )
+}
+
+/** Design mock-up: the platforms each world is built for, which Modbot will read from VRChat. */
+const WORLD_PLATFORMS: Record<string, string[]> = {
+  'wrld_3c231334-2f20-442f-924c-a504d9f98543': ['standalonewindows', 'android'],
+  'wrld_e6569266-21cd-4275-8aef-47fcb7458931': ['standalonewindows', 'android'],
+  'wrld_6d8d8f48-4040-4e5d-a7ca-af51d5306417': ['standalonewindows', 'android'],
+  'wrld_1b3b3259-0a1f-4311-984e-826abab6f481': ['standalonewindows', 'android'],
+  'wrld_0be6b35d-2f14-45f9-a117-4604565ccd80': ['standalonewindows', 'android'],
 }

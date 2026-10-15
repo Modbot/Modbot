@@ -468,6 +468,8 @@ export type CalendarEventInput = {
   announceFirstJoinOnBluesky: boolean
   /** The Discord role the channel post mentions; null for none. */
   mentionRoleId: string | null
+  /** Mock-up: the post's colour while scheduled, 0xRRGGBB; null for Modbot's violet. Live, ended and cancelled keep theirs. */
+  postColour?: number | null
   /** The picture cropped for Discord (calendar design §15.4): the event cover and the post picture. */
   coverPictureId: string | null
   /**
@@ -792,7 +794,7 @@ export function blankEvent(now: Date): CalendarEventInput {
     region: 'us',
     imageUrl: null,
     vrChatImageId: null,
-    category: 'hangout',
+    category: 'other',
     languages: [],
     platforms: [],
     tags: [],
