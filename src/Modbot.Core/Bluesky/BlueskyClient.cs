@@ -254,6 +254,54 @@ public sealed class BlueskyClient(IHttpClientFactory http, IModbotClock clock)
             : BlueskyResult<IReadOnlyList<BlueskyPostCounts>>.Failed(answer.Failure!);
     }
 
+    /// <summary>
+    /// <c>app.bsky.actor.getProfile</c> on the public API, with no sign-in: the profile as Bluesky shows
+    /// it, with the numbers of followers, follows and posts. <paramref name="actor"/> is a DID or a handle.
+    /// The fields are those of <c>app.bsky.actor.defs#profileViewDetailed</c> (github.com/bluesky-social/atproto,
+    /// lexicons/app/bsky/actor/defs.json).
+    /// </summary>
+    public async Task<BlueskyResult<BlueskyAccountProfile>> AccountProfileAsync(string actor, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(actor);
+
+        var path = "app.bsky.actor.getProfile?actor=" + Uri.EscapeDataString(actor);
+        var answer = await SendAsync(HttpMethod.Get, PublicApi, path, null, null, signingIn: false, ct).ConfigureAwait(false);
+
+        if (answer.Value is not { } body)
+            return BlueskyResult<BlueskyAccountProfile>.Failed(answer.Failure!);
+
+        return AccountProfileOf(body) is { } profile
+            ? BlueskyResult<BlueskyAccountProfile>.Ok(profile)
+            : BlueskyResult<BlueskyAccountProfile>.Failed(new BlueskyFailure(BlueskyProblem.Other, 200));
+    }
+
+    /// <summary>Reads a <c>getProfile</c> answer. Null when it has no account; a missing number is null, a missing word is null.</summary>
+    public static BlueskyAccountProfile? AccountProfileOf(JsonObject? body)
+    {
+        if (TextOf(body?["did"]) is not { Length: > 0 } did)
+            return null;
+
+        static string? Words(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+
+        // A picture is shown by its address: only an https one is kept.
+        static string? Address(string? text) =>
+            Uri.TryCreate(text, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps ? uri.AbsoluteUri : null;
+
+        static int? Number(JsonNode? node) =>
+            node is JsonValue value && value.TryGetValue<int>(out var number) && number >= 0 ? number : null;
+
+        return new BlueskyAccountProfile(
+            did,
+            TextOf(body!["handle"]) ?? string.Empty,
+            Words(TextOf(body["displayName"])),
+            Words(TextOf(body["description"])),
+            Address(TextOf(body["avatar"])),
+            Address(TextOf(body["banner"])),
+            Number(body["followersCount"]),
+            Number(body["followsCount"]),
+            Number(body["postsCount"]));
+    }
+
     /// <summary>Reads the posts of a <c>getPosts</c> answer. A post without an address is skipped; a missing number is 0.</summary>
     public static IReadOnlyList<BlueskyPostCounts> CountsOf(JsonObject? body)
     {

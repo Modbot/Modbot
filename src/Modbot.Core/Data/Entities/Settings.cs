@@ -562,6 +562,19 @@ public class Settings
     /// <summary>When <see cref="BlueskyRepliesError"/> was last set.</summary>
     public DateTimeOffset? BlueskyRepliesErrorAt { get; set; }
 
+    /// <summary>
+    /// While Bluesky's public API limits the reading of the profile page, when it may be asked again.
+    /// Apart from <see cref="BlueskyStoppedUntil"/> (the account's own server) and
+    /// <see cref="BlueskyCountsStoppedUntil"/> (a pause for the post numbers that other failures set too).
+    /// </summary>
+    public DateTimeOffset? BlueskyProfileStoppedUntil { get; set; }
+
+    /// <summary>Why the last save of the Bluesky profile (name, bio, picture, banner) failed, in plain words; shown on Health and on the profile page. Null once a save goes through.</summary>
+    public string? BlueskyProfileError { get; set; }
+
+    /// <summary>When <see cref="BlueskyProfileError"/> was last set.</summary>
+    public DateTimeOffset? BlueskyProfileErrorAt { get; set; }
+
     /// <summary>Post the week's line-up (the next seven days' public dates) on Bluesky once a week. Off to start.</summary>
     public bool BlueskyLineupOn { get; set; }
 
