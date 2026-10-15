@@ -5,7 +5,10 @@ import { cn } from '@/lib/utils'
 const CHIP_ATTRIBUTE = 'data-fill-in'
 
 const CHIP_CLASS =
-  'mx-0.5 inline-block select-none rounded-sm border border-(length:--hairline) border-input px-1.5 align-baseline'
+  'mx-0.5 inline-block select-none rounded-sm border border-(length:--hairline) border-input px-1.5 align-baseline data-[picked]:ring-2 data-[picked]:ring-ring'
+
+/** The box clicked on, drawn picked until the caret moves on. */
+const PICKED = 'data-picked'
 
 // A fill-in is asked for when a template is used; an automatic link is filled by Modbot, and looks different.
 const FILL_IN_TONE = 'bg-accent text-accent-foreground'
@@ -124,6 +127,22 @@ export function FillInText({
     }
   }
 
+  const unpick = () => box.current?.querySelectorAll(`[${PICKED}]`).forEach((chip) => chip.removeAttribute(PICKED))
+
+  // A box clicked on is picked whole: the arrow keys then put the caret before or after it, and
+  // Backspace or Delete takes it out.
+  const pick = (target: EventTarget) => {
+    unpick()
+    const chip = target instanceof HTMLElement ? target.closest(`[${CHIP_ATTRIBUTE}]`) : null
+    if (!chip || !box.current?.contains(chip)) return
+    chip.setAttribute(PICKED, '')
+    const range = document.createRange()
+    range.selectNode(chip)
+    const selection = window.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+  }
+
   /** False when the field is gone from the screen, so nothing was put in. */
   const insert = (name: string) => {
     const field = box.current
@@ -173,12 +192,16 @@ export function FillInText({
         className,
       )}
       onFocus={() => onActive?.(insert)}
-      onClick={() => {
+      onClick={(e) => {
+        pick(e.target)
         remember()
         onActive?.(insert)
       }}
       onKeyUp={remember}
-      onBlur={remember}
+      onBlur={() => {
+        unpick()
+        remember()
+      }}
       onInput={(e) => {
         const typed = text(e.currentTarget)
         const kept = links ? typed : withoutLinks(typed)
@@ -200,6 +223,27 @@ export function FillInText({
         onChange(kept)
       }}
       onKeyDown={(e) => {
+        const picked = e.currentTarget.querySelector(`[${PICKED}]`)
+        if (picked) {
+          unpick()
+          if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            e.preventDefault()
+            const range = document.createRange()
+            if (e.key === 'ArrowLeft') range.setStartBefore(picked)
+            else range.setStartAfter(picked)
+            range.collapse(true)
+            const selection = window.getSelection()
+            selection?.removeAllRanges()
+            selection?.addRange(range)
+            return
+          }
+          if (e.key === 'Backspace' || e.key === 'Delete') {
+            e.preventDefault()
+            picked.remove()
+            onChange(text(e.currentTarget))
+            return
+          }
+        }
         if (e.key !== 'Enter') return
         e.preventDefault()
         if (multiline) document.execCommand('insertLineBreak')

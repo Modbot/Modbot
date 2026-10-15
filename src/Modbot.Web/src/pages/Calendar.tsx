@@ -98,6 +98,8 @@ export function Calendar({ me }: { me: CurrentUser }) {
     initial?: CalendarEventInput
     /** The title a template gave a new event, so a different one is warned about on save. */
     templateTitle?: string
+    /** Started from a time drawn on the calendar, not a copy or a template: it goes nowhere yet. */
+    fresh?: boolean
   } | null>(null)
   // An event being saved as a template: the template editor, filled in from the event.
   const [templating, setTemplating] = useState<{ initial: CalendarEventInput; lengthMinutes: number } | null>(null)
@@ -634,7 +636,7 @@ export function Calendar({ me }: { me: CurrentUser }) {
           onClose={() => setQuick(null)}
           onMore={(input) => {
             setQuick(null)
-            setEditing({ event: null, initial: input })
+            setEditing({ event: null, initial: input, fresh: true })
           }}
           onSaved={() => {
             setQuick(null)
@@ -709,6 +711,7 @@ export function Calendar({ me }: { me: CurrentUser }) {
           event={form.event}
           initial={'initial' in form ? form.initial : undefined}
           templateTitle={'templateTitle' in form ? form.templateTitle : undefined}
+          emptyPlaces={!form.event && (!('initial' in form) || !form.initial || ('fresh' in form && !!form.fresh))}
           categories={data.view.categories}
           platforms={data.view.platforms}
           ready={data.view.ready}

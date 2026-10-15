@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check } from 'lucide-react'
+import { Check, Plus } from 'lucide-react'
+import { Popover } from 'radix-ui'
 import { ChannelPicker } from '@/components/discord/ChannelPicker'
 import { RolePicker } from '@/components/discord/RolePicker'
 import { Checkbox, Field, Outcome } from '@/components/settings/fields'
@@ -34,7 +35,7 @@ import {
   googleChip,
   googleTicked,
   isSetUp,
-  missingChannel,
+  SET_UP_LINK,
   TAB_LABEL,
   tabsFor,
   TITLE_LIMIT,
@@ -44,6 +45,7 @@ import {
   type CalendarTab,
 } from '@/lib/calendarPlaces'
 import { calendarTemplateApi } from '@/lib/calendarTemplateApi'
+import { useCanManageSettings } from '@/lib/manageSettings'
 import { AUTO_LINKS, autoLinkOf, cleanFillInName, FILL_IN_TEXTS, fillInKey, fillInMarker, fillInsIn } from '@/lib/calendarFillIns'
 import { addMinutes, fieldsFromInput, joinLength, splitLength } from '@/lib/calendarTemplates'
 import { countOf, OWN_TEXT, ownKeysWithText, placeholderOf, textShown, type OwnKey } from '@/lib/calendarOwnText'
@@ -89,16 +91,14 @@ const REPEAT_UNIT: Record<Exclude<CalendarRepeat, 'none'>, [string, string]> = {
 /**
  * The create and edit form for one event (calendar design §2, §14).
  *
- * Where the event goes comes first, as one row of chips: each place it can go, on or off, the
- * calendar feed shown and always on. A place's own settings are on its tab and only while its chip
- * is on. A ticked place that cannot work as things are set up says "Not set up" beside its
- * chip, linking to where it is set up. Google Calendar says "Not set up" whether ticked or not, and
- * "Members only" for an event only members see, which it never takes (Google Calendar design §3.8);
- * "Visible to" sits under Where, always shown, as the VRChat calendar, Google Calendar and the Bluesky weekly line-up go by it. The chips and the
- * event's own fields are on the Event tab. Each place that is on has a tab of its own, with its
- * own fields and a card of the event the way that place would show it (the calendar feed has none:
- * it always uses the event's text). The buttons are pinned under the form, so a phone never scrolls
- * them away.
+ * Every place that is set up has a tab of its own, with its own fields and a card of the event the
+ * way that place would show it; the event's own fields are on the Event tab. A place is used once
+ * anything on its tab is changed (a new event starts with none), and its tab is marked; Schedule
+ * then asks once, naming the places. Opening the instance is on the VRChat tab and is used once
+ * its fields are changed. Places not set up are under the + after the tabs, each linking to where
+ * it is set up. A place in use that cannot work as things are set up says "Not set up" on its tab;
+ * Google Calendar says "Members only" for an event only members see, which it never takes (Google
+ * Calendar design §3.8). The buttons are pinned under the form, so a phone never scrolls them away.
  */
 export function CalendarEventForm({
   event,
@@ -110,6 +110,7 @@ export function CalendarEventForm({
   vrchatPlus = null,
   template,
   templateTitle,
+  emptyPlaces = false,
   onClose,
   onSaved,
   onTemplateSaved,
@@ -129,11 +130,16 @@ export function CalendarEventForm({
   template?: { id: string | null; name: string; lengthMinutes: number }
   /** The title the event's template gave it, when it was made from one: a different title is warned about on save. */
   templateTitle?: string
+  /** A new event made from nothing: it goes nowhere until a place's tab is changed. */
+  emptyPlaces?: boolean
   onClose: () => void
   onSaved?: (saved: CalendarEvent) => void
   onTemplateSaved?: () => void
 }) {
-  const [input, setInput] = useState<CalendarEventInput>(() => initial ?? (event ? inputFrom(event) : blankEvent(new Date())))
+  const [input, setInput] = useState<CalendarEventInput>(() => {
+    const first = initial ?? (event ? inputFrom(event) : blankEvent(new Date()))
+    return emptyPlaces ? { ...first, ...NO_PLACES } : first
+  })
   const [worlds, setWorlds] = useState<CalendarWorld[]>([])
   const [choices, setChoices] = useState<CalendarInviteChoices>({ staff: [], lists: null })
   const [typedWorld, setTypedWorld] = useState(false)
@@ -329,6 +335,8 @@ export function CalendarEventForm({
     // warnings shown once are not shown again, and the save goes through.
     if (!template && !draft) {
       const found = await warningsFor(saving)
+      const going = DESTINATIONS.filter((place) => place !== 'feed' && on(place)).map((place) => DESTINATION_LABEL[place])
+      if (turnedOn.current && going.length > 0) found.push(`Goes to ${going.join(', ')}`)
 
       if (found.length > 0 && found.join('\n') !== warnings.join('\n')) {
         setWarnings(found)
@@ -420,11 +428,46 @@ export function CalendarEventForm({
   const on = (place: CalendarDestination) =>
     place === 'feed' || (place === 'googleCalendar' ? google.on : !!input[DESTINATION_SWITCH[place]])
 
-  const tabs = tabsFor(on)
+  const tabs = tabsFor((place) => on(place) || placeReady(place, ready))
   // A chip goes off on the Event tab, or a Google tick goes off with its setting: the tab goes with it,
   // so turning the chip back on does not open the tab again.
   const active: CalendarTab = tabs.includes(tab) ? tab : 'event'
   if (tab !== active) setTab(active)
+
+  // Whether a place was turned on by changing its tab, so Schedule asks once.
+  const turnedOn = useRef(false)
+  const turnOn = (place: CalendarServiceTab | 'instance') => {
+    const key = place === 'googleCalendar' ? 'publishToGoogle' : DESTINATION_SWITCH[place]
+    turnedOn.current = true
+    setInput((current) => (current[key] ? current : { ...current, [key]: true }))
+  }
+
+  // A change made on a service's tab turns that place on. The instance's fields, on the VRChat tab,
+  // turn on opening the instance rather than the VRChat calendar.
+  const byInstance = useRef(false)
+  const setInstance: typeof set = (key, value) => {
+    byInstance.current = true
+    set(key, value)
+    turnOn('instance')
+  }
+  const last = useRef({ input, languages, tags })
+  useEffect(() => {
+    const before = last.current
+    last.current = { input, languages, tags }
+    if (byInstance.current) {
+      byInstance.current = false
+      return
+    }
+    if (active === 'event') return
+    const changed =
+      before.languages !== languages ||
+      before.tags !== tags ||
+      (Object.keys(input) as (keyof CalendarEventInput)[]).some(
+        (key) => !PLACE_SWITCHES.has(key) && JSON.stringify(before.input[key]) !== JSON.stringify(input[key]),
+      )
+    if (changed) turnOn(active)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input, languages, tags])
 
   // The form as the server is asked to draw it. A template has no dates: its end follows its length,
   // and a card is drawn for at least a minute.
@@ -652,50 +695,12 @@ export function CalendarEventForm({
         <Tabs
           value={active}
           onChange={openTab}
-          tabs={tabs.map((value) => ({ value, label: TAB_LABEL[value] }))}
+          tabs={tabs.map((value) => ({ value, label: TAB_LABEL[value], mark: value !== 'event' && (on(value) || (value === 'vrchat' && input.autoOpen)) }))}
+          end={<AddPlace ready={ready} />}
           panelClassName="overflow-visible pt-4"
         >
           {active === 'event' ? (
             <div className="flex min-w-0 flex-col gap-4">
-              <div role="group" aria-label="Where it goes" className="flex flex-wrap gap-2">
-                {DESTINATIONS.map((place) => (
-                  <span key={place} className="inline-flex items-center gap-1.5">
-                    <Chip
-                      on={on(place)}
-                      disabled={place === 'feed' || (place === 'googleCalendar' && google.disabled)}
-                      onClick={() => {
-                        if (place === 'googleCalendar') set('publishToGoogle', !google.on)
-                        else if (place !== 'feed') set(DESTINATION_SWITCH[place], !input[DESTINATION_SWITCH[place]])
-                      }}
-                    >
-                      {on(place) && <Check className="size-3.5" />}
-                      {DESTINATION_LABEL[place]}
-                    </Chip>
-                    {place === 'googleCalendar' ? (
-                      google.note === 'notSetUp' ? (
-                        <NotSetUp place="googleCalendar" newTab />
-                      ) : (
-                        google.note === 'membersOnly' && (
-                          <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                            Members only
-                          </span>
-                        )
-                      )
-                    ) : place !== 'feed' && on(place) && !isSetUp(place, ready) ? (
-                      <NotSetUp place={place} newTab />
-                    ) : (
-                      // The channel is picked on the Discord post tab.
-                      place === 'channelPost' &&
-                      missingChannel(input) && (
-                        <span className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
-                          Not set up
-                        </span>
-                      )
-                    )}
-                  </span>
-                ))}
-              </div>
-
               {template && <Field label="Name" value={templateName} onChange={setTemplateName} />}
               {insertRows}
               <Counted label="Title" count={title}>
@@ -951,24 +956,22 @@ export function CalendarEventForm({
                 />
               </Section>
 
-              {input.autoOpen && (
-                <Section title={DESTINATION_LABEL.instance}>
-                  <Labelled label="Minutes early">
-                    <Input
-                      type="number"
-                      min={0}
-                      max={120}
-                      className="w-28"
-                      value={input.openMinutesBefore}
-                      onChange={(e) => set('openMinutesBefore', Number(e.target.value))}
-                    />
-                  </Labelled>
-                  <InviteFields input={input} choices={choices} listName={event?.inviteListName ?? null} set={set} />
-                </Section>
-              )}
             </div>
           ) : (
             <div className="flex min-w-0 flex-col gap-4">
+              {active === 'googleCalendar' ? (
+                google.note === 'notSetUp' ? (
+                  <NotSetUp place="googleCalendar" newTab />
+                ) : (
+                  google.note === 'membersOnly' && (
+                    <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                      Members only
+                    </span>
+                  )
+                )
+              ) : (
+                on(active) && !isSetUp(active, ready) && <NotSetUp place={active} newTab />
+              )}
               {card(active)}
               {insertRows}
               {active === 'vrchat' && (
@@ -1012,6 +1015,22 @@ export function CalendarEventForm({
                       Featured
                     </Checkbox>
                   </div>
+                </Section>
+              )}
+              {active === 'vrchat' && (
+                <Section title={DESTINATION_LABEL.instance}>
+                  {input.autoOpen && !isSetUp('instance', ready) && <NotSetUp place="instance" newTab />}
+                  <Labelled label="Minutes early">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={120}
+                      className="w-28"
+                      value={input.openMinutesBefore}
+                      onChange={(e) => setInstance('openMinutesBefore', Number(e.target.value))}
+                    />
+                  </Labelled>
+                  <InviteFields input={input} choices={choices} listName={event?.inviteListName ?? null} set={setInstance} />
                 </Section>
               )}
               {active === 'discordEvent' && coverField}
@@ -1207,4 +1226,79 @@ function splitList(text: string): string[] {
     .split(',')
     .map((s) => s.trim())
     .filter((s) => s.length > 0)
+}
+
+/** Every place off: where a new event made from nothing starts. */
+const NO_PLACES = {
+  publishToVRChat: false,
+  publishToDiscord: false,
+  postToChannel: false,
+  autoOpen: false,
+  publishToBluesky: false,
+  publishToGoogle: false,
+} satisfies Partial<CalendarEventInput>
+
+/** The input's on and off switches for places, which a change on a tab sets rather than counts as. */
+const PLACE_SWITCHES: ReadonlySet<keyof CalendarEventInput> = new Set(Object.keys(NO_PLACES) as (keyof CalendarEventInput)[])
+
+/** Whether a place's tab is shown for an event not using it: the place is set up. An older server says nothing, and every tab shows. */
+function placeReady(place: CalendarServiceTab, ready: CalendarReady | null | undefined): boolean {
+  if (!ready) return true
+  if (place === 'vrchat') return ready.vrChat
+  if (place === 'googleCalendar') return ready.google !== false
+  if (place === 'bluesky') return ready.bluesky !== false
+  return ready.discord
+}
+
+/** The integrations not set up yet, each linking to where it is set up. */
+const ADDABLE: { label: string; link: string; missing: (ready: CalendarReady) => boolean }[] = [
+  { label: 'VRChat', link: SET_UP_LINK.vrchat, missing: (r) => !r.vrChat },
+  { label: 'Discord', link: SET_UP_LINK.discordEvent, missing: (r) => !r.discord },
+  { label: 'Google Calendar', link: SET_UP_LINK.googleCalendar, missing: (r) => r.google === false },
+  { label: 'Bluesky', link: SET_UP_LINK.bluesky, missing: (r) => r.bluesky === false },
+]
+
+/** The + after the tabs: the integrations not set up, opened in a new tab so the form stays as typed. */
+function AddPlace({ ready }: { ready: CalendarReady | null | undefined }) {
+  const [open, setOpen] = useState(false)
+  const mayFollow = useCanManageSettings()
+  const missing = ready ? ADDABLE.filter((a) => a.missing(ready)) : []
+
+  if (!mayFollow || missing.length === 0) return null
+
+  return (
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger asChild>
+        <button
+          type="button"
+          aria-label="Add a place"
+          className="flex shrink-0 items-center px-2 text-muted-foreground transition-colors hover:text-foreground sm:px-3"
+          style={{ minHeight: 'var(--control-h)' }}
+        >
+          <Plus className="size-4" />
+        </button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          align="start"
+          sideOffset={4}
+          className="z-50 flex w-44 flex-col rounded-sm border border-(length:--hairline) bg-popover p-1 text-popover-foreground shadow-sm"
+          style={{ fontSize: 'var(--text-small)' }}
+        >
+          {missing.map((a) => (
+            <a
+              key={a.label}
+              href={a.link}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => setOpen(false)}
+              className="rounded-sm px-2 py-1.5 transition-colors hover:bg-muted"
+            >
+              {a.label}
+            </a>
+          ))}
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  )
 }

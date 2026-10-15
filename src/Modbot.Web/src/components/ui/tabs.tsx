@@ -20,10 +20,11 @@ export function Tabs<T extends string>({
   wrap = false,
   rowClassName,
   panelClassName,
+  end,
 }: {
   value: T
   onChange: (next: T) => void
-  tabs: { value: T; label: string; badge?: number | null }[]
+  tabs: { value: T; label: string; badge?: number | null; mark?: boolean }[]
   children: React.ReactNode
   className?: string
   /** Every tab in sight on more than one line, rather than a row that scrolls sideways. */
@@ -32,6 +33,8 @@ export function Tabs<T extends string>({
   rowClassName?: string
   /** For the panel, such as letting it grow with the page rather than scroll on its own. */
   panelClassName?: string
+  /** Put after the last tab, such as a button that adds one. */
+  end?: React.ReactNode
 }) {
   const id = useId()
 
@@ -70,6 +73,7 @@ export function Tabs<T extends string>({
               )}
               style={{ fontSize: 'var(--text-small)', minHeight: 'var(--control-h)' }}
             >
+              {tab.mark && <span aria-hidden className="mr-1.5 size-1.5 rounded-full bg-primary" />}
               {tab.label}
               {typeof tab.badge === 'number' && tab.badge > 0 && (
                 <span className="ml-1.5 font-mono text-muted-foreground">{tab.badge}</span>
@@ -79,6 +83,7 @@ export function Tabs<T extends string>({
               )}
             </button>
           ))}
+          {end}
         </div>
       </div>
 
