@@ -583,6 +583,39 @@ public class WorldListEndpointTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task AListCannotBeNamedSeen_SoTheMenusShowOnlyTheAutomaticOne()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+        await KnowAsync(host.Clock.UtcNow, "wrld_named_seen");
+
+        foreach (var name in new[] { "Seen", " seen ", "SEEN" })
+        {
+            var response = await host.SendJsonAsync(
+                HttpMethod.Post, "/api/world-lists", ListBody(name, ("wrld_named_seen", null, null)), manager, Ct);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task TheSeenList_CanBeAskedForWithoutItsWorlds_ForAPicker()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+        var now = host.Clock.UtcNow;
+
+        await EnsureSeenListAsync(now);
+        await KnowAsync(now, "wrld_picker_read");
+
+        var lists = await ApiTestHost.BodyOf(
+            await host.SendJsonAsync(HttpMethod.Get, "/api/world-lists?seenWorlds=false", null, manager, Ct), Ct);
+        var first = lists.GetProperty("lists").EnumerateArray().First();
+
+        Assert.True(first.GetProperty("seen").GetBoolean());
+        Assert.Empty(first.GetProperty("worlds").EnumerateArray());
+    }
+
+    [Fact]
     public async Task AnEventPickingFromTheSeenList_GetsAWorldThatIsNotJunk()
     {
         await using var host = await StartAsync();

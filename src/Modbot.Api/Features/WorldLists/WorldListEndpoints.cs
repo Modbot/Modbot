@@ -58,6 +58,7 @@ public static class WorldListEndpoints
 
         group.MapGet("/", async (
                 HttpContext http,
+                [FromQuery] bool? seenWorlds,
                 [FromServices] ModbotContext db,
                 CancellationToken ct) =>
             {
@@ -68,7 +69,7 @@ public static class WorldListEndpoints
                     .ToListAsync(ct);
 
                 return Results.Ok(new WorldListsView(
-                    await ViewsAsync(db, lists, ct),
+                    await ViewsAsync(db, lists, ct, seenWorlds ?? true),
                     ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ModbotPermissions.ManageCalendar)));
             })
             .RequiresFlag(ModbotPermissions.ViewCalendar)
@@ -76,7 +77,8 @@ public static class WorldListEndpoints
             .WithSummary("List world lists")
             .WithDescription(
                 "The Seen list first, then every world list by name, with its worlds, their players, and the events that "
-                + "pick from it. The Seen list holds every world Modbot has seen and cannot be changed.")
+                + "pick from it. The Seen list holds every world Modbot has seen and cannot be changed; pass seenWorlds=false "
+                + "to get it without its worlds, which is all a picker needs.")
             .Produces<WorldListsView>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -486,6 +488,10 @@ public static class WorldListEndpoints
         if (name.Length > WorldList.MaxNameLength)
             return $"The name is longer than {WorldList.MaxNameLength} characters.";
 
+        // The automatic list already has this name; two Seen lists would look the same in a menu.
+        if (string.Equals(name, WorldList.SeenName, StringComparison.OrdinalIgnoreCase))
+            return $"The name {WorldList.SeenName} is taken by the automatic list.";
+
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var world in body.Worlds ?? [])
@@ -567,12 +573,13 @@ public static class WorldListEndpoints
         })]),
     };
 
-    private static async Task<List<WorldListView>> ViewsAsync(ModbotContext db, IReadOnlyList<WorldList> lists, CancellationToken ct)
+    private static async Task<List<WorldListView>> ViewsAsync(
+        ModbotContext db, IReadOnlyList<WorldList> lists, CancellationToken ct, bool seenWorlds = true)
     {
         var ids = lists.Select(l => l.Id).ToList();
 
         var items = new List<WorldListItem>();
-        foreach (var list in lists)
+        foreach (var list in lists.Where(l => seenWorlds || l.Id != WorldList.SeenId))
             items.AddRange(await WorldListContents.ItemsAsync(db, list.Id, ct));
 
         var worldIds = items.Select(i => i.WorldId).Distinct().ToList();

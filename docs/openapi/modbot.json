@@ -34924,8 +34924,17 @@
           "World lists"
         ],
         "summary": "List world lists",
-        "description": "The Seen list first, then every world list by name, with its worlds, their players, and the events that pick from it. The Seen list holds every world Modbot has seen and cannot be changed.\n\nNeeds the `ViewCalendar` permission.",
+        "description": "The Seen list first, then every world list by name, with its worlds, their players, and the events that pick from it. The Seen list holds every world Modbot has seen and cannot be changed; pass seenWorlds=false to get it without its worlds, which is all a picker needs.\n\nNeeds the `ViewCalendar` permission.",
         "operationId": "ListWorldLists",
+        "parameters": [
+          {
+            "name": "seenWorlds",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",

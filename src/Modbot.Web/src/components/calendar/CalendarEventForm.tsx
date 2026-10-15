@@ -198,7 +198,7 @@ export function CalendarEventForm({
 
   useEffect(() => {
     worldListApi
-      .all()
+      .all({ seenWorlds: false })
       .then((answer) => setLists(answer.lists))
       .catch(() => setLists([]))
     calendarCategoryApi
@@ -1463,7 +1463,13 @@ function WorldListMenu({
           <DropdownMenu.Item className={item} onSelect={() => onList(null)}>
             —
           </DropdownMenu.Item>
-          {lists.map((l) => (
+          {lists.map((l) =>
+            l.seen ? (
+              // Its worlds are not loaded here: it grows with every world Modbot sees.
+              <DropdownMenu.Item key={l.id} className={item} onSelect={() => onList(l.id)}>
+                {l.name}
+              </DropdownMenu.Item>
+            ) : (
             <DropdownMenu.Sub key={l.id}>
               <DropdownMenu.SubTrigger className={item}>
                 {l.name}
@@ -1484,7 +1490,8 @@ function WorldListMenu({
                 </DropdownMenu.SubContent>
               </DropdownMenu.Portal>
             </DropdownMenu.Sub>
-          ))}
+            ),
+          )}
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>

@@ -46,7 +46,10 @@ public static class WorldListContents
         return [.. ids.Select((id, position) => new WorldListItem { ListId = listId, WorldId = id, Position = position })];
     }
 
-    /// <summary>Which of the lists hold at least one world.</summary>
+    /// <summary>
+    /// Which of the lists hold at least one world. Covers the Seen list, which has no rows of its own:
+    /// the empty-list check when an event is saved relies on that.
+    /// </summary>
     public static async Task<List<Guid>> FilledAsync(ModbotContext db, IReadOnlyCollection<Guid> listIds, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(db);
