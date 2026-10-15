@@ -14,6 +14,8 @@ const TITLE = '#f8f8f9'
 const MUTED = '#9b9ba3'
 const BUTTON = 'rgba(151,151,159,0.12)'
 const BLURPLE = '#5865f2'
+/** The scheduled post's colour when none is picked: the server's `CardColour.Violet`. */
+const MODBOT_VIOLET = 0x5b4bd6
 const LINK = '#00a8fc'
 
 type Post = NonNullable<CalendarPreview['channelPost']>
@@ -320,8 +322,11 @@ function Message({ now, mention, narrow, children }: { now: Date; mention?: Post
 /** The post's card: 4px colour bar, 8/16/16/12 padding, at most 516 wide (measured). */
 function PostEmbed({ p, now, width, narrow }: { p: Props; now: Date; width: string; narrow?: boolean }) {
   const post = p.post
-  const value = p.colour ?? post?.colour
-  const colour = value != null ? `#${value.toString(16).padStart(6, '0')}` : BLURPLE
+  // The bar is the server's colour for the post as it would read now (an open date is green whatever
+  // is picked); the picker holds the colour picked for while it is scheduled.
+  const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`
+  const colour = hex(post?.colour ?? p.colour ?? MODBOT_VIOLET)
+  const picked = hex(p.colour ?? MODBOT_VIOLET)
   return (
     <div className={`relative grid rounded border-l-4 pt-2 pr-4 pb-4 pl-3 ${width}`} style={{ background: BUTTON, borderLeftColor: colour }}>
       {p.onColour && (
@@ -329,7 +334,7 @@ function PostEmbed({ p, now, width, narrow }: { p: Props; now: Date; width: stri
           <input
             type="color"
             aria-label="Colour"
-            value={colour}
+            value={picked}
             onChange={(e) => p.onColour!(parseInt(e.target.value.slice(1), 16))}
             className="absolute inset-0 size-full cursor-pointer opacity-0"
           />

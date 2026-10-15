@@ -37,7 +37,7 @@ public static class CalendarCard
     public const int DiscordEventDescriptionLimit = 1000;
     public const int DiscordEventLocationLimit = 100;
 
-    /// <summary>Scheduled: Modbot's own violet, not Discord's.</summary>
+    /// <summary>Scheduled, when the event has no colour of its own: Modbot's own violet, not Discord's.</summary>
     private const uint Violet = CardColour.Violet;
     private const uint Green = CardColour.Green;
     private const uint Dark = CardColour.Dark;
@@ -94,7 +94,7 @@ public static class CalendarCard
                 CalendarCardState.Open => Green,
                 CalendarCardState.Finished => Dark,
                 CalendarCardState.Cancelled => Red,
-                _ => Violet,
+                _ => ScheduledColour(calendarEvent),
             },
             Fields: fields,
             Timestamp: occurrence.StartsAt,
@@ -110,6 +110,13 @@ public static class CalendarCard
             AuthorName: style.GroupName is { Length: > 0 } group ? CardText.Plain(group, 256) : null,
             AuthorIconUrl: picture.AuthorIcon);
     }
+
+    /// <summary>
+    /// The colour of a scheduled post: the one the moderators picked for the event, else violet. Open,
+    /// finished and cancelled posts keep green, dark and red, so the state still reads from the colour.
+    /// </summary>
+    private static uint ScheduledColour(CalendarEvent calendarEvent) =>
+        calendarEvent.PostColour is { } picked and >= 0 and <= CalendarEvent.MaxPostColour ? (uint)picked : Violet;
 
     /// <summary>
     /// The picture the moderators gave the event, when they gave one.

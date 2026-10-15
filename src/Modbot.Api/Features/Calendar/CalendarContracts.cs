@@ -46,6 +46,10 @@ namespace Modbot.Api.Features.Calendar;
 /// A Discord role the channel post mentions, pinged once per date when the date's post first goes
 /// up; null for none. Must be a role in the server that the bot may mention, and never @everyone.
 /// </param>
+/// <param name="PostColour">
+/// The channel post's colour while the date is scheduled, <c>0xRRGGBB</c> as a number from 0 to
+/// 16777215; null for Modbot's violet. Open, finished and cancelled dates keep green, dark and red.
+/// </param>
 /// <param name="RepeatEvery">
 /// How many days, weeks or months apart the repeat falls, 1 to 52: 2 with <c>weekly</c> is every
 /// other week. Null is 1.
@@ -125,7 +129,8 @@ public sealed record CalendarEventRequest(
     string? BlueskyTitle = null,
     string? BlueskyDescription = null,
     int? BlueskyPostBeforeMinutes = null,
-    bool AnnounceFirstJoinOnBluesky = false);
+    bool AnnounceFirstJoinOnBluesky = false,
+    int? PostColour = null);
 
 /// <summary>A category made in Modbot, by the id an event holds it by.</summary>
 public sealed record CalendarCategoryView(Guid Id, string Name);
@@ -311,6 +316,7 @@ public sealed record CalendarPictureLinkRequest(string? Url);
 /// <param name="PublishToGoogle">Whether the event is ticked for the Google calendar in Settings.</param>
 /// <param name="PublishToBluesky">Whether each date of the event gets its own post on Bluesky.</param>
 /// <param name="BlueskyPostBeforeMinutes">How long before a date starts its Bluesky post goes.</param>
+/// <param name="PostColour">The channel post's colour while a date is scheduled, <c>0xRRGGBB</c>; null for Modbot's violet.</param>
 /// <param name="VRChatRoleIds">
 /// The group roles VRChat shows the event to, kept as VRChat said them for an event read in from
 /// VRChat; null or empty for everyone it is visible to. An event narrowed to roles is for members
@@ -388,7 +394,8 @@ public sealed record CalendarEventView(
     int BlueskyPostBeforeMinutes = 1440,
     string? BlueskyTitle = null,
     string? BlueskyDescription = null,
-    bool AnnounceFirstJoinOnBluesky = false);
+    bool AnnounceFirstJoinOnBluesky = false,
+    int? PostColour = null);
 
 /// <summary>A time the channel streamed on Twitch while this event was on (Twitch design, step 3).</summary>
 /// <param name="Id">Twitch's stream id. Opaque.</param>

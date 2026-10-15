@@ -1312,6 +1312,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("platforms");
 
+                    b.Property<int?>("PostColour")
+                        .HasColumnType("integer")
+                        .HasColumnName("post_colour");
+
                     b.Property<bool>("PostToChannel")
                         .HasColumnType("boolean")
                         .HasColumnName("post_to_channel");

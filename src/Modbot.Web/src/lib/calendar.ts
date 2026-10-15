@@ -165,6 +165,8 @@ export type CalendarEvent = {
   invites?: CalendarInvites | null
   /** The Discord role the channel post mentions, pinged once per date; null for none. */
   mentionRoleId?: string | null
+  /** The channel post's colour while scheduled, 0xRRGGBB; null for Modbot's violet. */
+  postColour?: number | null
   /** How many days, weeks or months apart the repeat falls; 1 for every one. */
   repeatEvery?: number
   /** How many dates the repeat has before it stops; null for no count. */
@@ -468,8 +470,8 @@ export type CalendarEventInput = {
   announceFirstJoinOnBluesky: boolean
   /** The Discord role the channel post mentions; null for none. */
   mentionRoleId: string | null
-  /** Mock-up: the post's colour while scheduled, 0xRRGGBB; null for Modbot's violet. Live, ended and cancelled keep theirs. */
-  postColour?: number | null
+  /** The post's colour while scheduled, 0xRRGGBB; null for Modbot's violet. Live, ended and cancelled keep theirs. */
+  postColour: number | null
   /** The picture cropped for Discord (calendar design §15.4): the event cover and the post picture. */
   coverPictureId: string | null
   /**
@@ -815,6 +817,7 @@ export function blankEvent(now: Date): CalendarEventInput {
     announceFirstJoinInVRChat: false,
     announceFirstJoinOnBluesky: false,
     mentionRoleId: null,
+    postColour: null,
     coverPictureId: null,
     vrChatTitle: '',
     vrChatDescription: '',
@@ -875,6 +878,7 @@ export function inputFrom(event: CalendarEvent): CalendarEventInput {
     announceFirstJoinInVRChat: event.announceFirstJoinInVRChat ?? false,
     announceFirstJoinOnBluesky: event.announceFirstJoinOnBluesky ?? false,
     mentionRoleId: event.mentionRoleId ?? null,
+    postColour: event.postColour ?? null,
     coverPictureId: event.coverPictureId ?? null,
     // Left out by an older server, and then left as the event has it.
     publishToGoogle: event.publishToGoogle ?? null,

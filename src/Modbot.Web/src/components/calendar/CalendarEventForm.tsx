@@ -962,7 +962,7 @@ export function CalendarEventForm({
                     onPicture={chooseEverywhere}
                     groupName={drawn?.channelPost?.groupName ?? null}
                     post={drawn?.channelPost ?? null}
-                    colour={input.postColour ?? null}
+                    colour={input.postColour}
                     onColour={(c) => set('postColour', c)}
                     aboutCount={e.description.count}
                     titleBox={

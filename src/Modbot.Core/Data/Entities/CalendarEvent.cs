@@ -255,6 +255,17 @@ public class CalendarEvent
     /// </summary>
     public string? MentionRoleId { get; set; }
 
+    /// <summary>
+    /// The channel post's colour while the date is scheduled, <c>0xRRGGBB</c>, or null for Modbot's
+    /// violet. The moderator picks it per event. Open, finished and cancelled dates keep their own
+    /// colours (green, dark, red) whatever this says, so a post's state can still be read from its
+    /// colour.
+    /// </summary>
+    public int? PostColour { get; set; }
+
+    /// <summary>The largest <see cref="PostColour"/>: white, <c>0xFFFFFF</c>.</summary>
+    public const int MaxPostColour = 0xFFFFFF;
+
     public bool AutoOpen { get; set; }
 
     /// <summary>How many minutes before the start the instance is opened.</summary>

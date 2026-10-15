@@ -64,7 +64,8 @@ public sealed record CalendarTemplateFields(
     bool? PublishToBluesky = null,
     int? BlueskyPostBeforeMinutes = null,
     string? BlueskyTitle = null,
-    string? BlueskyDescription = null);
+    string? BlueskyDescription = null,
+    int? PostColour = null);
 
 /// <summary>A template as a person fills it in.</summary>
 /// <param name="Name">What the list calls it, 1 to 100 characters.</param>

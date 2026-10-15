@@ -64,6 +64,7 @@ public static class CalendarEventFields
             ["postToChannel"] = e.PostToChannel,
             ["channelId"] = e.ChannelId,
             ["mentionRoleId"] = e.MentionRoleId,
+            ["postColour"] = e.PostColour,
             ["autoOpen"] = e.AutoOpen,
             ["openMinutesBefore"] = e.OpenMinutesBefore,
 

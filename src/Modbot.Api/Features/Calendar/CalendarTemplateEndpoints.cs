@@ -367,7 +367,8 @@ public static class CalendarTemplateEndpoints
             PublishToBluesky: fields.PublishToBluesky,
             BlueskyPostBeforeMinutes: fields.BlueskyPostBeforeMinutes,
             BlueskyTitle: target.BlueskyTitle,
-            BlueskyDescription: target.BlueskyDescription));
+            BlueskyDescription: target.BlueskyDescription,
+            PostColour: target.PostColour));
     }
 
     /// <summary>
@@ -428,6 +429,7 @@ public static class CalendarTemplateEndpoints
             PublishToBluesky: f.PublishToBluesky,
             BlueskyTitle: f.BlueskyTitle,
             BlueskyDescription: f.BlueskyDescription,
-            BlueskyPostBeforeMinutes: f.BlueskyPostBeforeMinutes);
+            BlueskyPostBeforeMinutes: f.BlueskyPostBeforeMinutes,
+            PostColour: f.PostColour);
     }
 }

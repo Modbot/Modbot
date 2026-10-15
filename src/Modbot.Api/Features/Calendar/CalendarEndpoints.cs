@@ -2057,6 +2057,9 @@ public static class CalendarEndpoints
         if (body.AutoOpen && worldId is null && body.WorldListId is null && !preview)
             problems.Add("Pick a world to open the instance in.");
 
+        if (body.PostColour is < 0 or > CalendarEvent.MaxPostColour)
+            problems.Add("The post's colour is not a colour.");
+
         var openBefore = body.OpenMinutesBefore ?? 10;
         if (openBefore is < 0 or > MaxOpenMinutesBefore)
             problems.Add($"The instance can open between 0 and {MaxOpenMinutesBefore} minutes early.");
@@ -2129,6 +2132,7 @@ public static class CalendarEndpoints
         target.PostToChannel = body.PostToChannel;
         target.ChannelId = channelId;
         target.MentionRoleId = string.IsNullOrWhiteSpace(body.MentionRoleId) ? null : body.MentionRoleId.Trim();
+        target.PostColour = body.PostColour;
         target.AutoOpen = body.AutoOpen;
         target.OpenMinutesBefore = openBefore;
         target.InviteHostUserId = body.InviteHostUserId;
@@ -2417,7 +2421,8 @@ public static class CalendarEndpoints
                 e.BlueskyPostBeforeMinutes,
                 e.BlueskyTitle,
                 e.BlueskyDescription,
-                e.AnnounceFirstJoinOnBluesky);
+                e.AnnounceFirstJoinOnBluesky,
+                e.PostColour);
         })];
     }
 

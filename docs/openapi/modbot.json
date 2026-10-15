@@ -45785,6 +45785,13 @@
           "announceFirstJoinOnBluesky": {
             "type": "boolean",
             "default": false
+          },
+          "postColour": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -46215,6 +46222,13 @@
           "announceFirstJoinOnBluesky": {
             "type": "boolean",
             "default": false
+          },
+          "postColour": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -47450,6 +47464,13 @@
               "null",
               "string"
             ]
+          },
+          "postColour": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },

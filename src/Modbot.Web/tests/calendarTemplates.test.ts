@@ -47,6 +47,7 @@ const input: CalendarEventInput = {
   announceFirstJoinInVRChat: false,
   announceFirstJoinOnBluesky: false,
   mentionRoleId: null,
+  postColour: null,
   coverPictureId: null,
   vrChatTitle: 'Movies in VRChat',
   vrChatDescription: '',
@@ -97,6 +98,14 @@ test('a template saved before Bluesky loads with it off and the usual time', () 
 
   assert.equal(loaded.publishToBluesky, false)
   assert.equal(loaded.blueskyPostBeforeMinutes, 1440)
+})
+
+test('a template keeps the post colour, and one saved before post colours loads with none', () => {
+  const picked = fieldsFromInput({ ...input, postColour: 0x3498db }, 120)
+  assert.equal(inputFromTemplate(picked, input).postColour, 0x3498db)
+
+  const { postColour: _colour, ...old } = picked
+  assert.equal(inputFromTemplate(old as typeof picked, input).postColour, null)
 })
 
 test('a template loads into the form over the dates it is given', () => {

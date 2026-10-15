@@ -2758,6 +2758,7 @@ const CALENDAR_FIELDS: Record<string, Say> = {
   publishToDiscord: { toggle: 'the Discord event' },
   postToChannel: { toggle: 'the channel post' },
   channelId: 'the channel',
+  postColour: 'the post colour',
   autoOpen: { toggle: 'opening the instance' },
   openMinutesBefore: { word: 'how early the instance opens', show: (v) => (typeof v === 'number' ? lengthOfTime(v) : plain(v)) },
   inviteHost: 'the host',
