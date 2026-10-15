@@ -14,6 +14,15 @@ namespace Modbot.Api.Features.Posts;
 public sealed record PostBlueskyCountsPass(int Asked, int Counted, int Missing);
 
 /// <summary>
+/// When the public API was last called. One for the process: each pass is scoped, so the time has to
+/// outlive it for <see cref="PostBlueskyCounts.CallGap"/> to mean anything.
+/// </summary>
+public sealed class PostBlueskyCountsLastCall
+{
+    public DateTimeOffset? At { get; set; }
+}
+
+/// <summary>
 /// Reads the likes, reposts and replies of the Bluesky posts Modbot sent, from Bluesky's public API
 /// (<see cref="BlueskyClient.PostCountsAsync"/>), with no sign-in.
 /// </summary>
@@ -27,8 +36,9 @@ public sealed record PostBlueskyCountsPass(int Asked, int Counted, int Missing);
 /// A post missing from the answer is gone from Bluesky: it keeps its last numbers and is not asked for
 /// again before <see cref="Every"/> has passed. A rate limit stops the pass until the time Bluesky says
 /// it resets and is never retried (CLAUDE.md, §4.3.1); that stop is apart from the account's own lane
-/// (<see cref="Settings.BlueskyStoppedUntil"/>), because it is another server. Any failure is kept for
-/// Health until a read goes through.
+/// (<see cref="Settings.BlueskyStoppedUntil"/>), because it is another server. Any other failure stops
+/// the pass for <see cref="FailurePause"/>, so the same posts are not asked again every poll. Any failure
+/// is kept for Health until a read goes through, or until there is nothing left to count.
 /// </para>
 /// <para>
 /// <strong>Rate limit: NOT MEASURED.</strong> Nobody has measured the public API's limits for this call
@@ -53,12 +63,19 @@ public sealed class PostBlueskyCounts
     /// <summary>NOT MEASURED: the least time between two calls to the public API. A placeholder.</summary>
     public static readonly TimeSpan CallGap = TimeSpan.FromSeconds(10);
 
+    /// <summary>How long the pass waits after a failure that is not a rate limit.</summary>
+    public static readonly TimeSpan FailurePause = TimeSpan.FromMinutes(5);
+
+    /// <summary>The words when the public API did not answer.</summary>
+    public const string CouldNotReach = "Could not reach Bluesky.";
+
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
     private readonly BlueskyClient _client;
+    private readonly PostBlueskyCountsLastCall _lastCall;
     private readonly ILogger _log;
 
-    public PostBlueskyCounts(ModbotContext db, IModbotClock clock, BlueskyClient client, ILogger? log = null)
+    public PostBlueskyCounts(ModbotContext db, IModbotClock clock, BlueskyClient client, PostBlueskyCountsLastCall? lastCall = null, ILogger? log = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(clock);
@@ -67,6 +84,7 @@ public sealed class PostBlueskyCounts
         _db = db;
         _clock = clock;
         _client = client;
+        _lastCall = lastCall ?? new PostBlueskyCountsLastCall();
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Sync);
     }
 
@@ -80,6 +98,9 @@ public sealed class PostBlueskyCounts
             .FirstOrDefaultAsync(ct).ConfigureAwait(false);
 
         if (settings is null || (settings.BlueskyCountsStoppedUntil is { } stopped && now < stopped))
+            return new PostBlueskyCountsPass(0, 0, 0);
+
+        if (_lastCall.At is { } last && now - last < CallGap)
             return new PostBlueskyCountsPass(0, 0, 0);
 
         var since = now - Window;
@@ -100,8 +121,12 @@ public sealed class PostBlueskyCounts
             .ToListAsync(ct).ConfigureAwait(false);
 
         if (rows.Count == 0)
+        {
+            await ClearErrorAsync(settings.BlueskyCountsError, ct).ConfigureAwait(false);
             return new PostBlueskyCountsPass(0, 0, 0);
+        }
 
+        _lastCall.At = now;
         var answer = await _client.PostCountsAsync([.. rows.Select(r => r.Uri)], ct).ConfigureAwait(false);
 
         if (answer.Failure is { } failure)
@@ -135,36 +160,44 @@ public sealed class PostBlueskyCounts
             }
         }
 
-        if (settings.BlueskyCountsError is not null)
-        {
-            await _db.Settings.Where(s => s.Id == 1)
-                .ExecuteUpdateAsync(
-                    u => u.SetProperty(s => s.BlueskyCountsError, (string?)null)
-                        .SetProperty(s => s.BlueskyCountsErrorAt, (DateTimeOffset?)null),
-                    ct).ConfigureAwait(false);
-        }
+        await ClearErrorAsync(settings.BlueskyCountsError, ct).ConfigureAwait(false);
 
         return new PostBlueskyCountsPass(rows.Count, counted, missing);
     }
 
-    /// <summary>Kept for Health; a rate limit also stops the pass until it resets. Nothing is asked again this pass.</summary>
+    private async Task ClearErrorAsync(string? error, CancellationToken ct)
+    {
+        if (error is null)
+            return;
+
+        await _db.Settings.Where(s => s.Id == 1)
+            .ExecuteUpdateAsync(
+                u => u.SetProperty(s => s.BlueskyCountsError, (string?)null)
+                    .SetProperty(s => s.BlueskyCountsErrorAt, (DateTimeOffset?)null),
+                ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Kept for Health; a rate limit stops the pass until it resets, any other failure for <see cref="FailurePause"/>.</summary>
     private async Task FailedAsync(BlueskyFailure failure, DateTimeOffset now, CancellationToken ct)
     {
-        var reason = BlueskyErrors.Sentence(failure);
+        // The sentence for the account's server would be wrong here: this call goes to Bluesky's public API.
+        var reason = failure.Problem == BlueskyProblem.Unavailable ? CouldNotReach : BlueskyErrors.Sentence(failure);
+        DateTimeOffset until;
 
         if (failure.StopsTheLane)
         {
-            var until = BlueskyErrors.StopUntil(failure, now);
+            until = BlueskyErrors.StopUntil(failure, now);
             _log.Warning("Bluesky is limiting the reading of post numbers; they are not asked for again until the limit resets");
-
-            await _db.Settings
-                .Where(s => s.Id == 1 && (s.BlueskyCountsStoppedUntil == null || s.BlueskyCountsStoppedUntil < until))
-                .ExecuteUpdateAsync(u => u.SetProperty(s => s.BlueskyCountsStoppedUntil, until), ct).ConfigureAwait(false);
         }
         else
         {
+            until = now + FailurePause;
             _log.Warning("The numbers under the Bluesky posts could not be read: {Reason}", reason);
         }
+
+        await _db.Settings
+            .Where(s => s.Id == 1 && (s.BlueskyCountsStoppedUntil == null || s.BlueskyCountsStoppedUntil < until))
+            .ExecuteUpdateAsync(u => u.SetProperty(s => s.BlueskyCountsStoppedUntil, until), ct).ConfigureAwait(false);
 
         await _db.Settings.Where(s => s.Id == 1)
             .ExecuteUpdateAsync(

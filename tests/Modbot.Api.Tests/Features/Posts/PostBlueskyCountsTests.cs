@@ -44,7 +44,10 @@ public sealed class PostBlueskyCountsTests
             {
                 return Task.FromResult(new HttpResponseMessage(Status)
                 {
-                    Content = new StringContent("""{"error":"RateLimitExceeded","message":"Rate Limit Exceeded"}""", Encoding.UTF8, "application/json"),
+                    Content = new StringContent(
+                    Status == HttpStatusCode.TooManyRequests ? """{"error":"RateLimitExceeded","message":"Rate Limit Exceeded"}""" : "{}",
+                    Encoding.UTF8,
+                    "application/json"),
                 });
             }
 
@@ -79,11 +82,12 @@ public sealed class PostBlueskyCountsTests
                 .SetProperty(s => s.BlueskyCountsErrorAt, (DateTimeOffset?)null), Ct);
     }
 
-    private async Task<PostBlueskyCountsPass> PassAsync()
+    /// <summary>One pass; <paramref name="lastCall"/> is the process-wide last-call time, new for each pass unless given.</summary>
+    private async Task<PostBlueskyCountsPass> PassAsync(PostBlueskyCountsLastCall? lastCall = null)
     {
         await using var context = _db.NewContext();
         await context.GetSettingsAsync(Ct);
-        var pass = new PostBlueskyCounts(context, _clock, new BlueskyClient(new OneHandlerClients(_api), _clock));
+        var pass = new PostBlueskyCounts(context, _clock, new BlueskyClient(new OneHandlerClients(_api), _clock), lastCall);
         return await pass.RunOnceAsync(Ct);
     }
 
@@ -281,6 +285,94 @@ public sealed class PostBlueskyCountsTests
         Assert.Equal(2, _api.Requests.Count);
         Assert.Equal(2, (await DestinationAsync(id)).LikeCount);
         Assert.Null((await SettingsAsync()).BlueskyCountsError);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.ServiceUnavailable, BlueskyErrors.Unreachable, PostBlueskyCounts.CouldNotReach)]
+    [InlineData(HttpStatusCode.BadRequest, null, null)]
+    public async Task AFailureThatIsNotARateLimitPausesThePassForFiveMinutes_AndSaysItIsBluesky(HttpStatusCode status, string? notThis, string? sentence)
+    {
+        await SetUpAsync();
+        var id = await AddAsync("3kmmmmmmmmmmm", TimeSpan.FromHours(2));
+        _api.Posts[UriOf("3kmmmmmmmmmmm")] = (4, 0, 0);
+        _api.Status = status;
+
+        await PassAsync();
+
+        Assert.Single(_api.Requests);
+        var settings = await SettingsAsync();
+        Assert.Equal(_clock.UtcNow + PostBlueskyCounts.FailurePause, settings.BlueskyCountsStoppedUntil);
+        Assert.NotNull(settings.BlueskyCountsError);
+        Assert.NotEqual(notThis, settings.BlueskyCountsError);
+
+        if (sentence is not null)
+            Assert.Equal(sentence, settings.BlueskyCountsError);
+
+        // Not asked again every poll.
+        _clock.Advance(PostBlueskyService.PollInterval);
+        await PassAsync();
+        Assert.Single(_api.Requests);
+
+        // Asked again once the pause is over, and a read that goes through clears the error.
+        _api.Status = HttpStatusCode.OK;
+        _clock.Advance(PostBlueskyCounts.FailurePause);
+        await PassAsync();
+
+        Assert.Equal(2, _api.Requests.Count);
+        Assert.Equal(4, (await DestinationAsync(id)).LikeCount);
+        Assert.Null((await SettingsAsync()).BlueskyCountsError);
+    }
+
+    [Fact]
+    public async Task TheErrorClearsWhenThePauseIsOverAndNothingIsLeftToCount()
+    {
+        await SetUpAsync();
+        await AddAsync("3knnnnnnnnnnn", TimeSpan.FromHours(2));
+        _api.Status = HttpStatusCode.ServiceUnavailable;
+        await PassAsync();
+        Assert.NotNull((await SettingsAsync()).BlueskyCountsError);
+
+        // The only post is now older than 30 days: no rows left, so no call, yet the error goes.
+        await using (var context = _db.NewContext())
+        {
+            await context.PostDestinations.ExecuteUpdateAsync(
+                u => u.SetProperty(d => d.PostedAt, _clock.UtcNow - PostBlueskyCounts.Window - TimeSpan.FromDays(1)), Ct);
+        }
+
+        // Still paused: the error stays.
+        _clock.Advance(PostBlueskyService.PollInterval);
+        await PassAsync();
+        Assert.NotNull((await SettingsAsync()).BlueskyCountsError);
+
+        _clock.Advance(PostBlueskyCounts.FailurePause);
+        await PassAsync();
+
+        Assert.Single(_api.Requests);
+        var settings = await SettingsAsync();
+        Assert.Null(settings.BlueskyCountsError);
+        Assert.Null(settings.BlueskyCountsErrorAt);
+    }
+
+    [Fact]
+    public async Task TwoCallsAreNeverLessThanTheCallGapApart_EvenAcrossPasses()
+    {
+        await SetUpAsync();
+        var lastCall = new PostBlueskyCountsLastCall();
+        await AddAsync("3koooooooooo1", TimeSpan.FromHours(2));
+        await PassAsync(lastCall);
+        Assert.Single(_api.Requests);
+
+        await AddAsync("3koooooooooo2", TimeSpan.FromHours(2));
+        _clock.Advance(PostBlueskyCounts.CallGap - TimeSpan.FromSeconds(1));
+        var tooSoon = await PassAsync(lastCall);
+
+        Assert.Equal(0, tooSoon.Asked);
+        Assert.Single(_api.Requests);
+
+        _clock.Advance(TimeSpan.FromSeconds(1));
+        await PassAsync(lastCall);
+
+        Assert.Equal(2, _api.Requests.Count);
     }
 
     [Fact]

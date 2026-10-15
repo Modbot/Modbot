@@ -453,9 +453,10 @@ function PostNumbers({ counts }: { counts: BlueskyCounts }) {
   return (
     <span className="inline-flex items-center gap-x-3 text-muted-foreground">
       {items.map(({ Icon, label, n }) => (
-        <span key={label} className="inline-flex items-center gap-1" title={label} aria-label={`${n} ${label.toLowerCase()}`}>
+        <span key={label} className="inline-flex items-center gap-1" title={label}>
           <Icon className="size-3.5" aria-hidden />
           {n}
+          <span className="sr-only">{label.toLowerCase()}</span>
         </span>
       ))}
     </span>
