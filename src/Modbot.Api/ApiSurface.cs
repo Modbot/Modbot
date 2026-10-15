@@ -14,6 +14,7 @@ using Modbot.Api.Features.Auth.Me;
 using Modbot.Api.Features.Auth.VRChatLink;
 using Modbot.Api.Features.Analytics;
 using Modbot.Api.Features.Audit;
+using Modbot.Api.Features.BlueskyProfile;
 using Modbot.Api.Features.Cases;
 using Modbot.Api.Features.DiscordGate;
 using Modbot.Api.Features.DiscordLink;
@@ -137,6 +138,8 @@ public static class ApiSurface
         services.TryAddSingleton<Features.Posts.PostBlueskyCountsLastCall>();
         services.TryAddScoped<Features.Posts.PostBlueskyCounts>();
         services.TryAddScoped<Features.Posts.PostBlueskyReplies>();
+        services.TryAddSingleton<Features.BlueskyProfile.BlueskyProfileMemory>();
+        services.TryAddScoped<Features.BlueskyProfile.BlueskyProfileService>();
         services.TryAddScoped<Features.Calendar.CalendarBlueskyPlanner>();
         services.TryAddScoped<Features.Calendar.CalendarBlueskyFirstJoin>();
         services.TryAddScoped<Features.Calendar.CalendarBlueskyPin>();
@@ -565,6 +568,7 @@ public static class ApiSurface
         app.MapAiSettings();
         app.MapGoogleCalendarSettings();
         app.MapBlueskySettings();
+        app.MapBlueskyProfile();
         app.MapBlueskyOAuth();
         app.MapTwitchSettings();
         app.MapSpotlightSettings();

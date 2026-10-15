@@ -239,6 +239,10 @@ public static class BlueskySettingsEndpoints
                     settings.BlueskyPinError = null;
                     settings.BlueskyPinErrorAt = null;
 
+                    // A profile save that failed was on the old account.
+                    settings.BlueskyProfileError = null;
+                    settings.BlueskyProfileErrorAt = null;
+
                     // Replies are read from the new account's start, not from where the old one got to.
                     ForgetReplies(settings);
                 }
@@ -354,6 +358,8 @@ public static class BlueskySettingsEndpoints
                 settings.BlueskyPinCheckedAt = null;
                 settings.BlueskyPinError = null;
                 settings.BlueskyPinErrorAt = null;
+                settings.BlueskyProfileError = null;
+                settings.BlueskyProfileErrorAt = null;
                 ForgetReplies(settings);
                 ClearCheck(settings);
 

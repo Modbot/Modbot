@@ -8328,6 +8328,224 @@
         ]
       }
     },
+    "/api/bluesky/profile": {
+      "get": {
+        "tags": [
+          "Bluesky"
+        ],
+        "summary": "Get the Bluesky profile",
+        "description": "The group's Bluesky account as its profile page shows it: name, handle, bio, picture and banner addresses and the followers, following and posts counts, read from Bluesky's public API (no sign-in). The answer is kept for 10 seconds. State is notSetUp when no account is saved and unavailable when it could not be read (Problem says why). CanEdit is true for a caller who may change the Bluesky settings; SaveError is why the last save failed.\n\nNeeds the `ViewAnalytics` permission.",
+        "operationId": "GetBlueskyProfile",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlueskyProfileView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Bluesky"
+        ],
+        "summary": "Change the Bluesky profile",
+        "description": "Changes the account's name, bio, picture and banner on Bluesky, and nothing else on the profile (the pin and every other field stay as they are). Needs Manage settings. The body is a multipart form: text fields displayName (at most 64 characters) and bio (at most 256) and files avatar and banner (a PNG or JPEG under 1 MB each). A field that is not sent is kept; an empty text field clears it. Answers with the profile as saved. 400 for nothing to save, a value over its limit, or an account that is not set up; 413 for a picture over 1 MB; 429 when Bluesky is limiting Modbot or a save came within 10 seconds of the last one (a 429 is never retried); 409 when the profile was changed on Bluesky meanwhile; 502 for any other failure. A failed save shows on Health and in SaveError.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetBlueskyProfile",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/IFormFile"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlueskyProfileView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/bluesky/profile/posts": {
+      "get": {
+        "tags": [
+          "Bluesky"
+        ],
+        "summary": "List posts sent to Bluesky",
+        "description": "The posts Modbot sent to the group's Bluesky account, newest first, 20 to a page (page starts at 1), each with its likes, reposts and replies when last counted.\n\nNeeds the `ViewPosts` permission.",
+        "operationId": "ListBlueskyProfilePosts",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlueskyProfilePosts"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/twitch": {
       "get": {
         "tags": [
@@ -44334,6 +44552,192 @@
           }
         }
       },
+      "BlueskyProfilePostView": {
+        "required": [
+          "postId",
+          "title",
+          "text",
+          "link",
+          "postedAt",
+          "counts"
+        ],
+        "type": "object",
+        "properties": {
+          "postId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "link": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "postedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "counts": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BlueskyCountsView"
+              }
+            ]
+          }
+        }
+      },
+      "BlueskyProfilePosts": {
+        "required": [
+          "posts",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "type": "object",
+        "properties": {
+          "posts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BlueskyProfilePostView"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "BlueskyProfileView": {
+        "required": [
+          "state",
+          "problem",
+          "handle",
+          "displayName",
+          "bio",
+          "avatarUrl",
+          "bannerUrl",
+          "followers",
+          "following",
+          "posts",
+          "canEdit",
+          "signedIn",
+          "limitedUntil",
+          "saveError",
+          "saveErrorAt"
+        ],
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "handle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bio": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bannerUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "followers": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "following": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "posts": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "canEdit": {
+            "type": "boolean"
+          },
+          "signedIn": {
+            "type": "boolean"
+          },
+          "limitedUntil": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "saveError": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "saveErrorAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "BlueskySettingsUpdate": {
         "type": "object",
         "properties": {
@@ -56512,6 +56916,10 @@
           }
         }
       },
+      "IFormFile": {
+        "type": "string",
+        "format": "binary"
+      },
       "ImportRejection": {
         "required": [
           "line",
@@ -63831,6 +64239,19 @@
             ]
           },
           "repliesErrorAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "profileError": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "profileErrorAt": {
             "type": [
               "null",
               "string"
@@ -72511,6 +72932,10 @@
     {
       "name": "Availability",
       "x-displayName": "Availability"
+    },
+    {
+      "name": "Bluesky",
+      "x-displayName": "Bluesky"
     },
     {
       "name": "Briefs",

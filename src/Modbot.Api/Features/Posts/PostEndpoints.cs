@@ -1069,9 +1069,14 @@ public static class PostEndpoints
             .Select(s => new { s.BlueskyRepliesError, s.BlueskyRepliesErrorAt })
             .FirstOrDefaultAsync(ct);
 
+        var profile = await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1 && s.BlueskyProfileError != null)
+            .Select(s => new { s.BlueskyProfileError, s.BlueskyProfileErrorAt })
+            .FirstOrDefaultAsync(ct);
+
         return new PostsHealth(
             sites.Paused, problems, holds, pin?.BlueskyPinError, pin?.BlueskyPinErrorAt, counts?.BlueskyCountsError, counts?.BlueskyCountsErrorAt,
-            replies?.BlueskyRepliesError, replies?.BlueskyRepliesErrorAt);
+            replies?.BlueskyRepliesError, replies?.BlueskyRepliesErrorAt, profile?.BlueskyProfileError, profile?.BlueskyProfileErrorAt);
     }
 
     /// <summary>The title, or the first line of the text, the way the list names a post.</summary>

@@ -4340,6 +4340,44 @@ export type GoogleCalendarSettings = {
   canSend?: boolean
 }
 
+/** The group's Bluesky account as its profile page shows it. */
+export type BlueskyProfile = {
+  /** `notSetUp`: no account is saved. `unavailable`: one is saved but its profile could not be read now (`problem` says why). */
+  state: 'notSetUp' | 'ready' | 'unavailable'
+  problem: string | null
+  /** Without the @. Set whenever an account is saved. */
+  handle: string | null
+  displayName: string | null
+  bio: string | null
+  avatarUrl: string | null
+  bannerUrl: string | null
+  followers: number | null
+  following: number | null
+  posts: number | null
+  /** The caller may change the profile: they hold Manage settings. */
+  canEdit: boolean
+  /** Modbot can sign in as the account, so a save can go through. */
+  signedIn: boolean
+  /** Bluesky is limiting Modbot: nothing is asked of it before this. */
+  limitedUntil: string | null
+  /** Why the last save failed, until a save goes through. */
+  saveError: string | null
+  saveErrorAt: string | null
+}
+
+/** One post Modbot sent to Bluesky, for the profile page's Posts tab. */
+export type BlueskyProfilePost = {
+  postId: string
+  title: string | null
+  text: string
+  link: string | null
+  postedAt: string | null
+  counts: { likes: number; reposts: number; replies: number; at: string } | null
+}
+
+/** One page of the Posts tab, newest first. */
+export type BlueskyProfilePosts = { posts: BlueskyProfilePost[]; page: number; pageSize: number; total: number }
+
 /** What the last Bluesky Check found (Bluesky design §3.1). */
 export type BlueskyCheck = {
   at: string
@@ -5206,7 +5244,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     response = await fetch(path, {
       ...init,
-      headers: init?.body ? { 'content-type': 'application/json', ...init?.headers } : init?.headers,
+      // A form sets its own content type, boundary included.
+      headers: init?.body && !(init.body instanceof FormData) ? { 'content-type': 'application/json', ...init?.headers } : init?.headers,
     })
   } catch {
     // fetch only rejects when the request never completed. Saying "the server is unreachable" is
@@ -5807,6 +5846,17 @@ export const api = {
   // ── Bluesky ─────────────────────────────────────────────────────────────────────────────
 
   blueskySettings: () => request<BlueskySettings>('/api/settings/bluesky'),
+
+  blueskyProfile: () => request<BlueskyProfile>('/api/bluesky/profile'),
+
+  /**
+   * Changes the name, bio, picture and banner on Bluesky. A field left out of the form is kept; an
+   * empty text field clears it. `avatar` and `banner` are files, a PNG or JPEG under 1 MB.
+   */
+  saveBlueskyProfile: (form: FormData) => request<BlueskyProfile>('/api/bluesky/profile', { method: 'PUT', body: form }),
+
+  /** The posts Modbot sent to the account, newest first, 20 to a page (from 1). */
+  blueskyProfilePosts: (page = 1) => request<BlueskyProfilePosts>(`/api/bluesky/profile/posts?page=${page}`),
 
   /** A field left out keeps what is stored. Anything but an app password is refused. */
   setBlueskySettings: (body: {

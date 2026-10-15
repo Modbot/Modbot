@@ -376,6 +376,8 @@ public sealed record PostHealthHold(string Network, string Hold, int Waiting);
 /// <param name="CountsErrorAt">When that try failed.</param>
 /// <param name="RepliesError">Why the last try to read the replies, mentions and quotes of the Bluesky account failed, until one goes through.</param>
 /// <param name="RepliesErrorAt">When that try failed.</param>
+/// <param name="ProfileError">Why the last save of the Bluesky profile (name, bio, picture, banner) failed, until a save goes through.</param>
+/// <param name="ProfileErrorAt">When that save failed.</param>
 public sealed record PostsHealth(
     bool Paused,
     IReadOnlyList<PostHealthProblem> Problems,
@@ -385,4 +387,6 @@ public sealed record PostsHealth(
     string? CountsError = null,
     DateTimeOffset? CountsErrorAt = null,
     string? RepliesError = null,
-    DateTimeOffset? RepliesErrorAt = null);
+    DateTimeOffset? RepliesErrorAt = null,
+    string? ProfileError = null,
+    DateTimeOffset? ProfileErrorAt = null);

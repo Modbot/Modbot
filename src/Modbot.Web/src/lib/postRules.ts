@@ -214,6 +214,9 @@ export type PostsHealth = {
   /** Why reading the replies, mentions and quotes of the Bluesky account failed, until a read goes through. Missing from an older server. */
   repliesError?: string | null
   repliesErrorAt?: string | null
+  /** Why the last save of the Bluesky profile failed, until a save goes through. Missing from an older server. */
+  profileError?: string | null
+  profileErrorAt?: string | null
 }
 
 export type PostSettings = {
