@@ -70,7 +70,8 @@ your Modbot from the internet to sign it in, and only an `https://` address with
 
 Modbot never sees the account's password this way. It asks Bluesky only for what posting needs:
 making and deleting posts, pinning a post on the account's profile, uploading a post's
-picture, and reading the account's replies and mentions. If Bluesky does not offer that yet, Modbot asks for what an app password can do instead.
+picture, reading the account's replies and mentions, and changing the profile's name, bio,
+picture and banner. If Bluesky does not offer that yet, Modbot asks for what an app password can do instead.
 
 **A sign-in made before pinning was added cannot pin, and one made before replies were read cannot
 read them.** Click **Sign in with Bluesky** again once, so Bluesky asks you to allow what is missing.
@@ -184,7 +185,7 @@ Bluesky's limits:
 | Bio | Up to 256 characters |
 | Picture and banner | A PNG or JPEG, under 1 MB each |
 
-Your browser makes a smaller copy of a picture that is too big, the way it does for posts. Modbot checks
+Your browser makes a copy of each picture you choose, under 1 MB, the way it does for posts, so any picture your browser can open will do. Modbot checks
 the limits before it asks Bluesky anything.
 
 If somebody changed the profile on Bluesky while you were saving, Modbot saves nothing and says so; open

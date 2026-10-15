@@ -178,11 +178,23 @@ public class BlueskyProfileRecordTests
     [Fact]
     public void CharactersAreCountedTheWayABrowserShowsThem()
     {
-        // A family emoji is seven code points and one character.
-        var family = "\U0001F468‍\U0001F469‍\U0001F467";
+        // An "e" with an accent added is two code points and one character.
+        var accented = "é";
 
-        Assert.Null(BlueskyProfileRecord.ProblemWithName(string.Concat(Enumerable.Repeat(family, 64))));
-        Assert.NotNull(BlueskyProfileRecord.ProblemWithName(string.Concat(Enumerable.Repeat(family, 65))));
+        Assert.Null(BlueskyProfileRecord.ProblemWithName(string.Concat(Enumerable.Repeat(accented, 64))));
+        Assert.Equal(BlueskyProfileRecord.NameTooLong, BlueskyProfileRecord.ProblemWithName(string.Concat(Enumerable.Repeat(accented, 65))));
+    }
+
+    [Fact]
+    public void ANameOrBioOverTheByteLimitIsRefused_EvenWithFewCharacters()
+    {
+        // A family emoji is one character but 18 bytes: 36 of them are 36 characters and 648 bytes.
+        var family = "👨‍👩‍👧";
+
+        Assert.Null(BlueskyProfileRecord.ProblemWithName(string.Concat(Enumerable.Repeat(family, 35))));
+        Assert.Equal(BlueskyProfileRecord.NameTooBig, BlueskyProfileRecord.ProblemWithName(string.Concat(Enumerable.Repeat(family, 36))));
+        Assert.Null(BlueskyProfileRecord.ProblemWithBio(string.Concat(Enumerable.Repeat(family, 142))));
+        Assert.Equal(BlueskyProfileRecord.BioTooBig, BlueskyProfileRecord.ProblemWithBio(string.Concat(Enumerable.Repeat(family, 143))));
     }
 
     [Fact]
@@ -204,10 +216,10 @@ public class BlueskyProfileRecordTests
         var record = Record();
 
         Assert.Equal(
-            "https://cdn.bsky.app/img/avatar/plain/did%3Aplc%3Aabc/bafkrei-old-avatar@jpeg",
+            "https://cdn.bsky.app/img/avatar/plain/did:plc:abc/bafkrei-old-avatar@jpeg",
             BlueskyProfileRecord.PictureAddress(record, "avatar", "did:plc:abc"));
         Assert.Equal(
-            "https://cdn.bsky.app/img/banner/plain/did%3Aplc%3Aabc/bafkrei-old-banner@jpeg",
+            "https://cdn.bsky.app/img/banner/plain/did:plc:abc/bafkrei-old-banner@jpeg",
             BlueskyProfileRecord.PictureAddress(record, "banner", "did:plc:abc"));
     }
 

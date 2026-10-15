@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Posts;
 using Modbot.Api.Features.Settings;
@@ -23,6 +24,11 @@ public static class BlueskyProfileEndpoints
     public const int PostsPageSize = 20;
 
     public const string NothingToSave = "Nothing to save.";
+
+    /// <summary>The most pages the Posts tab can be asked for, so the skip below can never overflow.</summary>
+    private const int MaxPostsPage = 100_000;
+
+    private const string LoggerName = "Modbot.Bluesky.Profile";
 
     // Two pictures and the form's own overhead.
     private const long MaxRequestBytes = 2L * BlueskyProfileRecord.PictureLimit + 100 * 1024;
@@ -53,6 +59,7 @@ public static class BlueskyProfileEndpoints
         group.MapPut("", async (
                 HttpContext http,
                 [FromServices] BlueskyProfileService service,
+                [FromServices] ILoggerFactory loggers,
                 CancellationToken ct) =>
             {
                 if (!http.Request.HasFormContentType)
@@ -109,7 +116,17 @@ public static class BlueskyProfileEndpoints
                     .Field("profilePicture", Cid(save.Before, "avatar"), Cid(save.After, "avatar"))
                     .Field("profileBanner", Cid(save.Before, "banner"), Cid(save.After, "banner"));
 
-                await change.RecordAsync(http, ct);
+                // Bluesky has taken the save by now, so a failure to write the entry must not turn into an
+                // error for the moderator: the profile did change. The log has it.
+                try
+                {
+                    await change.RecordAsync(http, ct);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    loggers.CreateLogger(LoggerName).LogError(
+                        ex, "The Bluesky profile was saved, but the audit log entry for it could not be written.");
+                }
 
                 return Results.Ok(await service.ReadAsync(true, ct));
             })
@@ -139,7 +156,7 @@ public static class BlueskyProfileEndpoints
                 [FromQuery] int? page,
                 CancellationToken ct) =>
             {
-                var number = Math.Max(1, page ?? 1);
+                var number = Math.Clamp(page ?? 1, 1, MaxPostsPage);
                 var did = await db.Settings.AsNoTracking()
                     .Where(s => s.Id == 1)
                     .Select(s => s.BlueskyDid)

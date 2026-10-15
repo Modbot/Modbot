@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json.Nodes;
 
 namespace Modbot.Core.Bluesky;
@@ -37,6 +38,12 @@ public static class BlueskyProfileRecord
     /// <summary>The most characters a bio holds: <c>maxGraphemes</c> of <c>description</c> in the lexicon.</summary>
     public const int BioLimit = 256;
 
+    /// <summary>The most bytes a name holds, in UTF-8: <c>maxLength</c> of <c>displayName</c> in the lexicon.</summary>
+    public const int NameByteLimit = 640;
+
+    /// <summary>The most bytes a bio holds, in UTF-8: <c>maxLength</c> of <c>description</c> in the lexicon.</summary>
+    public const int BioByteLimit = 2560;
+
     /// <summary>The most bytes a picture or banner holds: <c>maxSize</c> 1000000 in the lexicon.</summary>
     public const int PictureLimit = BlueskyText.PictureMaxBytes;
 
@@ -49,6 +56,12 @@ public static class BlueskyProfileRecord
     /// <summary>The refusal for a bio over <see cref="BioLimit"/>.</summary>
     public const string BioTooLong = "The bio can be at most 256 characters.";
 
+    /// <summary>The refusal for a name over <see cref="NameByteLimit"/> bytes, which a few characters can reach.</summary>
+    public const string NameTooBig = "The name is too long.";
+
+    /// <summary>The refusal for a bio over <see cref="BioByteLimit"/> bytes, which a few characters can reach.</summary>
+    public const string BioTooBig = "The bio is too long.";
+
     /// <summary>The refusal for a picture over <see cref="PictureLimit"/>.</summary>
     public const string PictureTooBig = "A picture must be under 1 MB.";
 
@@ -59,10 +72,26 @@ public static class BlueskyProfileRecord
     public const string ChangedMeanwhile = "The profile was changed on Bluesky while saving. Try again.";
 
     /// <summary>The problem with a name, or null when it fits.</summary>
-    public static string? ProblemWithName(string? name) => BlueskyText.Graphemes(name?.Trim()) > NameLimit ? NameTooLong : null;
+    public static string? ProblemWithName(string? name)
+    {
+        var trimmed = name?.Trim();
+
+        if (BlueskyText.Graphemes(trimmed) > NameLimit)
+            return NameTooLong;
+
+        return Encoding.UTF8.GetByteCount(trimmed ?? string.Empty) > NameByteLimit ? NameTooBig : null;
+    }
 
     /// <summary>The problem with a bio, or null when it fits.</summary>
-    public static string? ProblemWithBio(string? bio) => BlueskyText.Graphemes(bio?.Trim()) > BioLimit ? BioTooLong : null;
+    public static string? ProblemWithBio(string? bio)
+    {
+        var trimmed = bio?.Trim();
+
+        if (BlueskyText.Graphemes(trimmed) > BioLimit)
+            return BioTooLong;
+
+        return Encoding.UTF8.GetByteCount(trimmed ?? string.Empty) > BioByteLimit ? BioTooBig : null;
+    }
 
     /// <summary>
     /// The profile record after <paramref name="change"/>: a copy of <paramref name="current"/> (or a new
@@ -90,7 +119,8 @@ public static class BlueskyProfileRecord
 
     /// <summary>
     /// The address of a picture on Bluesky's image server: the account and the blob's content id, as the
-    /// profile record holds them. Null for a record with no such picture.
+    /// profile record holds them (the account as it is, colons and all, as Bluesky's own addresses have it).
+    /// Null for a record with no such picture.
     /// </summary>
     /// <param name="record">The profile record, or null for none.</param>
     /// <param name="field"><c>avatar</c> or <c>banner</c>.</param>
@@ -100,7 +130,7 @@ public static class BlueskyProfileRecord
         ArgumentException.ThrowIfNullOrEmpty(did);
 
         return record?[field]?["ref"]?["$link"] is JsonValue link && link.TryGetValue<string>(out var cid) && cid.Length > 0
-            ? $"https://cdn.bsky.app/img/{field}/plain/{Uri.EscapeDataString(did)}/{Uri.EscapeDataString(cid)}@jpeg"
+            ? $"https://cdn.bsky.app/img/{field}/plain/{did}/{Uri.EscapeDataString(cid)}@jpeg"
             : null;
     }
 
