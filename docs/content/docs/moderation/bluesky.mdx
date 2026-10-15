@@ -156,6 +156,46 @@ other failure waits 5 minutes. Posting is not held up by either. The problem sho
 [Health](/self-hosting/health) under **Posts**, as **Bluesky · Replies and mentions**, until a read
 goes through. Bluesky's limit for this call has not been measured, so Modbot's pace is a cautious guess.
 
+## Profile page
+
+Under **Integrations**, next to VRChat and Discord, the **Bluesky** page shows your group's account
+the way Bluesky does: the banner, the round picture, the name and `@handle`, how many follow it, how many
+it follows and how many posts it made, and the bio. It has two tabs:
+
+- **Posts**: the posts Modbot sent to the account, newest first, with their likes, reposts and replies.
+- **Replies**: the replies and mentions Modbot saved in the [audit log](/moderation/audit-log).
+
+You need [**See analytics**](/accounts/roles-and-permissions#see-analytics) to open the page,
+[**See posts**](/accounts/roles-and-permissions#see-posts) for the **Posts** tab and
+[**See the audit log**](/accounts/roles-and-permissions#see-the-audit-log) for the **Replies** tab.
+
+### Edit profile
+
+**Edit profile** changes four things on Bluesky: the name, the bio, the picture and the banner. It needs
+[**Change settings**](/accounts/roles-and-permissions#change-settings). Anything you leave alone stays as it
+is, and an empty name or bio clears it. It does not touch the pinned post or anything else on the profile.
+It does not change your VRChat group.
+
+Bluesky's limits:
+
+| | Limit |
+|---|---|
+| Name | Up to 64 characters |
+| Bio | Up to 256 characters |
+| Picture and banner | A PNG or JPEG, under 1 MB each |
+
+Your browser makes a smaller copy of a picture that is too big, the way it does for posts. Modbot checks
+the limits before it asks Bluesky anything.
+
+If somebody changed the profile on Bluesky while you were saving, Modbot saves nothing and says so; open
+**Edit profile** again and save once more. Saves are a few seconds apart at least. If a save fails, the
+page and [Health](/self-hosting/health) under **Posts** say why, until a save goes through. If Bluesky
+limits Modbot, nothing is sent until the limit resets. Bluesky's limits for these calls have not been
+measured, so Modbot's pace is a cautious guess.
+
+The page reads the numbers from Bluesky's public API, with no sign-in, and keeps them for 10 seconds.
+Each change is saved in the [audit log](/moderation/audit-log) with the settings changes.
+
 ## Calendar events
 
 An event on the [**Calendar**](/moderation/calendar#bluesky) can post itself here: tick **Bluesky**
@@ -267,6 +307,8 @@ and never sends the request again before then.
 | A reply: "We're live in" the world's name and a link, with the address and content id of the date's post it answers | The account's own server, and from there public on Bluesky | Only for an event with **Announce on Bluesky when the first person joins** ticked, once for each date, when the first person is in the instance |
 | The weekly line-up: the group's name, and the title and time of each public date in the next seven days, with the link to the Google calendar's public page | The account's own server, and from there public on Bluesky | Only with **Weekly line-up** on, once a week |
 | The account's profile (its name, description, pictures and pinned post), written back with only the pinned post changed | The account's own server, and from there public on Bluesky | Only with **Pin the next event** on, when the pinned post changes |
+| The account's profile (its name, description, pictures and pinned post), written back with only the name, bio, picture and banner you changed, and a picture you chose | The account's own server, and from there public on Bluesky | Only when you press **Save** in **Edit profile** |
+| The account's lasting id (to ask for its profile and its numbers) | Bluesky's public API, with no sign-in | When the **Bluesky** page is opened, at most once every 10 seconds |
 | The address of a post Modbot made | The account's own server | When Modbot deletes a post, such as one a changed or cancelled calendar event made |
 | The addresses of the posts Modbot made in the last 30 days, up to 25 in a request | Bluesky's public API, with no sign-in | About every 30 minutes for each post, to read its likes, reposts and replies |
 | Modbot's sign-in, asking for the account's replies, mentions and quotes (a request for the account's own notifications) | The account's own server, which passes it on to Bluesky | About every 3 minutes, once the account has passed **Check** |

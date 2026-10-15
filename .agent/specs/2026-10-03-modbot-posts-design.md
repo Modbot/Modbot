@@ -488,6 +488,88 @@ a line "Bluesky replies and mentions" with a count that opens the audit log at t
 - **Now**: the change kind `blueskyReplies` counts the three fact types; the line reads "Bluesky
   replies and mentions" and opens the audit log filtered to those types.
 
+### 4.2g Bluesky profile page (added 2026-10-14)
+
+A page under Integrations, beside VRChat and Discord, that looks like a Bluesky profile (banner, round
+picture, name, `@handle`, followers, following and posts, bio) and has two tabs: Posts (what Modbot sent,
+with the numbers of §4.2e) and Replies (the replies and mentions of §4.2f, read from the audit log). Edit
+profile changes the name, bio, picture and banner on Bluesky. Step 1 built the server side, step 2 the
+page. This section is the reasoning for the server side.
+
+- **Reading**: `app.bsky.actor.getProfile` on the public AppView, no sign-in (`BlueskyClient.AccountProfileAsync`).
+  It is the only place the three numbers are: the profile record on the account's own server holds the
+  words and the pictures but no counts. The fields are those of `app.bsky.actor.defs#profileViewDetailed`
+  (`lexicons/app/bsky/actor/defs.json` in bluesky-social/atproto). A missing number reads as unknown
+  (null), never 0. The answer is kept in memory for 10 seconds, so a page opened again, or by two
+  moderators, asks Bluesky once. After a save the page shows what was written at once, with the numbers last
+  read, because the AppView is a moment behind the account's own server.
+- **Saving is a read-modify-write of one record** (`app.bsky.actor.profile/self`). `putRecord` replaces
+  the whole record, so writing only the four fields would wipe everything else on it: the pinned post
+  (§4.2d's pin), the self-label that marks the account as automated, the date the account began, and any
+  field Bluesky adds later. The save therefore reads the record, uploads each picture with `uploadBlob`,
+  replaces the four fields on a copy (`BlueskyProfileRecord.Apply`, which leaves every other field exactly
+  as read, unknown ones included), and writes it with `swapRecord` set to the content id it read. If somebody
+  saved the profile on Bluesky meanwhile, Bluesky answers `InvalidSwap`, Modbot writes nothing and the page
+  says "The profile was changed on Bluesky while saving. Try again." (409), so a person's edit is never
+  written over. A record that is not there yet is made by the write. The calendar's pin uses the same
+  read, change, write path and keeps these fields the same way.
+- **Only four fields, and not the pin.** Name, bio, picture and banner are the ones the page edits. The pin
+  belongs to "Pin the next event" in Settings → Bluesky; a profile save that touched it would fight that
+  setting. A field the form does not send is kept; an empty text field clears it (a name or bio of only
+  spaces too).
+- **Bluesky's limits**, taken from the lexicon (`lexicons/app/bsky/actor/profile.json`): name 64 and bio
+  256 graphemes (counted as a browser shows them, after trimming), picture and banner 1,000,000 bytes
+  (`maxSize`) and PNG or JPEG only (`accept`). They are checked before Bluesky is asked anything: 400 for
+  text over its limit, nothing sent, a picture of another type (found by its first bytes, not by what the
+  browser called it) or an empty file; 413 for a picture over 1 MB. The page's browser makes copies under
+  1 MB first, as it does for posts, so 413 is the server's backstop.
+- **No sync with the VRChat group, for now** (user, 2026-10-14). The page edits the Bluesky profile only;
+  the VRChat group's name, description and pictures are not touched, and the page does not offer to copy
+  them either way.
+- **Rate limits: NOT MEASURED** (§4.3.4 of the foundation spec). The limits on `getProfile` (public API),
+  `uploadBlob` and `putRecord` are not in the spec's table, in `.agent/research/` or in
+  `RateLimitOptions.cs`, which holds VRChat's lanes only; the `libs/` clones are not on this machine. So
+  these calls have no lane in `RateLimitOptions`; they use stop markers and a gap instead. Placeholder: one
+  read every 10 seconds and one save every 10 seconds (`BlueskyProfileService.CallGap`), the same as
+  `PostBlueskyCounts.CallGap` (`PostBlueskyCounts.cs:64`) for a similar lane. A second save within 10
+  seconds is refused with 429 and a few words, without asking Bluesky. A save is a person's click, so the
+  gap is not reached in ordinary use.
+- **A 429 is never retried.** A 429 on `uploadBlob` or `putRecord` stops the account's lane
+  (`BlueskySession.StopAsync`, `settings.bluesky_stopped_until`) until the time Bluesky gives
+  (`BlueskyErrors.StopUntil`), and the save answers 429 "Bluesky is limiting Modbot." Posting shares that
+  lane, because both go to the account's own server, so a limit hit here also holds posts back, as it
+  should. A 429 on the public `getProfile` stops only the reading
+  (`settings.bluesky_profile_stopped_until`), the way the numbers and the replies have their own markers.
+  The page then says Bluesky is limiting Modbot until the reset time and offers no retry.
+- **Why `bluesky_profile_stopped_until` survives removing the account.** That limit is on Modbot's address
+  at the public API, not on the account. If removing the account cleared it, removing and adding an account
+  again would be a way round the limit, and the next read would go straight into another 429. Removing the
+  account clears what belongs to it (the pin marker, the failed-save text) and keeps this one. A changed
+  handle in Settings clears the failed-save text for the same reason as the pin marker: it was about the
+  old account.
+- **A failed save is not hidden.** Any failure writes `settings.bluesky_profile_error` and `_at`, shown on
+  the page (`saveError`) and in the Posts card on Health (`GET /api/posts/health` gains `profileError` and
+  `profileErrorAt`) until a save goes through, which clears both. A save refused for coming too soon is not
+  a failure of Bluesky's and keeps nothing.
+- **Who may read and change:**
+  - the profile (`GET /api/bluesky/profile`): View analytics, because the numbers are the point of the
+    page; it carries `canEdit`, true for Manage settings;
+  - the Posts tab (`GET /api/bluesky/profile/posts`): View posts, the right the Marketing tab needs for
+    the same rows;
+  - the Replies tab: View audit log, because it is the audit log (the entries of §4.2f) and needs no
+    endpoint of its own;
+  - Edit profile (`PUT /api/bluesky/profile`): Manage settings, because it acts as the account whose
+    sign-in Settings → Bluesky holds.
+- **Audit**: one `SettingsChange("bluesky")` entry per save that changed something, listing only the
+  fields that changed: `profileName`, `profileBio`, `profilePicture`, `profileBanner` (a picture by its
+  content id, never its bytes). A save that changes nothing, or fails, writes nothing.
+- **Posts tab**: the Posted Bluesky destinations whose `target` is the account's DID, newest first by
+  `posted_at`, 20 to a page, each with the text that went out, its link and its numbers (none before the
+  first count). Posts sent to an account since replaced are not listed.
+- **Tests**: `BlueskyProfileRecordTests` (Core: what `Apply` keeps, and the limits) and
+  `BlueskyProfileTests` (Api, against `FakeBluesky`, which gained the public `getProfile`, a profile record
+  with unknown fields, and switches for a 429 on `getProfile`, `uploadBlob` and the profile write).
+
 ### 4.3 Edits and the version
 
 Every change a person saves says which `version` it read. A change while a destination is `sending`

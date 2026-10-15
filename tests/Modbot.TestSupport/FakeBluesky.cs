@@ -127,6 +127,42 @@ public sealed class FakeBluesky : HttpMessageHandler
     /// <summary>A put to the profile is refused with this status (a sign-in without the profile right), while set.</summary>
     public HttpStatusCode? ProfilePutStatus { get; set; }
 
+    /// <summary>
+    /// The profile record as the account's server keeps it. While set, <c>getRecord</c> of the profile answers it
+    /// whole (unknown fields, a pinned post, pictures and all) and a put to the profile replaces it with what was
+    /// sent. While null, the profile is made from <see cref="DisplayName"/>, <see cref="Automated"/> and <see cref="PinnedPost"/>.
+    /// </summary>
+    public JsonObject? ProfileRecord { get; set; }
+
+    /// <summary>What the public API's <c>getProfile</c> answers: the profile as Bluesky shows it, with its three numbers.</summary>
+    public JsonObject PublicProfile { get; set; } = new()
+    {
+        ["did"] = Did,
+        ["handle"] = Handle,
+        ["displayName"] = "Our group",
+        ["description"] = "We run the group.",
+        ["avatar"] = "https://cdn.bsky.app/img/avatar/plain/" + Did + "/bafkrei-avatar@jpeg",
+        ["banner"] = "https://cdn.bsky.app/img/banner/plain/" + Did + "/bafkrei-banner@jpeg",
+        ["followersCount"] = 120,
+        ["followsCount"] = 7,
+        ["postsCount"] = 45,
+    };
+
+    /// <summary>The public API's <c>getProfile</c> answers 429 with this reset time, while set.</summary>
+    public DateTimeOffset? PublicProfileLimitedUntil { get; set; }
+
+    /// <summary>The public API's <c>getProfile</c> answers this status with an error body instead of the profile, while set.</summary>
+    public HttpStatusCode? PublicProfileStatus { get; set; }
+
+    /// <summary><c>uploadBlob</c> answers 429 with this reset time, while set (the other calls are not limited).</summary>
+    public DateTimeOffset? UploadLimitedUntil { get; set; }
+
+    /// <summary>A put to the profile answers 429 with this reset time, while set (the other calls are not limited).</summary>
+    public DateTimeOffset? ProfilePutLimitedUntil { get; set; }
+
+    /// <summary>How many times each XRPC method was asked.</summary>
+    public int CallsTo(string method) => Requests.Count(r => r.Method == method);
+
     // --- Sign-in with Bluesky (OAuth) ---
 
     /// <summary>The nonce the sign-in server wants in DPoP proofs now. Changing it makes the next proof stale.</summary>
@@ -204,6 +240,19 @@ public sealed class FakeBluesky : HttpMessageHandler
             return Query(uri, "handle") == Handle
                 ? Json(HttpStatusCode.OK, new JsonObject { ["did"] = Did })
                 : Json(HttpStatusCode.BadRequest, Error("InvalidRequest", "Unable to resolve handle"));
+        }
+
+        if (uri.Host == "public.api.bsky.app" && method == "app.bsky.actor.getProfile")
+        {
+            if (PublicProfileLimitedUntil is { } publicUntil)
+                return Limited(publicUntil);
+
+            if (PublicProfileStatus is { } publicStatus)
+                return Json(publicStatus, Error("InternalServerError", "Scripted"));
+
+            return Query(uri, "actor") is Did or Handle
+                ? Json(HttpStatusCode.OK, (JsonObject)PublicProfile.DeepClone())
+                : Json(HttpStatusCode.BadRequest, Error("InvalidRequest", "Profile not found"));
         }
 
         if (uri.Host == "plc.directory")
@@ -290,6 +339,9 @@ public sealed class FakeBluesky : HttpMessageHandler
                 if (Authorised(bearer) is { } refused)
                     return refused;
 
+                if (UploadLimitedUntil is { } uploadUntil)
+                    return Limited(uploadUntil);
+
                 var size = request.Content is null ? 0 : (await request.Content.ReadAsByteArrayAsync(cancellationToken)).Length;
                 Blobs.Add(size);
                 return Json(HttpStatusCode.OK, new JsonObject
@@ -366,12 +418,18 @@ public sealed class FakeBluesky : HttpMessageHandler
         if (ProfilePutStatus is { } status)
             return Json(status, Error("Forbidden", "Missing the profile scope"));
 
+        if (ProfilePutLimitedUntil is { } putUntil)
+            return Limited(putUntil);
+
         // Replaces the profile only if it is still the one the caller read.
         if (sent["swapRecord"]?.GetValue<string>() != ProfileCid)
             return Json(HttpStatusCode.BadRequest, Error("InvalidSwap", "Record was at " + ProfileCid));
 
         ProfilePuts++;
         LastProfilePut = (JsonObject)record.DeepClone();
+        if (ProfileRecord is not null)
+            ProfileRecord = (JsonObject)record.DeepClone();
+
         PinnedPost = record["pinnedPost"] is JsonObject pinned ? (JsonObject)pinned.DeepClone() : null;
         ProfileCid = "bafy-profile-" + ProfilePuts;
 
@@ -392,6 +450,9 @@ public sealed class FakeBluesky : HttpMessageHandler
             if (PinnedPost is not null)
                 value["pinnedPost"] = PinnedPost.DeepClone();
 
+            if (ProfileRecord is not null)
+                value = (JsonObject)ProfileRecord.DeepClone();
+
             var answer = Json(HttpStatusCode.OK, new JsonObject { ["uri"] = $"at://{Did}/app.bsky.actor.profile/self", ["cid"] = ProfileCid, ["value"] = value });
 
             if (ProfileChangesAfterNextRead)
@@ -409,6 +470,13 @@ public sealed class FakeBluesky : HttpMessageHandler
         return Posts.TryGetValue(key, out var post)
             ? Json(HttpStatusCode.OK, new JsonObject { ["uri"] = $"at://{Did}/app.bsky.feed.post/{key}", ["cid"] = $"bafy-{key}", ["value"] = post.DeepClone() })
             : Json(HttpStatusCode.BadRequest, Error("RecordNotFound", $"Could not locate record: at://{Did}/app.bsky.feed.post/{key}"));
+    }
+
+    private HttpResponseMessage Limited(DateTimeOffset until)
+    {
+        var limited = Json(HttpStatusCode.TooManyRequests, Error("RateLimitExceeded", "Rate Limit Exceeded"));
+        limited.Headers.Add("ratelimit-reset", until.ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture));
+        return limited;
     }
 
     /// <summary>Null when <paramref name="bearer"/> is the access token handed out last and has not ended.</summary>
