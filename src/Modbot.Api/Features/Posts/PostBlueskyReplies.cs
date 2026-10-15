@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
@@ -187,11 +188,17 @@ public sealed class PostBlueskyReplies
         var own = settings.BlueskyDid!.Trim();
 
         // One a post, as the reply when it is also a mention; oldest first, so the mark only moves forward.
-        foreach (var mention in fresh
+        var ordered = fresh
             .GroupBy(m => m.Uri, StringComparer.Ordinal)
             .Select(g => g.OrderBy(m => Strength(m.Reason)).First())
-            .OrderBy(m => m.IndexedAt))
+            .OrderBy(m => m.IndexedAt)
+            .ToList();
+
+        for (var i = 0; i < ordered.Count; i++)
         {
+            var mention = ordered[i];
+            var moveTo = mention.IndexedAt;
+
             if (!string.Equals(mention.AuthorDid, own, StringComparison.Ordinal))
             {
                 try
@@ -201,12 +208,16 @@ public sealed class PostBlueskyReplies
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    // One that cannot be stored is left out, so it does not stop every pass after it.
+                    // One that cannot be stored is left out, so it does not stop every pass after it. When it is the
+                    // newest, the mark goes one microsecond (the most the database keeps) past it: at the mark it would be read and fail again every pass.
                     _log.Warning(ex, "A Bluesky reply, mention or quote could not be saved to the audit log and was left out");
+
+                    if (i == ordered.Count - 1)
+                        moveTo = mention.IndexedAt.AddTicks(TimeSpan.TicksPerMicrosecond);
                 }
             }
 
-            await MovedOnAsync(mention.IndexedAt, ct).ConfigureAwait(false);
+            await MovedOnAsync(moveTo, ct).ConfigureAwait(false);
         }
 
         await ClearErrorAsync(settings.BlueskyRepliesError, ct).ConfigureAwait(false);
@@ -224,7 +235,7 @@ public sealed class PostBlueskyReplies
         var uri = Clean(mention.Uri)!;
 
         if (await _db.Events.AsNoTracking()
-            .AnyAsync(e => Types.Contains(e.Type) && e.SubjectId == uri, ct).ConfigureAwait(false))
+            .AnyAsync(e => Types.Contains(e.Type) && e.SubjectPlatform == FactPlatform.Modbot && e.SubjectId == uri, ct).ConfigureAwait(false))
             return false;
 
         var type = mention.Reason switch
@@ -278,16 +289,37 @@ public sealed class PostBlueskyReplies
 
     /// <summary>
     /// Text from outside Modbot, fit for the audit log: a NUL makes PostgreSQL refuse the whole row, so it and the
-    /// other control characters (all but a new line and a tab) are dropped.
+    /// other control characters (all but a new line and a tab, and U+007F to U+009F) and lone surrogate halves are dropped.
     /// </summary>
-    internal static string? Clean(string? text)
+    public static string? Clean(string? text)
     {
-        if (text is null || !text.Any(IsControl))
+        if (text is null)
             return text;
 
-        return string.Concat(text.Where(c => !IsControl(c)));
+        StringBuilder? kept = null;
 
-        static bool IsControl(char c) => c < ' ' && c != '\n' && c != '\t';
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+            var pair = char.IsHighSurrogate(c) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]);
+            var drop = !pair && (char.IsSurrogate(c) || (c < ' ' && c != '\n' && c != '\t') || (c >= '\u007F' && c <= '\u009F'));
+
+            if (drop)
+            {
+                kept ??= new StringBuilder(text.Length).Append(text, 0, i);
+                continue;
+            }
+
+            kept?.Append(c);
+
+            if (pair)
+            {
+                i++;
+                kept?.Append(text[i]);
+            }
+        }
+
+        return kept?.ToString() ?? text;
     }
 
     /// <summary>The post on bsky.app, by the author's account id, so the link outlives a change of handle.</summary>

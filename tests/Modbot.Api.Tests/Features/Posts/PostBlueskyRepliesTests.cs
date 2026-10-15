@@ -447,7 +447,7 @@ public sealed class PostBlueskyRepliesTests
         await SetUpAsync();
         await StartAsync();
 
-        Add("reply", "r1", 1, "Count\0 me\u0001 in\nplease\t!", handle: "al\0ice.bsky.social", name: "Al\0ice", answers: OurPost);
+        Add("reply", "r1", 1, "Count\0 me\u0001 in\u007F\u0085\u009F\nplease\t!\uD83D\uDE00", handle: "al\0ice.bsky.social", name: "Al\0ice", answers: OurPost);
         Add("mention", "m1", 2, "Fine");
 
         Assert.Equal(new PostBlueskyRepliesPass(2, true), await PassAsync());
@@ -455,7 +455,7 @@ public sealed class PostBlueskyRepliesTests
         var facts = await FactsAsync();
         Assert.Equal(2, facts.Count);
         var reply = D(facts[0]);
-        Assert.Equal("Count me in\nplease\t!", reply["text"]!.GetValue<string>());
+        Assert.Equal("Count me in\nplease\t!\uD83D\uDE00", reply["text"]!.GetValue<string>());
         Assert.Equal("alice.bsky.social", reply["handle"]!.GetValue<string>());
         Assert.Equal("Alice", reply["displayName"]!.GetValue<string>());
         Assert.Equal(new DateTimeOffset(2026, 10, 14, 12, 2, 0, TimeSpan.Zero), (await SettingsAsync()).BlueskyRepliesReadAt);
@@ -482,6 +482,33 @@ public sealed class PostBlueskyRepliesTests
         // Not tried again.
         _clock.Advance(PostBlueskyReplies.Every);
         Assert.Equal(new PostBlueskyRepliesPass(0, true), await PassAsync(refuse: "boom"));
+    }
+
+    [Fact]
+    public void Clean_DropsControlCharactersAndLoneSurrogates_AndKeepsTheRest()
+    {
+        Assert.Equal("a\nb\tc", PostBlueskyReplies.Clean("a\0\u0001\nb\u007F\u0085\u009F\tc"));
+        Assert.Equal("x\uD83D\uDE00y", PostBlueskyReplies.Clean("\uD800x\uD83D\uDE00y\uDC00\uD83D"));
+        Assert.Equal("Plain \u00E9 text", PostBlueskyReplies.Clean("Plain \u00E9 text"));
+        Assert.Null(PostBlueskyReplies.Clean(null));
+    }
+
+    [Fact]
+    public async Task ANewestOneThatCannotBeStored_MovesTheMarkPastIt_SoItIsNotReadAgain()
+    {
+        await SetUpAsync();
+        await StartAsync();
+
+        Add("reply", "r1", 1, "Fine", answers: OurPost);
+        Add("mention", "m1", 2, "boom");
+
+        Assert.Equal(new PostBlueskyRepliesPass(1, true), await PassAsync(refuse: "boom"));
+        Assert.True((await SettingsAsync()).BlueskyRepliesReadAt > new DateTimeOffset(2026, 10, 14, 12, 2, 0, TimeSpan.Zero));
+
+        // Left out for good: a later pass that could store it never sees it.
+        _clock.Advance(PostBlueskyReplies.Every);
+        Assert.Equal(new PostBlueskyRepliesPass(0, true), await PassAsync());
+        Assert.Equal("Fine", D(Assert.Single(await FactsAsync()))["text"]!.GetValue<string>());
     }
 
     [Fact]
