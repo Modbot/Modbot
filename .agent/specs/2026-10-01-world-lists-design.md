@@ -40,6 +40,20 @@ row has a refresh error and was never read) is asked about again. The id itself 
 shape: a link is taken apart only to find the id in it (`worldId=` or the part after `/world/`), and
 anything else is taken as the id as typed.
 
+**Search VRChat** (2026-10-15). When the known-world search finds nothing for what is typed, a
+**Search VRChat** button appears under the box. One press is one `SearchWorlds` (`n=10`, `search=` the
+text) on a new class, `worlds.search`: its own lane and bucket, **not measured**, a cautious
+placeholder of one search per ten seconds (§4.3.4 of the foundation spec had no number for it), on the
+`interactive` backstop. Its own class so a 429 never pauses world naming or head counts
+(`worlds.read`). Never retried. A press under ten seconds after the last is answered at once with the
+seconds left (`WorldSearchWait`, in memory) and sends nothing; a cold stop, a sign-in wait, no account
+or no network answers "VRChat can't be asked right now." Up to ten results show with picture, name and
+author; picking one adds it like a known-world pick. Each result is kept as a `VRChatWorld` row (name,
+pictures, author), but `LastRefreshedAt` is left alone: a search result is not a full read, and the
+world sweep fills in the rest. A world listed publicly also clears an earlier refusal on its row, so
+the save check accepts it. VRChat's search finds public worlds only; a private world still needs its
+link.
+
 **Saving a list** checks only the worlds it adds (not already on that list): each must have a
 `VRChatWorld` row and must not be one VRChat refused (a refresh error and never read). Otherwise the
 save is refused and names the world. Worlds already on the list stay, even ones that went private
@@ -158,6 +172,8 @@ and picks. The actor is a staff account, as on every calendar fact.
 
 ## 9. Not checked against the real services
 
+- Search VRChat on a real account: what `worlds.search` allows, and whether a name such as "Just B
+  Club 4.0" finds the world. Localhost has no VRChat account, so only the can't-ask path was tried.
 - Whether `GetWorld` answers 404 or 403 for a private world. Either is now refused and shown as
   VRChat's words (decided 2026-10-15), so a real private world cannot be added. Whether a typed name
   such as "Just B Club 4.0" gets 400, 403 or 404 is not known; all three are refused the same way.

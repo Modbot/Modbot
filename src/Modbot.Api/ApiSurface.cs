@@ -111,6 +111,9 @@ public static class ApiSurface
         services.TryAddSingleton<DiscordLinkSignal>();
         services.AddHttpClient(DiscordOAuth.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(20));
 
+        // How soon a moderator may search VRChat's worlds again (world lists design §2).
+        services.TryAddSingleton<Features.WorldLists.WorldSearchWait>();
+
         // The calendar's public feed as last written, kept a minute (calendar design §6.1).
         services.TryAddSingleton<Features.Calendar.PublicCalendarFeedCache>();
 

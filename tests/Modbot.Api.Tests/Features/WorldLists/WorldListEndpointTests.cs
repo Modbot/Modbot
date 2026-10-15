@@ -280,6 +280,158 @@ public class WorldListEndpointTests(PostgresFixture db)
         Assert.Null((await RowOfAsync("wrld_refused_once"))?.RefreshError);
     }
 
+    private static Task<HttpResponseMessage> SearchVRChatAsync(ApiTestHost host, string cookie, string text) =>
+        host.SendJsonAsync(HttpMethod.Post, "/api/world-lists/worlds/search-vrchat", new { text }, cookie, Ct);
+
+    [Fact]
+    public async Task SearchingVRChat_NeedsManageCalendar_AndAsksVRChatNothingWithout()
+    {
+        await using var host = await StartAsync();
+        var (_, viewer) = await host.SignedInAsync(ModbotPermissions.ViewCalendar, Ct);
+
+        var response = await SearchVRChatAsync(host, viewer, "Prop Hunt");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Empty(host.VRChat.Calls);
+    }
+
+    [Fact]
+    public async Task SearchingVRChat_KeepsEachWorldFound_SoAListTakesItIn_WithoutMarkingItRead()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+        host.VRChat.Returns("SearchWorlds", new List<LimitedWorld>
+        {
+            new() { Id = "wrld_found_one", Name = "Found One", AuthorName = "Maker", ThumbnailImageUrl = "https://example.test/one.png" },
+            new() { Id = "wrld_found_two", Name = "Found Two", AuthorName = "Other" },
+        });
+
+        var response = await SearchVRChatAsync(host, manager, "Found");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var hits = (await ApiTestHost.BodyOf(response, Ct)).EnumerateArray().ToList();
+        Assert.Equal(2, hits.Count);
+        Assert.Equal("Found One", hits[0].GetProperty("name").GetString());
+        Assert.Equal("Maker", hits[0].GetProperty("authorName").GetString());
+
+        var call = Assert.Single(host.VRChat.Calls);
+        Assert.Equal(VRChatEndpointClass.WorldsSearch, call.Endpoint.Class);
+        Assert.Equal(VRChatCallPriority.Interactive, call.Priority);
+
+        var row = await RowOfAsync("wrld_found_one");
+        Assert.NotNull(row);
+        Assert.Equal("Found One", row.Name);
+        Assert.Equal("Maker", row.AuthorName);
+        Assert.Equal("https://example.test/one.png", row.ThumbnailImageUrl);
+        Assert.Null(row.LastRefreshedAt);
+        Assert.Null(row.RefreshError);
+
+        var save = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/world-lists", ListBody("Games", ("wrld_found_one", null, null)), manager, Ct);
+        Assert.Equal(HttpStatusCode.OK, save.StatusCode);
+    }
+
+    [Fact]
+    public async Task SearchingVRChat_DoesNotOverwriteAWorldModbotHasRead_ButClearsAnEarlierRefusal()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+
+        await using (var context = db.NewContext())
+        {
+            context.VRChatWorlds.AddRange(
+                new VRChatWorld
+                {
+                    WorldId = "wrld_read_before",
+                    Name = "Read Before",
+                    FirstSeenAt = host.Clock.UtcNow,
+                    LastSeenAt = host.Clock.UtcNow,
+                    LastRefreshedAt = host.Clock.UtcNow,
+                },
+                new VRChatWorld
+                {
+                    WorldId = "wrld_refused_before",
+                    FirstSeenAt = host.Clock.UtcNow,
+                    LastSeenAt = host.Clock.UtcNow,
+                    RefreshError = "VRChat returned 403",
+                });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        host.VRChat.Returns("SearchWorlds", new List<LimitedWorld>
+        {
+            new() { Id = "wrld_read_before", Name = "Renamed In Search" },
+            new() { Id = "wrld_refused_before", Name = "Listed Now" },
+        });
+
+        Assert.Equal(HttpStatusCode.OK, (await SearchVRChatAsync(host, manager, "Before")).StatusCode);
+
+        var read = await RowOfAsync("wrld_read_before");
+        Assert.Equal("Read Before", read?.Name);
+        Assert.NotNull(read?.LastRefreshedAt);
+
+        var refused = await RowOfAsync("wrld_refused_before");
+        Assert.Equal("Listed Now", refused?.Name);
+        Assert.Null(refused?.RefreshError);
+        Assert.Null(refused?.LastRefreshedAt);
+    }
+
+    [Theory]
+    [InlineData(429, VRChatFailureKind.RateLimited)]
+    [InlineData(0, VRChatFailureKind.RateLimited)]
+    [InlineData(0, VRChatFailureKind.SignInWaiting)]
+    [InlineData(0, VRChatFailureKind.NotConfigured)]
+    [InlineData(0, VRChatFailureKind.Network)]
+    public async Task SearchingVRChat_WhenItCannotBeAsked_SaysSoAndStoresNothing(int status, VRChatFailureKind kind)
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+        host.VRChat.Returns("SearchWorlds", VRChatResult<List<LimitedWorld>>.Failure(status, "Cold stopped", kind: kind));
+
+        var response = await SearchVRChatAsync(host, manager, "Nothing stored");
+
+        Assert.False(response.IsSuccessStatusCode);
+        Assert.Equal("VRChat can't be asked right now.", (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString());
+
+        await using var context = db.NewContext();
+        Assert.Empty(await context.VRChatWorlds.Where(w => w.Name == "Nothing stored").ToListAsync(Ct));
+    }
+
+    [Fact]
+    public async Task SearchingVRChat_TooSoonAfterTheLast_ShowsTheWait_AndSendsNothing()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+        host.VRChat.Returns("SearchWorlds", new List<LimitedWorld>());
+
+        Assert.Equal(HttpStatusCode.OK, (await SearchVRChatAsync(host, manager, "First")).StatusCode);
+
+        host.Clock.Advance(TimeSpan.FromSeconds(4));
+        var tooSoon = await SearchVRChatAsync(host, manager, "Second");
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, tooSoon.StatusCode);
+        Assert.Equal(
+            "Wait 6 seconds, then search again.",
+            (await ApiTestHost.BodyOf(tooSoon, Ct)).GetProperty("error").GetString());
+        Assert.Single(host.VRChat.Calls);
+
+        host.Clock.Advance(TimeSpan.FromSeconds(6));
+        Assert.Equal(HttpStatusCode.OK, (await SearchVRChatAsync(host, manager, "Third")).StatusCode);
+        Assert.Equal(2, host.VRChat.Calls.Count);
+    }
+
+    [Fact]
+    public async Task SearchingVRChat_WithNothingTyped_IsTurnedDown_AndSendsNothing()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+
+        var response = await SearchVRChatAsync(host, manager, "   ");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty(host.VRChat.Calls);
+    }
+
     [Fact]
     public async Task SavingAList_RefusesANewWorldModbotDoesNotKnow_AndMakesNoPlaceholder()
     {

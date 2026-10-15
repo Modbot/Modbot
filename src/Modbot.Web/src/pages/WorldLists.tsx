@@ -12,7 +12,14 @@ import { ApiError } from '@/lib/api'
 import type { CalendarWorld } from '@/lib/calendar'
 import { useShortcuts } from '@/lib/shortcuts'
 import { vrchatMedia } from '@/lib/vrchatMedia'
-import { playersText, worldListApi, type WorldList, type WorldListWorld, type WorldLists as WorldListsView } from '@/lib/worldLists'
+import {
+  playersText,
+  worldListApi,
+  type VRChatWorldHit,
+  type WorldList,
+  type WorldListWorld,
+  type WorldLists as WorldListsView,
+} from '@/lib/worldLists'
 import { PageMessage } from '@/pages/analytics/shared'
 
 /** How long typing rests before the known worlds are searched. */
@@ -333,13 +340,19 @@ function WorldRow({
 
 /**
  * Adds a world: what is typed searches the worlds Modbot knows, and Add takes it as a world's link
- * or id, which the server reads from VRChat when it has never read that world.
+ * or id, which the server reads from VRChat when it has never read that world. When the known worlds
+ * hold nothing for what is typed, Search VRChat asks VRChat's public worlds, once per press.
  */
 function AddWorld({ onAdd }: { onAdd: (world: CalendarWorld) => void }) {
   const [text, setText] = useState('')
   const [found, setFound] = useState<CalendarWorld[]>([])
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
+  /** The typed text the known worlds were last searched for. */
+  const [searchedFor, setSearchedFor] = useState<string | null>(null)
+  const [asking, setAsking] = useState(false)
+  /** What VRChat found for the text it was asked about. */
+  const [vrchat, setVRChat] = useState<{ text: string; hits: VRChatWorldHit[] } | null>(null)
 
   useEffect(() => {
     const typed = text.trim()
@@ -350,10 +363,14 @@ function AddWorld({ onAdd }: { onAdd: (world: CalendarWorld) => void }) {
       worldListApi
         .search(typed)
         .then((answer) => {
-          if (!cancelled) setFound(answer.slice(0, 8))
+          if (cancelled) return
+          setFound(answer.slice(0, 8))
+          setSearchedFor(typed)
         })
         .catch(() => {
-          if (!cancelled) setFound([])
+          if (cancelled) return
+          setFound([])
+          setSearchedFor(null)
         })
     }, SEARCH_AFTER_MS)
 
@@ -366,11 +383,28 @@ function AddWorld({ onAdd }: { onAdd: (world: CalendarWorld) => void }) {
   // A search answers what was typed; with too little typed there is nothing to show.
   const shown = text.trim().length >= 2 ? found : []
 
+  // Only when the known worlds were searched for exactly this text and held nothing.
+  const canAskVRChat = searchedFor === text.trim() && found.length === 0
+  const vrchatShown = vrchat !== null && vrchat.text === text.trim() ? vrchat.hits : null
+
   const take = (world: CalendarWorld) => {
     onAdd(world)
     setText('')
     setFound([])
+    setSearchedFor(null)
+    setVRChat(null)
     setProblem(null)
+  }
+
+  const askVRChat = () => {
+    const typed = text.trim()
+    setAsking(true)
+    setProblem(null)
+    worldListApi
+      .searchVRChat(typed)
+      .then((hits) => setVRChat({ text: typed, hits }))
+      .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : 'Could not search VRChat.'))
+      .finally(() => setAsking(false))
   }
 
   const find = () => {
@@ -403,7 +437,38 @@ function AddWorld({ onAdd }: { onAdd: (world: CalendarWorld) => void }) {
           Add
         </Button>
       </div>
+      {canAskVRChat && (
+        <div>
+          <Button size="sm" variant="outline" disabled={asking} onClick={askVRChat}>
+            Search VRChat
+          </Button>
+        </div>
+      )}
       {problem && <span className="text-destructive">{problem}</span>}
+      {vrchatShown !== null && (
+        <ul className="flex flex-col rounded-sm border border-(length:--hairline)">
+          {vrchatShown.length === 0 && <li className="px-2 py-1 text-muted-foreground">No public worlds found</li>}
+          {vrchatShown.map((w) => (
+            <li key={w.worldId}>
+              <button
+                type="button"
+                className="flex w-full min-h-(--row-h) items-center gap-2 px-2 py-1 text-left hover:bg-muted"
+                onClick={() => take({ worldId: w.worldId, name: w.name, thumbnailUrl: w.thumbnailUrl })}
+              >
+                <WorldPicture url={w.thumbnailUrl} />
+                <span className="flex min-w-0 flex-col">
+                  <span className="[overflow-wrap:anywhere]">{w.name ?? w.worldId}</span>
+                  {w.authorName && (
+                    <span className="text-muted-foreground [overflow-wrap:anywhere]" style={{ fontSize: 'var(--text-small)' }}>
+                      {w.authorName}
+                    </span>
+                  )}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       {shown.length > 0 && (
         <ul className="flex flex-col rounded-sm border border-(length:--hairline)">
           {shown.map((w) => (

@@ -200,6 +200,12 @@ public static class VRChatRateLimits
     /// </summary>
     public const string CalendarLane = "calendar";
 
+    /// <summary>
+    /// Searching VRChat's worlds (<see cref="VRChatEndpointClass.WorldsSearch"/>). Its own queue, so a
+    /// search never waits behind naming a world and never holds one up.
+    /// </summary>
+    public const string WorldsSearchLane = "worlds.search";
+
     /// <summary>VRChat calendar reads, apart from the writes for the same reason.</summary>
     public const string CalendarReadLane = "calendar.read";
 
@@ -621,6 +627,17 @@ public static class VRChatRateLimits
             [VRChatEndpointClass.WorldsRead] = new(
                 VRChatEndpointClass.WorldsRead, PlacesLane,
                 HardMaxPerSecond: 1.0, DefaultCeilingPerSecond: CeilingFor(1.0)),
+
+            // NOT MEASURED -- searching VRChat's public worlds by name, GET /worlds?search=. Spec
+            // 4.3.4's table, the research notes and this file had no number for it, so this is a
+            // cautious placeholder: one search per ten seconds, the rate a similar unmeasured write
+            // (groups.edit, instances.announce) starts at. Its own class and lane, so a 429 here
+            // never pauses world naming or head counts (worlds.read). Interactive backstop: a person
+            // pressed Search VRChat and nothing polls it.
+            [VRChatEndpointClass.WorldsSearch] = new(
+                VRChatEndpointClass.WorldsSearch, WorldsSearchLane,
+                HardMaxPerSecond: PerSeconds(10), DefaultCeilingPerSecond: CeilingFor(PerSeconds(10)),
+                Backstop: VRChatEndpointClass.Interactive),
 
             [VRChatEndpointClass.InstancesRead] = new(
                 VRChatEndpointClass.InstancesRead, PlacesLane,

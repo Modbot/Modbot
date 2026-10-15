@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Calendar;
+using Modbot.Api.Features.GroupPage;
 using Modbot.Api.Features.Users;
 using Modbot.Core.Calendar;
 using Modbot.Core.Data;
@@ -31,11 +32,20 @@ namespace Modbot.Api.Features.WorldLists;
 /// answer that refuses the world is shown and nothing is stored. Saving a list only takes in worlds
 /// Modbot knows and VRChat has not refused.
 /// </para>
+/// <para>
+/// The other is <see cref="SearchVRChatAsync"/>'s, when a moderator presses Search VRChat for a world
+/// Modbot does not know: one <c>SearchWorlds</c> on <c>worlds.search</c>, its own unmeasured bucket,
+/// so a 429 there never pauses world naming or head counts. The public worlds it finds are kept as
+/// known, unread, for the sweep to fill in.
+/// </para>
 /// </remarks>
 public static class WorldListEndpoints
 {
     /// <summary>The most worlds one search returns.</summary>
     public const int SearchLimit = 50;
+
+    /// <summary>The most worlds one VRChat search asks for and shows.</summary>
+    public const int VRChatSearchLimit = 10;
 
     public static IEndpointRouteBuilder MapWorldLists(this IEndpointRouteBuilder app)
     {
@@ -114,6 +124,32 @@ public static class WorldListEndpoints
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
+
+        group.MapPost("/worlds/search-vrchat", async (
+                [FromBody] WorldSearchRequest body,
+                [FromServices] ModbotContext db,
+                [FromServices] IVRChatGate gate,
+                [FromServices] IModbotClock clock,
+                [FromServices] WorldSearchWait wait,
+                CancellationToken ct) =>
+            {
+                ArgumentNullException.ThrowIfNull(body);
+                return await SearchVRChatAsync(db, gate, clock, wait, body.Text, ct);
+            })
+            .RequiresFlag(ModbotPermissions.ManageCalendar)
+            .WithName("SearchVRChatWorldListWorlds")
+            .WithSummary("Search VRChat's public worlds")
+            .WithDescription(
+                "Asks VRChat for up to 10 public worlds whose name holds the text (worlds.search, one search "
+                + "every 10 seconds). Each world found is kept as known, so a list can take it in. When "
+                + "searching again too soon, or when VRChat cannot be asked right now, nothing is sent and "
+                + "the reason comes back in the error.")
+            .Produces<IReadOnlyList<WorldSearchHitView>>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status429TooManyRequests)
+            .Produces(StatusCodes.Status502BadGateway)
+            .Produces(StatusCodes.Status503ServiceUnavailable);
 
         group.MapPost("/", async (
                 HttpContext http,
@@ -344,6 +380,82 @@ public static class WorldListEndpoints
         await db.SaveChangesAsync(ct);
 
         return Results.Ok(new CalendarWorldView(row.WorldId, row.Name, row.ThumbnailImageUrl));
+    }
+
+    /// <summary>
+    /// Up to <see cref="VRChatSearchLimit"/> of VRChat's public worlds whose name holds the text, each
+    /// kept as a known world. One press is one VRChat call, and never sent again on a 429.
+    /// </summary>
+    internal static async Task<IResult> SearchVRChatAsync(
+        ModbotContext db, IVRChatGate gate, IModbotClock clock, WorldSearchWait wait, string? text, CancellationToken ct)
+    {
+        var term = text?.Trim();
+        if (string.IsNullOrEmpty(term))
+            return Results.BadRequest(new { error = "Type a name to search for." });
+
+        var now = clock.UtcNow;
+
+        if (wait.TryStart(now) is { } left && left > TimeSpan.Zero)
+        {
+            return Results.Json(
+                new { error = $"Wait {Math.Ceiling(left.TotalSeconds):0} seconds, then search again." },
+                statusCode: StatusCodes.Status429TooManyRequests);
+        }
+
+        var endpoint = new VRChatEndpoint(VRChatEndpointClass.WorldsSearch, Operation: "SearchWorlds");
+
+        var result = await gate.ExecuteAsync(
+            endpoint,
+            (client, token) => client.Worlds.SearchWorldsWithHttpInfoAsync(
+                search: term, n: VRChatSearchLimit, cancellationToken: token),
+            VRChatCallPriority.Interactive,
+            ct);
+
+        if (!result.Success)
+        {
+            // VRChat turning the search down is shown in its words; anything else -- a cold stop, a
+            // sign-in wait, no account, no network -- is that VRChat cannot be asked right now.
+            return Results.Json(
+                new { error = result.IsRefusal ? GroupPageAnswers.Said(result) : "VRChat can't be asked right now." },
+                statusCode: GroupPageAnswers.StatusFor(result));
+        }
+
+        var found = (result.Value ?? [])
+            .Where(w => !string.IsNullOrWhiteSpace(w.Id))
+            .DistinctBy(w => w.Id, StringComparer.Ordinal)
+            .Take(VRChatSearchLimit)
+            .ToList();
+
+        var ids = found.Select(w => w.Id).ToList();
+        var rows = await db.VRChatWorlds
+            .Where(w => ids.Contains(w.WorldId))
+            .ToDictionaryAsync(w => w.WorldId, StringComparer.Ordinal, ct);
+
+        foreach (var world in found)
+        {
+            // A search result is not a full read: LastRefreshedAt stays as it was, and the world
+            // sweep fills in the rest.
+            if (!rows.TryGetValue(world.Id, out var row))
+            {
+                row = new VRChatWorld { WorldId = world.Id, FirstSeenAt = now, LastSeenAt = now };
+                db.VRChatWorlds.Add(row);
+            }
+
+            row.Name ??= world.Name;
+            row.ImageUrl ??= world.ImageUrl;
+            row.ThumbnailImageUrl ??= world.ThumbnailImageUrl;
+            row.AuthorId ??= world.AuthorId;
+            row.AuthorName ??= world.AuthorName;
+
+            // VRChat just listed it publicly, so an earlier refusal no longer stands.
+            row.RefreshError = null;
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        return Results.Ok(found
+            .Select(w => new WorldSearchHitView(w.Id, w.Name, w.ThumbnailImageUrl, w.AuthorName))
+            .ToList());
     }
 
     /// <summary>Checks a request and cleans it up. Returns what is wrong, or null.</summary>

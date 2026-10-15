@@ -30,3 +30,9 @@ public sealed record WorldListsView(IReadOnlyList<WorldListView> Lists, bool Can
 
 /// <summary>A world's link or id, as pasted.</summary>
 public sealed record WorldFindRequest(string Text);
+
+/// <summary>A name to look for among VRChat's public worlds.</summary>
+public sealed record WorldSearchRequest(string Text);
+
+/// <summary>One public world VRChat found.</summary>
+public sealed record WorldSearchHitView(string WorldId, string? Name, string? ThumbnailUrl, string? AuthorName);

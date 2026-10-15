@@ -56,6 +56,9 @@ export type NextGame = {
   canPick: boolean
 }
 
+/** A public world VRChat found by name. */
+export type VRChatWorldHit = { worldId: string; name: string | null; thumbnailUrl: string | null; authorName: string | null }
+
 const base = '/api/world-lists'
 
 export const worldListApi = {
@@ -63,6 +66,8 @@ export const worldListApi = {
   search: (text: string) => http.request<CalendarWorld[]>(`${base}/worlds?search=${encodeURIComponent(text)}`),
   /** A world's link or id; a world Modbot has never read is read from VRChat once. */
   find: (text: string) => http.post<CalendarWorld>(`${base}/worlds/find`, { text }),
+  /** Up to 10 of VRChat's public worlds by name; one VRChat call, and Modbot keeps each as known. */
+  searchVRChat: (text: string) => http.post<VRChatWorldHit[]>(`${base}/worlds/search-vrchat`, { text }),
   create: (body: WorldListInput) => http.post<WorldList>(base, body),
   update: (id: string, body: WorldListInput) => http.put<WorldList>(`${base}/${encodeURIComponent(id)}`, body),
   remove: (id: string) => http.del<void>(`${base}/${encodeURIComponent(id)}`),

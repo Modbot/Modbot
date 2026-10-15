@@ -84,6 +84,19 @@ public static class VRChatEndpointClass
     public const string WorldsRead = "worlds.read";
 
     /// <summary>
+    /// Searching VRChat's public worlds by name -- <c>GET /worlds?search=</c>. Pressed by a person
+    /// on the world lists page to find a world Modbot does not know yet (world lists design §2).
+    /// </summary>
+    /// <remarks>
+    /// <strong>Not measured.</strong> One request every ten seconds, a cautious placeholder
+    /// (spec 4.3.4): the foundation spec, the research notes and the rate limit options had no
+    /// number for it. Its own class and lane, so a 429 here stops world searching and never
+    /// <see cref="WorldsRead"/>, which names worlds and counts heads. Sent only when a person
+    /// presses Search VRChat, and never retried.
+    /// </remarks>
+    public const string WorldsSearch = "worlds.search";
+
+    /// <summary>
     /// One instance by its location -- <c>/instances/{location}</c>. Read for instances Modbot
     /// learns about from a client rather than from the group's own list.
     /// </summary>
