@@ -15,3 +15,8 @@ test('picking from a list wins over a world id', () => {
   assert.equal(worldChoice({ fromList: true, typedWorld: false, worldId: null }), FROM_LIST)
   assert.equal(worldChoice({ fromList: true, typedWorld: true, worldId: 'wrld_prop' }), FROM_LIST)
 })
+
+test('a whole list or one world picked from a list both keep the menu on Pick from a list', () => {
+  assert.equal(worldChoice({ fromList: true, typedWorld: false, worldId: null }), FROM_LIST)
+  assert.equal(worldChoice({ fromList: true, typedWorld: false, worldId: 'wrld_prop' }), FROM_LIST)
+})

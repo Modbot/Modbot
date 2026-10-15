@@ -1424,7 +1424,7 @@ function LinkMenu({ onPick }: { onPick: (link: string) => void }) {
   )
 }
 
-/** Design mock-up: the world lists, each opening its worlds on hover; a list itself picks date by date. */
+/** The world lists: a list's name picks the whole list (shuffle), its arrow opens its worlds to pick one. */
 function WorldListMenu({
   lists,
   listId,
@@ -1470,26 +1470,31 @@ function WorldListMenu({
                 {l.name}
               </DropdownMenu.Item>
             ) : (
-            <DropdownMenu.Sub key={l.id}>
-              <DropdownMenu.SubTrigger className={item}>
+            // The name picks the whole list (shuffle); the arrow, which a tap opens too, lists its worlds.
+            <div key={l.id} className="flex items-stretch">
+              <DropdownMenu.Item className={`${item} flex-1`} onSelect={() => onList(l.id)}>
                 {l.name}
-                <ChevronRight className="size-3.5 text-muted-foreground" />
-              </DropdownMenu.SubTrigger>
-              <DropdownMenu.Portal>
-                <DropdownMenu.SubContent
-                  sideOffset={4}
-                  className={`${panel} max-h-64 overflow-y-auto`}
-                  style={{ fontSize: 'var(--text-small)' }}
-                >
-                  {l.worlds.map((w) => (
-                    <DropdownMenu.Item key={w.worldId} className={`${item} justify-start`} onSelect={() => onWorld(w.worldId)}>
-                      {w.thumbnailUrl && <img src={w.thumbnailUrl} alt="" className="h-8 w-12 shrink-0 rounded-sm object-cover" />}
-                      {w.name ?? w.worldId}
-                    </DropdownMenu.Item>
-                  ))}
-                </DropdownMenu.SubContent>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Sub>
+              </DropdownMenu.Item>
+              <DropdownMenu.Sub>
+                <DropdownMenu.SubTrigger aria-label={`${l.name} worlds`} className={`${item} w-9 justify-center`}>
+                  <ChevronRight className="size-3.5 text-muted-foreground" />
+                </DropdownMenu.SubTrigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.SubContent
+                    sideOffset={4}
+                    className={`${panel} max-h-64 overflow-y-auto`}
+                    style={{ fontSize: 'var(--text-small)' }}
+                  >
+                    {l.worlds.map((w) => (
+                      <DropdownMenu.Item key={w.worldId} className={`${item} justify-start`} onSelect={() => onWorld(w.worldId)}>
+                        {w.thumbnailUrl && <img src={w.thumbnailUrl} alt="" className="h-8 w-12 shrink-0 rounded-sm object-cover" />}
+                        {w.name ?? w.worldId}
+                      </DropdownMenu.Item>
+                    ))}
+                  </DropdownMenu.SubContent>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Sub>
+            </div>
             ),
           )}
         </DropdownMenu.Content>
