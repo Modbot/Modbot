@@ -1065,7 +1065,7 @@ public static class PostEndpoints
             .FirstOrDefaultAsync(ct);
 
         var replies = await db.Settings.AsNoTracking()
-            .Where(s => s.Id == 1 && s.BlueskyRepliesError != null)
+            .Where(s => s.Id == 1 && s.BlueskyPostingOn && s.BlueskyRepliesError != null)
             .Select(s => new { s.BlueskyRepliesError, s.BlueskyRepliesErrorAt })
             .FirstOrDefaultAsync(ct);
 

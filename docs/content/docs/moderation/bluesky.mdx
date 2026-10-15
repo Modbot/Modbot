@@ -143,7 +143,8 @@ keeps who wrote it (their name and handle), what they wrote and a link to the po
 also names the post it answers when Modbot sent that post. Likes, reposts and follows are not saved:
 there are too many to be useful.
 
-Modbot asks the account's own server for them about every 3 minutes, and saves each one once. The
+While **Posting** is on, Modbot asks the account's own server for them about every 3 minutes, and saves
+each one once. With Posting off it does not read them, and Health says nothing about them. The
 account's own posts are left out. The first time, it starts from then and saves nothing from before.
 Each pass reads at most the newest 300, so more than that in 3 minutes would leave the oldest out.
 

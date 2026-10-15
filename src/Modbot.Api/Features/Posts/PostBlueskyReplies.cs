@@ -32,7 +32,14 @@ public sealed record PostBlueskyRepliesPass(int Written, bool Asked);
 /// The first pass has none: it starts from then and writes nothing from before. Later, the pages are
 /// read newest first until one reaches the mark, at most <see cref="MostPages"/> of them (what is
 /// older than the newest few hundred is left), then written oldest first, the mark moving on
-/// after each. A pass that fails before the writing starts leaves the mark where it was.
+/// after each. A pass that fails before the writing starts leaves the mark where it was. Those at the
+/// mark are read again, so none that shares its second is lost; one already in the audit log is not
+/// written twice. One that cannot be stored (text PostgreSQL refuses) is logged and left out, and the
+/// mark moves past it.
+/// </para>
+/// <para>
+/// <strong>Only while Posting is on</strong> and the account has passed Check, as every other Bluesky pass:
+/// with Posting off nothing is read and no sign-in warning is shown.
 /// </para>
 /// <para>
 /// <strong>A sign-in made before the reading was added</strong> lacks the permission for it
@@ -66,6 +73,8 @@ public sealed class PostBlueskyReplies
 
     /// <summary>The words on Health when the sign-in cannot read replies.</summary>
     public const string SignInAgain = "Sign in with Bluesky again to read replies and mentions.";
+
+    private static readonly string[] Types = [FactType.BlueskyReply, FactType.BlueskyMention, FactType.BlueskyQuote];
 
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
@@ -106,7 +115,7 @@ public sealed class PostBlueskyReplies
         var now = _clock.UtcNow;
 
         var settings = await _db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct).ConfigureAwait(false);
-        if (settings is null || !PostSites.BlueskyReady(settings))
+        if (settings is null || !settings.BlueskyPostingOn || !PostSites.BlueskyReady(settings))
             return none;
 
         if (settings.BlueskyRepliesStoppedUntil is { } stopped && now < stopped)
@@ -162,7 +171,10 @@ public sealed class PostBlueskyReplies
             }
 
             var read = answer.Value!;
-            fresh.AddRange(read.Mentions.Where(m => m.IndexedAt > mark));
+
+            // At the mark too: two notifications can share a second, and one of them may have come after the
+            // pass that moved the mark there. What is already in the audit log is skipped below.
+            fresh.AddRange(read.Mentions.Where(m => m.IndexedAt >= mark));
 
             // Newest first: a page with one at the mark has nothing newer on the pages after it.
             if (read.Cursor is null || read.Mentions.Count == 0 || read.Mentions.Any(m => m.IndexedAt <= mark))
@@ -182,8 +194,16 @@ public sealed class PostBlueskyReplies
         {
             if (!string.Equals(mention.AuthorDid, own, StringComparison.Ordinal))
             {
-                await WriteFactAsync(mention, now, ct).ConfigureAwait(false);
-                written++;
+                try
+                {
+                    if (await WriteFactAsync(mention, now, ct).ConfigureAwait(false))
+                        written++;
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // One that cannot be stored is left out, so it does not stop every pass after it.
+                    _log.Warning(ex, "A Bluesky reply, mention or quote could not be saved to the audit log and was left out");
+                }
             }
 
             await MovedOnAsync(mention.IndexedAt, ct).ConfigureAwait(false);
@@ -198,8 +218,15 @@ public sealed class PostBlueskyReplies
 
     // ── The audit log ────────────────────────────────────────────────────────────────────
 
-    private async Task WriteFactAsync(BlueskyMention mention, DateTimeOffset now, CancellationToken ct)
+    /// <summary>True when it was written; false when the audit log already had it (a pass that stopped before the mark moved).</summary>
+    private async Task<bool> WriteFactAsync(BlueskyMention mention, DateTimeOffset now, CancellationToken ct)
     {
+        var uri = Clean(mention.Uri)!;
+
+        if (await _db.Events.AsNoTracking()
+            .AnyAsync(e => Types.Contains(e.Type) && e.SubjectId == uri, ct).ConfigureAwait(false))
+            return false;
+
         var type = mention.Reason switch
         {
             "reply" => FactType.BlueskyReply,
@@ -211,15 +238,15 @@ public sealed class PostBlueskyReplies
 
         var data = new JsonObject
         {
-            ["handle"] = mention.AuthorHandle,
-            ["displayName"] = mention.AuthorName,
-            ["did"] = mention.AuthorDid,
-            ["text"] = mention.Text,
+            ["handle"] = Clean(mention.AuthorHandle),
+            ["displayName"] = Clean(mention.AuthorName),
+            ["did"] = Clean(mention.AuthorDid),
+            ["text"] = Clean(mention.Text),
             ["link"] = LinkTo(mention),
         };
 
         // The Modbot post a reply answers, when it is one Modbot sent.
-        if (mention.Answered is { Length: > 0 } answered)
+        if (Clean(mention.Answered) is { Length: > 0 } answered)
         {
             var post = await _db.PostDestinations.AsNoTracking()
                 .Where(d => d.Network == PostNetworks.Bluesky && d.ExternalId == answered)
@@ -240,19 +267,35 @@ public sealed class PostBlueskyReplies
                 Type = type,
                 OccurredAt = at,
                 SubjectPlatform = FactPlatform.Modbot,
-                SubjectId = mention.Uri,
+                SubjectId = uri,
                 Source = FactSource.Modbot,
                 Data = data,
             },
             ct).ConfigureAwait(false);
+
+        return true;
     }
 
-    /// <summary>The post on bsky.app: by handle, or by account when Bluesky could not confirm the handle.</summary>
+    /// <summary>
+    /// Text from outside Modbot, fit for the audit log: a NUL makes PostgreSQL refuse the whole row, so it and the
+    /// other control characters (all but a new line and a tab) are dropped.
+    /// </summary>
+    internal static string? Clean(string? text)
+    {
+        if (text is null || !text.Any(IsControl))
+            return text;
+
+        return string.Concat(text.Where(c => !IsControl(c)));
+
+        static bool IsControl(char c) => c < ' ' && c != '\n' && c != '\t';
+    }
+
+    /// <summary>The post on bsky.app, by the author's account id, so the link outlives a change of handle.</summary>
     public static string LinkTo(BlueskyMention mention)
     {
-        var who = mention.AuthorHandle.Length == 0 || mention.AuthorHandle == "handle.invalid" ? mention.AuthorDid : mention.AuthorHandle;
         var key = mention.Uri[(mention.Uri.LastIndexOf('/') + 1)..];
-        return $"https://bsky.app/profile/{Uri.EscapeDataString(who)}/post/{Uri.EscapeDataString(key)}";
+        var did = Uri.EscapeDataString(Clean(mention.AuthorDid)!).Replace("%3A", ":", StringComparison.Ordinal);
+        return $"https://bsky.app/profile/{did}/post/{Uri.EscapeDataString(Clean(key)!)}";
     }
 
     // ── The mark, and what Health says ───────────────────────────────────────────────────

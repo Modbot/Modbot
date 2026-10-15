@@ -103,13 +103,17 @@ public sealed class PostBlueskyRepliesTests
 
     private static string OurPost => $"at://{FakeBluesky.Did}/app.bsky.feed.post/ours";
 
-    private async Task<PostBlueskyRepliesPass> PassAsync()
+    private async Task<PostBlueskyRepliesPass> PassAsync(string? refuse = null)
     {
         await using var context = _db.NewContext();
+        IFactWriter writer = new FactWriter(context, _clock);
+        if (refuse is not null)
+            writer = new RefusingWriter(writer, refuse);
+
         var pass = new PostBlueskyReplies(
             context,
             _clock,
-            new FactWriter(context, _clock),
+            writer,
             new EventPartitionMaintainer(context, _clock),
             _session,
             Client());
@@ -208,7 +212,7 @@ public sealed class PostBlueskyRepliesTests
         Assert.Equal("alice.bsky.social", reply["handle"]!.GetValue<string>());
         Assert.Equal("Alice", reply["displayName"]!.GetValue<string>());
         Assert.Equal("Count me in", reply["text"]!.GetValue<string>());
-        Assert.Equal("https://bsky.app/profile/alice.bsky.social/post/r1", reply["link"]!.GetValue<string>());
+        Assert.Equal("https://bsky.app/profile/did:plc:alice/post/r1", reply["link"]!.GetValue<string>());
         Assert.Equal(postId.ToString(), reply["postId"]!.GetValue<string>());
         Assert.Equal("Movie night", reply["title"]!.GetValue<string>());
         Assert.Equal("at://did:plc:alice/app.bsky.feed.post/r1", facts[0].SubjectId);
@@ -409,6 +413,131 @@ public sealed class PostBlueskyRepliesTests
 
         Assert.Equal(new PostBlueskyRepliesPass(0, false), await PassAsync());
         Assert.Null((await SettingsAsync()).BlueskyRepliesReadAt);
+    }
+
+    [Fact]
+    public async Task WhilePostingIsOff_NothingIsReadAndNoSignInWarningShows()
+    {
+        // A sign-in without the permission would otherwise put the warning on Health.
+        await SetUpAsync(s =>
+        {
+            s.BlueskyPostingOn = false;
+            s.BlueskyAppPasswordEncrypted = null;
+            s.BlueskyOAuthSignedIn = true;
+            s.BlueskySessionEncrypted = _session.Protect(new BlueskyTokens(
+                "access", "refresh", FakeBluesky.Did, FakeBluesky.Handle,
+                new BlueskyOAuthGrant(
+                    FakeBluesky.AuthServer, FakeBluesky.TokenEndpoint, "https://modbot.example.com/client.json", "{}", _clock.UtcNow.AddHours(1),
+                    "atproto repo:app.bsky.feed.post?action=create")));
+        });
+
+        Assert.Equal(new PostBlueskyRepliesPass(0, false), await PassAsync());
+        _clock.Advance(PostBlueskyReplies.Every);
+        Assert.Equal(new PostBlueskyRepliesPass(0, false), await PassAsync());
+
+        Assert.Empty(_bluesky.Requests);
+        var settings = await SettingsAsync();
+        Assert.Null(settings.BlueskyRepliesError);
+        Assert.Null(settings.BlueskyRepliesReadAt);
+    }
+
+    [Fact]
+    public async Task ANulInTheText_IsDropped_AndTheOthersAreWrittenToo()
+    {
+        await SetUpAsync();
+        await StartAsync();
+
+        Add("reply", "r1", 1, "Count\0 me\u0001 in\nplease\t!", handle: "al\0ice.bsky.social", name: "Al\0ice", answers: OurPost);
+        Add("mention", "m1", 2, "Fine");
+
+        Assert.Equal(new PostBlueskyRepliesPass(2, true), await PassAsync());
+
+        var facts = await FactsAsync();
+        Assert.Equal(2, facts.Count);
+        var reply = D(facts[0]);
+        Assert.Equal("Count me in\nplease\t!", reply["text"]!.GetValue<string>());
+        Assert.Equal("alice.bsky.social", reply["handle"]!.GetValue<string>());
+        Assert.Equal("Alice", reply["displayName"]!.GetValue<string>());
+        Assert.Equal(new DateTimeOffset(2026, 10, 14, 12, 2, 0, TimeSpan.Zero), (await SettingsAsync()).BlueskyRepliesReadAt);
+    }
+
+    [Fact]
+    public async Task AFailureWhileStoringOne_IsSkipped_TheOthersAreWritten_AndTheMarkMovesOn()
+    {
+        await SetUpAsync();
+        await StartAsync();
+
+        Add("reply", "r1", 1, "boom", answers: OurPost);
+        Add("mention", "m1", 2, "Fine");
+
+        var pass = await PassAsync(refuse: "boom");
+        Assert.Equal(new PostBlueskyRepliesPass(1, true), pass);
+
+        var facts = await FactsAsync();
+        Assert.Equal("Fine", D(Assert.Single(facts))["text"]!.GetValue<string>());
+        var settings = await SettingsAsync();
+        Assert.Equal(new DateTimeOffset(2026, 10, 14, 12, 2, 0, TimeSpan.Zero), settings.BlueskyRepliesReadAt);
+        Assert.Null(settings.BlueskyRepliesError);
+
+        // Not tried again.
+        _clock.Advance(PostBlueskyReplies.Every);
+        Assert.Equal(new PostBlueskyRepliesPass(0, true), await PassAsync(refuse: "boom"));
+    }
+
+    [Fact]
+    public async Task OneAlreadyInTheAuditLog_IsNotWrittenAgain_WhenAPassStoppedBeforeTheMarkMoved()
+    {
+        await SetUpAsync();
+        await StartAsync();
+        Add("reply", "r1", 1, "Count me in", answers: OurPost);
+
+        Assert.Equal(new PostBlueskyRepliesPass(1, true), await PassAsync());
+
+        // The crash: the entry is there, the mark is back where it was.
+        await using (var context = _db.NewContext())
+        {
+            await context.Settings.Where(s => s.Id == 1).ExecuteUpdateAsync(
+                u => u.SetProperty(s => s.BlueskyRepliesReadAt, new DateTimeOffset(2026, 10, 14, 12, 0, 0, TimeSpan.Zero)), Ct);
+        }
+
+        _clock.Advance(PostBlueskyReplies.Every);
+        Assert.Equal(new PostBlueskyRepliesPass(0, true), await PassAsync());
+        Assert.Single(await FactsAsync());
+    }
+
+    [Fact]
+    public async Task TwoNotificationsWithTheSameTime_AreBothWritten_EvenWhenTheySplitAcrossPasses()
+    {
+        await SetUpAsync();
+        await StartAsync();
+        Add("reply", "r1", 1, "First", answers: OurPost);
+
+        Assert.Equal(new PostBlueskyRepliesPass(1, true), await PassAsync());
+
+        // Another with exactly the time the mark is at, seen only now.
+        Add("reply", "r2", 1, "Second", author: "did:plc:bob", handle: "bob.example.com", answers: OurPost);
+        _clock.Advance(PostBlueskyReplies.Every);
+        Assert.Equal(new PostBlueskyRepliesPass(1, true), await PassAsync());
+
+        // And neither is doubled on the next pass.
+        _clock.Advance(PostBlueskyReplies.Every);
+        Assert.Equal(new PostBlueskyRepliesPass(0, true), await PassAsync());
+        Assert.Equal(2, (await FactsAsync()).Count);
+    }
+
+    /// <summary>A fact writer that fails for a fact whose text is the given one.</summary>
+    private sealed class RefusingWriter(IFactWriter inner, string text) : IFactWriter
+    {
+        public Task<FactWriteResult> WriteAsync(FactRecord fact, CancellationToken ct = default) =>
+            fact.Data?["text"]?.GetValue<string>() == text
+                ? throw new InvalidOperationException("The audit log refused it.")
+                : inner.WriteAsync(fact, ct);
+
+        public Task<IReadOnlyList<FactWriteResult>> WriteManyAsync(IEnumerable<FactRecord> facts, CancellationToken ct = default) =>
+            inner.WriteManyAsync(facts, ct);
+
+        public Task<long?> AlreadyRecordedAsync(FactRecord fact, TimeSpan within, CancellationToken ct = default) =>
+            inner.AlreadyRecordedAsync(fact, within, ct);
     }
 
     /// <summary>The app password and session are stored as they are: the protector's own tests cover the encryption.</summary>

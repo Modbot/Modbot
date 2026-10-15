@@ -546,7 +546,7 @@ function BlueskyPost({ p, did, answers }: { p: Parts; did: string; answers?: str
     <>
       {blueskyAuthor(p)} {did} on Bluesky
       <Quoted value={p.text('text')} />
-      {answers ? <> (to “{answers}”)</> : null}
+      {answers ? <> (to “{answers}”)</> : null}.
       {link?.startsWith('https://bsky.app/') && (
         <a
           href={link}
