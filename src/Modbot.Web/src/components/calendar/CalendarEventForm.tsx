@@ -95,7 +95,7 @@ const REPEAT_UNIT: Record<Exclude<CalendarRepeat, 'none'>, [string, string]> = {
  * The create and edit form for one event (calendar design §2, §14).
  *
  * Every place that is set up has a tab of its own, with its own fields and a card of the event the
- * way that place would show it; the event's own fields are on the Event tab. A place is used once
+ * way that place would show it; the event's own fields are on the Shared info tab. A place is used once
  * anything on its tab is changed (a new event starts with none), and its tab is marked; Schedule
  * then asks once, naming the places. Opening the instance is on the VRChat tab and is used once
  * its fields are changed. Places not set up are under the + after the tabs, each linking to where
@@ -437,8 +437,8 @@ export function CalendarEventForm({
   const sharedNow = () => sharedWords(input, SERVICE_TABS.filter((place) => on(place)))
 
   const tabs = tabsFor((place) => on(place) || placeReady(place, ready))
-  // A chip goes off on the Event tab, or a Google tick goes off with its setting: the tab goes with it,
-  // so turning the chip back on does not open the tab again.
+  // A place goes off, or a Google tick goes off with its setting: the tab goes with it, so turning
+  // it back on does not open the tab again.
   const active: CalendarTab = tabs.includes(tab) ? tab : 'event'
   if (tab !== active) setTab(active)
   // The Discord event and the channel post share one Discord tab; the part last clicked is the active place.
