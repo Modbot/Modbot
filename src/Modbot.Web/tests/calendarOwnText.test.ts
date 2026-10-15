@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { around, countOf, OWN_KEYS, OWN_TEXT, ownKeysWithText, placeholderOf, postAround, textShown, type OwnKey } from '../src/lib/calendarOwnText.ts'
+import { around, countOf, OWN_KEYS, OWN_TEXT, ownKeysWithText, placeholderOf, postAround, sharedWords, textShown, type OwnKey } from '../src/lib/calendarOwnText.ts'
 
 /**
  * A service's own words, edited in place on its card (calendar design §2.1, step 2b): which fields a
@@ -95,4 +95,26 @@ test('a Bluesky post whose description was cut draws nothing around it', () => {
     before: '',
     after: '',
   })
+})
+
+const blank = { ...event, title: '', description: '' }
+
+test('an event with a title keeps it, whatever the places hold', () => {
+  assert.deepEqual(sharedWords({ ...event, vrChatTitle: 'VRChat words' }, ['vrchat']), { title: 'Movie night', description: 'Bring snacks' })
+})
+
+test('an event with no title is sent the first place’s words, the places switched on first', () => {
+  const typed = { ...blank, vrChatTitle: 'VRChat night', discordTitle: 'Discord night', discordDescription: 'Come along' }
+  assert.deepEqual(sharedWords(typed, ['discordEvent']), { title: 'Discord night', description: 'Come along' })
+  assert.deepEqual(sharedWords(typed, ['vrchat', 'discordEvent']), { title: 'VRChat night', description: 'Come along' })
+  // With no place on, a draft still has a title: the first place that holds words.
+  assert.deepEqual(sharedWords(typed, []), { title: 'VRChat night', description: 'Come along' })
+})
+
+test('blank words in a place are not words, and no words anywhere stay blank for the server to refuse', () => {
+  assert.deepEqual(sharedWords({ ...blank, vrChatTitle: '   ', googleTitle: 'Google night' }, ['vrchat', 'googleCalendar']), {
+    title: 'Google night',
+    description: '',
+  })
+  assert.deepEqual(sharedWords(blank, ['vrchat']), { title: '', description: '' })
 })

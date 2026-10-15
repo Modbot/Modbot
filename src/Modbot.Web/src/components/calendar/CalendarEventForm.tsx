@@ -33,6 +33,7 @@ import {
   googleChip,
   googleTicked,
   isSetUp,
+  SERVICE_TABS,
   SET_UP_LINK,
   TAB_LABEL,
   tabsFor,
@@ -45,7 +46,7 @@ import { calendarTemplateApi } from '@/lib/calendarTemplateApi'
 import { useCanManageSettings } from '@/lib/manageSettings'
 import { AUTO_LINKS, autoLinkOf, cleanFillInName, FILL_IN_TEXTS, fillInKey, fillInMarker, fillInsIn } from '@/lib/calendarFillIns'
 import { addMinutes, fieldsFromInput, joinLength, splitLength } from '@/lib/calendarTemplates'
-import { countOf, OWN_TEXT, ownKeysWithText, textShown, type OwnKey } from '@/lib/calendarOwnText'
+import { countOf, OWN_KEYS, OWN_TEXT, ownKeysWithText, placeholderOf, sharedWords, textShown, type OwnKey } from '@/lib/calendarOwnText'
 import { saveWarnings } from '@/lib/calendarWarnings'
 import type { CardEditing, CardField } from './CardText'
 import { EventPreview, usePreviewAnswer } from './EventPreview'
@@ -77,6 +78,7 @@ const PREVIEW_WAIT_MS = 400
 
 /** No service has words of its own: a card's text is then the event's. */
 const NO_OWN_TEXT: ReadonlySet<OwnKey> = new Set()
+const EVERY_OWN_KEY: ReadonlySet<OwnKey> = new Set(OWN_KEYS)
 const DISCORD_PARTS = ['discordEvent', 'channelPost'] as const
 
 /** What "After a number of times" starts at. */
@@ -273,6 +275,9 @@ export function CalendarEventForm({
 
   const body = (draft: boolean): CalendarEventInput => ({
     ...input,
+    // The form has no box for the event's own title and description: each place's words are typed on its
+    // tab, and the server's (which it asks for) come from them.
+    ...sharedNow(),
     // What the chip shows is what is saved, a new event's starting tick included.
     publishToGoogle: isNew ? googleTicked(input, roleIds, ready, true) : input.publishToGoogle,
     repeatUntil: repeatEnd === 'date' ? input.repeatUntil : null,
@@ -429,6 +434,8 @@ export function CalendarEventForm({
   const on = (place: CalendarDestination) =>
     place === 'feed' || (place === 'googleCalendar' ? google.on : !!input[DESTINATION_SWITCH[place]])
 
+  const sharedNow = () => sharedWords(input, SERVICE_TABS.filter((place) => on(place)))
+
   const tabs = tabsFor((place) => on(place) || placeReady(place, ready))
   // A chip goes off on the Event tab, or a Google tick goes off with its setting: the tab goes with it,
   // so turning the chip back on does not open the tab again.
@@ -512,7 +519,7 @@ export function CalendarEventForm({
     const keys = OWN_TEXT[place]
 
     const field = (key: OwnKey, isTitle: boolean): CardField => {
-      // Design mock-up: no shared title or description any more, so each place holds only its own words.
+      // No shared title or description box: each place holds only its own words.
       const value = input[key] ?? ''
 
       return {
@@ -525,7 +532,8 @@ export function CalendarEventForm({
           setPutFillIn({ insert })
           if (!isTitle) setPutLink({ insert })
         },
-        placeholder: '',
+        // Empty, the place is sent the event's words: they show muted in the box.
+        placeholder: placeholderOf({ ...input, ...sharedNow() }, key, EVERY_OWN_KEY),
         count: countOf(key, value, true),
         asked: textShown(asked, key, NO_OWN_TEXT),
       }
@@ -879,8 +887,8 @@ export function CalendarEventForm({
             <div className="flex min-w-0 flex-col gap-4">
               {active === 'vrchat' && (
                 <VRChatPreviews
-                  title={input.vrChatTitle ?? ""}
-                  description={input.vrChatDescription ?? ""}
+                  title={input.vrChatTitle || sharedNow().title}
+                  description={input.vrChatDescription || sharedNow().description}
                   picture={vrchatAddress ?? lists.flatMap((l) => l.worlds).find((w) => w.worldId === input.worldId)?.thumbnailUrl ?? null}
                   platforms={input.platforms}
                   aboutCount={editingFor('vrchat', shown ?? input).description.count}
@@ -952,8 +960,8 @@ export function CalendarEventForm({
                   <DiscordPreviews
                     key={place}
                     place={place}
-                    title={e.title.value}
-                    description={e.description.value}
+                    title={e.title.value || sharedNow().title}
+                    description={e.description.value || sharedNow().description}
                     startsAt={input.startsAt}
                     endsAt={input.endsAt}
                     location={drawn?.discordEvent?.location ?? null}
@@ -1086,7 +1094,7 @@ export function CalendarEventForm({
                         worldId={input.worldId}
                         onList={(id) => setInput((current) => ({ ...current, worldListId: id, worldId: null }))}
                         onWorld={(id) =>
-                          setInput((current) => ({ ...current, worldListId: null, worldId: id, platforms: WORLD_PLATFORMS[id] ?? current.platforms }))
+                          setInput((current) => ({ ...current, worldListId: null, worldId: id }))
                         }
                       />
                       {listMissed && listMissing && (
@@ -1497,13 +1505,4 @@ function WorldListMenu({
     </DropdownMenu.Root>
     </>
   )
-}
-
-/** Design mock-up: the platforms each world is built for, which Modbot will read from VRChat. */
-const WORLD_PLATFORMS: Record<string, string[]> = {
-  'wrld_3c231334-2f20-442f-924c-a504d9f98543': ['standalonewindows', 'android'],
-  'wrld_e6569266-21cd-4275-8aef-47fcb7458931': ['standalonewindows', 'android'],
-  'wrld_6d8d8f48-4040-4e5d-a7ca-af51d5306417': ['standalonewindows', 'android'],
-  'wrld_1b3b3259-0a1f-4311-984e-826abab6f481': ['standalonewindows', 'android'],
-  'wrld_0be6b35d-2f14-45f9-a117-4604565ccd80': ['standalonewindows', 'android'],
 }

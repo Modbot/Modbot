@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { timeOfDay } from '@/lib/format'
 import { PlatformIcons } from './PlatformIcons'
 // Design mock-up: the event the way VRChat shows it, in game and on vrchat.com.
 
@@ -40,8 +41,11 @@ const TEAL = '#064b5c'
 const WEB_TEXT = '#f8f9fa'
 const WEB_MUTED = '#9c9c9c'
 
-const time = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+const time = timeOfDay
+// VRChat's own wording of a day, not the console's.
+// oxlint-disable-next-line no-restricted-properties
 const longDay = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
+// oxlint-disable-next-line no-restricted-properties
 const shortDay = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 
 function Picture({ src, className, children, platforms = [] }: { src: string | null; className?: string; children?: React.ReactNode; platforms?: string[] }) {

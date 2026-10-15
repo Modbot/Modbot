@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { CalendarDays, Ellipsis, ExternalLink, Link2, MapPin, Bell, Users, X } from 'lucide-react'
 import type { CalendarPreview } from '@/lib/calendar'
+import { timeOfDay } from '@/lib/format'
 import { DiscordText, RoleMention } from './EventPreview'
 // Design mock-up: the event the way Discord shows it. Sizes measured in Discord's web app
 // (.agent/research/2026-10-15-discord-event-views.md); colours are Discord's dark theme with the tint taken out.
@@ -39,7 +40,7 @@ type Props = {
   aboutCount?: { label: string; over: boolean }
   groupName?: string | null
   post?: Post | null
-  /** The post's colour, 0xRRGGBB, null for Modbot's own; with a setter, the bar picks it. */
+  /** The colour picked for the post while it is scheduled, 0xRRGGBB, null for Modbot's violet; with a setter, the bar picks it. */
   colour?: number | null
   onColour?: (colour: number | null) => void
 }
@@ -52,7 +53,7 @@ type View = (typeof EVENT_VIEWS)[number] | (typeof POST_VIEWS)[number]
 const lastViews: Record<Props['place'], View[]> = { discordEvent: ['Event page'], channelPost: ['In the channel'] }
 let lastScale = 1
 
-const clock = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+const clock = timeOfDay
 
 /** Discord's own day words: "Today at 5:00 PM", "Tomorrow at 6:00 PM", "Sat Oct 17th · 6:00 PM". */
 function discordWhen(iso: string) {
@@ -63,6 +64,8 @@ function discordWhen(iso: string) {
   if (days === 1) return `Tomorrow at ${clock(iso)}`
   const d = at.getDate()
   const th = d % 10 === 1 && d !== 11 ? 'st' : d % 10 === 2 && d !== 12 ? 'nd' : d % 10 === 3 && d !== 13 ? 'rd' : 'th'
+  // Discord's own wording of a day, not the console's.
+  // oxlint-disable-next-line no-restricted-properties
   const day = at.toLocaleDateString(undefined, { weekday: 'short', month: 'short' })
   return `${day} ${d}${th} · ${clock(iso)}`
 }

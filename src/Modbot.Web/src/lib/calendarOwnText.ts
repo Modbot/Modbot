@@ -2,7 +2,7 @@
 // here talks to the server or the page, so the Node test runner can load this file as it is.
 import type { CalendarEventInput } from './calendar.ts'
 import { splitFillIns } from './calendarFillIns.ts'
-import { BLUESKY_DESCRIPTION_LIMIT, counted, countedGraphemes, DESCRIPTION_LIMIT, TITLE_LIMIT, type CalendarServiceTab } from './calendarPlaces.ts'
+import { BLUESKY_DESCRIPTION_LIMIT, counted, countedGraphemes, DESCRIPTION_LIMIT, SERVICE_TABS, TITLE_LIMIT, type CalendarServiceTab } from './calendarPlaces.ts'
 
 /** The fields of the form that hold a service's own words. */
 export type OwnKey =
@@ -42,6 +42,30 @@ export function textShown(input: Pick<CalendarEventInput, OwnKey | 'title' | 'de
   const own = input[key] ?? ''
   if (edited.has(key) || own.trim() !== '') return own
   return isTitle(key) ? input.title : input.description
+}
+
+/**
+ * The event's own title and description, which the form has no box for but the server asks for (an
+ * event needs a title, and a place with no words of its own is sent these). They stay what the event
+ * has while it has words; else they are the first place's own words, the places switched on first, in
+ * the tabs' order. A place that is on and has none gets those words, so no place is left with a blank.
+ */
+export function sharedWords(
+  input: Pick<CalendarEventInput, OwnKey | 'title' | 'description'>,
+  on: readonly CalendarServiceTab[],
+): { title: string; description: string } {
+  const places = [...SERVICE_TABS.filter((place) => on.includes(place)), ...SERVICE_TABS.filter((place) => !on.includes(place))]
+
+  const firstWords = (event: string, pick: (place: CalendarServiceTab) => OwnKey) => {
+    if (event.trim() !== '') return event
+    const key = places.map(pick).find((own) => (input[own] ?? '').trim() !== '')
+    return key ? (input[key] ?? '') : event
+  }
+
+  return {
+    title: firstWords(input.title, (place) => OWN_TEXT[place].title),
+    description: firstWords(input.description, (place) => OWN_TEXT[place].description),
+  }
 }
 
 /**

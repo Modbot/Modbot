@@ -14,22 +14,13 @@ const PICKED = 'data-picked'
 const FILL_IN_TONE = 'bg-accent text-accent-foreground'
 const LINK_TONE = 'bg-muted text-foreground'
 
-// Design mock-up: what each link turns into when the text is sent.
-const LINK_SHOWN: Record<string, string> = {
-  'Google event': 'https://www.google.com/calendar/event?eid=…',
-  'Discord event': 'https://discord.com/events/…/…',
-  'Add our Google calendar': 'https://calendar.google.com/calendar/u/0?cid=…',
-  'VRChat group page': 'https://vrchat.com/home/group/grp_…',
-}
-const shownName = (name: string) => LINK_SHOWN[autoLinkOf(name) ?? ''] ?? name
-
 function makeChip(name: string): HTMLElement {
   const chip = document.createElement('span')
   chip.setAttribute(CHIP_ATTRIBUTE, name)
   chip.contentEditable = 'false'
   chip.className = `${CHIP_CLASS} ${autoLinkOf(name) ? LINK_TONE : FILL_IN_TONE}`
   chip.style.fontSize = 'var(--text-small)'
-  chip.textContent = shownName(name)
+  chip.textContent = name
   return chip
 }
 
@@ -290,7 +281,7 @@ export function FillInShown({ text }: { text: string }) {
       piece.text
     ) : (
       <span key={i} className={cn(CHIP_CLASS, piece.kind === 'link' ? LINK_TONE : FILL_IN_TONE)}>
-        {shownName(piece.name)}
+        {piece.name}
       </span>
     ),
   )
