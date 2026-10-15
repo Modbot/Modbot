@@ -206,12 +206,12 @@ test('the palette finds Marketing by the words a moderator types', () => {
   assert.notEqual(matchRank('schedule post', marketing.label, otherWords(marketing)), null)
 })
 
-test('Integrations follows Community and holds VRChat and Discord, whose tabs still light them', () => {
+test('Integrations follows Community and holds VRChat, Discord and Bluesky, whose tabs still light them', () => {
   const shown = NAV.filter((n) => !('hidden' in n && n.hidden))
   const integrations = shown.filter((n) => 'group' in n && n.group === 'Integrations')
   const lastCommunity = shown.map((n) => ('group' in n ? n.group : undefined)).lastIndexOf('Community')
 
-  assert.deepEqual(integrations.map((n) => n.id), ['analytics-group', 'analytics-server'])
+  assert.deepEqual(integrations.map((n) => n.id), ['analytics-group', 'analytics-server', 'bluesky'])
   assert.equal(shown.indexOf(integrations[0]), lastCommunity + 1)
   assert.equal(sidebarEntry('analytics-instances'), 'analytics-group')
   assert.equal(sidebarEntry('discord-members'), 'analytics-server')
@@ -449,7 +449,7 @@ test('case and extra spaces do not matter, and nothing typed matches everything'
 
 test('the page list holds what the sidebar and the phone grid show, in NAV order', () => {
   const ids = listedPages(person('ViewAnalytics', 'ViewProfile', 'ViewAuditLog')).map((item) => item.id)
-  assert.deepEqual(ids, ['now', 'stats', 'people', 'bans', 'appeals', 'flags', 'audit', 'terms-and-rules', 'analytics-group', 'analytics-server'])
+  assert.deepEqual(ids, ['now', 'stats', 'people', 'bans', 'appeals', 'flags', 'audit', 'terms-and-rules', 'analytics-group', 'analytics-server', 'bluesky'])
 })
 
 test('the page list leaves out pages that are part of another and pages this person may not open', () => {
@@ -501,13 +501,13 @@ test('the Integrations heading opens the Integrations page, for somebody who may
 
   assert.deepEqual(rows[heading], { kind: 'heading', label: 'Integrations', page: 'integrations' })
   assert.deepEqual(
-    rows.slice(heading + 1, heading + 3).map((r) => (r.kind === 'page' ? r.item.id : r.label)),
-    ['analytics-group', 'analytics-server'],
+    rows.slice(heading + 1, heading + 4).map((r) => (r.kind === 'page' ? r.item.id : r.label)),
+    ['analytics-group', 'analytics-server', 'bluesky'],
   )
   assert.ok(!rows.some((r) => r.kind === 'page' && r.item.id === 'integrations'))
 })
 
-test('without Change settings the Integrations heading is only a name over VRChat and Discord', () => {
+test('without Change settings the Integrations heading is only a name over VRChat, Discord and Bluesky', () => {
   const rows = sidebarRows(person('ViewAnalytics'))
 
   assert.ok(rows.some((r) => r.kind === 'heading' && r.label === 'Integrations' && r.page === null))
@@ -537,7 +537,14 @@ test("the phone's Menu has an Integrations tile before VRChat and Discord", () =
   const at = ids.indexOf('integrations')
 
   assert.ok(at >= 0)
-  assert.deepEqual(ids.slice(at, at + 3), ['integrations', 'analytics-group', 'analytics-server'])
+  assert.deepEqual(ids.slice(at, at + 4), ['integrations', 'analytics-group', 'analytics-server', 'bluesky'])
+})
+
+test('Bluesky is a page of its own for anybody who may read analytics, with no go-to letter', () => {
+  assert.equal(mayOpen(person('ViewAnalytics'), 'bluesky'), true)
+  assert.equal(mayOpen(person(), 'bluesky'), false)
+  assert.equal(GO_TO_KEYS.bluesky, '')
+  assert.equal(sidebarEntry('bluesky'), 'bluesky')
 })
 
 test('Integrations is offered by name in the palette, with no go-to letter', () => {

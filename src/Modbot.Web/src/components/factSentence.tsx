@@ -450,6 +450,9 @@ function Bullets({ heading, items }: { heading: string; items: string[] }) {
   )
 }
 
+/** The Bluesky profile's picture and banner, which a settings change holds as the picture's id. */
+const BLUESKY_PICTURE_IDS = new Set(['profilePicture', 'profileBanner'])
+
 /**
  * One field's change, for a field holding a single value.
  */
@@ -463,8 +466,13 @@ function changePhrase(key: string, pair: { old?: unknown; new?: unknown; secret?
   const now = nameOf(pair.new)
 
   // Too long to say whole, and cut short the two sides of a bio edit usually read the same. Said
-  // as what happened instead; the row's details hold both in full.
-  if ((typeof was === 'string' && was.length > 60) || (typeof now === 'string' && now.length > 60)) {
+  // as what happened instead; the row's details hold both in full. A Bluesky picture is only an
+  // id, which says nothing, so it is said that way as well.
+  if (
+    BLUESKY_PICTURE_IDS.has(key) ||
+    (typeof was === 'string' && was.length > 60) ||
+    (typeof now === 'string' && now.length > 60)
+  ) {
     if (empty(now)) return `${field} removed`
     if (empty(was)) return `${field} added`
     return `new ${field}`

@@ -443,7 +443,7 @@ function PostRow({
 }
 
 /** The likes, reposts and replies under a sent Bluesky post: an icon and a number each. */
-function PostNumbers({ counts }: { counts: BlueskyCounts }) {
+export function PostNumbers({ counts }: { counts: BlueskyCounts }) {
   const items = [
     { Icon: Heart, label: 'Likes', n: counts.likes },
     { Icon: Repeat2, label: 'Reposts', n: counts.reposts },

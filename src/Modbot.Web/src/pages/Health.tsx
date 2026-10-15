@@ -762,7 +762,7 @@ function PostsCard({ now }: { now: string }) {
 
   if (
     !health ||
-    (!health.paused && health.holds.length === 0 && health.problems.length === 0 && !health.pinError && !health.countsError && !health.repliesError)
+    (!health.paused && health.holds.length === 0 && health.problems.length === 0 && !health.pinError && !health.countsError && !health.repliesError && !health.profileError)
   )
     return null
 
@@ -821,6 +821,17 @@ function PostsCard({ now }: { now: string }) {
             <>
               {' ('}
               <Ago iso={health.repliesErrorAt} now={now} />)
+            </>
+          )}
+        </p>
+      )}
+      {health.profileError && (
+        <p className="max-w-3xl text-warn">
+          Bluesky · Profile · {health.profileError}
+          {health.profileErrorAt && (
+            <>
+              {' ('}
+              <Ago iso={health.profileErrorAt} now={now} />)
             </>
           )}
         </p>

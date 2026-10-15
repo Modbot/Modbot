@@ -169,6 +169,10 @@ export const NAV = [
   { id: 'group-invites', label: 'VRChat invites', needs: 'ManageGroupInvites', hidden: true, under: 'analytics-group' },
   // The Discord server, beside the group: its own members, messages and voice (M5 spec §6).
   { id: 'analytics-server', label: 'Discord', group: 'Integrations', needs: 'ViewAnalytics' },
+  // The group's Bluesky account as its own page shows it: profile, sent posts and replies. Reading it
+  // is reading analytics, like the two pages above; changing the profile needs Manage settings, which
+  // the page asks for itself (its server refuses the rest), and so do its Posts and Replies tabs.
+  { id: 'bluesky', label: 'Bluesky', group: 'Integrations', needs: 'ViewAnalytics', words: ['bsky', 'profile', 'replies', 'mentions'] },
   // Not in the page list: the status rows at the foot of the sidebar say what it says, and each
   // one opens it at the part it names. The page, its address and every link to it are unchanged.
   // Called "Sync health" until 2026-09-26; it covers far more than syncing.
@@ -271,6 +275,7 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   integrations: '',
   'analytics-group': 'g',
   'analytics-server': 'v',
+  bluesky: '',
   stats: 't',
   'stats-activity': 'w',
   'stats-moderation': '',

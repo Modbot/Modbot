@@ -89,6 +89,7 @@ import { GroupGallery } from '@/pages/analytics/GroupGallery'
 import { Instances } from '@/pages/analytics/Instances'
 import { MyGroup } from '@/pages/analytics/MyGroup'
 import { MyServer } from '@/pages/analytics/MyServer'
+import { BlueskyPage } from '@/pages/Bluesky'
 import { Stats } from '@/pages/analytics/Stats'
 import { Pair } from '@/pages/Pair'
 import { ResetPassword } from '@/pages/ResetPassword'
@@ -139,6 +140,7 @@ const TITLES: Record<PageId, string> = {
   integrations: 'Integrations',
   'analytics-group': 'VRChat',
   'analytics-server': 'Discord',
+  bluesky: 'Bluesky',
   // Tabs of the Stats page, so they carry its name, as the sidebar does.
   stats: 'Stats',
   'stats-activity': 'Stats',
@@ -204,6 +206,7 @@ const PATHS: Record<PageId, string> = {
   integrations: '/integrations',
   'analytics-group': '/analytics/group',
   'analytics-server': '/analytics/server',
+  bluesky: '/bluesky',
   stats: '/stats/growth',
   'stats-activity': '/stats/activity',
   'stats-moderation': '/stats/moderation',
@@ -772,6 +775,7 @@ function Shell({
           {page === 'integrations' && <Integrations me={me} />}
           {page === 'analytics-group' && <MyGroup me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'analytics-server' && <MyServer me={me} pathOf={(id) => PATHS[id]} />}
+          {page === 'bluesky' && <BlueskyPage me={me} />}
           {/* One element for the four tabs, so the page's range stays put while the tab changes. */}
           {(page === 'stats' || page === 'stats-activity' || page === 'stats-moderation' || page === 'stats-regulars') && (
             <Stats
