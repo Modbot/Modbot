@@ -98,6 +98,10 @@ export function inputFromTemplate(fields: CalendarTemplateFields, base: Calendar
     blueskyTitle: fields.blueskyTitle ?? '',
     blueskyDescription: fields.blueskyDescription ?? '',
     blueskyPictures: fields.blueskyPictures ?? null,
+    // A template saved before who can reply, quote posts and languages: anyone, quotes allowed, no language.
+    blueskyWhoCanReply: fields.blueskyWhoCanReply?.length ? fields.blueskyWhoCanReply : ['anyone'],
+    blueskyQuotesOff: fields.blueskyQuotesOff ?? false,
+    blueskyLanguages: fields.blueskyLanguages ?? [],
     // A template saved before post colours has none: Modbot's violet.
     postColour: fields.postColour ?? null,
     categoryIds: fields.categoryIds ?? [],

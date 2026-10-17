@@ -185,6 +185,12 @@ export type CalendarEvent = {
   publishToBluesky?: boolean
   /** How long before a date starts its Bluesky post goes, in minutes. Missing from an older server. */
   blueskyPostBeforeMinutes?: number
+  /** Who may reply to Bluesky's post: `['anyone']`, `['nobody']`, or any of followers, following, mentioned. Missing from an older server. */
+  blueskyWhoCanReply?: string[]
+  /** Quote posts of Bluesky's post are not allowed. Missing from an older server. */
+  blueskyQuotesOff?: boolean
+  /** The languages Bluesky's post is written in, up to 3 codes; empty for none. Missing from an older server. */
+  blueskyLanguages?: string[]
   /** The group roles VRChat shows the event to; null for everyone it is visible to. */
   vrChatRoleIds?: string[] | null
   /** Times the channel streamed on Twitch while the event was on, newest first (Twitch design). */
@@ -489,6 +495,12 @@ export type CalendarEventInput = {
   publishToBluesky?: boolean
   /** How long before a date starts its Bluesky post goes: 60, 1440, 4320 or 10080. */
   blueskyPostBeforeMinutes?: number
+  /** Who may reply: `['anyone']`, `['nobody']`, or any of `followers`, `following`, `mentioned`. */
+  blueskyWhoCanReply?: string[]
+  /** Quote posts of Bluesky's post are not allowed. */
+  blueskyQuotesOff?: boolean
+  /** The languages of Bluesky's post, up to 3 codes such as `en`; empty for none. */
+  blueskyLanguages?: string[]
   /**
    * Each site's own title and description; blank says the shared one. Left out keeps what the event
    * has. VRChat's is plain text, Discord's takes `[words](https://address)` for a link, and
@@ -833,6 +845,9 @@ export function blankEvent(now: Date): CalendarEventInput {
     googleDescription: '',
     publishToBluesky: false,
     blueskyPostBeforeMinutes: DEFAULT_BLUESKY_BEFORE,
+    blueskyWhoCanReply: ['anyone'],
+    blueskyQuotesOff: false,
+    blueskyLanguages: [],
     blueskyTitle: '',
     blueskyDescription: '',
     categoryIds: [],
@@ -897,6 +912,9 @@ export function inputFrom(event: CalendarEvent): CalendarEventInput {
     googleDescription: event.googleDescription ?? '',
     publishToBluesky: event.publishToBluesky ?? false,
     blueskyPostBeforeMinutes: event.blueskyPostBeforeMinutes ?? DEFAULT_BLUESKY_BEFORE,
+    blueskyWhoCanReply: event.blueskyWhoCanReply ?? ['anyone'],
+    blueskyQuotesOff: event.blueskyQuotesOff ?? false,
+    blueskyLanguages: event.blueskyLanguages ?? [],
     blueskyTitle: event.blueskyTitle ?? '',
     blueskyDescription: event.blueskyDescription ?? '',
     categoryIds: (event.categories ?? []).map((c) => c.id),

@@ -1128,6 +1128,12 @@ export function CalendarEventForm({
                       uploading={blueskyUploads > 0}
                       error={blueskyPictureError}
                       onEmoji={(emoji) => putBlueskyText?.put(emoji)}
+                      whoCanReply={input.blueskyWhoCanReply ?? ['anyone']}
+                      onWhoCanReply={(choice) => set('blueskyWhoCanReply', choice)}
+                      quotesOff={input.blueskyQuotesOff ?? false}
+                      onQuotesOff={(off) => set('blueskyQuotesOff', off)}
+                      languages={input.blueskyLanguages ?? []}
+                      onLanguages={(codes) => set('blueskyLanguages', codes)}
                       card={drawn?.card ?? null}
                       count={
                         drawn

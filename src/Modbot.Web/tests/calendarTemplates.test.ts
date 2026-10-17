@@ -59,6 +59,9 @@ const input: CalendarEventInput = {
   publishToGoogle: null,
   publishToBluesky: true,
   blueskyPostBeforeMinutes: 4320,
+  blueskyWhoCanReply: ['anyone'],
+  blueskyQuotesOff: false,
+  blueskyLanguages: [],
   blueskyTitle: '',
   blueskyDescription: 'Doors at seven',
   categoryIds: [],
@@ -99,6 +102,23 @@ test('a template saved before Bluesky loads with it off and the usual time', () 
 
   assert.equal(loaded.publishToBluesky, false)
   assert.equal(loaded.blueskyPostBeforeMinutes, 1440)
+})
+
+test('a template keeps who can reply, quote posts and languages, and an older one loads with anyone, quotes allowed and no language', () => {
+  const picked = fieldsFromInput(
+    { ...input, blueskyWhoCanReply: ['followers', 'mentioned'], blueskyQuotesOff: true, blueskyLanguages: ['en', 'de'] },
+    120,
+  )
+  const loaded = inputFromTemplate(picked, input)
+  assert.deepEqual(loaded.blueskyWhoCanReply, ['followers', 'mentioned'])
+  assert.equal(loaded.blueskyQuotesOff, true)
+  assert.deepEqual(loaded.blueskyLanguages, ['en', 'de'])
+
+  const { blueskyWhoCanReply: _who, blueskyQuotesOff: _quotes, blueskyLanguages: _langs, ...old } = picked
+  const older = inputFromTemplate(old as typeof picked, input)
+  assert.deepEqual(older.blueskyWhoCanReply, ['anyone'])
+  assert.equal(older.blueskyQuotesOff, false)
+  assert.deepEqual(older.blueskyLanguages, [])
 })
 
 test('a template keeps the post colour, and one saved before post colours loads with none', () => {

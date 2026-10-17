@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode, type RefObject } from 'react'
 import { Film, Globe, Image as ImageIcon, Loader2, Smile, X } from 'lucide-react'
 import { BLUESKY_ALT_MAX, BLUESKY_PICTURES_MAX } from '@/lib/blueskyPictures'
+import { InteractChip, LanguageButton } from './BlueskyChoices'
 import { EmojiPicker } from './EmojiPicker'
 // Design mock-up: Bluesky's New post box, in its dim theme. Not measured: its colours and sizes as
 // drawn by its web app, by eye.
@@ -40,6 +41,15 @@ type Props = {
   card: { uri: string; title: string; description: string; host: string } | null
   /** The whole post's count, "120 / 300", red once over. */
   count?: { label: string; over: boolean }
+  /** Who may reply: `['anyone']`, `['nobody']`, or any of followers, following, mentioned. */
+  whoCanReply: string[]
+  onWhoCanReply: (choice: string[]) => void
+  /** Quote posts are not allowed. */
+  quotesOff: boolean
+  onQuotesOff: (off: boolean) => void
+  /** The post's languages, up to 3 codes. */
+  languages: string[]
+  onLanguages: (codes: string[]) => void
 }
 
 // Kept while the page is open, so switching form tabs keeps the size.
@@ -169,6 +179,8 @@ function Media({
           value={p.pictures[altOpen].alt}
           maxLength={BLUESKY_ALT_MAX}
           rows={3}
+          // A new box for each picture, so opening another picture's box moves focus into it.
+          key={altOpen}
           autoFocus
           placeholder={p.title}
           onChange={(e) => p.onAlt(altOpen, e.target.value)}
@@ -250,9 +262,12 @@ export function BlueskyPreviews(p: Props) {
               </div>
             </div>
             <div className="px-4 pb-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[13px]" style={{ background: 'rgba(174,187,201,0.1)', color: MUTED }}>
-                <Globe className="size-3.5" /> Anyone can interact
-              </span>
+              <InteractChip
+                whoCanReply={p.whoCanReply}
+                quotesOff={p.quotesOff}
+                onWhoCanReply={p.onWhoCanReply}
+                onQuotesOff={p.onQuotesOff}
+              />
             </div>
             <div className="flex items-center justify-between border-t px-3 py-2" style={{ borderColor: LINE, color: LINK }}>
               <span className="flex items-center gap-4">
@@ -274,7 +289,7 @@ export function BlueskyPreviews(p: Props) {
                 </EmojiPicker>
               </span>
               <span className="flex items-center gap-3 text-[13px]" style={{ color: MUTED }}>
-                English
+                <LanguageButton languages={p.languages} onLanguages={p.onLanguages} />
                 {p.count && <Ring count={p.count} />}
               </span>
             </div>
