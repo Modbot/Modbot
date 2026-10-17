@@ -643,17 +643,15 @@ public sealed class PostBlueskySender
     /// </summary>
     private async Task SetGatesAsync(Pass pass)
     {
-        var waiting = await _db.PostDestinations
+        var due = _db.PostDestinations
             .Where(d => d.Network == PostNetworks.Bluesky
                 && d.State == PostDestinationStates.Posted
                 && d.ExternalId != null
                 && d.ClientKey != null
-                && EF.Functions.JsonContains(d.Options, "{\"settingsToSend\":true}"))
-            .OrderBy(d => d.PostedAt)
-            .Take(LooksPerPass)
-            .ToListAsync(pass.Ct).ConfigureAwait(false);
+                && (d.CheckAt == null || d.CheckAt <= pass.Now)
+                && EF.Functions.JsonContains(d.Options, "{\"settingsToSend\":true}"));
 
-        if (waiting.Count == 0)
+        if (!await due.AnyAsync(pass.Ct).ConfigureAwait(false))
             return;
 
         var signIn = await _session.AccessAsync(_db, prove: false, pass.Ct).ConfigureAwait(false);
@@ -663,10 +661,17 @@ public sealed class PostBlueskySender
             return;
         }
 
+        // Only the signed-in account's posts: another account's would otherwise take the places of these.
+        var waiting = await due
+            .Where(d => d.Target == access.Did)
+            .OrderBy(d => d.PostedAt)
+            .Take(LooksPerPass)
+            .ToListAsync(pass.Ct).ConfigureAwait(false);
+
         foreach (var destination in waiting)
         {
-            if (pass.Stopped || !string.Equals(destination.Target, access.Did, StringComparison.Ordinal))
-                continue;
+            if (pass.Stopped)
+                return;
 
             var options = PostTexts.BlueskyOptionsOf(destination);
             var notSet = await PutGatesAsync(pass, access, destination.ExternalId!, destination.ClientKey!, options).ConfigureAwait(false);
@@ -674,6 +679,7 @@ public sealed class PostBlueskySender
             destination.Options = PostTexts.WriteBlueskyOptions(options with { SettingsToSend = notSet is not null });
             destination.Error = Trim(notSet);
             destination.ErrorAt = notSet is null ? null : pass.Now;
+            destination.CheckAt = notSet is null ? null : pass.Now + PostRules.NotSentRetryAfter;
             destination.UpdatedAt = pass.Now;
 
             await _db.SaveChangesAsync(pass.Ct).ConfigureAwait(false);

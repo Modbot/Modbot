@@ -703,8 +703,11 @@ public sealed class PostBlueskySenderTests
             WhoCanReply: ["nobody"], QuotesOff: true)));
 
         var refusedOnce = false;
+        var gateTries = 0;
         _bluesky.GatePutAnswer = (_, _) =>
         {
+            gateTries++;
+
             if (refusedOnce)
                 return null;
 
@@ -719,17 +722,57 @@ public sealed class PostBlueskySenderTests
         Assert.Equal(PostDestinationStates.Posted, waiting.State);
         Assert.True(PostTexts.BlueskyOptionsOf(waiting).SettingsToSend);
         Assert.NotNull(waiting.Error);
+        Assert.Equal(_clock.UtcNow + PostRules.NotSentRetryAfter, waiting.CheckAt);
         Assert.Empty(_bluesky.Gates);
 
-        _clock.Advance(TimeSpan.FromMinutes(1));
+        // Not tried again before its wait is over.
+        _clock.Advance(TimeSpan.FromSeconds(30));
+        await PassAsync();
+
+        Assert.Equal(1, gateTries);
+        Assert.True(PostTexts.BlueskyOptionsOf(await DestinationAsync(destinationId)).SettingsToSend);
+
+        _clock.Advance(PostRules.NotSentRetryAfter);
         await PassAsync();
 
         var done = await DestinationAsync(destinationId);
+        Assert.Null(done.CheckAt);
         Assert.False(PostTexts.BlueskyOptionsOf(done).SettingsToSend);
         Assert.Null(done.Error);
         Assert.Equal(2, _bluesky.Gates.Count);
         Assert.Equal(1, _bluesky.Puts);
         Assert.Single(_bluesky.Posts);
+    }
+
+    [Fact]
+    public async Task PostsOfAnotherAccountWithSettingsToSend_DoNotTakeThePlaceOfTheSignedInAccountsOnes()
+    {
+        await SetUpAsync();
+
+        // More of them than a pass takes, and older than the signed-in account's post.
+        for (var i = 0; i <= PostBlueskySender.LooksPerPass; i++)
+        {
+            var age = i;
+            await AddPostAsync(target: "did:plc:someoneelseentirely000", shape: (_, d) => PostedWithSettingsToSend(d, age + 10));
+        }
+
+        var (_, ownId) = await AddPostAsync(shape: (_, d) => PostedWithSettingsToSend(d, 1));
+
+        await PassAsync();
+
+        Assert.False(PostTexts.BlueskyOptionsOf(await DestinationAsync(ownId)).SettingsToSend);
+        Assert.Equal(2, _bluesky.Gates.Count);
+    }
+
+    private void PostedWithSettingsToSend(PostDestination destination, int minutesAgo)
+    {
+        var key = $"3k{Guid.NewGuid():N}"[..13];
+
+        destination.State = PostDestinationStates.Posted;
+        destination.ClientKey = key;
+        destination.ExternalId = $"at://{destination.Target}/app.bsky.feed.post/{key}";
+        destination.PostedAt = _clock.UtcNow.AddMinutes(-minutesAgo);
+        destination.Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(WhoCanReply: ["nobody"], QuotesOff: true, SettingsToSend: true));
     }
 
     [Fact]

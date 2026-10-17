@@ -127,7 +127,7 @@ public sealed record BlueskyOAuthFinish(
 /// </para>
 /// <para>
 /// <strong>Scopes.</strong> The narrowest Bluesky's permission spec has for posting
-/// (<see cref="NarrowScope"/>: posts, made, replaced and deleted, the profile's pin, image blobs, and reading replies). A sign-in server
+/// (<see cref="NarrowScope"/>: posts, made, replaced and deleted, the profile's pin, the reply and quote setting records, image blobs, and reading replies). A sign-in server
 /// that answers <c>invalid_scope</c> to it is asked once more with <see cref="WideScope"/>, which is
 /// what an app password can do. Whether bsky.social takes the narrow one is not checked yet.
 /// </para>
