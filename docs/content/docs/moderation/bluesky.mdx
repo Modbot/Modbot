@@ -69,7 +69,8 @@ your Modbot from the internet to sign it in, and only an `https://` address with
    **Sign-in: Bluesky**, the account and whether it is marked as automated, as **Check** does.
 
 Modbot never sees the account's password this way. It asks Bluesky only for what posting needs:
-making and deleting posts, pinning a post on the account's profile, uploading a post's
+making and deleting posts, making and deleting the records that say who can reply to a post and
+whether it can be quoted, pinning a post on the account's profile, uploading a post's
 picture, reading the account's replies and mentions, and changing the profile's name, bio,
 picture and banner. If Bluesky does not offer that yet, Modbot asks for what an app password can do instead.
 
@@ -77,6 +78,12 @@ picture and banner. If Bluesky does not offer that yet, Modbot asks for what an 
 read them.** Click **Sign in with Bluesky** again once, so Bluesky asks you to allow what is missing.
 One sign-in covers both. Posting is not affected, and **Health** says
 **Sign in with Bluesky again to read replies and mentions.** An app password already allows it.
+
+**A sign-in made before who can reply and quote posts were added cannot set them.** A
+[calendar event's](/moderation/calendar#bluesky-settings-on-the-form) post that limits who can reply, or
+turns quote posts off, waits, and **Marketing** says **Sign in with Bluesky again to let Modbot set who can
+reply.** Click **Sign in with Bluesky** again once. Posts that anyone can reply to and quote go out as
+before, and an app password already allows all of it.
 
 **One way of signing in at a time.** Signing in with Bluesky forgets a saved app password, and
 saving an app password ends the sign-in with Bluesky.
@@ -205,6 +212,11 @@ date of the event gets its own post, sent that long before it starts. These post
 [**Marketing**](/moderation/marketing) like any other, and follow the same rules: **Posting**,
 **Pause all posting**, the hourly limit and Bluesky's rate limit.
 
+The event's **Bluesky** tab also sets who can reply (**Anyone**, **Nobody**, or your followers, the people
+you follow and the people you mention), whether quote posts are allowed, and the post's language (up to
+three). The languages go in the post itself; who can reply and quote posts go in two small records Modbot
+makes right after the post.
+
 Bluesky cannot edit a post, so when an event changes, Modbot **deletes** the post that already went
 out and **posts again**. A cancelled date, a cancelled or deleted event, or **Bluesky** turned off
 on the event, deletes its post and makes no new one. **While Posting is off, Modbot neither makes nor
@@ -306,6 +318,7 @@ and never sends the request again before then.
 | The account's lasting id and the app password, then Modbot's sign-in | The account's own server | Signing in and renewing |
 | Modbot's address, the handle, and requests signed with Modbot's own key | Bluesky's sign-in server, which the account's own server names | **Sign in with Bluesky**, and renewing that sign-in |
 | A post's text, and either its pictures (a small copy of each, with the alt text you wrote, or the post's title when you wrote none; up to four for a calendar event, one for any other post) or, when it has no picture, its link card (the post's title and the link) | The account's own server, and from there public on Bluesky | Only for posts with **Bluesky** ticked, and for each date of a calendar event with **Bluesky** on |
+| The post's languages (up to three codes such as `en`), when you picked some; and, when you limited who can reply or turned quote posts off, a record saying so, with the address of the post it belongs to | The account's own server, and from there public on Bluesky | Only for a calendar event with **Bluesky** on and those choices set, with each date's post |
 | A reply: "We're live in" the world's name and a link, with the address and content id of the date's post it answers | The account's own server, and from there public on Bluesky | Only for an event with **Announce on Bluesky when the first person joins** ticked, once for each date, when the first person is in the instance |
 | The weekly line-up: the group's name, and the title and time of each public date in the next seven days, with the link to the Google calendar's public page | The account's own server, and from there public on Bluesky | Only with **Weekly line-up** on, once a week |
 | The account's profile (its name, description, pictures and pinned post), written back with only the pinned post changed | The account's own server, and from there public on Bluesky | Only with **Pin the next event** on, when the pinned post changes |

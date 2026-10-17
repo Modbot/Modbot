@@ -434,7 +434,7 @@ are under the card too, and go where you last clicked.
   shared with will see it, because **Check** found the calendar is not public, or shows the public
   only free or busy.
 - **Bluesky**: the post for the event's next date in Bluesky's **New post** box: the text, the post's
-  pictures with their alt text (or the link card when it has no picture), and a ring that counts down Bluesky's 300 characters.
+  pictures with their alt text (or the link card when it has no picture), who can reply and the language, and a ring that counts down Bluesky's 300 characters.
 
 A card does not save anything or send anything to VRChat, Discord or Google. It can draw an event
 that is not finished yet, with no title or no channel, but shows the error instead if something would
@@ -1380,7 +1380,26 @@ description are typed straight into the box, as described under
   A picture is kept by Modbot as soon as it is added, so **Save** waits for one that is still uploading.
 - **Emoji.** The smiley button opens a full emoji picker. The emoji goes in at the caret of the title or
   description you last clicked into, or at the end of the description when you have clicked into neither.
+- **Anyone can interact.** The chip under the post opens Bluesky's own choices for who can reply:
+  **Anyone**, **Nobody**, or any mix of **Your followers**, **People you follow** and **People you
+  mention**. **Allow quote posts** is a tick; clear it to stop other people quoting the post. The chip
+  says what is picked. Anyone with quote posts allowed is the usual, and makes no extra record on Bluesky.
+- **Language.** The button at the bottom of the box opens a list of common languages, up to three, as Bluesky
+  allows. It says **Language** until one is picked, and then the names. The languages are sent as the post's
+  language, which Bluesky uses to show it to people who read those languages. With none picked the post
+  carries none.
 - **The ring** shows how many of the post's 300 characters are left, and turns red once it is over.
+
+Who can reply and quote posts are sent as two records Bluesky keeps next to the post, made right after it.
+If Bluesky refuses one, the post stays up and Modbot tries the records again on its next passes; the post's
+line in **Marketing** says why until they are made. A sign-in made with **Sign in with Bluesky** before these
+choices existed cannot make them: a post that limits replies or quotes waits, and **Marketing** says
+**Sign in with Bluesky again to let Modbot set who can reply.** Click **Sign in with Bluesky** again once (see
+[Bluesky](/moderation/bluesky#sign-in-with-bluesky)). An app password already allows it. Posts that
+anyone can reply to and quote are not held up.
+
+The choices are saved on the event, kept by [templates](#templates) and sent with every date's post. Changing
+one is a change like any other, so the date's post is deleted and posted again (see below).
 
 ### Changes, cancelling and deleting
 
@@ -1419,7 +1438,7 @@ See [Event categories](/moderation/event-categories), which also covers the aler
 A template is a name and everything the event form holds, except when the event happens: the
 title and description, the text each site says for itself, the places it goes, the category, tags,
 languages and platforms, the world or world list, who can join, the picture, the Bluesky post's
-pictures and their alt text, the repeat pattern, the channel post, and the instance settings. In place of a start, an end and a time zone it has a
+pictures and their alt text, who can reply to it, quote posts and its languages, the repeat pattern, the channel post, and the instance settings. In place of a start, an end and a time zone it has a
 **Length**, from 1 minute to 7 days. A repeat keeps its pattern but no last date.
 
 The **Templates** card sits under the calendar, below **Drafts**. It lists each template by name,
