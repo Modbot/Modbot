@@ -444,7 +444,7 @@ export function BlueskyPreviews(p: Props) {
       <input
         ref={videoFile}
         type="file"
-        accept={BLUESKY_VIDEO_TYPES.join(',')}
+        accept={[...BLUESKY_VIDEO_TYPES, '.mp4', '.mov', '.webm', '.mpeg', '.mpg'].join(',')}
         className="hidden"
         onChange={(e) => {
           const clip = videoOf(e.target.files)
