@@ -7,6 +7,7 @@ import { Checkbox, Field, Outcome } from '@/components/settings/fields'
 import { Button } from '@/components/ui/button'
 import { Chip } from '@/components/ui/chip'
 import { Dialog, DialogContent, DialogFoot } from '@/components/ui/dialog'
+import { DiscardChanges } from './DiscardChanges'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Tabs } from '@/components/ui/tabs'
@@ -231,6 +232,10 @@ export function CalendarEventForm({
   // The own fields a service's card has been typed in (or started with words): they stay the service's
   // even while empty, so a box cleared to be retyped does not fill itself with the event's words.
   const [edited, setEdited] = useState<ReadonlySet<OwnKey>>(() => ownKeysWithText(input))
+  // How the form opened, to tell whether closing it would lose something. The two fixes made once the
+  // lists load below are made here too, so they are not taken for changes.
+  const [opened, setOpened] = useState(() => ({ input, languages, tags, templateName, length, repeatEnd }))
+  const [asking, setAsking] = useState(false)
 
   useEffect(() => {
     worldListApi
@@ -243,11 +248,12 @@ export function CalendarEventForm({
         setCategoryChoices(answer.categories)
         // A category deleted since a template or an event was loaded has nothing to tick.
         const known = new Set(answer.categories.map((c) => c.id))
-        setInput((current) =>
+        const withoutGone = (current: CalendarEventInput) =>
           current.categoryIds.every((id) => known.has(id))
             ? current
-            : { ...current, categoryIds: current.categoryIds.filter((id) => known.has(id)) },
-        )
+            : { ...current, categoryIds: current.categoryIds.filter((id) => known.has(id)) }
+        setInput(withoutGone)
+        setOpened((was) => ({ ...was, input: withoutGone(was.input) }))
       })
       .catch(() => setCategoryChoices([]))
     calendarApi
@@ -256,8 +262,12 @@ export function CalendarEventForm({
         setChoices(answer)
         // A new event cannot start with a list its maker may not pick (a template's, say); the
         // server would refuse it and the picker is locked.
-        if (answer.lists === null && !forTemplate && startedNew)
-          setInput((current) => (current.inviteListId === null ? current : { ...current, inviteListId: null }))
+        if (answer.lists === null && !forTemplate && startedNew) {
+          const withoutList = (current: CalendarEventInput) =>
+            current.inviteListId === null ? current : { ...current, inviteListId: null }
+          setInput(withoutList)
+          setOpened((was) => ({ ...was, input: withoutList(was.input) }))
+        }
       })
       .catch(() => setChoices({ staff: [], lists: null }))
     calendarApi
@@ -362,9 +372,11 @@ export function CalendarEventForm({
   }
 
   const save = async (draft: boolean) => {
-    if (missingList) {
+    // A draft goes nowhere, so it needs no world. Scheduled, the list matters only to VRChat, and its
+    // field is on VRChat's tab.
+    if (!draft && input.publishToVRChat && missingList) {
       setListMissed(true)
-      openTab('event')
+      openTab('vrchat')
       return
     }
 
@@ -435,6 +447,21 @@ export function CalendarEventForm({
   }
 
   const isDraft = !event || event.state === 'draft'
+
+  // Anything typed or picked since the form opened, a crop not uploaded yet included.
+  const unsaved =
+    JSON.stringify(input) !== JSON.stringify(opened.input) ||
+    languages !== opened.languages ||
+    tags !== opened.tags ||
+    templateName !== opened.templateName ||
+    length !== opened.length ||
+    repeatEnd !== opened.repeatEnd ||
+    vrchatPicture.draft !== null ||
+    discordCover.draft !== null ||
+    uploading
+
+  // Cancel, Escape, the X and a click outside all come here: closing with something unsaved asks first.
+  const leave = () => (unsaved ? setAsking(true) : onClose())
 
   // Discord's picture is for the Discord event and the channel post.
   const discordOn = input.publishToDiscord || input.postToChannel
@@ -797,7 +824,7 @@ export function CalendarEventForm({
   )
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog open onOpenChange={(open) => !open && leave()}>
       <DialogContent
         title={template ? (template.id ? 'Edit template' : 'New template') : event ? 'Edit event' : 'New event'}
         // Always as tall as a dialog may be, so switching tabs never changes its height; the body scrolls.
@@ -820,7 +847,7 @@ export function CalendarEventForm({
                 ))}
               </span>
             )}
-            <Button size="sm" variant="outline" disabled={busy} onClick={onClose}>
+            <Button size="sm" variant="outline" disabled={busy} onClick={leave}>
               Cancel
             </Button>
             {isDraft && !template && (
@@ -1427,6 +1454,7 @@ export function CalendarEventForm({
           )}
         </Tabs>
       </DialogContent>
+      {asking && <DiscardChanges onKeep={() => setAsking(false)} onDiscard={onClose} />}
     </Dialog>
   )
 }

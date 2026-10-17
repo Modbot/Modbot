@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { ApiError } from '@/lib/api'
 import { calendarApi, newEventAt, type CalendarEvent, type CalendarEventInput } from '@/lib/calendar'
 import { sameDay } from '@/lib/calendarGrid'
+import { DiscardChanges } from './DiscardChanges'
 import { timeOfDay } from '@/lib/format'
 import type { Spot } from './entry'
 import { SHEET, useMedia } from './phone'
@@ -42,6 +43,11 @@ export function QuickCreate({
   const [title, setTitle] = useState('')
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
+  const [asking, setAsking] = useState(false)
+
+  // Closing with a title typed asks first; an untouched form just closes.
+  const leave = () => (title === '' ? onClose() : setAsking(true))
+  const discard = asking && <DiscardChanges onKeep={() => setAsking(false)} onDiscard={onClose} />
 
   const save = () => {
     setBusy(true)
@@ -86,7 +92,7 @@ export function QuickCreate({
 
   if (sheet)
     return (
-      <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <Dialog open onOpenChange={(open) => !open && leave()}>
         <DialogContent
           title="New event"
           foot={<DialogFoot style={{ fontSize: 'var(--text-small)' }}>{buttons}</DialogFoot>}
@@ -98,11 +104,17 @@ export function QuickCreate({
             {problemLine}
           </form>
         </DialogContent>
+        {discard}
       </Dialog>
     )
 
+  // The question sits beside the popover, so a click on it is not taken for one outside.
+  const holdOpen = (e: Event) => {
+    if (asking) e.preventDefault()
+  }
+
   return (
-    <Popover.Root open onOpenChange={(open) => !open && onClose()}>
+    <Popover.Root open onOpenChange={(open) => !open && leave()}>
       <Popover.Anchor asChild>
         <div aria-hidden className="pointer-events-none fixed" style={spot} />
       </Popover.Anchor>
@@ -113,6 +125,8 @@ export function QuickCreate({
           sideOffset={8}
           collisionPadding={8}
           aria-label="New event"
+          onInteractOutside={holdOpen}
+          onEscapeKeyDown={holdOpen}
           className="z-40 flex w-[22rem] max-w-[calc(100vw-1rem)] flex-col gap-3 rounded-sm border-(length:--hairline) bg-popover p-(--panel-pad) text-popover-foreground shadow-sm outline-none"
           style={{ fontSize: 'var(--text-small)' }}
         >
@@ -124,6 +138,7 @@ export function QuickCreate({
           </form>
         </Popover.Content>
       </PopoverPortal>
+      {discard}
     </Popover.Root>
   )
 }

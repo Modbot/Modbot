@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { api, ApiError, type GoogleCalendarCheck, type GoogleCalendarSettings } from '@/lib/api'
+import { DOCS_URL } from '@/lib/docs'
 import { timeOfDay } from '@/lib/format'
 import { useStillAhead } from '@/lib/useStillAhead'
 import { ConfirmButton, Fact, Field, Outcome, Placeholder, Switch } from '../fields'
@@ -20,9 +21,9 @@ const PUBLIC: Record<GoogleCalendarCheck['public'], string> = {
  * Settings → Google Calendar (Google Calendar design §3.1): the service account's key file, the
  * calendar, Check, Sending (step 2), and the calendar's own links once Check finds it public.
  *
- * No words explain the setup (CLAUDE.md): the how-to is the docs page
- * `moderation/google-calendar`. The key is never shown back; only that it is saved and the address
- * it belongs to.
+ * The setup card lists the four steps in short (the owner asked for this text; CLAUDE.md's rule
+ * against explanations is waived for it alone) and links to the docs page `moderation/google-calendar`.
+ * The key is never shown back; only that it is saved and the address it belongs to.
  */
 export function GoogleCalendarSection() {
   const [data, setData] = useState<GoogleCalendarSettings | null>(null)
@@ -52,6 +53,7 @@ export function GoogleCalendarSection() {
         </Placeholder>
       ) : (
         <>
+          <SetupCard />
           <KeyCard settings={data} onSaved={setData} />
           <CalendarCard settings={data} onSaved={setData} />
           {(data.canSend || data.sending || data.removing) && <SendingCard settings={data} onSaved={setData} />}
@@ -59,6 +61,29 @@ export function GoogleCalendarSection() {
         </>
       )}
     </SettingsSection>
+  )
+}
+
+function SetupCard() {
+  return (
+    <SettingsCard
+      title="Set up"
+      span={12}
+      footer={
+        <Button asChild size="xs" variant="outline">
+          <a href={`${DOCS_URL}/moderation/google-calendar`} target="_blank" rel="noreferrer noopener">
+            How to set up
+          </a>
+        </Button>
+      }
+    >
+      <ol className="list-decimal space-y-1 pl-5">
+        <li>In Google Cloud, make a service account and a JSON key for it.</li>
+        <li>Under Key, choose the key file.</li>
+        <li>Share your Google calendar with Modbot's Google address, allowing it to make changes to events.</li>
+        <li>Under Calendar, enter the Calendar ID, then click Save and Check.</li>
+      </ol>
+    </SettingsCard>
   )
 }
 

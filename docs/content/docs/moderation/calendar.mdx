@@ -253,7 +253,8 @@ drawn.
 - **Draw a new event:** press on empty time and drag down. A single click on empty time draws one
   hour. In **Month**, click empty space in a day. A small form opens with the time filled in: type a
   title and click **Save draft**, or click **More options** for the full form. The small form only
-  saves drafts, so nothing is published until you open the draft and click **Schedule**.
+  saves drafts, so nothing is published until you open the draft and click **Schedule**. Closing the small form
+  after typing a title asks **Discard changes?** first.
 
 Everything snaps to 15 minutes. On a phone, hold your finger on an event (or on empty time) for a
 moment until it picks up, then drag. A finger that moves straight away scrolls the page instead.
@@ -309,7 +310,13 @@ place's tab, plus a world if the instance should open by itself, and a channel i
 - **Schedule** saves it and starts publishing it everywhere that is on.
 - **Save draft** saves it without publishing or opening anything. You can come back to it from
   **Drafts** and click **Schedule** later.
-- **Cancel** leaves without saving.
+- **Cancel** leaves without saving. Closing the form any other way (the **X**, <kbd>Esc</kbd> or a click
+  outside it) does the same. If you changed anything since it opened, Modbot first asks **Discard
+  changes?**: **Keep editing** goes back to the form, **Discard** closes it. A form you did not touch
+  closes at once.
+
+**Save draft** needs nothing filled in, not even a world. **Schedule** asks for a world list to be
+picked only when VRChat is on: it opens the **VRChat** tab and says **Pick a list**.
 
 The buttons stay at the bottom of the form while you scroll, and are the same on every tab, on a
 phone too. When you edit an event
