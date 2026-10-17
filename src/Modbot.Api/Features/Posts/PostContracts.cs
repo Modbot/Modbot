@@ -290,6 +290,7 @@ public sealed record BlueskyCardPreview(string Uri, string Title, string Descrip
 /// <param name="PictureAlt">The picture's description: the post's title, or empty.</param>
 /// <param name="Handle">The account it goes out as, or null when none is set up.</param>
 /// <param name="DisplayName">That account's display name as the last Check found it.</param>
+/// <param name="Video">The video shown in full under the text, in place of pictures and the link card; null for a post with none.</param>
 public sealed record BlueskyPostPreview(
     string Text,
     IReadOnlyList<BlueskyTextPartView> Parts,
@@ -300,7 +301,14 @@ public sealed record BlueskyPostPreview(
     string? PictureUrl,
     string? PictureAlt,
     string? Handle,
-    string? DisplayName);
+    string? DisplayName,
+    BlueskyVideoPreview? Video = null);
+
+/// <summary>The video under a Bluesky post, as Modbot will send it.</summary>
+/// <param name="Url">Modbot's own address for a kept file, or null when the video is a link.</param>
+/// <param name="Link">The link Modbot fetches the video from as the post goes out, or null when the video is a kept file.</param>
+/// <param name="Alt">The video's description: the alt text it was given, or the post's title.</param>
+public sealed record BlueskyVideoPreview(string? Url, string? Link, string Alt);
 
 /// <summary>What each ticked site would be sent. Null for a site not ticked.</summary>
 /// <param name="Problems">What would stop it being scheduled, one sentence each. Empty when none.</param>

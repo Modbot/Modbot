@@ -180,7 +180,10 @@ public static class CalendarPreviews
         var title = CalendarBlueskyText.TitleOf(calendarEvent, occurrence);
         var pictures = CalendarBlueskyText.PicturesOf(calendarEvent, title);
         var first = pictures is null ? calendarEvent.CoverPictureId : pictures.FirstOrDefault()?.PictureId;
-        var picture = hasPicture && first is { } cover ? CoverPath + cover : null;
+
+        // With a video the post has no pictures and no link card.
+        var video = CalendarBlueskyText.VideoOf(calendarEvent, title);
+        var picture = video is null && hasPicture && first is { } cover ? CoverPath + cover : null;
 
         return new BlueskyPostPreview(
             text,
@@ -188,11 +191,15 @@ public static class CalendarPreviews
             BlueskyText.Graphemes(text),
             BlueskyText.Bytes(text),
             BlueskyText.GraphemeLimit,
-            card is null || picture is not null ? null : new BlueskyCardPreview(card.Uri, card.Title, card.Description, BlueskyText.CardHost(card.Uri)),
+            card is null || picture is not null || video is not null ? null : new BlueskyCardPreview(card.Uri, card.Title, card.Description, BlueskyText.CardHost(card.Uri)),
             picture,
             picture is null ? null : pictures?.FirstOrDefault()?.Alt ?? title ?? string.Empty,
             settings?.BlueskyHandle,
-            settings?.BlueskyDisplayName);
+            settings?.BlueskyDisplayName,
+            video is null
+                ? null
+                : new BlueskyVideoPreview(
+                    video.VideoId is { } fileId ? "/api/calendar/bluesky-video/" + fileId : null, video.Url, video.Alt));
     }
 
     /// <summary>

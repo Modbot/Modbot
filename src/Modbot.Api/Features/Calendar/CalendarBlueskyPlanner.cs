@@ -103,7 +103,8 @@ public sealed class CalendarBlueskyPlanner
         IReadOnlyList<BlueskyPostPicture>? Pictures,
         IReadOnlyList<string>? WhoCanReply,
         bool QuotesOff,
-        IReadOnlyList<string>? Languages)
+        IReadOnlyList<string>? Languages,
+        BlueskyPostVideo? Video = null)
     {
         public bool Due(DateTimeOffset now) => SendAt <= now;
 
@@ -229,6 +230,14 @@ public sealed class CalendarBlueskyPlanner
             var pictures = CalendarBlueskyText.PicturesOf(calendarEvent, title);
             var picture = pictures is null ? calendarEvent.CoverPictureId : pictures.FirstOrDefault()?.PictureId;
 
+            // With a video the post has no pictures and not the cover: Bluesky allows none beside a video.
+            var video = CalendarBlueskyText.VideoOf(calendarEvent, title);
+            if (video is not null)
+            {
+                pictures = null;
+                picture = null;
+            }
+
             // Who may reply, quote posts and languages: none chosen is the post as it always was.
             var whoCanReply = BlueskyPostGates.Normalize(calendarEvent.BlueskyWhoCanReply);
             var quotesOff = calendarEvent.BlueskyQuotesOff;
@@ -240,12 +249,13 @@ public sealed class CalendarBlueskyPlanner
                 text,
                 picture,
                 CalendarBlueskyText.SendAt(calendarEvent, occurrence),
-                CalendarBlueskyText.Fingerprint(text, picture, pictures, whoCanReply, quotesOff, languages),
+                CalendarBlueskyText.Fingerprint(text, picture, pictures, whoCanReply, quotesOff, languages, video),
                 calendarEvent.TimeZone,
                 pictures,
                 whoCanReply,
                 quotesOff,
-                languages);
+                languages,
+                video);
         }
 
         return wants;
@@ -445,7 +455,8 @@ public sealed class CalendarBlueskyPlanner
         destination.TextOverride = want.Text;
         destination.SitePictureId = want.PictureId;
         destination.Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(
-            want.PictureId, null, false, want.Fingerprint, want.Pictures, want.WhoCanReply, want.QuotesOff, want.Languages));
+            want.PictureId, null, false, want.Fingerprint, want.Pictures, want.WhoCanReply, want.QuotesOff, want.Languages,
+            Video: want.Video));
 
         if (destination.State != PostDestinationStates.Waiting || destination.ClientKey is null)
         {

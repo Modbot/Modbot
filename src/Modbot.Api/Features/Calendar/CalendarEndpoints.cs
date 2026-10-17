@@ -319,6 +319,7 @@ public static class CalendarEndpoints
                 var zoneBefore = CalendarRepeat.ZoneOf(calendarEvent);
                 var keptMention = calendarEvent.MentionRoleId;
                 var coverBefore = calendarEvent.CoverPictureId;
+                var videoBefore = calendarEvent.BlueskyVideoId;
 
                 // Keeping the list already on the event needs nothing more; picking one does.
                 List<Guid> kept = [.. calendarEvent.InviteStaffUserIds];
@@ -369,6 +370,10 @@ public static class CalendarEndpoints
                 // A Discord picture this event no longer uses is not kept for nothing (§15.4).
                 if (coverBefore != calendarEvent.CoverPictureId)
                     await DropCoverIfUnusedAsync(db, coverBefore, ct);
+
+                // The same for the video kept for Bluesky's post.
+                if (videoBefore != calendarEvent.BlueskyVideoId)
+                    await DropVideoIfUnusedAsync(db, videoBefore, ct);
 
                 await PickDateAsync(db, facts, clock, calendarEvent, ct);
 
@@ -696,6 +701,7 @@ public static class CalendarEndpoints
 
                 // Its Discord picture goes with it, unless a copy of the event still uses it (§15.4).
                 await DropCoverIfUnusedAsync(db, calendarEvent.CoverPictureId, ct);
+                await DropVideoIfUnusedAsync(db, calendarEvent.BlueskyVideoId, ct);
 
                 return Results.NoContent();
             })
@@ -1499,10 +1505,14 @@ public static class CalendarEndpoints
     {
         // Read before the change is applied: the pictures the event already has are not asked for again.
         List<Guid> keptBlueskyPictures = [.. target.BlueskyPictureIds ?? []];
+        var keptBlueskyVideo = target.BlueskyVideoId;
         var problems = ApplyAll(body, target);
 
         if (await BlueskyPicturesProblemAsync(db, body, keptBlueskyPictures, ct) is { } picturesProblem)
             problems.Add(picturesProblem);
+
+        if (await BlueskyVideoProblemAsync(db, body.BlueskyVideo, keptBlueskyVideo, ct) is { } videoProblem)
+            problems.Add(videoProblem);
 
         if (await ListProblemAsync(db, body, ct) is { } listProblem)
             problems.Add(listProblem);
@@ -1608,6 +1618,44 @@ public static class CalendarEndpoints
 
         var found = await db.CalendarCoverPictures.Where(c => asked.Contains(c.Id)).CountAsync(ct);
         return found == asked.Count ? null : "A Bluesky picture is gone. Add it again.";
+    }
+
+    /// <summary>
+    /// The video Bluesky's post has after a save: what the request names (a choice with neither a file nor a
+    /// link is no video), or the event's own when the request names none.
+    /// </summary>
+    internal static BlueskyPostVideo? VideoAfter(CalendarEventRequest body, CalendarEvent target) =>
+        body.BlueskyVideo is { } choice ? VideoOfChoice(choice) : target.BlueskyVideo;
+
+    /// <summary>A video choice as the event keeps it, or null when it names neither a file nor a link.</summary>
+    internal static BlueskyPostVideo? VideoOfChoice(CalendarBlueskyVideoChoice choice) =>
+        choice.VideoId is null && string.IsNullOrWhiteSpace(choice.Url)
+            ? null
+            : new BlueskyPostVideo(choice.VideoId, choice.VideoId is null ? choice.Url!.Trim() : null, (choice.Alt ?? string.Empty).Trim());
+
+    /// <summary>What is wrong with the video an event names for its Bluesky post, or null: a kept file that is gone and is not the one the event already had.</summary>
+    internal static async Task<string?> BlueskyVideoProblemAsync(
+        ModbotContext db, CalendarBlueskyVideoChoice? choice, Guid? kept, CancellationToken ct)
+    {
+        if (choice?.VideoId is not { } id || id == kept)
+            return null;
+
+        return await db.CalendarBlueskyVideos.AnyAsync(v => v.Id == id, ct) ? null : CalendarBlueskyText.VideoGone;
+    }
+
+    /// <summary>
+    /// Deletes a kept Bluesky video no live event, template or post still to go uses: its event was
+    /// deleted or given another video. A copy of an event shares its video, so the file stays while any of them points at it.
+    /// </summary>
+    internal static async Task DropVideoIfUnusedAsync(ModbotContext db, Guid? videoId, CancellationToken ct)
+    {
+        if (videoId is not { } id)
+            return;
+
+        if ((await CalendarBlueskyVideosInUse.ReadAsync(db, ct)).Contains(id))
+            return;
+
+        await db.CalendarBlueskyVideos.Where(v => v.Id == id).ExecuteDeleteAsync(ct);
     }
 
     /// <summary>
@@ -1955,6 +2003,22 @@ public static class CalendarEndpoints
         if (body.BlueskyPictures?.Any(p => (p.Alt ?? string.Empty).Length > CalendarBlueskyText.AltMaxLength) == true)
             problems.Add(CalendarBlueskyText.AltTooLong);
 
+        // Bluesky's video: null keeps the event's, a choice with neither a file nor a link takes it away.
+        // A post has a video or pictures, never both.
+        if (body.BlueskyVideo is { } videoChoice)
+        {
+            if (videoChoice.VideoId is not null && !string.IsNullOrWhiteSpace(videoChoice.Url))
+                problems.Add(CalendarBlueskyText.VideoNeedsOneSource);
+            else if (!string.IsNullOrWhiteSpace(videoChoice.Url) && VideoLinks.Problem(videoChoice.Url.Trim()) is { } videoLinkProblem)
+                problems.Add(videoLinkProblem);
+
+            if ((videoChoice.Alt ?? string.Empty).Length > CalendarBlueskyText.AltMaxLength)
+                problems.Add(CalendarBlueskyText.VideoAltTooLong);
+        }
+
+        if (VideoAfter(body, target) is not null && (body.BlueskyPictures?.Count ?? target.BlueskyPictures?.Count ?? 0) > 0)
+            problems.Add(CalendarBlueskyText.VideoAndPictures);
+
         // Who may reply and the languages: null keeps the event's.
         if (!BlueskyPostGates.IsChoice(body.BlueskyWhoCanReply))
             problems.Add(CalendarBlueskyText.ReplyChoiceNotAllowed);
@@ -2169,6 +2233,11 @@ public static class CalendarEndpoints
         target.CoverPictureId = body.CoverPictureId;
         if (body.BlueskyPictures is { } blueskyPictures)
             target.BlueskyPictures = [.. blueskyPictures.Select(p => new BlueskyPostPicture(p.PictureId, (p.Alt ?? string.Empty).Trim()))];
+
+        // A video leaves no pictures beside it.
+        target.BlueskyVideo = VideoAfter(body, target);
+        if (target.BlueskyVideo is not null)
+            target.BlueskyPictures = [];
 
         if (body.BlueskyWhoCanReply is not null)
             target.BlueskyWhoCanReply = BlueskyPostGates.Normalize(body.BlueskyWhoCanReply);
@@ -2485,7 +2554,10 @@ public static class CalendarEndpoints
                     : null,
                 BlueskyPostGates.Normalize(e.BlueskyWhoCanReply) ?? [BlueskyPostGates.Anyone],
                 e.BlueskyQuotesOff,
-                BlueskyLanguages.Clean(e.BlueskyLanguages) ?? []);
+                BlueskyLanguages.Clean(e.BlueskyLanguages) ?? [],
+                e.BlueskyVideo is { } blueskyVideo
+                    ? new CalendarBlueskyVideoChoice(blueskyVideo.VideoId, blueskyVideo.Url, blueskyVideo.Alt)
+                    : null);
         })];
     }
 

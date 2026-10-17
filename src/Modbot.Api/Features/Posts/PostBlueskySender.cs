@@ -6,6 +6,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Files;
 using Modbot.Core.Logging;
+using Modbot.Core.Net;
 using Modbot.Core.Posts;
 using Modbot.Core.Time;
 using Serilog;
@@ -60,6 +61,7 @@ public sealed class PostBlueskySender
     public const string KeyTaken = "Bluesky says this post is already there, but could not show it.";
     public const string SignInAgain = "Sign in with Bluesky again to let Modbot set who can reply.";
     public const string GatesNotMade = "The post is up, but who can reply or quote it could not be set.";
+    public const string SignInAgainForVideo = "Sign in with Bluesky again to let Modbot post videos.";
 
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
@@ -69,6 +71,7 @@ public sealed class PostBlueskySender
     private readonly BlueskySession _session;
     private readonly BlueskyClient _client;
     private readonly BlueskyIdentity _identity;
+    private readonly VideoLinks _videoLinks;
     private readonly ILogger _log;
 
     public PostBlueskySender(
@@ -80,7 +83,8 @@ public sealed class PostBlueskySender
         BlueskySession session,
         BlueskyClient client,
         BlueskyIdentity identity,
-        ILogger? log = null)
+        ILogger? log = null,
+        VideoLinks? videoLinks = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(clock);
@@ -99,6 +103,7 @@ public sealed class PostBlueskySender
         _session = session;
         _client = client;
         _identity = identity;
+        _videoLinks = videoLinks ?? VideoLinks.Shared;
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Sync);
     }
 
@@ -440,7 +445,10 @@ public sealed class PostBlueskySender
 
         // An event's post carries the pictures it was given, up to four, each with its alt text; any other
         // post its one picture, described by its title.
-        List<(Guid Id, string Alt)> wanted = options.Pictures is { Count: > 0 } own
+        // A post with a video has no pictures: Bluesky allows none beside a video.
+        List<(Guid Id, string Alt)> wanted = options.Video is not null
+            ? []
+            : options.Pictures is { Count: > 0 } own
             ? [.. own.Take(Modbot.Core.Calendar.CalendarBlueskyText.MostPictures).Select(p => (p.PictureId, p.Alt))]
             : PostTexts.BlueskyPictureFor(post, destination) is { } pictureId
                 ? [(pictureId, title ?? string.Empty)]
@@ -475,8 +483,51 @@ public sealed class PostBlueskySender
             images.Add(new BlueskyImage(uploaded.Value!, alt, size?.Width, size?.Height));
         }
 
+        // The event's video goes up as the post goes out: Bluesky deletes an upload no post points to
+        // within hours. One that cannot go leaves the post up without it, and the post says so.
+        BlueskyVideoEmbed? video = null;
+        string? videoError = null;
+
+        if (options.Video is { } wantedVideo)
+        {
+            if (_session.Read(pass.SessionEncrypted)?.OAuth is { } videoGrant && !BlueskyOAuth.CanUploadVideo(videoGrant.Scope))
+            {
+                videoError = SignInAgainForVideo;
+            }
+            else
+            {
+                var (videoBytes, videoType, videoProblem) = await ReadVideoAsync(wantedVideo, pass.Ct).ConfigureAwait(false);
+
+                if (videoBytes is null)
+                {
+                    videoError = videoProblem;
+                }
+                else
+                {
+                    var uploadedVideo = await _client.UploadBlobAsync(access, videoBytes, videoType!, pass.Ct).ConfigureAwait(false);
+
+                    if (uploadedVideo.Failure is { } videoRefused)
+                    {
+                        // A limit is never tried again, and a token that ended is refreshed: both wait as a picture's do.
+                        if (videoRefused.StopsTheLane || videoRefused.Problem is BlueskyProblem.TokenExpired or BlueskyProblem.TokenRefused)
+                        {
+                            await RefusedBeforePutAsync(pass, post, destination, access, videoRefused, waitingSince).ConfigureAwait(false);
+                            return;
+                        }
+
+                        videoError = BlueskyErrors.Sentence(videoRefused);
+                    }
+                    else
+                    {
+                        var videoSize = VideoFormats.Size(videoBytes);
+                        video = new BlueskyVideoEmbed(uploadedVideo.Value!, wantedVideo.Alt, videoSize?.Width, videoSize?.Height);
+                    }
+                }
+            }
+        }
+
         // createdAt is this send's own time: feeds sort by it (fact 21).
-        var record = BlueskyPostRecord.Build(text, pass.Now, card, replyTo, images, options.Languages);
+        var record = BlueskyPostRecord.Build(text, pass.Now, card, replyTo, images, options.Languages, video);
 
         var put = await _client.PutRecordAsync(access, access.Did, BlueskyClient.PostCollection, key, record, pass.Ct)
             .ConfigureAwait(false);
@@ -484,7 +535,7 @@ public sealed class PostBlueskySender
         if (put.Value is { } made)
         {
             var notSet = await PutGatesAsync(pass, access, made.Uri, key, options).ConfigureAwait(false);
-            await PostedAsync(pass, post, destination, made, adopted: false, gatesLeft: notSet is not null, gatesError: notSet)
+            await PostedAsync(pass, post, destination, made, adopted: false, gatesLeft: notSet is not null, gatesError: notSet, videoError: videoError)
                 .ConfigureAwait(false);
             return;
         }
@@ -525,6 +576,28 @@ public sealed class PostBlueskySender
         }
 
         await RefusedBeforePutAsync(pass, post, destination, access, failure, waitingSince).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The bytes of a post's video and their type: the kept file, or the link fetched now. When there are none,
+    /// the sentence that says why.
+    /// </summary>
+    private async Task<(byte[]? Bytes, string? Type, string? Problem)> ReadVideoAsync(BlueskyPostVideo video, CancellationToken ct)
+    {
+        if (video.VideoId is { } id)
+        {
+            var file = await _db.CalendarBlueskyVideos.AsNoTracking()
+                .Where(v => v.Id == id)
+                .Select(v => new { v.Bytes, v.ContentType })
+                .FirstOrDefaultAsync(ct).ConfigureAwait(false);
+
+            return file is null
+                ? (null, null, Modbot.Core.Calendar.CalendarBlueskyText.VideoGone)
+                : (file.Bytes, VideoFormats.Sniff(file.Bytes) ?? file.ContentType, null);
+        }
+
+        var fetched = await _videoLinks.FetchAsync(video.Url, ct).ConfigureAwait(false);
+        return (fetched.Bytes, fetched.Type, fetched.Problem);
     }
 
     /// <summary>
@@ -694,8 +767,10 @@ public sealed class PostBlueskySender
 
     /// <param name="gatesLeft">The post's reply or quote setting is still to be made: a later pass makes it.</param>
     /// <param name="gatesError">Why the setting could not be made now, shown with the post; null when it was not tried or is made.</param>
+    /// <param name="videoError">Why the post is up without the video it was to have; null when it has it or had none. Shown with the post, but only <paramref name="gatesError"/> makes a later pass try again.</param>
     private async Task PostedAsync(
-        Pass pass, Post post, PostDestination destination, BlueskyRecordRef made, bool adopted, bool gatesLeft = false, string? gatesError = null)
+        Pass pass, Post post, PostDestination destination, BlueskyRecordRef made, bool adopted, bool gatesLeft = false, string? gatesError = null,
+        string? videoError = null)
     {
         var key = destination.ClientKey!;
 
@@ -709,8 +784,13 @@ public sealed class PostBlueskySender
         destination.SendIfMissing = false;
         // A setting that failed now waits like any other failure before a later pass tries it again.
         destination.CheckAt = gatesError is null ? null : pass.Now + PostRules.NotSentRetryAfter;
-        destination.Error = Trim(gatesError);
-        destination.ErrorAt = gatesError is null ? null : pass.Now;
+        var shown = videoError is null
+            ? gatesError
+            : gatesError is null
+                ? $"{Modbot.Core.Calendar.CalendarBlueskyText.VideoNotSent} {videoError}"
+                : $"{Modbot.Core.Calendar.CalendarBlueskyText.VideoNotSent} {videoError} {gatesError}";
+        destination.Error = Trim(shown);
+        destination.ErrorAt = shown is null ? null : pass.Now;
         destination.MissingPermission = null;
         destination.UpdatedAt = pass.Now;
 

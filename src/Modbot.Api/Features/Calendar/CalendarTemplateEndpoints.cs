@@ -310,6 +310,9 @@ public static class CalendarTemplateEndpoints
                 db, asEvent, (keptFields?.BlueskyPictures ?? []).Select(p => p.PictureId).ToList(), ct) is { } picturesProblem)
             problems.Add(picturesProblem);
 
+        if (await CalendarEndpoints.BlueskyVideoProblemAsync(db, asEvent.BlueskyVideo, keptFields?.BlueskyVideo?.VideoId, ct) is { } videoProblem)
+            problems.Add(videoProblem);
+
         var categories = await CalendarEndpoints.CategoriesAsync(db, asEvent, problems, ct);
 
         if (problems.Count > 0)
@@ -378,7 +381,10 @@ public static class CalendarTemplateEndpoints
                 : null,
             BlueskyWhoCanReply: target.BlueskyWhoCanReply,
             BlueskyQuotesOff: target.BlueskyQuotesOff,
-            BlueskyLanguages: target.BlueskyLanguages));
+            BlueskyLanguages: target.BlueskyLanguages,
+            BlueskyVideo: target.BlueskyVideo is { } blueskyVideo
+                ? new CalendarBlueskyVideoChoice(blueskyVideo.VideoId, blueskyVideo.Url, blueskyVideo.Alt)
+                : null));
     }
 
     /// <summary>
@@ -444,6 +450,7 @@ public static class CalendarTemplateEndpoints
             BlueskyPictures: f.BlueskyPictures,
             BlueskyWhoCanReply: f.BlueskyWhoCanReply,
             BlueskyQuotesOff: f.BlueskyQuotesOff,
-            BlueskyLanguages: f.BlueskyLanguages);
+            BlueskyLanguages: f.BlueskyLanguages,
+            BlueskyVideo: f.BlueskyVideo);
     }
 }
