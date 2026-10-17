@@ -33,6 +33,7 @@ namespace Modbot.Api.Features.Settings;
 /// <param name="LineupDay">The day of the week it is posted, 0 (Sunday) to 6.</param>
 /// <param name="LineupHour">The hour of that day, 0 to 23, in <paramref name="LineupTimeZone"/>.</param>
 /// <param name="LineupTimeZone">The IANA zone the day and hour are in, and the times in the post. Null is UTC.</param>
+/// <param name="KlipyKey">The Klipy key the calendar form's GIF button searches with. Empty for none.</param>
 public sealed record BlueskySettingsView(
     string? Handle,
     bool AppPasswordStored,
@@ -48,7 +49,8 @@ public sealed record BlueskySettingsView(
     bool LineupOn = false,
     int LineupDay = 1,
     int LineupHour = 12,
-    string? LineupTimeZone = null);
+    string? LineupTimeZone = null,
+    string KlipyKey = "");
 
 /// <param name="Handle">The handle to sign in as, with or without the <c>@</c>. Null or empty uses the stored one.</param>
 public sealed record BlueskySignInRequest(string? Handle = null);
@@ -75,9 +77,10 @@ public sealed record BlueskyCheckView(DateTimeOffset At, string? Handle, string?
 /// <param name="LineupDay">The day of the week the line-up is posted, 0 (Sunday) to 6. Null keeps it.</param>
 /// <param name="LineupHour">The hour of that day, 0 to 23, in <paramref name="LineupTimeZone"/>. Null keeps it.</param>
 /// <param name="LineupTimeZone">An IANA zone name; empty for UTC. Null keeps it.</param>
+/// <param name="KlipyKey">The Klipy key the calendar form's GIF button searches with: letters, numbers, <c>-</c> and <c>_</c>. Empty removes it; null keeps it.</param>
 public sealed record BlueskySettingsUpdate(
     string? Handle = null, string? AppPassword = null, bool? Posting = null, string? PostTags = null, bool? PinNextEvent = null,
-    bool? LineupOn = null, int? LineupDay = null, int? LineupHour = null, string? LineupTimeZone = null);
+    bool? LineupOn = null, int? LineupDay = null, int? LineupHour = null, string? LineupTimeZone = null, string? KlipyKey = null);
 
 /// <summary>
 /// Settings → Bluesky (Bluesky design §3.1, posts design §4.2c): the handle, the app password, Check,
@@ -116,6 +119,10 @@ public static class BlueskySettingsEndpoints
     public const string LineupDayRange = "The day must be between Sunday and Saturday.";
     public const string LineupHourRange = "The hour must be between 0 and 23.";
     public const string LineupZoneUnknown = "That time zone is not known.";
+    private static readonly System.Text.RegularExpressions.Regex KlipyKeyPattern =
+        new("^[A-Za-z0-9_-]{1,200}$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    public const string KlipyKeyShape = "The Klipy key can only have letters, numbers, - and _.";
     public const string NeedsPublicAddress = "Bluesky sign-in needs a public https address.";
 
     public static IEndpointRouteBuilder MapBlueskySettings(this IEndpointRouteBuilder app)
@@ -185,6 +192,10 @@ public static class BlueskySettingsEndpoints
                 if (!string.IsNullOrEmpty(lineupZone) && InsightTimes.FindTimeZone(lineupZone) is null)
                     return Results.BadRequest(new { error = LineupZoneUnknown });
 
+                var klipyKey = body.KlipyKey?.Trim();
+                if (!string.IsNullOrEmpty(klipyKey) && !KlipyKeyPattern.IsMatch(klipyKey))
+                    return Results.BadRequest(new { error = KlipyKeyShape });
+
                 var settings = await db.GetSettingsAsync(ct);
                 var handleBefore = settings.BlueskyHandle;
                 var passwordBefore = settings.BlueskyAppPasswordEncrypted;
@@ -208,6 +219,9 @@ public static class BlueskySettingsEndpoints
                 var lineupZoneAfter = body.LineupTimeZone is null
                     ? settings.BlueskyLineupTimeZone
                     : (lineupZone is { Length: > 0 } ? lineupZone : null);
+                var klipyBefore = settings.KlipyKey;
+                var klipyAfter = klipyKey is null ? klipyBefore : (klipyKey.Length == 0 ? null : klipyKey);
+                var klipyChanged = !string.Equals(klipyAfter, klipyBefore, StringComparison.Ordinal);
                 var lineupChanged = lineupOnAfter != lineupOnBefore
                     || lineupDayAfter != lineupDayBefore
                     || lineupHourAfter != lineupHourBefore
@@ -217,7 +231,7 @@ public static class BlueskySettingsEndpoints
                 if (postingAfter && !postingBefore && (handleChanged || passwordChanged || !PostSites.BlueskyReady(settings)))
                     return Results.BadRequest(new { error = CheckFirst });
 
-                if (!handleChanged && !passwordChanged && !tagsChanged && postingAfter == postingBefore && pinAfter == pinBefore && !lineupChanged)
+                if (!handleChanged && !passwordChanged && !tagsChanged && postingAfter == postingBefore && pinAfter == pinBefore && !lineupChanged && !klipyChanged)
                     return Results.Ok(View(settings, clock.UtcNow));
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -293,6 +307,9 @@ public static class BlueskySettingsEndpoints
                         settings.BlueskyLineupHandledThrough = CalendarBlueskyLineupPass.LatestMoment(settings, clock.UtcNow);
                 }
 
+                if (klipyChanged)
+                    settings.KlipyKey = klipyAfter;
+
                 var change = new SettingsChange("bluesky")
                     .Field("blueskyHandle", handleBefore, settings.BlueskyHandle)
                     .Secret("blueskyAppPassword", passwordChanged)
@@ -303,7 +320,8 @@ public static class BlueskySettingsEndpoints
                     .Field("blueskyLineupOn", lineupOnBefore, lineupOnAfter)
                     .Field("blueskyLineupDay", lineupDayBefore, lineupDayAfter)
                     .Field("blueskyLineupHour", lineupHourBefore, lineupHourAfter)
-                    .Field("blueskyLineupTimeZone", lineupZoneBefore, lineupZoneAfter);
+                    .Field("blueskyLineupTimeZone", lineupZoneBefore, lineupZoneAfter)
+                    .Field("klipyKey", klipyBefore, klipyAfter);
 
                 await db.SaveChangesAsync(ct);
                 await change.RecordAsync(http, ct);
@@ -613,6 +631,7 @@ public static class BlueskySettingsEndpoints
             settings.BlueskyLineupOn,
             settings.BlueskyLineupDay,
             settings.BlueskyLineupHour,
-            settings.BlueskyLineupTimeZone);
+            settings.BlueskyLineupTimeZone,
+            settings.KlipyKey ?? string.Empty);
     }
 }

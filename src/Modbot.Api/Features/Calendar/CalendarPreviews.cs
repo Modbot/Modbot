@@ -183,7 +183,9 @@ public static class CalendarPreviews
 
         // With a video the post has no pictures and no link card.
         var video = CalendarBlueskyText.VideoOf(calendarEvent, title);
-        var picture = video is null && hasPicture && first is { } cover ? CoverPath + cover : null;
+        // The same for a GIF, which is shown from Klipy.
+        var gif = CalendarBlueskyText.GifOf(calendarEvent, title);
+        var picture = video is null && gif is null && hasPicture && first is { } cover ? CoverPath + cover : null;
 
         return new BlueskyPostPreview(
             text,
@@ -191,7 +193,7 @@ public static class CalendarPreviews
             BlueskyText.Graphemes(text),
             BlueskyText.Bytes(text),
             BlueskyText.GraphemeLimit,
-            card is null || picture is not null || video is not null ? null : new BlueskyCardPreview(card.Uri, card.Title, card.Description, BlueskyText.CardHost(card.Uri)),
+            card is null || picture is not null || video is not null || gif is not null ? null : new BlueskyCardPreview(card.Uri, card.Title, card.Description, BlueskyText.CardHost(card.Uri)),
             picture,
             picture is null ? null : pictures?.FirstOrDefault()?.Alt ?? title ?? string.Empty,
             settings?.BlueskyHandle,
@@ -199,7 +201,8 @@ public static class CalendarPreviews
             video is null
                 ? null
                 : new BlueskyVideoPreview(
-                    video.VideoId is { } fileId ? "/api/calendar/bluesky-video/" + fileId : null, video.Url, video.Alt));
+                    video.VideoId is { } fileId ? "/api/calendar/bluesky-video/" + fileId : null, video.Url, video.Alt),
+            gif is null ? null : new BlueskyGifPreview(gif.Url, gif.Alt));
     }
 
     /// <summary>

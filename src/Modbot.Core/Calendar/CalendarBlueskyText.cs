@@ -67,6 +67,12 @@ public static class CalendarBlueskyText
     /// <summary>The words for a post's video that could not go with it. Followed by why.</summary>
     public const string VideoNotSent = "The post is up without its video.";
 
+    /// <summary>The words for a post given a GIF and pictures or a video: a post has one of the three.</summary>
+    public const string GifAndOthers = "A Bluesky post has pictures, a video or a GIF, not more than one.";
+
+    /// <summary>The words for a GIF alt text over <see cref="AltMaxLength"/>.</summary>
+    public const string GifAltTooLong = "A Bluesky GIF's alt text is longer than 2000 characters.";
+
     /// <summary>The words for a post given more than <see cref="BlueskyLanguages.Most"/> languages, or one that is no language code.</summary>
     public const string LanguagesNotAllowed = "A Bluesky post has at most 3 languages, each a code such as en.";
 
@@ -184,17 +190,26 @@ public static class CalendarBlueskyText
     /// <param name="quotesOff">Quote posts are off. False adds nothing to the fingerprint.</param>
     /// <param name="languages">The post's languages. None adds nothing to the fingerprint.</param>
     /// <param name="video">The post's video, or null for none. None adds nothing to the fingerprint.</param>
+    /// <param name="gif">The post's GIF, or null for none. None adds nothing to the fingerprint.</param>
     public static string Fingerprint(
         string text, Guid? pictureId, IReadOnlyList<BlueskyPostPicture>? pictures = null,
         IReadOnlyList<string>? whoCanReply = null, bool quotesOff = false, IReadOnlyList<string>? languages = null,
-        BlueskyPostVideo? video = null)
+        BlueskyPostVideo? video = null, BlueskyPostGif? gif = null)
     {
         var own = pictures is null ? null : string.Join('\u001f', pictures.Select(p => $"{p.PictureId}\u001e{p.Alt}"));
 
         // The reply, quote and language choices count only once one is made, so a post that went out
         // before they existed keeps its fingerprint and is not taken down and made again.
-        if (whoCanReply is null && !quotesOff && languages is not { Count: > 0 } && video is null)
+        if (whoCanReply is null && !quotesOff && languages is not { Count: > 0 } && video is null && gif is null)
             return own is null ? CalendarFingerprint.Of(text, pictureId) : CalendarFingerprint.Of(text, pictureId, own);
+
+        // A GIF is the one thing that adds a part after the video's place, which a post with a video or none leaves as it was.
+        if (gif is not null)
+        {
+            return CalendarFingerprint.Of(
+                text, pictureId, own, string.Join(',', whoCanReply ?? []), quotesOff, string.Join(',', languages ?? []),
+                null, $"{gif.Url}\u001e{gif.Alt}");
+        }
 
         if (video is null)
         {
@@ -216,6 +231,19 @@ public static class CalendarBlueskyText
         ArgumentNullException.ThrowIfNull(calendarEvent);
 
         return calendarEvent.BlueskyVideo is { } own
+            ? own with { Alt = string.IsNullOrWhiteSpace(own.Alt) ? title ?? string.Empty : own.Alt.Trim() }
+            : null;
+    }
+
+    /// <summary>
+    /// The GIF the post goes with when the event has one, with the alt text it was given, or the post's
+    /// title when it was given none. Null for an event with no GIF.
+    /// </summary>
+    public static BlueskyPostGif? GifOf(CalendarEvent calendarEvent, string? title)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        return calendarEvent.BlueskyGif is { } own
             ? own with { Alt = string.IsNullOrWhiteSpace(own.Alt) ? title ?? string.Empty : own.Alt.Trim() }
             : null;
     }

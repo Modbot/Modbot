@@ -1115,6 +1115,29 @@ public static class CalendarEndpoints
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
 
+        // The Klipy key the form's GIF button searches with. Klipy has the browser search and load the GIFs
+        // itself, so the key is handed to the browser; only people who edit events get it.
+        group.MapGet("/gif-key", async (
+                HttpContext http,
+                [FromServices] ModbotContext db,
+                CancellationToken ct) =>
+            {
+                if (RefusedWithoutEditorRights(http) is { } refused)
+                    return refused;
+
+                var key = await db.Settings.AsNoTracking().Where(s => s.Id == 1).Select(s => s.KlipyKey).FirstOrDefaultAsync(ct);
+                return Results.Ok(new CalendarGifKeyView(string.IsNullOrWhiteSpace(key) ? null : key));
+            })
+            .RequiresFlag(ModbotPermissions.ViewCalendar)
+            .WithName("GetCalendarGifKey")
+            .WithSummary("Get GIF search key")
+            .WithDescription(
+                "The Klipy key the form's GIF button searches with, or null when the owner has set none. Needs "
+                + "Manage calendar or Manage templates. Klipy has each person's browser search and load its GIFs "
+                + "itself, so the key goes to the browser; it is set in Settings under Bluesky.")
+            .Produces<CalendarGifKeyView>()
+            .Produces(StatusCodes.Status403Forbidden);
+
         // The picture behind an event's picture link, for the form to crop and turn into a PNG in
         // the browser (§15.2). Fetched by Modbot, kept nowhere (PictureLinkFetch).
         group.MapPost("/picture-link", (
@@ -1627,6 +1650,17 @@ public static class CalendarEndpoints
     internal static BlueskyPostVideo? VideoAfter(CalendarEventRequest body, CalendarEvent target) =>
         body.BlueskyVideo is { } choice ? VideoOfChoice(choice) : target.BlueskyVideo;
 
+    /// <summary>
+    /// The GIF Bluesky's post has after a save: what the request names (a choice with no address is no GIF), or
+    /// the event's own when the request names none.
+    /// </summary>
+    internal static BlueskyPostGif? GifAfter(CalendarEventRequest body, CalendarEvent target) =>
+        body.BlueskyGif is { } choice ? GifOfChoice(choice) : target.BlueskyGif;
+
+    /// <summary>A GIF choice as the event keeps it, or null when it names no address.</summary>
+    internal static BlueskyPostGif? GifOfChoice(CalendarBlueskyGifChoice choice) =>
+        string.IsNullOrWhiteSpace(choice.Url) ? null : new BlueskyPostGif(choice.Url.Trim(), (choice.Alt ?? string.Empty).Trim());
+
     /// <summary>A video choice as the event keeps it, or null when it names neither a file nor a link.</summary>
     internal static BlueskyPostVideo? VideoOfChoice(CalendarBlueskyVideoChoice choice) =>
         choice.VideoId is null && string.IsNullOrWhiteSpace(choice.Url)
@@ -2019,6 +2053,21 @@ public static class CalendarEndpoints
         if (VideoAfter(body, target) is not null && (body.BlueskyPictures?.Count ?? target.BlueskyPictures?.Count ?? 0) > 0)
             problems.Add(CalendarBlueskyText.VideoAndPictures);
 
+        // Bluesky's GIF: null keeps the event's, a choice with no address takes it away. Only a Klipy
+        // address is taken. A post has pictures, a video or a GIF: one of the three.
+        if (body.BlueskyGif is { } gifChoice)
+        {
+            if (!string.IsNullOrWhiteSpace(gifChoice.Url) && BlueskyGifs.Problem(gifChoice.Url) is { } gifProblem)
+                problems.Add(gifProblem);
+
+            if ((gifChoice.Alt ?? string.Empty).Length > CalendarBlueskyText.AltMaxLength)
+                problems.Add(CalendarBlueskyText.GifAltTooLong);
+        }
+
+        if (GifAfter(body, target) is not null
+            && ((body.BlueskyPictures?.Count ?? target.BlueskyPictures?.Count ?? 0) > 0 || VideoAfter(body, target) is not null))
+            problems.Add(CalendarBlueskyText.GifAndOthers);
+
         // Who may reply and the languages: null keeps the event's.
         if (!BlueskyPostGates.IsChoice(body.BlueskyWhoCanReply))
             problems.Add(CalendarBlueskyText.ReplyChoiceNotAllowed);
@@ -2237,6 +2286,11 @@ public static class CalendarEndpoints
         // A video leaves no pictures beside it.
         target.BlueskyVideo = VideoAfter(body, target);
         if (target.BlueskyVideo is not null)
+            target.BlueskyPictures = [];
+
+        // A GIF leaves no pictures and no video beside it.
+        target.BlueskyGif = GifAfter(body, target);
+        if (target.BlueskyGif is not null)
             target.BlueskyPictures = [];
 
         if (body.BlueskyWhoCanReply is not null)
@@ -2557,6 +2611,9 @@ public static class CalendarEndpoints
                 BlueskyLanguages.Clean(e.BlueskyLanguages) ?? [],
                 e.BlueskyVideo is { } blueskyVideo
                     ? new CalendarBlueskyVideoChoice(blueskyVideo.VideoId, blueskyVideo.Url, blueskyVideo.Alt)
+                    : null,
+                e.BlueskyGif is { } blueskyGif
+                    ? new CalendarBlueskyGifChoice(blueskyGif.Url, blueskyGif.Alt)
                     : null);
         })];
     }

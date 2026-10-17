@@ -44,6 +44,7 @@ public static class CalendarEventFields
             ["blueskyVideo"] = e.BlueskyVideo is { } video
                 ? $"{video.VideoId?.ToString() ?? video.Url}: {video.Alt}"
                 : null,
+            ["blueskyGif"] = e.BlueskyGif is { } gif ? $"{gif.Url}: {gif.Alt}" : null,
             ["category"] = e.Category,
             ["modbotCategories"] = string.Join(", ", e.Categories.Select(c => c.Name).Order(StringComparer.Ordinal)),
             ["languages"] = string.Join(", ", e.Languages),

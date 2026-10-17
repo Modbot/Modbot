@@ -104,7 +104,8 @@ public sealed class CalendarBlueskyPlanner
         IReadOnlyList<string>? WhoCanReply,
         bool QuotesOff,
         IReadOnlyList<string>? Languages,
-        BlueskyPostVideo? Video = null)
+        BlueskyPostVideo? Video = null,
+        BlueskyPostGif? Gif = null)
     {
         public bool Due(DateTimeOffset now) => SendAt <= now;
 
@@ -238,6 +239,14 @@ public sealed class CalendarBlueskyPlanner
                 picture = null;
             }
 
+            // The same for a GIF, which goes out as a link card of its own.
+            var gif = CalendarBlueskyText.GifOf(calendarEvent, title);
+            if (gif is not null)
+            {
+                pictures = null;
+                picture = null;
+            }
+
             // Who may reply, quote posts and languages: none chosen is the post as it always was.
             var whoCanReply = BlueskyPostGates.Normalize(calendarEvent.BlueskyWhoCanReply);
             var quotesOff = calendarEvent.BlueskyQuotesOff;
@@ -249,13 +258,14 @@ public sealed class CalendarBlueskyPlanner
                 text,
                 picture,
                 CalendarBlueskyText.SendAt(calendarEvent, occurrence),
-                CalendarBlueskyText.Fingerprint(text, picture, pictures, whoCanReply, quotesOff, languages, video),
+                CalendarBlueskyText.Fingerprint(text, picture, pictures, whoCanReply, quotesOff, languages, video, gif),
                 calendarEvent.TimeZone,
                 pictures,
                 whoCanReply,
                 quotesOff,
                 languages,
-                video);
+                video,
+                gif);
         }
 
         return wants;
@@ -456,7 +466,7 @@ public sealed class CalendarBlueskyPlanner
         destination.SitePictureId = want.PictureId;
         destination.Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(
             want.PictureId, null, false, want.Fingerprint, want.Pictures, want.WhoCanReply, want.QuotesOff, want.Languages,
-            Video: want.Video));
+            Video: want.Video, Gif: want.Gif));
 
         if (destination.State != PostDestinationStates.Waiting || destination.ClientKey is null)
         {

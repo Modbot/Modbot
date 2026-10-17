@@ -70,7 +70,8 @@ public sealed record CalendarTemplateFields(
     IReadOnlyList<string>? BlueskyWhoCanReply = null,
     bool? BlueskyQuotesOff = null,
     IReadOnlyList<string>? BlueskyLanguages = null,
-    CalendarBlueskyVideoChoice? BlueskyVideo = null);
+    CalendarBlueskyVideoChoice? BlueskyVideo = null,
+    CalendarBlueskyGifChoice? BlueskyGif = null);
 
 /// <summary>A template as a person fills it in.</summary>
 /// <param name="Name">What the list calls it, 1 to 100 characters.</param>

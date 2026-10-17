@@ -141,6 +141,26 @@ public class CalendarEvent
     }
 
     /// <summary>
+    /// The Klipy address of the GIF Bluesky's post goes with, or null. With a GIF the post carries no pictures
+    /// and no video. Only the address is kept: the GIF itself stays on Klipy.
+    /// </summary>
+    public string? BlueskyGifUrl { get; set; }
+
+    /// <summary>The alt text of the GIF. Blank says the post's title.</summary>
+    public string? BlueskyGifAlt { get; set; }
+
+    /// <summary>The two columns above as one: the GIF of Bluesky's post, or null for none.</summary>
+    public BlueskyPostGif? BlueskyGif
+    {
+        get => BlueskyGifUrl is null ? null : new BlueskyPostGif(BlueskyGifUrl, BlueskyGifAlt ?? string.Empty);
+        set
+        {
+            BlueskyGifUrl = value?.Url;
+            BlueskyGifAlt = value is null ? null : value.Alt;
+        }
+    }
+
+    /// <summary>
     /// Who may reply to Bluesky's post. Null is anyone (no reply setting is made, as before the choice
     /// existed); <c>["nobody"]</c> is nobody; otherwise any of <c>followers</c>, <c>following</c> and
     /// <c>mentioned</c> (<see cref="BlueskyReplyChoices"/>).

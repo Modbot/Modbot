@@ -385,6 +385,10 @@ public sealed record VRChatPostOptions(
 /// For an event's post: the video the post goes with, instead of pictures. Null for none. Only the kept file's
 /// id or the link travel here; the bytes are read, or fetched, as the post is made.
 /// </param>
+/// <param name="Gif">
+/// For an event's post: the GIF the post goes with, instead of pictures or a video. Null for none. Only its Klipy
+/// address travels here; nothing of the GIF is kept or uploaded.
+/// </param>
 /// <param name="SettingsToSend">
 /// The post is on Bluesky but its threadgate or postgate is not yet: a try to make them did not go through, and
 /// the sender makes them on a later pass.
@@ -399,7 +403,8 @@ public sealed record BlueskyPostOptions(
     bool QuotesOff = false,
     IReadOnlyList<string>? Languages = null,
     bool SettingsToSend = false,
-    BlueskyPostVideo? Video = null)
+    BlueskyPostVideo? Video = null,
+    BlueskyPostGif? Gif = null)
 {
     /// <summary>Whether the post has a threadgate or a postgate to make, and to take down with it.</summary>
     [System.Text.Json.Serialization.JsonIgnore]
@@ -416,3 +421,8 @@ public sealed record BlueskyPostPicture(Guid PictureId, string Alt);
 /// <param name="Url">The link Modbot fetches the video from as the post goes out, or null when the video is a kept file.</param>
 /// <param name="Alt">The video's description for people who cannot see it. May be empty.</param>
 public sealed record BlueskyPostVideo(Guid? VideoId, string? Url, string Alt);
+
+/// <summary>The one GIF of a Bluesky post: its Klipy address and its alt text. Posted as a link card, as Bluesky's own app does.</summary>
+/// <param name="Url">The GIF's address on Klipy's media host, as Klipy gave it, with the size and file names Bluesky's app adds.</param>
+/// <param name="Alt">The GIF's description for people who cannot see it. May be empty.</param>
+public sealed record BlueskyPostGif(string Url, string Alt);

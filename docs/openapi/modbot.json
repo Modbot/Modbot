@@ -33943,6 +33943,56 @@
         ]
       }
     },
+    "/api/calendar/gif-key": {
+      "get": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Get GIF search key",
+        "description": "The Klipy key the form's GIF button searches with, or null when the owner has set none. Needs Manage calendar or Manage templates. Klipy has each person's browser search and load its GIFs itself, so the key goes to the browser; it is set in Settings under Bluesky.\n\nNeeds the `ViewCalendar` permission.",
+        "operationId": "GetCalendarGifKey",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarGifKeyView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/calendar/picture-link": {
       "post": {
         "tags": [
@@ -44759,6 +44809,21 @@
           }
         }
       },
+      "BlueskyGifPreview": {
+        "required": [
+          "url",
+          "alt"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "alt": {
+            "type": "string"
+          }
+        }
+      },
       "BlueskyPostPreview": {
         "required": [
           "text",
@@ -44836,6 +44901,16 @@
               },
               {
                 "$ref": "#/components/schemas/BlueskyVideoPreview"
+              }
+            ]
+          },
+          "gif": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BlueskyGifPreview"
               }
             ]
           }
@@ -45128,6 +45203,12 @@
               "null",
               "string"
             ]
+          },
+          "klipyKey": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -45217,6 +45298,10 @@
               "null",
               "string"
             ]
+          },
+          "klipyKey": {
+            "type": "string",
+            "default": ""
           }
         }
       },
@@ -45433,6 +45518,23 @@
           "unsure": {
             "type": "boolean",
             "default": false
+          }
+        }
+      },
+      "CalendarBlueskyGifChoice": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "alt": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -46244,6 +46346,16 @@
                 "$ref": "#/components/schemas/CalendarBlueskyVideoChoice"
               }
             ]
+          },
+          "blueskyGif": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CalendarBlueskyGifChoice"
+              }
+            ]
           }
         }
       },
@@ -46722,6 +46834,16 @@
                 "$ref": "#/components/schemas/CalendarBlueskyVideoChoice"
               }
             ]
+          },
+          "blueskyGif": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CalendarBlueskyGifChoice"
+              }
+            ]
           }
         }
       },
@@ -46789,6 +46911,20 @@
             ]
           },
           "url": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CalendarGifKeyView": {
+        "required": [
+          "key"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
             "type": [
               "null",
               "string"
@@ -48005,6 +48141,16 @@
               },
               {
                 "$ref": "#/components/schemas/CalendarBlueskyVideoChoice"
+              }
+            ]
+          },
+          "blueskyGif": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CalendarBlueskyGifChoice"
               }
             ]
           }

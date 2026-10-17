@@ -384,6 +384,9 @@ public static class CalendarTemplateEndpoints
             BlueskyLanguages: target.BlueskyLanguages,
             BlueskyVideo: target.BlueskyVideo is { } blueskyVideo
                 ? new CalendarBlueskyVideoChoice(blueskyVideo.VideoId, blueskyVideo.Url, blueskyVideo.Alt)
+                : null,
+            BlueskyGif: target.BlueskyGif is { } blueskyGif
+                ? new CalendarBlueskyGifChoice(blueskyGif.Url, blueskyGif.Alt)
                 : null));
     }
 
@@ -451,6 +454,7 @@ public static class CalendarTemplateEndpoints
             BlueskyWhoCanReply: f.BlueskyWhoCanReply,
             BlueskyQuotesOff: f.BlueskyQuotesOff,
             BlueskyLanguages: f.BlueskyLanguages,
-            BlueskyVideo: f.BlueskyVideo);
+            BlueskyVideo: f.BlueskyVideo,
+            BlueskyGif: f.BlueskyGif);
     }
 }

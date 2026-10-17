@@ -1225,6 +1225,16 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("bluesky_description");
 
+                    b.Property<string>("BlueskyGifAlt")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("bluesky_gif_alt");
+
+                    b.Property<string>("BlueskyGifUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("bluesky_gif_url");
+
                     b.PrimitiveCollection<string>("BlueskyLanguages")
                         .HasColumnType("jsonb")
                         .HasColumnName("bluesky_languages");
@@ -9705,6 +9715,11 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<DateTimeOffset?>("InstanceEndEntriesStartedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("instance_end_entries_started_at");
+
+                    b.Property<string>("KlipyKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("klipy_key");
 
                     b.Property<bool>("KofiOn")
                         .HasColumnType("boolean")

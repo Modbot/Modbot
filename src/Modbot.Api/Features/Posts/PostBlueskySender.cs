@@ -440,13 +440,16 @@ public sealed class PostBlueskySender
             return;
 
         var title = PostTexts.TidyTitle(post.Title);
-        var card = BlueskyPostRecord.CardFor(title, text);
+
+        // A GIF goes out as a link card of its own, the way Bluesky's app posts one; only a Klipy address is sent.
+        var gif = options.Gif is { } wantedGif && BlueskyGifs.Problem(wantedGif.Url) is null ? wantedGif : null;
+        var card = gif is not null ? BlueskyGifs.Card(gif) : BlueskyPostRecord.CardFor(title, text);
         var images = new List<BlueskyImage>();
 
         // An event's post carries the pictures it was given, up to four, each with its alt text; any other
         // post its one picture, described by its title.
-        // A post with a video has no pictures: Bluesky allows none beside a video.
-        List<(Guid Id, string Alt)> wanted = options.Video is not null
+        // A post with a video or a GIF has no pictures: Bluesky allows none beside a video, and a GIF is the card.
+        List<(Guid Id, string Alt)> wanted = options.Video is not null || gif is not null
             ? []
             : options.Pictures is { Count: > 0 } own
             ? [.. own.Take(Modbot.Core.Calendar.CalendarBlueskyText.MostPictures).Select(p => (p.PictureId, p.Alt))]

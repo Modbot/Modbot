@@ -2044,6 +2044,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.BlueskyLineupDay).HasDefaultValue(1);
             entity.Property(e => e.BlueskyLineupHour).HasDefaultValue(12);
             entity.Property(e => e.BlueskyLineupTimeZone).HasMaxLength(64);
+            entity.Property(e => e.KlipyKey).HasMaxLength(200);
 
             // The weekly spotlight: off, Monday 09:00, random, nothing ticked, for the row that exists already.
             entity.Property(e => e.SpotlightDay).HasDefaultValue(1);
@@ -3181,6 +3182,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Ignore(e => e.AutoLinks);
             entity.Ignore(e => e.BlueskyPictures);
             entity.Ignore(e => e.BlueskyVideo);
+            entity.Ignore(e => e.BlueskyGif);
             entity.Property(e => e.BlueskyPictureIds).HasColumnType("jsonb");
             entity.Property(e => e.BlueskyPictureAlts).HasColumnType("jsonb");
             entity.Property(e => e.BlueskyWhoCanReply).HasColumnType("jsonb");
@@ -3204,6 +3206,8 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.BlueskyDescription).HasMaxLength(CalendarEvent.MaxDescriptionLength);
             entity.Property(e => e.BlueskyVideoUrl).HasMaxLength(2048);
             entity.Property(e => e.BlueskyVideoAlt).HasMaxLength(2000);
+            entity.Property(e => e.BlueskyGifUrl).HasMaxLength(2048);
+            entity.Property(e => e.BlueskyGifAlt).HasMaxLength(2000);
             entity.Property(e => e.TimeZone).HasMaxLength(64);
             entity.Property(e => e.Repeat).HasMaxLength(16);
             entity.Property(e => e.RepeatDays).HasColumnType("jsonb");

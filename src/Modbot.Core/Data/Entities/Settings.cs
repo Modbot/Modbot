@@ -587,6 +587,13 @@ public class Settings
     /// <summary>The IANA zone the day and hour are in, and the times in the post. Null is UTC.</summary>
     public string? BlueskyLineupTimeZone { get; set; }
 
+    /// <summary>
+    /// The Klipy app key the calendar form's GIF button searches with. Klipy has the browser make the search
+    /// itself, so this key is handed to signed-in staff who edit calendar events and is not secret. Null or
+    /// empty: no GIF button.
+    /// </summary>
+    public string? KlipyKey { get; set; }
+
     /// <summary>The latest line-up time already looked at, so a time is handled once: turning the line-up on or moving its time sets it to the latest time gone by.</summary>
     public DateTimeOffset? BlueskyLineupHandledThrough { get; set; }
 

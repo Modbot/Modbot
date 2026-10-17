@@ -799,4 +799,83 @@ public class CalendarCoverTests(PostgresFixture db)
 
         Assert.True(await KeptAsync(unsaved));
     }
+
+    private const string KlipyGif = "https://static.klipy.com/ii/935d7ab9d8c6202580a668421940ec81/14/af/um0L4dFH.gif?hh=240&ww=498";
+
+    private static object BodyWithBlueskyGif(
+        ApiTestHost host, string? url, string? alt = null, IEnumerable<(Guid Id, string Alt)>? pictures = null)
+    {
+        var start = host.Clock.UtcNow.AddDays(2);
+
+        return new
+        {
+            title = "Game night",
+            description = "Bring friends",
+            startsAt = start.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture),
+            endsAt = start.AddHours(2).ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture),
+            timeZone = "UTC",
+            repeat = "none",
+            publishToDiscord = true,
+            blueskyGif = new { url, alt },
+            blueskyPictures = pictures?.Select(p => new { pictureId = p.Id, alt = p.Alt }).ToArray(),
+            draft = true,
+        };
+    }
+
+    [Fact]
+    public async Task AnEventIsSavedWithItsKlipyGif_AsAnAddressAndAltText()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/calendar/events", BodyWithBlueskyGif(host, " " + KlipyGif + " ", "A cat waves"), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var saved = (await ApiTestHost.BodyOf(response, Ct)).GetProperty("blueskyGif");
+        Assert.Equal(KlipyGif, saved.GetProperty("url").GetString());
+        Assert.Equal("A cat waves", saved.GetProperty("alt").GetString());
+    }
+
+    [Theory]
+    [InlineData("https://example.com/cat.gif")]
+    [InlineData("http://static.klipy.com/ii/a/b.gif")]
+    [InlineData("https://media.tenor.com/a/b.gif")]
+    public async Task AGifThatIsNotOnKlipysMediaHostIsRefused(string url)
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/calendar/events", BodyWithBlueskyGif(host, url), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("Klipy address", await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AGifWithPicturesIsRefused()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+        var picture = await UploadedAsync(host, manager);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/calendar/events", BodyWithBlueskyGif(host, KlipyGif, pictures: [(picture, "Poster")]), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(CalendarBlueskyText.GifAndOthers, await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AGifAltTextOver2000CharactersIsRefused()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/calendar/events", BodyWithBlueskyGif(host, KlipyGif, new string('x', CalendarBlueskyText.AltMaxLength + 1)), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(CalendarBlueskyText.GifAltTooLong, await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+    }
 }

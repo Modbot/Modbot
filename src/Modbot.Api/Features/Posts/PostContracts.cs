@@ -291,6 +291,7 @@ public sealed record BlueskyCardPreview(string Uri, string Title, string Descrip
 /// <param name="Handle">The account it goes out as, or null when none is set up.</param>
 /// <param name="DisplayName">That account's display name as the last Check found it.</param>
 /// <param name="Video">The video shown in full under the text, in place of pictures and the link card; null for a post with none.</param>
+/// <param name="Gif">The GIF shown under the text, in place of pictures, a video and the link card; null for a post with none.</param>
 public sealed record BlueskyPostPreview(
     string Text,
     IReadOnlyList<BlueskyTextPartView> Parts,
@@ -302,7 +303,8 @@ public sealed record BlueskyPostPreview(
     string? PictureAlt,
     string? Handle,
     string? DisplayName,
-    BlueskyVideoPreview? Video = null);
+    BlueskyVideoPreview? Video = null,
+    BlueskyGifPreview? Gif = null);
 
 /// <summary>The video under a Bluesky post, as Modbot will send it.</summary>
 /// <param name="Url">Modbot's own address for a kept file, or null when the video is a link.</param>
@@ -398,3 +400,8 @@ public sealed record PostsHealth(
     DateTimeOffset? RepliesErrorAt = null,
     string? ProfileError = null,
     DateTimeOffset? ProfileErrorAt = null);
+
+/// <summary>The GIF under a Bluesky post, as Modbot will send it.</summary>
+/// <param name="Url">The GIF's address on Klipy's media host, loaded by the browser from there.</param>
+/// <param name="Alt">The GIF's description: the alt text it was given, or the post's title.</param>
+public sealed record BlueskyGifPreview(string Url, string Alt);
