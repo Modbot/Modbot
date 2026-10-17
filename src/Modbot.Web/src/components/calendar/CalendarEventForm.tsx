@@ -559,12 +559,15 @@ export function CalendarEventForm({
     set(key, value)
     turnOn('instance')
   }
+  // A change that turns its own place off (no channel for the channel post) must not turn it back on.
+  const turningOff = useRef(false)
   const last = useRef({ input, languages, tags })
   useEffect(() => {
     const before = last.current
     last.current = { input, languages, tags }
-    if (byInstance.current) {
+    if (byInstance.current || turningOff.current) {
       byInstance.current = false
+      turningOff.current = false
       return
     }
     if (active === 'event') return
@@ -1120,7 +1123,11 @@ export function CalendarEventForm({
                     label="Channel"
                     value={input.channelId ?? ''}
                     // No channel means no channel post: the server refuses a post with nowhere to go.
-                    onChange={(id) => setInput((current) => ({ ...current, channelId: id || null, postToChannel: id ? current.postToChannel : false }))}
+                    onChange={(id) => {
+                      // Only when something changes, or the flag would swallow the next real change.
+                      if (!id && (input.channelId || input.postToChannel)) turningOff.current = true
+                      setInput((current) => ({ ...current, channelId: id || null, postToChannel: id ? current.postToChannel : false }))
+                    }}
                     needs={['viewChannel', 'sendMessages', 'embedLinks']}
                     allowNone
                   />
