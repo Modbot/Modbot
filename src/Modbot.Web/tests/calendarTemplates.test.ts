@@ -50,6 +50,7 @@ const input: CalendarEventInput = {
   postColour: null,
   blueskyPictures: null,
   blueskyVideo: null,
+  blueskyGif: null,
   coverPictureId: null,
   vrChatTitle: 'Movies in VRChat',
   vrChatDescription: '',
@@ -128,6 +129,15 @@ test('a template keeps the Bluesky video, and one saved before videos loads with
 
   const { blueskyVideo: _video, ...old } = picked
   assert.equal(inputFromTemplate(old as typeof picked, input).blueskyVideo, null)
+})
+
+test('a template keeps the Bluesky GIF, and one saved before GIFs loads with none', () => {
+  const gif = { url: 'https://static.klipy.com/a.gif', alt: 'a cat' }
+  const picked = fieldsFromInput({ ...input, blueskyGif: gif }, 120)
+  assert.deepEqual(inputFromTemplate(picked, input).blueskyGif, gif)
+
+  const { blueskyGif: _gif, ...old } = picked
+  assert.equal(inputFromTemplate(old as typeof picked, input).blueskyGif, null)
 })
 
 test('a template keeps the post colour, and one saved before post colours loads with none', () => {

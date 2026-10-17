@@ -256,6 +256,14 @@ not answer or is not a video, the file is gone, Bluesky refuses it, or the sign-
 uploads), the post goes up without it and its line in **Marketing** says why. A sign-in made
 before video uploads were added needs **Sign in with Bluesky** done again for a post with a video.
 
+A calendar event's post can carry one GIF from Klipy instead of pictures or a video. The **GIF** button
+under the post's box searches Klipy; it is there once the Klipy key is set under **Settings**, **Bluesky**,
+**GIF search**, **Klipy key**, and with no key there is no button. The key can only have
+letters, numbers, `-` and `_`. The GIF goes up the way Bluesky's own app posts one,
+as a link card with the GIF's Klipy address, so Bluesky's apps play it in the feed. Modbot keeps only that
+address and the GIF's alt text, never a copy of the GIF, and refuses any address that is not on Klipy's
+`static.klipy.com`.
+
 ### Pin the next event
 
 Under **Settings**, **Bluesky**, the **Pin the next event** switch (shown once Check has passed) keeps
@@ -330,7 +338,7 @@ and never sends the request again before then.
 | The account's lasting id | `plc.directory`, or the account's own website | **Check**, and to find where an older post lives |
 | The account's lasting id and the app password, then Modbot's sign-in | The account's own server | Signing in and renewing |
 | Modbot's address, the handle, and requests signed with Modbot's own key | Bluesky's sign-in server, which the account's own server names | **Sign in with Bluesky**, and renewing that sign-in |
-| A post's text, and either its pictures (a small copy of each, with the alt text you wrote, or the post's title when you wrote none; up to four for a calendar event, one for any other post), or a calendar event's one video (a file or the video found at a link, with its alt text), or, when it has neither, its link card (the post's title and the link) | The account's own server, and from there public on Bluesky | Only for posts with **Bluesky** ticked, and for each date of a calendar event with **Bluesky** on |
+| A post's text, and either its pictures (a small copy of each, with the alt text you wrote, or the post's title when you wrote none; up to four for a calendar event, one for any other post), or a calendar event's one video (a file or the video found at a link, with its alt text), or a calendar event's one GIF (its Klipy address and alt text, as a link card), or, when it has neither, its link card (the post's title and the link) | The account's own server, and from there public on Bluesky | Only for posts with **Bluesky** ticked, and for each date of a calendar event with **Bluesky** on |
 | The post's languages (up to three codes such as `en`), when you picked some; and, when you limited who can reply or turned quote posts off, a record saying so, with the address of the post it belongs to | The account's own server, and from there public on Bluesky | Only for a calendar event with **Bluesky** on and those choices set, with each date's post |
 | A reply: "We're live in" the world's name and a link, with the address and content id of the date's post it answers | The account's own server, and from there public on Bluesky | Only for an event with **Announce on Bluesky when the first person joins** ticked, once for each date, when the first person is in the instance |
 | The weekly line-up: the group's name, and the title and time of each public date in the next seven days, with the link to the Google calendar's public page | The account's own server, and from there public on Bluesky | Only with **Weekly line-up** on, once a week |

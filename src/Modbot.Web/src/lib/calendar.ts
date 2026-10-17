@@ -110,6 +110,12 @@ export type BlueskyPicture = { pictureId: string; alt: string }
  */
 export type BlueskyVideo = { videoId?: string | null; url?: string | null; alt?: string | null }
 
+/**
+ * The GIF of Bluesky's post: its address on Klipy's media host, as Klipy gave it, and its alt text. Sent with
+ * no address, it takes the GIF away.
+ */
+export type BlueskyGif = { url?: string | null; alt?: string | null }
+
 export type CalendarEvent = {
   id: string
   title: string
@@ -187,6 +193,8 @@ export type CalendarEvent = {
   blueskyPictures?: BlueskyPicture[] | null
   /** The video of Bluesky's post, instead of pictures; null for none. Missing from an older server. */
   blueskyVideo?: BlueskyVideo | null
+  /** The GIF of Bluesky's post, instead of pictures or a video; null for none. Missing from an older server. */
+  blueskyGif?: BlueskyGif | null
   /** Ticked for the Google calendar in Settings. Missing from an older server. */
   publishToGoogle?: boolean
   /** Each date gets its own Bluesky post. Missing from an older server. */
@@ -496,6 +504,8 @@ export type CalendarEventInput = {
   blueskyPictures?: BlueskyPicture[] | null
   /** The video of Bluesky's post, instead of pictures; null for none. */
   blueskyVideo?: BlueskyVideo | null
+  /** The GIF of Bluesky's post, instead of pictures or a video; null for none. */
+  blueskyGif?: BlueskyGif | null
   /**
    * Send to the Google calendar in Settings. Left out keeps what the event has; for a new event the
    * server ticks it when Google Calendar is set up and everyone may see the event.
@@ -687,6 +697,8 @@ export const calendarApi = {
       body: video,
       headers: { 'content-type': video.type || 'application/octet-stream' },
     }),
+  /** The Klipy key the GIF button searches with; null when none is set, and then the form has no GIF button. */
+  gifKey: () => http.request<{ key: string | null }>(`${base}/gif-key`),
   /** Keeps the small JPEG copy of a cover that Bluesky is sent as the post's picture. */
   uploadCoverBlueskyCopy: (coverId: string, picture: Blob) =>
     http.request<void>(`${base}/cover/${encodeURIComponent(coverId)}/bluesky`, {
@@ -863,6 +875,7 @@ export function blankEvent(now: Date): CalendarEventInput {
     coverPictureId: null,
     blueskyPictures: null,
     blueskyVideo: null,
+    blueskyGif: null,
     vrChatTitle: '',
     vrChatDescription: '',
     discordTitle: '',
@@ -929,6 +942,7 @@ export function inputFrom(event: CalendarEvent): CalendarEventInput {
     coverPictureId: event.coverPictureId ?? null,
     blueskyPictures: event.blueskyPictures ?? null,
     blueskyVideo: event.blueskyVideo ?? null,
+    blueskyGif: event.blueskyGif ?? null,
     // Left out by an older server, and then left as the event has it.
     publishToGoogle: event.publishToGoogle ?? null,
     vrChatTitle: event.vrChatTitle ?? '',

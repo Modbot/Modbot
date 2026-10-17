@@ -99,6 +99,7 @@ export function inputFromTemplate(fields: CalendarTemplateFields, base: Calendar
     blueskyDescription: fields.blueskyDescription ?? '',
     blueskyPictures: fields.blueskyPictures ?? null,
     blueskyVideo: fields.blueskyVideo ?? null,
+    blueskyGif: fields.blueskyGif ?? null,
     // A template saved before who can reply, quote posts and languages: anyone, quotes allowed, no language.
     blueskyWhoCanReply: fields.blueskyWhoCanReply?.length ? fields.blueskyWhoCanReply : ['anyone'],
     blueskyQuotesOff: fields.blueskyQuotesOff ?? false,

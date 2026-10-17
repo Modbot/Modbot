@@ -4420,6 +4420,8 @@ export type BlueskySettings = {
   lineupHour: number
   /** The IANA zone the day and hour are in, and the times in the post. Null is UTC. */
   lineupTimeZone: string | null
+  /** The Klipy key the calendar form's GIF button searches with. Empty for none. */
+  klipyKey: string
 }
 
 /** What the last Twitch Check found (Twitch design). */
@@ -5870,6 +5872,8 @@ export const api = {
     lineupHour?: number
     /** An IANA zone name; empty for UTC. */
     lineupTimeZone?: string
+    /** Letters, numbers, - and _; empty removes it. */
+    klipyKey?: string
   }) =>
     put<BlueskySettings>('/api/settings/bluesky', body),
 

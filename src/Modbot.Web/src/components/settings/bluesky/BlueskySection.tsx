@@ -50,6 +50,7 @@ export function BlueskySection() {
           {(data.canPost || data.posting) && <PinCard settings={data} onSaved={setData} />}
           {(data.canPost || data.posting) && <LineupCard settings={data} onSaved={setData} />}
           <TagsCard settings={data} onSaved={setData} />
+          <GifSearchCard settings={data} onSaved={setData} />
         </>
       )}
     </SettingsSection>
@@ -430,6 +431,50 @@ function TagsCard({ settings, onSaved }: { settings: BlueskySettings; onSaved: (
       }
     >
       <Field label="Tags on every post" mono value={tags} maxLength={400} placeholder="#VRChat" onChange={setTyped} />
+    </SettingsCard>
+  )
+}
+
+/** "GIF search": the Klipy key the calendar form's GIF button searches with. */
+function GifSearchCard({ settings, onSaved }: { settings: BlueskySettings; onSaved: (next: BlueskySettings) => void }) {
+  // Null until somebody types, so the field follows the stored value after a save.
+  const [typed, setTyped] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState<string | null>(null)
+  const [problem, setProblem] = useState<string | null>(null)
+
+  const value = typed ?? settings.klipyKey
+
+  const save = () => {
+    setBusy(true)
+    setSaved(null)
+    setProblem(null)
+
+    api
+      .setBlueskySettings({ klipyKey: value })
+      .then((next) => {
+        onSaved(next)
+        setTyped(null)
+        setSaved('Saved.')
+      })
+      .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : 'Could not save.'))
+      .finally(() => setBusy(false))
+  }
+
+  return (
+    <SettingsCard
+      title="GIF search"
+      footer={
+        <>
+          <Button type="button" size="xs" disabled={busy || typed === null || typed === settings.klipyKey} onClick={save}>
+            {busy ? 'Saving…' : 'Save'}
+          </Button>
+          <Outcome tone="ok">{saved}</Outcome>
+          <Outcome tone="problem">{problem}</Outcome>
+        </>
+      }
+    >
+      <Field label="Klipy key" mono value={value} maxLength={200} onChange={setTyped} />
     </SettingsCard>
   )
 }

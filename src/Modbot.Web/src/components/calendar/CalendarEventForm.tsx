@@ -22,6 +22,7 @@ import {
   inputFrom,
   PLATFORM_LABEL,
   type BlueskyPicture,
+  type BlueskyGif,
   type BlueskyVideo,
   type CalendarEvent,
   type CalendarEventInput,
@@ -67,6 +68,7 @@ import { DiscordPreviews } from './DiscordPreviews'
 import { BlueskyPreviews } from './BlueskyPreviews'
 import { BLUESKY_BYTE_LIMIT, BLUESKY_PICTURE_MAX_BYTES } from '@/lib/postRules'
 import { BLUESKY_PICTURES_MAX, shownPictures, withoutPicture, withPictureChanged, withPictures } from '@/lib/blueskyPictures'
+import { gifFromKlipy, gifWithAlt, hasGif, NO_GIF } from '@/lib/blueskyGif'
 import { hasVideo, NO_VIDEO, videoFileProblem, videoFromFile, videoFromLink, videoLinkProblem, videoWithAlt } from '@/lib/blueskyVideo'
 import { smallJpeg } from '@/lib/pictureFiles'
 import { PlatformIcons } from './PlatformIcons'
@@ -209,6 +211,8 @@ export function CalendarEventForm({
   // Bluesky's pictures on their way up (one count per pick), and why the last one was not added.
   const [blueskyUploads, setBlueskyUploads] = useState(0)
   const [blueskyVideoUploads, setBlueskyVideoUploads] = useState(0)
+  // What the GIF button searches with; none, and the button is not drawn.
+  const [gifSearchCode, setGifSearchCode] = useState<string | null>(null)
   const [blueskyMediaError, setBlueskyMediaError] = useState<string | null>(null)
   // Where an emoji goes: the Bluesky box last clicked into.
   const [putBlueskyText, setPutBlueskyText] = useState<{ put: (words: string) => boolean } | null>(null)
@@ -256,6 +260,10 @@ export function CalendarEventForm({
           setInput((current) => (current.inviteListId === null ? current : { ...current, inviteListId: null }))
       })
       .catch(() => setChoices({ staff: [], lists: null }))
+    calendarApi
+      .gifKey()
+      .then((answer) => setGifSearchCode(answer.key))
+      .catch(() => setGifSearchCode(null))
   }, [forTemplate, startedNew])
 
   const zones = useMemo(() => {
@@ -443,6 +451,7 @@ export function CalendarEventForm({
     setInput((current) => ({
       ...current,
       blueskyPictures: change(shownPictures(current.blueskyPictures, current.coverPictureId)),
+      blueskyGif: hasGif(current.blueskyGif) ? NO_GIF : current.blueskyGif,
     }))
 
   // Each picture is kept by Modbot as a cover is, with the small JPEG copy Bluesky is sent.
@@ -481,6 +490,16 @@ export function CalendarEventForm({
       ...current,
       blueskyVideo: video,
       blueskyPictures: hasVideo(video) ? [] : current.blueskyPictures,
+      blueskyGif: hasVideo(video) && hasGif(current.blueskyGif) ? NO_GIF : current.blueskyGif,
+    }))
+
+  // Bluesky's GIF, instead of pictures or a video.
+  const setBlueskyGif = (gif: BlueskyGif) =>
+    setInput((current) => ({
+      ...current,
+      blueskyGif: gif,
+      blueskyPictures: hasGif(gif) ? [] : current.blueskyPictures,
+      blueskyVideo: hasGif(gif) ? NO_VIDEO : current.blueskyVideo,
     }))
 
   const addBlueskyVideoFile = async (file: File) => {
@@ -1162,7 +1181,8 @@ export function CalendarEventForm({
                   const drawn = answer.preview?.bluesky ?? null
                   const lines = drawn ? postAround(drawn.text, e.title.asked, e.description.asked) : { before: '', after: '' }
                   const video = input.blueskyVideo
-                  const pictures = hasVideo(video) ? [] : shownPictures(input.blueskyPictures, input.coverPictureId)
+                  const gif = input.blueskyGif
+                  const pictures = hasVideo(video) || hasGif(gif) ? [] : shownPictures(input.blueskyPictures, input.coverPictureId)
                   return (
                     <BlueskyPreviews
                       title={e.title.value || sharedNow().title}
@@ -1183,6 +1203,11 @@ export function CalendarEventForm({
                       onVideoAlt={(alt) => set('blueskyVideo', video ? videoWithAlt(video, alt) : video)}
                       onVideoRemove={() => set('blueskyVideo', NO_VIDEO)}
                       videoUploading={blueskyVideoUploads > 0}
+                      gif={gif && hasGif(gif) ? { url: gif.url ?? '', alt: gif.alt ?? '' } : null}
+                      gifKey={gifSearchCode}
+                      onGif={(picked) => setBlueskyGif(gifFromKlipy(picked))}
+                      onGifAlt={(alt) => set('blueskyGif', gif ? gifWithAlt(gif, alt) : gif)}
+                      onGifRemove={() => set('blueskyGif', NO_GIF)}
                       error={blueskyMediaError}
                       onEmoji={(emoji) => putBlueskyText?.put(emoji)}
                       whoCanReply={input.blueskyWhoCanReply ?? ['anyone']}

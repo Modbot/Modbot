@@ -2,8 +2,10 @@ import { useRef, useState, type ReactNode, type RefObject } from 'react'
 import { Film, Globe, Image as ImageIcon, Loader2, Smile, X } from 'lucide-react'
 import { BLUESKY_ALT_MAX, BLUESKY_PICTURES_MAX } from '@/lib/blueskyPictures'
 import { BLUESKY_VIDEO_TYPES, videoHost } from '@/lib/blueskyVideo'
+import type { KlipyGif } from '@/lib/klipy'
 import { InteractChip, LanguageButton } from './BlueskyChoices'
 import { EmojiPicker } from './EmojiPicker'
+import { GifPicker } from './GifPicker'
 // Design mock-up: Bluesky's New post box, in its dim theme. Not measured: its colours and sizes as
 // drawn by its web app, by eye.
 
@@ -19,6 +21,9 @@ export type PostPicture = { id: string; url: string; alt: string }
 
 /** The post's video as the box shows it: a kept file played from `url`, or a link (`url` null) shown by its host. */
 export type PostVideo = { url: string | null; link: string | null; alt: string }
+
+/** The post's GIF as the box shows it: played from its Klipy address. */
+export type PostGif = { url: string; alt: string }
 
 type Props = {
   title: string
@@ -47,6 +52,14 @@ type Props = {
   onVideoRemove: () => void
   /** A video is on its way up. */
   videoUploading: boolean
+  /** The post's GIF, in place of pictures or a video; null for none. */
+  gif: PostGif | null
+  /** The Klipy key the GIF button searches with; null for none, and then there is no GIF button. */
+  gifKey: string | null
+  /** A GIF picked from the search. */
+  onGif: (gif: KlipyGif) => void
+  onGifAlt: (alt: string) => void
+  onGifRemove: () => void
   /** Why the last picture or video was not added. */
   error: string | null
   /** An emoji picked; the form puts it at the caret of the box last typed in. */
@@ -108,6 +121,8 @@ function Media({
   onAltOpen,
   videoAltOpen,
   onVideoAltOpen,
+  gifAltOpen,
+  onGifAltOpen,
 }: {
   p: Props
   file: RefObject<HTMLInputElement | null>
@@ -115,6 +130,8 @@ function Media({
   onAltOpen: (index: number | null) => void
   videoAltOpen: boolean
   onVideoAltOpen: (open: boolean) => void
+  gifAltOpen: boolean
+  onGifAltOpen: (open: boolean) => void
 }) {
   const [over, setOver] = useState(false)
   const full = p.pictures.length >= BLUESKY_PICTURES_MAX
@@ -131,8 +148,8 @@ function Media({
       onDrop={(e) => {
         e.preventDefault()
         setOver(false)
-        // A post has pictures or a video, never both: what is dropped counts only if the other is not there.
-        if (p.video || p.videoUploading) return
+        // A post has pictures, a video or a GIF, never two of them: what is dropped counts only if the others are not there.
+        if (p.gif || p.video || p.videoUploading) return
         const clip = videoOf(e.dataTransfer.files)
         if (clip && p.pictures.length === 0 && !p.uploading) {
           p.onVideoFile(clip)
@@ -142,7 +159,33 @@ function Media({
         if (files.length > 0) p.onAddFiles(files)
       }}
     >
-      {p.video ? (
+      {p.gif ? (
+        <div className="relative overflow-hidden rounded-xl" style={{ background: 'rgba(174,187,201,0.08)' }}>
+          <img src={p.gif.url} alt={p.gif.alt || p.title} className="block max-h-[420px] w-full object-contain" />
+          <button
+            type="button"
+            aria-label="Alt text for GIF"
+            aria-pressed={gifAltOpen}
+            onClick={() => onGifAltOpen(!gifAltOpen)}
+            className="absolute top-2 left-2 rounded px-1.5 py-0.5 text-[11px] font-bold"
+            style={{ background: gifAltOpen ? LINK : 'rgba(0,0,0,0.75)', color: TEXT }}
+          >
+            {p.gif.alt ? 'ALT' : '+ ALT'}
+          </button>
+          <button
+            type="button"
+            aria-label="Remove GIF"
+            onClick={() => {
+              onGifAltOpen(false)
+              p.onGifRemove()
+            }}
+            className="absolute top-2 right-2 flex size-7 items-center justify-center rounded-full"
+            style={{ background: 'rgba(0,0,0,0.75)', color: TEXT }}
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      ) : p.video ? (
         <div className="relative overflow-hidden rounded-xl" style={{ background: 'rgba(174,187,201,0.08)' }}>
           {p.video.url ? (
             <video src={p.video.url} controls preload="metadata" aria-label={p.video.alt || p.title} className="block max-h-[420px] w-full" />
@@ -239,6 +282,19 @@ function Media({
           )}
         </div>
       )}
+      {p.gif && gifAltOpen && (
+        <textarea
+          aria-label="Alt text for GIF"
+          value={p.gif.alt}
+          maxLength={BLUESKY_ALT_MAX}
+          rows={3}
+          autoFocus
+          placeholder={p.title}
+          onChange={(e) => p.onGifAlt(e.target.value)}
+          className="mt-2 block w-full resize-y rounded-lg border bg-transparent px-3 py-2 text-[15px] leading-5 outline-none placeholder:opacity-50 focus:border-[#208bfe]"
+          style={{ borderColor: LINE, color: TEXT }}
+        />
+      )}
       {p.video && videoAltOpen && (
         <textarea
           aria-label="Alt text for video"
@@ -311,12 +367,14 @@ export function BlueskyPreviews(p: Props) {
   // The picture whose alt text box is open, and whether the video's is.
   const [altOpen, setAltOpen] = useState<number | null>(null)
   const [videoAltOpen, setVideoAltOpen] = useState(false)
+  const [gifAltOpen, setGifAltOpen] = useState(false)
   // The Video button's choice (a file or a link) is open, and the link typed in it.
   const [choosing, setChoosing] = useState(false)
   const [link, setLink] = useState('')
-  // A post has pictures or a video, never both.
-  const full = p.pictures.length >= BLUESKY_PICTURES_MAX || p.video !== null || p.videoUploading
-  const videoBlocked = p.pictures.length > 0 || p.uploading || p.video !== null || p.videoUploading
+  // A post has pictures, a video or a GIF, never two of them.
+  const full = p.pictures.length >= BLUESKY_PICTURES_MAX || p.video !== null || p.videoUploading || p.gif !== null
+  const videoBlocked = p.pictures.length > 0 || p.uploading || p.video !== null || p.videoUploading || p.gif !== null
+  const gifBlocked = p.pictures.length > 0 || p.uploading || p.video !== null || p.videoUploading
 
   return (
     <div className="flex flex-col gap-2">
@@ -351,6 +409,8 @@ export function BlueskyPreviews(p: Props) {
                   onAltOpen={setAltOpen}
                   videoAltOpen={videoAltOpen}
                   onVideoAltOpen={setVideoAltOpen}
+                  gifAltOpen={gifAltOpen}
+                  onGifAltOpen={setGifAltOpen}
                 />
                 {choosing && !videoBlocked && (
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-[14px]">
@@ -421,7 +481,25 @@ export function BlueskyPreviews(p: Props) {
                 >
                   <Film className="size-5" />
                 </button>
-                <span className="rounded border px-0.5 text-[11px] font-bold" style={{ borderColor: LINK }}>GIF</span>
+                {p.gifKey && (
+                  <GifPicker
+                    gifKey={p.gifKey}
+                    onPick={(picked) => {
+                      setGifAltOpen(false)
+                      p.onGif(picked)
+                    }}
+                  >
+                    <button
+                      type="button"
+                      aria-label="Add GIF"
+                      disabled={gifBlocked}
+                      className="rounded border px-0.5 text-[11px] font-bold disabled:opacity-40"
+                      style={{ borderColor: LINK }}
+                    >
+                      GIF
+                    </button>
+                  </GifPicker>
+                )}
                 <EmojiPicker onPick={p.onEmoji}>
                   <button type="button" aria-label="Add emoji" onMouseDown={(e) => e.preventDefault()}>
                     <Smile className="size-5" />

@@ -286,7 +286,12 @@ wherever you choose to store them. These pages describe what is kept and how it 
   choose is kept by Modbot (in its database, with the event's pictures) until no event, template or post still
   to be sent uses it, and goes to the Bluesky account's server only as the post is made; a video link is kept only as an
   address, and Modbot downloads the video from it when the post goes out, which sends that address's website a
-  request from Modbot's own server. When the event has languages picked, they go in the post; when it
+  request from Modbot's own server. A GIF chosen with the **GIF** button is kept only as its Klipy address and alt text,
+  and goes to the Bluesky account's server as the post's link card; the GIF itself is never copied. When a moderator
+  searches for a GIF, that moderator's own browser asks Klipy, with the Klipy key you set under **Settings**,
+  **Bluesky**, **GIF search**, the words searched for, a random number that stays in that browser, and the browser's
+  region and address, and loads the pictures from Klipy; Modbot's server is not in between and sees none of it.
+  Everyone who can edit events gets the Klipy key. When the event has languages picked, they go in the post; when it
   limits who can reply or turns quote posts off, Modbot also makes a small record next to the post saying
   so (public on Bluesky, with the post's address) and deletes it with the post. For each such post Modbot keeps in its database, with the other
   posts, the post's address on Bluesky and the start of the date it is about, so that a restart never
