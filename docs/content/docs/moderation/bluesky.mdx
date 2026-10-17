@@ -222,10 +222,11 @@ The reply is in [**Marketing**](/moderation/marketing) too and is sent once. It 
 to be on Bluesky; without one there is no reply. See
 [Announce when the first person joins](/moderation/calendar#announce-when-the-first-person-joins).
 
-When the event has a cover picture, the post carries it as a full picture under the text, with the
-event's title as its description, and has no link card; a link in the text stays clickable. Modbot
-sends a small copy of the cover, made in your browser when the cover is chosen: at most 2000
-pixels on its longer side and under 1 MB. An event whose cover has no such copy (chosen before this
+A calendar event's post carries up to four pictures as full pictures under the text, each with its
+own alt text (the post's title when the alt text is left empty), and has no link card; a link in the
+text stays clickable. The event's cover is the first picture until the pictures are changed on the
+Bluesky tab. Modbot sends a small copy of each picture, made in your browser when the picture is
+chosen: at most 2000 pixels on its longer side and under 1 MB. An event whose cover has no such copy (chosen before this
 was added) gets its copy the next time someone who can manage the calendar or templates opens the
 Calendar page; their browser makes it without a word on screen. Until then it sends the cover itself
 when it is 1 MB or smaller; otherwise the post goes with its link card and no picture.
@@ -304,7 +305,7 @@ and never sends the request again before then.
 | The account's lasting id | `plc.directory`, or the account's own website | **Check**, and to find where an older post lives |
 | The account's lasting id and the app password, then Modbot's sign-in | The account's own server | Signing in and renewing |
 | Modbot's address, the handle, and requests signed with Modbot's own key | Bluesky's sign-in server, which the account's own server names | **Sign in with Bluesky**, and renewing that sign-in |
-| A post's text, and either its picture (a small copy of it, with the post's title as its description) or, when it has no picture, its link card (the post's title and the link) | The account's own server, and from there public on Bluesky | Only for posts with **Bluesky** ticked, and for each date of a calendar event with **Bluesky** on |
+| A post's text, and either its pictures (a small copy of each, with the alt text you wrote, or the post's title when you wrote none; up to four for a calendar event, one for any other post) or, when it has no picture, its link card (the post's title and the link) | The account's own server, and from there public on Bluesky | Only for posts with **Bluesky** ticked, and for each date of a calendar event with **Bluesky** on |
 | A reply: "We're live in" the world's name and a link, with the address and content id of the date's post it answers | The account's own server, and from there public on Bluesky | Only for an event with **Announce on Bluesky when the first person joins** ticked, once for each date, when the first person is in the instance |
 | The weekly line-up: the group's name, and the title and time of each public date in the next seven days, with the link to the Google calendar's public page | The account's own server, and from there public on Bluesky | Only with **Weekly line-up** on, once a week |
 | The account's profile (its name, description, pictures and pinned post), written back with only the pinned post changed | The account's own server, and from there public on Bluesky | Only with **Pin the next event** on, when the pinned post changes |
@@ -328,5 +329,5 @@ server.
 
 ## Not built yet
 
-A second picture in a post, such as the world's, comes in a later version. See
+The world's picture is not added to a post for you; add it yourself as one of the post's pictures. See
 [Not built yet](/not-built-yet).
