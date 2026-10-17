@@ -182,6 +182,8 @@ export type BlueskyPostPreview = {
   /** The account it goes out as. */
   handle: string | null
   displayName: string | null
+  /** The video shown in full under the text, in place of pictures and the card: a kept file's address, or a link. */
+  video?: { url: string | null; link: string | null; alt: string } | null
 }
 
 export type PostPreview = {

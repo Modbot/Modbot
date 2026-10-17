@@ -13,6 +13,7 @@ import { Tabs } from '@/components/ui/tabs'
 import { ApiError } from '@/lib/api'
 import {
   blankEvent,
+  blueskyVideoAddress,
   calendarApi,
   CALENDAR_COVER_MAX_BYTES,
   CATEGORY_LABEL,
@@ -21,6 +22,7 @@ import {
   inputFrom,
   PLATFORM_LABEL,
   type BlueskyPicture,
+  type BlueskyVideo,
   type CalendarEvent,
   type CalendarEventInput,
   type CalendarInviteChoices,
@@ -65,6 +67,7 @@ import { DiscordPreviews } from './DiscordPreviews'
 import { BlueskyPreviews } from './BlueskyPreviews'
 import { BLUESKY_BYTE_LIMIT, BLUESKY_PICTURE_MAX_BYTES } from '@/lib/postRules'
 import { BLUESKY_PICTURES_MAX, shownPictures, withoutPicture, withPictureChanged, withPictures } from '@/lib/blueskyPictures'
+import { hasVideo, NO_VIDEO, videoFileProblem, videoFromFile, videoFromLink, videoLinkProblem, videoWithAlt } from '@/lib/blueskyVideo'
 import { smallJpeg } from '@/lib/pictureFiles'
 import { PlatformIcons } from './PlatformIcons'
 import { useDiscordCover, useVRChatPicture, vrchatPictureAddress } from './useVRChatPicture'
@@ -204,10 +207,11 @@ export function CalendarEventForm({
   })
   // Bluesky's pictures on their way up (one count per pick), and why the last one was not added.
   const [blueskyUploads, setBlueskyUploads] = useState(0)
+  const [blueskyVideoUploads, setBlueskyVideoUploads] = useState(0)
   const [blueskyPictureError, setBlueskyPictureError] = useState<string | null>(null)
   // Where an emoji goes: the Bluesky box last clicked into.
   const [putBlueskyText, setPutBlueskyText] = useState<{ put: (words: string) => boolean } | null>(null)
-  const uploading = vrchatPicture.uploading || discordCover.uploading || blueskyUploads > 0
+  const uploading = vrchatPicture.uploading || discordCover.uploading || blueskyUploads > 0 || blueskyVideoUploads > 0
   // Everything a save was refused for, one line each, in the server's order.
   const [error, setError] = useState<string[] | null>(null)
   // What a save found worth a second look, one line each. The next save of the same form goes through.
@@ -468,6 +472,39 @@ export function CalendarEventForm({
     } finally {
       setBlueskyUploads((n) => n - 1)
     }
+  }
+
+  // Bluesky's video, instead of pictures: a file is kept by Modbot as it is picked, a link is only an address.
+  const setBlueskyVideo = (video: BlueskyVideo) =>
+    setInput((current) => ({
+      ...current,
+      blueskyVideo: video,
+      blueskyPictures: hasVideo(video) ? [] : current.blueskyPictures,
+    }))
+
+  const addBlueskyVideoFile = async (file: File) => {
+    const problem = videoFileProblem(file)
+    setBlueskyPictureError(problem)
+    if (problem) return
+
+    setBlueskyVideoUploads((n) => n + 1)
+    try {
+      const { videoId } = await calendarApi.uploadBlueskyVideo(file)
+      setBlueskyVideo(videoFromFile(videoId))
+    } catch (e) {
+      setBlueskyPictureError(e instanceof ApiError ? problemsOf(e)[0] : 'Could not add the video.')
+    } finally {
+      setBlueskyVideoUploads((n) => n - 1)
+    }
+  }
+
+  const addBlueskyVideoLink = (url: string): boolean => {
+    const problem = videoLinkProblem(url)
+    setBlueskyPictureError(problem)
+    if (problem) return false
+
+    setBlueskyVideo(videoFromLink(url))
+    return true
   }
 
   const discordPreview = discordCover.draft ? (
@@ -1115,7 +1152,8 @@ export function CalendarEventForm({
                   const e = editingFor('bluesky', shown ?? input)
                   const drawn = answer.preview?.bluesky ?? null
                   const lines = drawn ? postAround(drawn.text, e.title.asked, e.description.asked) : { before: '', after: '' }
-                  const pictures = shownPictures(input.blueskyPictures, input.coverPictureId)
+                  const video = input.blueskyVideo
+                  const pictures = hasVideo(video) ? [] : shownPictures(input.blueskyPictures, input.coverPictureId)
                   return (
                     <BlueskyPreviews
                       title={e.title.value || sharedNow().title}
@@ -1126,6 +1164,16 @@ export function CalendarEventForm({
                       onAlt={(index, alt) => editBlueskyPictures((list) => withPictureChanged(list, index, { alt }))}
                       onRemove={(index) => editBlueskyPictures((list) => withoutPicture(list, index))}
                       uploading={blueskyUploads > 0}
+                      video={
+                        video && hasVideo(video)
+                          ? { url: video.videoId ? blueskyVideoAddress(video.videoId) : null, link: video.url ?? null, alt: video.alt ?? '' }
+                          : null
+                      }
+                      onVideoFile={(file) => void addBlueskyVideoFile(file)}
+                      onVideoLink={addBlueskyVideoLink}
+                      onVideoAlt={(alt) => set('blueskyVideo', video ? videoWithAlt(video, alt) : video)}
+                      onVideoRemove={() => set('blueskyVideo', NO_VIDEO)}
+                      videoUploading={blueskyVideoUploads > 0}
                       error={blueskyPictureError}
                       onEmoji={(emoji) => putBlueskyText?.put(emoji)}
                       whoCanReply={input.blueskyWhoCanReply ?? ['anyone']}

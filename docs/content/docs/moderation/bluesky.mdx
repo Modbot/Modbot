@@ -71,7 +71,7 @@ your Modbot from the internet to sign it in, and only an `https://` address with
 Modbot never sees the account's password this way. It asks Bluesky only for what posting needs:
 making and deleting posts, making and deleting the records that say who can reply to a post and
 whether it can be quoted, pinning a post on the account's profile, uploading a post's
-picture, reading the account's replies and mentions, and changing the profile's name, bio,
+picture or video, reading the account's replies and mentions, and changing the profile's name, bio,
 picture and banner. If Bluesky does not offer that yet, Modbot asks for what an app password can do instead.
 
 **A sign-in made before pinning was added cannot pin, and one made before replies were read cannot
@@ -243,6 +243,19 @@ was added) gets its copy the next time someone who can manage the calendar or te
 Calendar page; their browser makes it without a word on screen. Until then it sends the cover itself
 when it is 1 MB or smaller; otherwise the post goes with its link card and no picture.
 
+A calendar event's post can carry one video instead of pictures: Bluesky allows a video no pictures beside
+it, so adding a video takes the pictures out and adding a picture is not possible while there is a video.
+The video is a file (an MP4, MPEG, WebM or QuickTime file of at most 50 MB) or a link. A file is kept by
+Modbot from the moment it is picked, because Bluesky deletes an upload that no post points to within
+hours and the post goes out days after the event is saved; it goes up to Bluesky only as the post is made,
+and Modbot deletes it once no event, template or post still to be sent uses it. A link is kept only as an
+address: Modbot downloads the video from it as the post goes out, and the link must start with `https://`
+and point at a public address. Like a picture, the video has an alt text (the post's title when left
+empty). Bluesky shows a video a few seconds after the post is up. When the video cannot go (the link does
+not answer or is not a video, the file is gone, Bluesky refuses it, or the sign-in is older than video
+uploads), the post goes up without it and its line in **Marketing** says why. A sign-in made
+before video uploads were added needs **Sign in with Bluesky** done again for a post with a video.
+
 ### Pin the next event
 
 Under **Settings**, **Bluesky**, the **Pin the next event** switch (shown once Check has passed) keeps
@@ -317,7 +330,7 @@ and never sends the request again before then.
 | The account's lasting id | `plc.directory`, or the account's own website | **Check**, and to find where an older post lives |
 | The account's lasting id and the app password, then Modbot's sign-in | The account's own server | Signing in and renewing |
 | Modbot's address, the handle, and requests signed with Modbot's own key | Bluesky's sign-in server, which the account's own server names | **Sign in with Bluesky**, and renewing that sign-in |
-| A post's text, and either its pictures (a small copy of each, with the alt text you wrote, or the post's title when you wrote none; up to four for a calendar event, one for any other post) or, when it has no picture, its link card (the post's title and the link) | The account's own server, and from there public on Bluesky | Only for posts with **Bluesky** ticked, and for each date of a calendar event with **Bluesky** on |
+| A post's text, and either its pictures (a small copy of each, with the alt text you wrote, or the post's title when you wrote none; up to four for a calendar event, one for any other post), or a calendar event's one video (a file or the video found at a link, with its alt text), or, when it has neither, its link card (the post's title and the link) | The account's own server, and from there public on Bluesky | Only for posts with **Bluesky** ticked, and for each date of a calendar event with **Bluesky** on |
 | The post's languages (up to three codes such as `en`), when you picked some; and, when you limited who can reply or turned quote posts off, a record saying so, with the address of the post it belongs to | The account's own server, and from there public on Bluesky | Only for a calendar event with **Bluesky** on and those choices set, with each date's post |
 | A reply: "We're live in" the world's name and a link, with the address and content id of the date's post it answers | The account's own server, and from there public on Bluesky | Only for an event with **Announce on Bluesky when the first person joins** ticked, once for each date, when the first person is in the instance |
 | The weekly line-up: the group's name, and the title and time of each public date in the next seven days, with the link to the Google calendar's public page | The account's own server, and from there public on Bluesky | Only with **Weekly line-up** on, once a week |

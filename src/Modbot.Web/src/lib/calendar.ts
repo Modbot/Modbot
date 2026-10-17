@@ -104,6 +104,12 @@ export type CalendarInviteChoices = { staff: CalendarStaffChoice[]; lists: Calen
 /** One picture of Bluesky's post: a kept picture (as `POST /api/calendar/cover` answered) and its alt text. */
 export type BlueskyPicture = { pictureId: string; alt: string }
 
+/**
+ * The video of Bluesky's post: a file kept by Modbot (`videoId`, as `POST /api/calendar/bluesky-video` answered)
+ * or a link (`url`) fetched as the post goes out, never both, and its alt text. Sent with neither, it takes the video away.
+ */
+export type BlueskyVideo = { videoId?: string | null; url?: string | null; alt?: string | null }
+
 export type CalendarEvent = {
   id: string
   title: string
@@ -179,6 +185,8 @@ export type CalendarEvent = {
   coverPictureId?: string | null
   /** The pictures of Bluesky's post, first first, up to 4; null when it goes with the cover alone. Missing from an older server. */
   blueskyPictures?: BlueskyPicture[] | null
+  /** The video of Bluesky's post, instead of pictures; null for none. Missing from an older server. */
+  blueskyVideo?: BlueskyVideo | null
   /** Ticked for the Google calendar in Settings. Missing from an older server. */
   publishToGoogle?: boolean
   /** Each date gets its own Bluesky post. Missing from an older server. */
@@ -486,6 +494,8 @@ export type CalendarEventInput = {
   coverPictureId: string | null
   /** The pictures of Bluesky's post, first first, up to 4, each with its alt text; null for the cover alone. */
   blueskyPictures?: BlueskyPicture[] | null
+  /** The video of Bluesky's post, instead of pictures; null for none. */
+  blueskyVideo?: BlueskyVideo | null
   /**
    * Send to the Google calendar in Settings. Left out keeps what the event has; for a new event the
    * server ticks it when Google Calendar is set up and everyone may see the event.
@@ -586,6 +596,11 @@ export function coverAddress(coverId: string): string {
   return `${base}/covers/${encodeURIComponent(coverId)}`
 }
 
+/** Where a video kept for Bluesky's post is read from. */
+export function blueskyVideoAddress(videoId: string): string {
+  return `${base}/bluesky-video/${encodeURIComponent(videoId)}`
+}
+
 export const calendarApi = {
   view: (from: Date, to: Date) =>
     http.request<CalendarView>(
@@ -661,6 +676,16 @@ export const calendarApi = {
       method: 'POST',
       body: picture,
       headers: { 'content-type': picture.type || 'application/octet-stream' },
+    }),
+  /**
+   * Keeps a video for Bluesky's post and answers with its id, to save as `blueskyVideo.videoId`. Modbot keeps it
+   * until the post is made, because Bluesky deletes an upload no post points to within hours.
+   */
+  uploadBlueskyVideo: (video: Blob) =>
+    http.request<{ videoId: string }>(`${base}/bluesky-video`, {
+      method: 'POST',
+      body: video,
+      headers: { 'content-type': video.type || 'application/octet-stream' },
     }),
   /** Keeps the small JPEG copy of a cover that Bluesky is sent as the post's picture. */
   uploadCoverBlueskyCopy: (coverId: string, picture: Blob) =>
@@ -837,6 +862,7 @@ export function blankEvent(now: Date): CalendarEventInput {
     postColour: null,
     coverPictureId: null,
     blueskyPictures: null,
+    blueskyVideo: null,
     vrChatTitle: '',
     vrChatDescription: '',
     discordTitle: '',
@@ -902,6 +928,7 @@ export function inputFrom(event: CalendarEvent): CalendarEventInput {
     postColour: event.postColour ?? null,
     coverPictureId: event.coverPictureId ?? null,
     blueskyPictures: event.blueskyPictures ?? null,
+    blueskyVideo: event.blueskyVideo ?? null,
     // Left out by an older server, and then left as the event has it.
     publishToGoogle: event.publishToGoogle ?? null,
     vrChatTitle: event.vrChatTitle ?? '',

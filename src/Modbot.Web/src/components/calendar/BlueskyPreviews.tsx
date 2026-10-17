@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode, type RefObject } from 'react'
 import { Film, Globe, Image as ImageIcon, Loader2, Smile, X } from 'lucide-react'
 import { BLUESKY_ALT_MAX, BLUESKY_PICTURES_MAX } from '@/lib/blueskyPictures'
+import { BLUESKY_VIDEO_TYPES, videoHost } from '@/lib/blueskyVideo'
 import { InteractChip, LanguageButton } from './BlueskyChoices'
 import { EmojiPicker } from './EmojiPicker'
 // Design mock-up: Bluesky's New post box, in its dim theme. Not measured: its colours and sizes as
@@ -15,6 +16,9 @@ const AVATAR = '#208bfe'
 
 /** One picture of the post as the box shows it. */
 export type PostPicture = { id: string; url: string; alt: string }
+
+/** The post's video as the box shows it: a kept file played from `url`, or a link (`url` null) shown by its host. */
+export type PostVideo = { url: string | null; link: string | null; alt: string }
 
 type Props = {
   title: string
@@ -33,7 +37,17 @@ type Props = {
   onRemove: (index: number) => void
   /** A picture is on its way up. */
   uploading: boolean
-  /** Why the last picture was not added. */
+  /** The post's video, in place of pictures; null for none. */
+  video: PostVideo | null
+  /** A video file picked or dropped. */
+  onVideoFile: (file: File) => void
+  /** A video link typed; answers whether it was taken, so the box closes only then. */
+  onVideoLink: (url: string) => boolean
+  onVideoAlt: (alt: string) => void
+  onVideoRemove: () => void
+  /** A video is on its way up. */
+  videoUploading: boolean
+  /** Why the last picture or video was not added. */
   error: string | null
   /** An emoji picked; the form puts it at the caret of the box last typed in. */
   onEmoji: (emoji: string) => void
@@ -81,17 +95,25 @@ function imagesOf(files: FileList | null): File[] {
   return Array.from(files ?? []).filter((f) => f.type.startsWith('image/'))
 }
 
+function videoOf(files: FileList | null): File | undefined {
+  return Array.from(files ?? []).find((f) => f.type.startsWith('video/'))
+}
+
 /** The pictures (each with its ALT and remove buttons), or the link card, or an empty spot to drop or pick a picture. */
 function Media({
   p,
   file,
   altOpen,
   onAltOpen,
+  videoAltOpen,
+  onVideoAltOpen,
 }: {
   p: Props
   file: RefObject<HTMLInputElement | null>
   altOpen: number | null
   onAltOpen: (index: number | null) => void
+  videoAltOpen: boolean
+  onVideoAltOpen: (open: boolean) => void
 }) {
   const [over, setOver] = useState(false)
   const full = p.pictures.length >= BLUESKY_PICTURES_MAX
@@ -108,11 +130,54 @@ function Media({
       onDrop={(e) => {
         e.preventDefault()
         setOver(false)
+        // A post has pictures or a video, never both: what is dropped counts only if the other is not there.
+        if (p.video || p.videoUploading) return
+        const clip = videoOf(e.dataTransfer.files)
+        if (clip && p.pictures.length === 0 && !p.uploading) {
+          p.onVideoFile(clip)
+          return
+        }
         const files = imagesOf(e.dataTransfer.files)
         if (files.length > 0) p.onAddFiles(files)
       }}
     >
-      {p.pictures.length === 0 && !p.uploading && p.card ? (
+      {p.video ? (
+        <div className="relative overflow-hidden rounded-xl" style={{ background: 'rgba(174,187,201,0.08)' }}>
+          {p.video.url ? (
+            <video src={p.video.url} controls preload="metadata" aria-label={p.video.alt || p.title} className="block max-h-[420px] w-full" />
+          ) : (
+            <div className="flex h-40 items-center justify-center gap-2 text-[14px]" style={{ color: MUTED }}>
+              <Film className="size-5" /> {videoHost(p.video.link ?? '')}
+            </div>
+          )}
+          <button
+            type="button"
+            aria-label="Alt text for video"
+            aria-pressed={videoAltOpen}
+            onClick={() => onVideoAltOpen(!videoAltOpen)}
+            className="absolute top-2 left-2 rounded px-1.5 py-0.5 text-[11px] font-bold"
+            style={{ background: videoAltOpen ? LINK : 'rgba(0,0,0,0.75)', color: TEXT }}
+          >
+            {p.video.alt ? 'ALT' : '+ ALT'}
+          </button>
+          <button
+            type="button"
+            aria-label="Remove video"
+            onClick={() => {
+              onVideoAltOpen(false)
+              p.onVideoRemove()
+            }}
+            className="absolute top-2 right-2 flex size-7 items-center justify-center rounded-full"
+            style={{ background: 'rgba(0,0,0,0.75)', color: TEXT }}
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      ) : p.videoUploading ? (
+        <div className="flex h-40 items-center justify-center rounded-xl" style={{ background: 'rgba(174,187,201,0.08)', color: MUTED }}>
+          <Loader2 className="size-5 animate-spin" aria-label="Uploading" />
+        </div>
+      ) : p.pictures.length === 0 && !p.uploading && p.card ? (
         <div className="overflow-hidden rounded-xl border" style={{ borderColor: dropping ? LINK : LINE }}>
           <div className="flex flex-col gap-1 px-3 py-2.5">
             <span className="text-[15px] leading-5 font-semibold [overflow-wrap:anywhere]">{p.card.title}</span>
@@ -173,6 +238,19 @@ function Media({
           )}
         </div>
       )}
+      {p.video && videoAltOpen && (
+        <textarea
+          aria-label="Alt text for video"
+          value={p.video.alt}
+          maxLength={BLUESKY_ALT_MAX}
+          rows={3}
+          autoFocus
+          placeholder={p.title}
+          onChange={(e) => p.onVideoAlt(e.target.value)}
+          className="mt-2 block w-full resize-y rounded-lg border bg-transparent px-3 py-2 text-[15px] leading-5 outline-none placeholder:opacity-50 focus:border-[#208bfe]"
+          style={{ borderColor: LINE, color: TEXT }}
+        />
+      )}
       {altOpen !== null && p.pictures[altOpen] && (
         <textarea
           aria-label={`Alt text for picture ${altOpen + 1}`}
@@ -228,9 +306,16 @@ export function BlueskyPreviews(p: Props) {
     setScaleState(s)
   }
   const file = useRef<HTMLInputElement>(null)
-  // The picture whose alt text box is open.
+  const videoFile = useRef<HTMLInputElement>(null)
+  // The picture whose alt text box is open, and whether the video's is.
   const [altOpen, setAltOpen] = useState<number | null>(null)
-  const full = p.pictures.length >= BLUESKY_PICTURES_MAX
+  const [videoAltOpen, setVideoAltOpen] = useState(false)
+  // The Video button's choice (a file or a link) is open, and the link typed in it.
+  const [choosing, setChoosing] = useState(false)
+  const [link, setLink] = useState('')
+  // A post has pictures or a video, never both.
+  const full = p.pictures.length >= BLUESKY_PICTURES_MAX || p.video !== null || p.videoUploading
+  const videoBlocked = p.pictures.length > 0 || p.uploading || p.video !== null || p.videoUploading
 
   return (
     <div className="flex flex-col gap-2">
@@ -258,7 +343,52 @@ export function BlueskyPreviews(p: Props) {
               <Avatar size={42} />
               <div className="min-w-0 flex-1 pt-2">
                 <Words p={p} />
-                <Media p={p} file={file} altOpen={altOpen} onAltOpen={setAltOpen} />
+                <Media
+                  p={p}
+                  file={file}
+                  altOpen={altOpen}
+                  onAltOpen={setAltOpen}
+                  videoAltOpen={videoAltOpen}
+                  onVideoAltOpen={setVideoAltOpen}
+                />
+                {choosing && !videoBlocked && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[14px]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setChoosing(false)
+                        videoFile.current?.click()
+                      }}
+                      className="rounded-full border px-3 py-1 font-semibold"
+                      style={{ borderColor: LINE, color: TEXT }}
+                    >
+                      From a file
+                    </button>
+                    <input
+                      type="url"
+                      aria-label="Video link"
+                      value={link}
+                      placeholder="https://"
+                      onChange={(e) => setLink(e.target.value)}
+                      className="min-w-0 flex-1 rounded-lg border bg-transparent px-3 py-1 outline-none placeholder:opacity-50 focus:border-[#208bfe]"
+                      style={{ borderColor: LINE, color: TEXT }}
+                    />
+                    <button
+                      type="button"
+                      disabled={link.trim().length === 0}
+                      onClick={() => {
+                        if (p.onVideoLink(link)) {
+                          setChoosing(false)
+                          setLink('')
+                        }
+                      }}
+                      className="rounded-full border px-3 py-1 font-semibold disabled:opacity-40"
+                      style={{ borderColor: LINE, color: TEXT }}
+                    >
+                      From a link
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
             <div className="px-4 pb-2">
@@ -280,7 +410,16 @@ export function BlueskyPreviews(p: Props) {
                 >
                   <ImageIcon className="size-5" />
                 </button>
-                <Film className="size-5" />
+                <button
+                  type="button"
+                  aria-label="Add video"
+                  aria-pressed={choosing}
+                  disabled={videoBlocked}
+                  onClick={() => setChoosing(!choosing)}
+                  className="disabled:opacity-40"
+                >
+                  <Film className="size-5" />
+                </button>
                 <span className="rounded border px-0.5 text-[11px] font-bold" style={{ borderColor: LINK }}>GIF</span>
                 <EmojiPicker onPick={p.onEmoji}>
                   <button type="button" aria-label="Add emoji" onMouseDown={(e) => e.preventDefault()}>
@@ -301,6 +440,17 @@ export function BlueskyPreviews(p: Props) {
           {p.error}
         </span>
       )}
+      <input
+        ref={videoFile}
+        type="file"
+        accept={BLUESKY_VIDEO_TYPES.join(',')}
+        className="hidden"
+        onChange={(e) => {
+          const clip = videoOf(e.target.files)
+          if (clip) p.onVideoFile(clip)
+          e.target.value = ''
+        }}
+      />
       <input
         ref={file}
         type="file"

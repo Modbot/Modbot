@@ -33783,6 +33783,166 @@
         ]
       }
     },
+    "/api/calendar/bluesky-video": {
+      "post": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Upload Bluesky video",
+        "description": "Keeps a video for an event's Bluesky post. Needs Manage calendar or Manage templates. The body is the video itself: an MP4, MPEG, WebM or QuickTime file of at most 50 MB, told apart by its first bytes. Answers with its id; save that in the event's blueskyVideo. Modbot keeps it until the event is deleted or given another video; one no event was saved with is deleted once it is a day old, within the hour after. It goes to Bluesky only as the post is made.\n\nNeeds the `ViewCalendar` permission.",
+        "operationId": "UploadCalendarBlueskyVideo",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarBlueskyVideoFileView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/calendar/bluesky-video/{id}": {
+      "get": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Get Bluesky video",
+        "description": "The video kept for an event's Bluesky post.\n\nNeeds the `ViewCalendar` permission.",
+        "operationId": "GetCalendarBlueskyVideo",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "video/mp4": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              },
+              "video/quicktime": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              },
+              "video/webm": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              },
+              "video/mpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/calendar/picture-link": {
       "post": {
         "tags": [
@@ -44668,6 +44828,16 @@
               "null",
               "string"
             ]
+          },
+          "video": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BlueskyVideoPreview"
+              }
+            ]
           }
         }
       },
@@ -45087,6 +45257,31 @@
           }
         }
       },
+      "BlueskyVideoPreview": {
+        "required": [
+          "url",
+          "link",
+          "alt"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "link": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "alt": {
+            "type": "string"
+          }
+        }
+      },
       "BriefView": {
         "required": [
           "text",
@@ -45254,6 +45449,42 @@
           },
           "alt": {
             "type": "string"
+          }
+        }
+      },
+      "CalendarBlueskyVideoChoice": {
+        "type": "object",
+        "properties": {
+          "videoId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "url": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "alt": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CalendarBlueskyVideoFileView": {
+        "required": [
+          "videoId"
+        ],
+        "type": "object",
+        "properties": {
+          "videoId": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -46003,6 +46234,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "blueskyVideo": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CalendarBlueskyVideoChoice"
+              }
+            ]
           }
         }
       },
@@ -46471,6 +46712,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "blueskyVideo": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CalendarBlueskyVideoChoice"
+              }
+            ]
           }
         }
       },
@@ -47746,6 +47997,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "blueskyVideo": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CalendarBlueskyVideoChoice"
+              }
+            ]
           }
         }
       },

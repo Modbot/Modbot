@@ -49,6 +49,7 @@ const input: CalendarEventInput = {
   mentionRoleId: null,
   postColour: null,
   blueskyPictures: null,
+  blueskyVideo: null,
   coverPictureId: null,
   vrChatTitle: 'Movies in VRChat',
   vrChatDescription: '',
@@ -119,6 +120,14 @@ test('a template keeps who can reply, quote posts and languages, and an older on
   assert.deepEqual(older.blueskyWhoCanReply, ['anyone'])
   assert.equal(older.blueskyQuotesOff, false)
   assert.deepEqual(older.blueskyLanguages, [])
+})
+
+test('a template keeps the Bluesky video, and one saved before videos loads with none', () => {
+  const picked = fieldsFromInput({ ...input, blueskyVideo: { videoId: 'v1', url: null, alt: 'a cat' } }, 120)
+  assert.deepEqual(inputFromTemplate(picked, input).blueskyVideo, { videoId: 'v1', url: null, alt: 'a cat' })
+
+  const { blueskyVideo: _video, ...old } = picked
+  assert.equal(inputFromTemplate(old as typeof picked, input).blueskyVideo, null)
 })
 
 test('a template keeps the post colour, and one saved before post colours loads with none', () => {

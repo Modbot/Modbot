@@ -27,6 +27,17 @@ public class BlueskyOAuthTests
         => Assert.Equal(can, BlueskyOAuth.CanReadReplies(scope));
 
     [Theory]
+    [InlineData(BlueskyOAuth.NarrowScope, true)]
+    [InlineData(BlueskyOAuth.WideScope, true)]
+    [InlineData("atproto blob:video/*", true)]
+    [InlineData("atproto blob:*/*", true)]
+    [InlineData("atproto repo:app.bsky.feed.post?action=create&action=update&action=delete blob:image/*", false)]
+    [InlineData("atproto", false)]
+    [InlineData(null, false)]
+    public void ASignInCanUploadAVideoOnlyWithTheVideoBlobScopeOrTheWideOne(string? scope, bool can)
+        => Assert.Equal(can, BlueskyOAuth.CanUploadVideo(scope));
+
+    [Theory]
     [InlineData("https://modbot.example.com", true)]
     [InlineData("https://modbot.example.com/", true)]
     [InlineData("https://modbot.example.com:443", true)]
@@ -65,6 +76,7 @@ public class BlueskyOAuthTests
         Assert.Contains("repo:app.bsky.feed.post?action=create&action=update&action=delete", scopes);
         Assert.Contains("repo:app.bsky.actor.profile?action=create&action=update", scopes);
         Assert.Contains("blob:image/*", scopes);
+        Assert.Contains("blob:video/*", scopes);
         Assert.Contains("rpc:app.bsky.notification.listNotifications?aud=did:web:api.bsky.app%23bsky_appview", scopes);
         Assert.Contains("transition:generic", scopes);
 
