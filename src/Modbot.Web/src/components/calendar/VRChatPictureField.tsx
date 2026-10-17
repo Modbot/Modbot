@@ -148,18 +148,21 @@ export function DiscordPictureField({
   link,
   onChange,
   onFile,
+  label = 'Discord picture',
 }: {
   picture: CroppedPicture
   value: string | null
   link: string | null
   onChange: (coverId: string | null) => void
   onFile: (file: Blob) => void
+  /** On the Bluesky tab with Discord off, the same cover is only Bluesky's picture. */
+  label?: string
 }) {
   useOpenGivenLink(picture, link, !value)
 
   return (
     <CropField
-      label="Discord picture"
+      label={label}
       picture={picture}
       link={link}
       onFile={onFile}

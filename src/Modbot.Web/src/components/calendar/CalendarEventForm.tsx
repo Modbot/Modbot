@@ -45,7 +45,7 @@ import { calendarTemplateApi } from '@/lib/calendarTemplateApi'
 import { useCanManageSettings } from '@/lib/manageSettings'
 import { AUTO_LINKS, autoLinkOf, cleanFillInName, FILL_IN_TEXTS, fillInKey, fillInMarker, fillInsIn } from '@/lib/calendarFillIns'
 import { addMinutes, fieldsFromInput, joinLength, splitLength } from '@/lib/calendarTemplates'
-import { countOf, OWN_KEYS, OWN_TEXT, ownKeysWithText, placeholderOf, sharedWords, textShown, type OwnKey } from '@/lib/calendarOwnText'
+import { countOf, OWN_KEYS, OWN_TEXT, ownKeysWithText, placeholderOf, postAround, sharedWords, textShown, type OwnKey } from '@/lib/calendarOwnText'
 import { saveWarnings } from '@/lib/calendarWarnings'
 import type { CardEditing, CardField } from './CardText'
 import { EventPreview, usePreviewAnswer } from './EventPreview'
@@ -59,6 +59,8 @@ import { usePictureThumbnails } from './usePictureThumbnails'
 import { CopyButton, PasteButton } from './PasteButton'
 import { VRChatPreviews } from './VRChatPreviews'
 import { DiscordPreviews } from './DiscordPreviews'
+import { BlueskyPreviews } from './BlueskyPreviews'
+import { BLUESKY_BYTE_LIMIT } from '@/lib/postRules'
 import { PlatformIcons } from './PlatformIcons'
 import { useDiscordCover, useVRChatPicture, vrchatPictureAddress } from './useVRChatPicture'
 import { DiscordPictureField, VRChatPictureField } from './VRChatPictureField'
@@ -1058,7 +1060,69 @@ export function CalendarEventForm({
               ) : (
                 !isDiscord && on(active) && !isSetUp(active, ready) && <NotSetUp place={active} newTab />
               )}
-              {!isDiscord && card(active)}
+              {!isDiscord && active !== 'bluesky' && card(active)}
+              {active === 'bluesky' && answer.error && <Outcome tone="problem">{answer.error}</Outcome>}
+              {active === 'bluesky' &&
+                (() => {
+                  const e = editingFor('bluesky', shown ?? input)
+                  const drawn = answer.preview?.bluesky ?? null
+                  const lines = drawn ? postAround(drawn.text, e.title.asked, e.description.asked) : { before: '', after: '' }
+                  const before = input.blueskyPostBeforeMinutes ?? DEFAULT_BLUESKY_BEFORE
+                  return (
+                    <BlueskyPreviews
+                      title={e.title.value || sharedNow().title}
+                      before={lines.before}
+                      after={lines.after}
+                      picture={discordPreview}
+                      pictureUrl={drawn?.pictureUrl ?? null}
+                      // Bluesky is sent the Discord cover: a picture here opens its crop box.
+                      onPicture={(f) => {
+                        chooseEverywhere(f)
+                        if (!discordOn) discordCover.openFile(f)
+                      }}
+                      card={drawn?.card ?? null}
+                      handle={drawn?.handle ?? null}
+                      displayName={drawn?.displayName ?? null}
+                      postAt={new Date(new Date(input.startsAt).getTime() - before * 60_000).toISOString()}
+                      count={
+                        drawn
+                          ? { label: `${drawn.graphemes} / ${drawn.limit}`, over: drawn.graphemes > drawn.limit || drawn.bytes > BLUESKY_BYTE_LIMIT }
+                          : e.description.count
+                      }
+                      titleBox={
+                        <span className="flex items-center gap-1">
+                          <FillInText
+                            label="Title"
+                            links={false}
+                            value={e.title.value}
+                            onChange={e.title.onChange}
+                            onActive={e.title.onActive}
+                            placeholder={e.title.placeholder || 'Add a title'}
+                            className="h-auto min-w-0 flex-1 border-none bg-transparent p-0 text-inherit text-[length:inherit]! font-[inherit] focus-visible:ring-0 empty:before:font-normal empty:before:text-current empty:before:opacity-50"
+                          />
+                          <CopyButton text={e.title.value} />
+                          <PasteButton onPaste={(t) => e.title.onChange(e.title.value + t)} />
+                        </span>
+                      }
+                      about={
+                        <span className="flex items-start gap-1">
+                          <FillInText
+                            multiline
+                            label="Description"
+                            value={e.description.value}
+                            onChange={e.description.onChange}
+                            onActive={e.description.onActive}
+                            placeholder={e.description.placeholder || 'Add a description'}
+                            className="min-h-0 min-w-0 flex-1 border-none bg-transparent p-0 text-inherit text-[length:inherit]! focus-visible:ring-0 empty:before:text-current empty:before:opacity-50"
+                          />
+                          <LinkMenu onPick={putIn} />
+                          <CopyButton text={e.description.value} />
+                          <PasteButton onPaste={(t) => e.description.onChange(e.description.value + t)} />
+                        </span>
+                      }
+                    />
+                  )
+                })()}
               {insertRows}
               {active === 'vrchat' && (
                 <Section>
@@ -1201,6 +1265,26 @@ export function CalendarEventForm({
                       ))}
                     </Select>
                   </Labelled>
+                  {!discordOn && (
+                    <>
+                      {pictureLinkField}
+                      <DiscordPictureField
+                        label="Picture"
+                        picture={discordCover}
+                        value={input.coverPictureId}
+                        link={input.imageUrl}
+                        onChange={(id) => set('coverPictureId', id)}
+                        onFile={chooseEverywhere}
+                      />
+                    </>
+                  )}
+                  <Checkbox
+                    // Ticked here, the change turns Bluesky on, so it is never greyed out on this tab.
+                    checked={input.announceFirstJoinOnBluesky && !!input.publishToBluesky}
+                    onChange={(v) => set('announceFirstJoinOnBluesky', v)}
+                  >
+                    Reply when the first person joins
+                  </Checkbox>
                 </Section>
               )}
             </div>
