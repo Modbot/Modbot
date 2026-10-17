@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent } from 'react'
+import { useEffect, useId, useState, type FormEvent } from 'react'
 import { Popover } from 'radix-ui'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFoot } from '@/components/ui/dialog'
@@ -32,6 +32,7 @@ export function QuickCreate({
   onClose,
   onMore,
   onSaved,
+  onTyped,
 }: {
   start: Date
   end: Date
@@ -39,11 +40,17 @@ export function QuickCreate({
   onClose: () => void
   onMore: (input: CalendarEventInput) => void
   onSaved: (saved: CalendarEvent) => void
+  /** Whether a title is typed. The calendar then ignores presses on the grid, so they only reach the question here. */
+  onTyped: (typed: boolean) => void
 }) {
   const [title, setTitle] = useState('')
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   const [asking, setAsking] = useState(false)
+
+  useEffect(() => {
+    onTyped(title !== '')
+  }, [title, onTyped])
 
   // Closing with a title typed asks first; an untouched form just closes.
   const leave = () => (title === '' ? onClose() : setAsking(true))
@@ -113,10 +120,8 @@ export function QuickCreate({
     if (asking) e.preventDefault()
   }
 
-  // With a title typed the popover is modal: a press on the grid only dismisses it (and asks), and
-  // never reaches an event or an empty slot behind it. Untouched, one click closes it and acts.
   return (
-    <Popover.Root open modal={title !== ''} onOpenChange={(open) => !open && leave()}>
+    <Popover.Root open onOpenChange={(open) => !open && leave()}>
       <Popover.Anchor asChild>
         <div aria-hidden className="pointer-events-none fixed" style={spot} />
       </Popover.Anchor>

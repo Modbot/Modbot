@@ -106,6 +106,13 @@ export function Calendar({ me }: { me: CurrentUser }) {
   // Changes when a template is made, changed or deleted, so the list and Use template read again.
   const [templatesVersion, setTemplatesVersion] = useState(0)
   const [quick, setQuick] = useState<{ start: Date; end: Date; spot: Spot } | null>(null)
+  // The small form has a title typed: a press on the grid or a list must not replace or close it, so
+  // it only reaches the form's own "Discard changes?". Each new small form reports again when it opens.
+  const quickTyped = useRef(false)
+  const holdQuick = () => quick !== null && quickTyped.current
+  const setQuickTyped = useCallback((typed: boolean) => {
+    quickTyped.current = typed
+  }, [])
   const [asking, setAsking] = useState<{ entry: Entry; change: Change } | null>(null)
   // An event drawn at its new time while its save is on the way, so it does not jump back: every
   // date of it, or only `date` when one date is moving on its own.
@@ -369,6 +376,7 @@ export function Calendar({ me }: { me: CurrentUser }) {
   }
 
   const onChange = (entry: Entry, change: Change) => {
+    if (holdQuick()) return
     setDetail(null)
     setQuick(null)
 
@@ -389,12 +397,14 @@ export function Calendar({ me }: { me: CurrentUser }) {
   }
 
   const openEntry = (entry: Entry, spot: Spot) => {
+    if (holdQuick()) return
     setQuick(null)
     setDetail({ id: entry.event.id, start: entry.start, end: entry.end, spot })
   }
 
   /** A row of Past events: that time of the event, read on its own when it is off the dates on screen. */
   const openPast = (result: CalendarOccurrenceResult) => {
+    if (holdQuick()) return
     setQuick(null)
     const show = () =>
       setDetail({ id: result.eventId, start: new Date(result.startsAt), end: new Date(result.endsAt), spot: null })
@@ -417,6 +427,7 @@ export function Calendar({ me }: { me: CurrentUser }) {
 
   /** Opens an event at its current or next time, read on its own when it is not on screen. */
   const openEvent = (eventId: string) => {
+    if (holdQuick()) return
     setQuick(null)
     calendarApi
       .event(eventId)
@@ -435,6 +446,7 @@ export function Calendar({ me }: { me: CurrentUser }) {
   }
 
   const openCreate = (created: { start: Date; end: Date }, spot: Spot) => {
+    if (holdQuick()) return
     setDetail(null)
     setQuick({ ...created, spot })
   }
@@ -633,6 +645,7 @@ export function Calendar({ me }: { me: CurrentUser }) {
           start={quick.start}
           end={quick.end}
           spot={quick.spot}
+          onTyped={setQuickTyped}
           onClose={() => setQuick(null)}
           onMore={(input) => {
             setQuick(null)
