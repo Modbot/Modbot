@@ -40,6 +40,18 @@ public static class CalendarBlueskyText
     /// <summary>The words for a post-before time that is not one of <see cref="BeforeChoices"/>.</summary>
     public const string BeforeNotAChoice = "Post it must be 1 hour, 1 day, 3 days or 1 week before.";
 
+    /// <summary>The most pictures a Bluesky post carries (<c>app.bsky.embed.images</c>).</summary>
+    public const int MostPictures = 4;
+
+    /// <summary>The longest alt text of one picture, in characters: Bluesky's own limit.</summary>
+    public const int AltMaxLength = 2000;
+
+    /// <summary>The words for a post given more than <see cref="MostPictures"/> pictures.</summary>
+    public const string TooManyPictures = "A Bluesky post has at most 4 pictures.";
+
+    /// <summary>The words for an alt text over <see cref="AltMaxLength"/>.</summary>
+    public const string AltTooLong = "A Bluesky picture's alt text is longer than 2000 characters.";
+
     public static bool IsChoice(int minutes) => BeforeChoices.Contains(minutes);
 
     /// <summary>When the post for <paramref name="occurrence"/> goes: its start, earlier by the event's choice.</summary>
@@ -142,6 +154,26 @@ public static class CalendarBlueskyText
     /// What the calendar wants the post to be, as one short string: compared with the one kept on a
     /// post that went out, it says whether the post still says what the event does.
     /// </summary>
-    public static string Fingerprint(string text, Guid? pictureId) =>
-        CalendarFingerprint.Of(text, pictureId);
+    /// <param name="pictureId">The picture the post goes with, or its first one.</param>
+    /// <param name="pictures">
+    /// The post's own list of pictures, or null for the cover alone. Null gives the same fingerprint as
+    /// before pictures had a list, so a post that went out is not taken down and made again for it.
+    /// </param>
+    public static string Fingerprint(string text, Guid? pictureId, IReadOnlyList<BlueskyPostPicture>? pictures = null) =>
+        pictures is null
+            ? CalendarFingerprint.Of(text, pictureId)
+            : CalendarFingerprint.Of(text, pictureId, string.Join('\u001f', pictures.Select(p => $"{p.PictureId}\u001e{p.Alt}")));
+
+    /// <summary>
+    /// The pictures the post goes with when the event has a list of its own, each with the alt text it
+    /// was given, or the post's title when it was given none. Null when the event goes with the cover alone.
+    /// </summary>
+    public static IReadOnlyList<BlueskyPostPicture>? PicturesOf(CalendarEvent calendarEvent, string? title)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        return calendarEvent.BlueskyPictures is { } own
+            ? [.. own.Take(MostPictures).Select(p => new BlueskyPostPicture(p.PictureId, string.IsNullOrWhiteSpace(p.Alt) ? title ?? string.Empty : p.Alt.Trim()))]
+            : null;
+    }
 }

@@ -91,6 +91,29 @@ public class CalendarEvent
     /// <summary>The words under the title in Bluesky's post, or null for <see cref="Description"/>. Plain text.</summary>
     public string? BlueskyDescription { get; set; }
 
+    /// <summary>
+    /// The pictures of Bluesky's post, in order, as <c>calendar_cover_picture</c> ids. Null says the post
+    /// goes with <see cref="CoverPictureId"/> alone; a list, even an empty one, is the post's pictures and
+    /// the cover has no part in it. Kept beside <see cref="BlueskyPictureAlts"/>, one alt text for each id.
+    /// </summary>
+    public List<Guid>? BlueskyPictureIds { get; set; }
+
+    /// <summary>The alt text of each of <see cref="BlueskyPictureIds"/>, in the same order. Blank says the post's title.</summary>
+    public List<string>? BlueskyPictureAlts { get; set; }
+
+    /// <summary>The two lists above as one: the pictures of Bluesky's post, or null for the cover alone.</summary>
+    public IReadOnlyList<BlueskyPostPicture>? BlueskyPictures
+    {
+        get => BlueskyPictureIds is null
+            ? null
+            : [.. BlueskyPictureIds.Select((id, i) => new BlueskyPostPicture(id, BlueskyPictureAlts?.ElementAtOrDefault(i) ?? string.Empty))];
+        set
+        {
+            BlueskyPictureIds = value is null ? null : [.. value.Select(p => p.PictureId)];
+            BlueskyPictureAlts = value is null ? null : [.. value.Select(p => p.Alt)];
+        }
+    }
+
     // ── When ─────────────────────────────────────────────────────────────────────────────
 
     /// <summary>When the first occurrence starts.</summary>

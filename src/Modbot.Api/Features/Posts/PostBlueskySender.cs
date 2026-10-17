@@ -416,39 +416,47 @@ public sealed class PostBlueskySender
 
         var title = PostTexts.TidyTitle(post.Title);
         var card = BlueskyPostRecord.CardFor(title, text);
-        BlueskyImage? image = null;
+        var images = new List<BlueskyImage>();
+
+        // An event's post carries the pictures it was given, up to four, each with its alt text; any other
+        // post its one picture, described by its title.
+        List<(Guid Id, string Alt)> wanted = PostTexts.BlueskyOptionsOf(destination).Pictures is { Count: > 0 } own
+            ? [.. own.Take(Modbot.Core.Calendar.CalendarBlueskyText.MostPictures).Select(p => (p.PictureId, p.Alt))]
+            : PostTexts.BlueskyPictureFor(post, destination) is { } pictureId
+                ? [(pictureId, title ?? string.Empty)]
+                : [];
 
         // A post with a picture carries it in full and has no link card; the link stays in the text.
-        if (PostTexts.BlueskyPictureFor(post, destination) is { } pictureId)
+        foreach (var (wantedId, alt) in wanted)
         {
             var picture = await _db.CalendarCoverPictures.AsNoTracking()
-                .Where(c => c.Id == pictureId)
+                .Where(c => c.Id == wantedId)
                 .Select(c => new { c.Bytes, c.ContentType, c.BlueskyBytes })
                 .FirstOrDefaultAsync(pass.Ct).ConfigureAwait(false);
 
             // The small copy made in the browser, or the picture itself when that is small enough.
             var bytes = picture?.BlueskyBytes ?? (picture is not null && picture.Bytes.Length <= BlueskyText.PictureMaxBytes ? picture.Bytes : null);
 
-            if (bytes is not null)
+            if (bytes is null)
+                continue;
+
+            // The same bytes give the same blob, so an upload made again is harmless.
+            var uploaded = await _client.UploadBlobAsync(
+                    access, bytes, picture!.BlueskyBytes is null ? picture.ContentType : "image/jpeg", pass.Ct)
+                .ConfigureAwait(false);
+
+            if (uploaded.Failure is { } refused)
             {
-                // The same bytes give the same blob, so an upload made again is harmless.
-                var uploaded = await _client.UploadBlobAsync(
-                        access, bytes, picture!.BlueskyBytes is null ? picture.ContentType : "image/jpeg", pass.Ct)
-                    .ConfigureAwait(false);
-
-                if (uploaded.Failure is { } refused)
-                {
-                    await RefusedBeforePutAsync(pass, post, destination, access, refused, waitingSince).ConfigureAwait(false);
-                    return;
-                }
-
-                var size = PictureFormats.Size(bytes);
-                image = new BlueskyImage(uploaded.Value!, title ?? string.Empty, size?.Width, size?.Height);
+                await RefusedBeforePutAsync(pass, post, destination, access, refused, waitingSince).ConfigureAwait(false);
+                return;
             }
+
+            var size = PictureFormats.Size(bytes);
+            images.Add(new BlueskyImage(uploaded.Value!, alt, size?.Width, size?.Height));
         }
 
         // createdAt is this send's own time: feeds sort by it (fact 21).
-        var record = BlueskyPostRecord.Build(text, pass.Now, card, replyTo, image);
+        var record = BlueskyPostRecord.Build(text, pass.Now, card, replyTo, images);
 
         var put = await _client.PutRecordAsync(access, access.Did, BlueskyClient.PostCollection, key, record, pass.Ct)
             .ConfigureAwait(false);

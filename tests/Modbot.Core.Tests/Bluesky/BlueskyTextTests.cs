@@ -187,7 +187,7 @@ public class BlueskyTextTests
         var blob = new JsonObject { ["$type"] = "blob", ["size"] = 900 };
 
         var record = BlueskyPostRecord.Build(
-            "Movie night https://example.com/a", DateTimeOffset.UnixEpoch, card, image: new BlueskyImage(blob, "Movie night", 2000, 800));
+            "Movie night https://example.com/a", DateTimeOffset.UnixEpoch, card, images: [new BlueskyImage(blob, "Movie night", 2000, 800)]);
 
         var embed = record["embed"]!;
         Assert.Equal("app.bsky.embed.images", embed["$type"]!.GetValue<string>());
@@ -205,7 +205,7 @@ public class BlueskyTextTests
     public void APictureOfUnknownShapeLeavesTheShapeOut()
     {
         var blob = new JsonObject { ["$type"] = "blob", ["size"] = 900 };
-        var record = BlueskyPostRecord.Build("Hello", DateTimeOffset.UnixEpoch, card: null, image: new BlueskyImage(blob, string.Empty, null, null));
+        var record = BlueskyPostRecord.Build("Hello", DateTimeOffset.UnixEpoch, card: null, images: [new BlueskyImage(blob, string.Empty, null, null)]);
 
         var image = Assert.Single(record["embed"]!["images"]!.AsArray())!;
         Assert.Null(image["aspectRatio"]);

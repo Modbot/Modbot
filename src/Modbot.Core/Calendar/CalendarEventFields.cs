@@ -35,6 +35,9 @@ public static class CalendarEventFields
             ["imageUrl"] = e.ImageUrl,
             ["vrchatImageId"] = e.VRChatImageId,
             ["coverPictureId"] = e.CoverPictureId?.ToString(),
+            ["blueskyPictures"] = e.BlueskyPictures is { } pictures
+                ? string.Join(", ", pictures.Select(p => $"{p.PictureId}: {p.Alt}"))
+                : null,
             ["category"] = e.Category,
             ["modbotCategories"] = string.Join(", ", e.Categories.Select(c => c.Name).Order(StringComparer.Ordinal)),
             ["languages"] = string.Join(", ", e.Languages),

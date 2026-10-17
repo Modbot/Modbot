@@ -98,7 +98,8 @@ public sealed class CalendarBlueskyPlanner
         Guid? PictureId,
         DateTimeOffset SendAt,
         string Fingerprint,
-        string TimeZone)
+        string TimeZone,
+        IReadOnlyList<BlueskyPostPicture>? Pictures)
     {
         public bool Due(DateTimeOffset now) => SendAt <= now;
 
@@ -218,16 +219,21 @@ public sealed class CalendarBlueskyPlanner
 
             var text = CalendarBlueskyText.For(calendarEvent, occurrence, world, tags);
 
-            var picture = calendarEvent.CoverPictureId;
+            var title = CalendarBlueskyText.TitleOf(calendarEvent, occurrence);
+
+            // The event's own list of pictures, or the cover alone when it has none.
+            var pictures = CalendarBlueskyText.PicturesOf(calendarEvent, title);
+            var picture = pictures is null ? calendarEvent.CoverPictureId : pictures.FirstOrDefault()?.PictureId;
 
             wants[occurrence.StartsAt] = new Want(
                 occurrence.StartsAt,
-                CalendarBlueskyText.TitleOf(calendarEvent, occurrence),
+                title,
                 text,
                 picture,
                 CalendarBlueskyText.SendAt(calendarEvent, occurrence),
-                CalendarBlueskyText.Fingerprint(text, picture),
-                calendarEvent.TimeZone);
+                CalendarBlueskyText.Fingerprint(text, picture, pictures),
+                calendarEvent.TimeZone,
+                pictures);
         }
 
         return wants;
@@ -426,7 +432,7 @@ public sealed class CalendarBlueskyPlanner
         destination.TitleOverride = null;
         destination.TextOverride = want.Text;
         destination.SitePictureId = want.PictureId;
-        destination.Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(want.PictureId, null, false, want.Fingerprint));
+        destination.Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(want.PictureId, null, false, want.Fingerprint, want.Pictures));
 
         if (destination.State != PostDestinationStates.Waiting || destination.ClientKey is null)
         {

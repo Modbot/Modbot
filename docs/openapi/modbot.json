@@ -45241,6 +45241,22 @@
           }
         }
       },
+      "CalendarBlueskyPicture": {
+        "required": [
+          "pictureId",
+          "alt"
+        ],
+        "type": "object",
+        "properties": {
+          "pictureId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "alt": {
+            "type": "string"
+          }
+        }
+      },
       "CalendarCancelRequest": {
         "required": [
           "postInChannel"
@@ -45954,6 +45970,15 @@
               "integer"
             ],
             "format": "int32"
+          },
+          "blueskyPictures": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CalendarBlueskyPicture"
+            }
           }
         }
       },
@@ -46391,6 +46416,15 @@
               "integer"
             ],
             "format": "int32"
+          },
+          "blueskyPictures": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CalendarBlueskyPicture"
+            }
           }
         }
       },

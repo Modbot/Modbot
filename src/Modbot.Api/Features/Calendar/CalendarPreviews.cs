@@ -126,7 +126,10 @@ public static class CalendarPreviews
             : new Dictionary<string, string>(StringComparer.Ordinal);
 
         var entry = CalendarFeedWriter.Entry(calendarEvent, names);
-        var blueskyPicture = calendarEvent.CoverPictureId is { } coverId
+        var blueskyPicture = CalendarBlueskyText.PicturesOf(calendarEvent, null) is { } own
+                ? own.FirstOrDefault()?.PictureId
+                : calendarEvent.CoverPictureId;
+        var blueskyPictureKept = blueskyPicture is { } coverId
             && await db.CalendarCoverPictures.AsNoTracking()
                 .Where(c => c.Id == coverId)
                 .Select(c => c.BlueskyBytes != null || c.Bytes.Length <= BlueskyText.PictureMaxBytes)
@@ -147,7 +150,7 @@ public static class CalendarPreviews
                     calendarEvent.TimeZone,
                     entry.Repeat),
                 Google(calendarEvent, names, settings),
-                Bluesky(calendarEvent, names, settings, blueskyPicture)),
+                Bluesky(calendarEvent, names, settings, blueskyPictureKept)),
             null);
     }
 
@@ -174,7 +177,10 @@ public static class CalendarPreviews
         var text = CalendarBlueskyText.For(calendarEvent, occurrence, world, CalendarBlueskyText.TagsOf(calendarEvent, settings?.BlueskyPostTags));
         var card = BlueskyPostRecord.CardFor(CalendarBlueskyText.TitleOf(calendarEvent, occurrence), text);
 
-        var picture = hasPicture && calendarEvent.CoverPictureId is { } cover ? CoverPath + cover : null;
+        var title = CalendarBlueskyText.TitleOf(calendarEvent, occurrence);
+        var pictures = CalendarBlueskyText.PicturesOf(calendarEvent, title);
+        var first = pictures is null ? calendarEvent.CoverPictureId : pictures.FirstOrDefault()?.PictureId;
+        var picture = hasPicture && first is { } cover ? CoverPath + cover : null;
 
         return new BlueskyPostPreview(
             text,
@@ -184,7 +190,7 @@ public static class CalendarPreviews
             BlueskyText.GraphemeLimit,
             card is null || picture is not null ? null : new BlueskyCardPreview(card.Uri, card.Title, card.Description, BlueskyText.CardHost(card.Uri)),
             picture,
-            picture is null ? null : CalendarBlueskyText.TitleOf(calendarEvent, occurrence) ?? string.Empty,
+            picture is null ? null : pictures?.FirstOrDefault()?.Alt ?? title ?? string.Empty,
             settings?.BlueskyHandle,
             settings?.BlueskyDisplayName);
     }

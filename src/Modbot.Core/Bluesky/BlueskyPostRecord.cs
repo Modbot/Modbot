@@ -10,7 +10,7 @@ namespace Modbot.Core.Bluesky;
 public sealed record BlueskyCard(string Uri, string Title, string Description);
 
 /// <summary>
-/// The picture a post carries in full (<c>app.bsky.embed.images</c>), instead of a link card.
+/// One picture a post carries in full (<c>app.bsky.embed.images</c>), instead of a link card.
 /// </summary>
 /// <param name="Blob">The picture's blob, as <c>uploadBlob</c> answered.</param>
 /// <param name="Alt">The picture's description for people who cannot see it. Bluesky requires the field; it may be empty.</param>
@@ -44,9 +44,9 @@ public static class BlueskyPostRecord
 
     /// <summary>The record, ready for <c>putRecord</c>.</summary>
     /// <param name="replyTo">The post this one answers, or null for a post of its own. Modbot replies only to its own top-level posts, so that post is both the root and the parent.</param>
-    /// <param name="image">The post's picture, or null for none. A post has the picture or the link card, never both: with a picture, <paramref name="card"/> is left out (the link stays clickable in the text).</param>
+    /// <param name="images">The post's pictures, up to four, or null for none. A post has the pictures or the link card, never both: with a picture, <paramref name="card"/> is left out (the link stays clickable in the text).</param>
     public static JsonObject Build(
-        string text, DateTimeOffset createdAt, BlueskyCard? card, BlueskyReplyTo? replyTo = null, BlueskyImage? image = null)
+        string text, DateTimeOffset createdAt, BlueskyCard? card, BlueskyReplyTo? replyTo = null, IReadOnlyList<BlueskyImage>? images = null)
     {
         ArgumentNullException.ThrowIfNull(text);
 
@@ -70,21 +70,28 @@ public static class BlueskyPostRecord
             };
         }
 
-        if (image is not null)
+        if (images is { Count: > 0 })
         {
-            var entry = new JsonObject
-            {
-                ["alt"] = image.Alt,
-                ["image"] = image.Blob.DeepClone(),
-            };
+            var entries = new JsonArray();
 
-            if (image.Width is > 0 && image.Height is > 0)
-                entry["aspectRatio"] = new JsonObject { ["width"] = image.Width, ["height"] = image.Height };
+            foreach (var image in images)
+            {
+                var entry = new JsonObject
+                {
+                    ["alt"] = image.Alt,
+                    ["image"] = image.Blob.DeepClone(),
+                };
+
+                if (image.Width is > 0 && image.Height is > 0)
+                    entry["aspectRatio"] = new JsonObject { ["width"] = image.Width, ["height"] = image.Height };
+
+                entries.Add(entry);
+            }
 
             record["embed"] = new JsonObject
             {
                 ["$type"] = "app.bsky.embed.images",
-                ["images"] = new JsonArray(entry),
+                ["images"] = entries,
             };
         }
         else if (card is not null)

@@ -371,4 +371,18 @@ public sealed record VRChatPostOptions(
 /// to say, so a change to the event is found by comparing, and a post a person deleted or cancelled in
 /// Marketing is not made again until the event changes. Null on every other post.
 /// </param>
-public sealed record BlueskyPostOptions(Guid? PictureId = null, string? Cid = null, bool KeyTaken = false, string? Fingerprint = null);
+/// <param name="Pictures">
+/// For an event's post: the pictures the post goes with, in order, up to four, each with its alt text
+/// (Bluesky's own picture grid). Null for a post with its one picture, <see cref="PictureId"/>.
+/// </param>
+public sealed record BlueskyPostOptions(
+    Guid? PictureId = null,
+    string? Cid = null,
+    bool KeyTaken = false,
+    string? Fingerprint = null,
+    IReadOnlyList<BlueskyPostPicture>? Pictures = null);
+
+/// <summary>One picture of a Bluesky post: a <c>calendar_cover_picture</c> id and its alt text.</summary>
+/// <param name="PictureId">The kept picture.</param>
+/// <param name="Alt">The picture's description for people who cannot see it. May be empty.</param>
+public sealed record BlueskyPostPicture(Guid PictureId, string Alt);

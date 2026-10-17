@@ -1191,6 +1191,14 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("bluesky_description");
 
+                    b.PrimitiveCollection<string>("BlueskyPictureAlts")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("bluesky_picture_alts");
+
+                    b.PrimitiveCollection<string>("BlueskyPictureIds")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("bluesky_picture_ids");
+
                     b.Property<int>("BlueskyPostBeforeMinutes")
                         .HasColumnType("integer")
                         .HasColumnName("bluesky_post_before_minutes");

@@ -1461,7 +1461,12 @@ public static class CalendarEndpoints
     private static async Task<IResult?> RefusedAsync(
         ModbotContext db, CalendarEventRequest body, CalendarEvent target, string? keptMention, Guid? keptCover, CancellationToken ct)
     {
+        // Read before the change is applied: the pictures the event already has are not asked for again.
+        List<Guid> keptBlueskyPictures = [.. target.BlueskyPictureIds ?? []];
         var problems = ApplyAll(body, target);
+
+        if (await BlueskyPicturesProblemAsync(db, body, keptBlueskyPictures, ct) is { } picturesProblem)
+            problems.Add(picturesProblem);
 
         if (await ListProblemAsync(db, body, ct) is { } listProblem)
             problems.Add(listProblem);
@@ -1554,6 +1559,21 @@ public static class CalendarEndpoints
             : "That Discord picture is gone. Choose it again.";
     }
 
+    /// <summary>What is wrong with the pictures an event names for its Bluesky post, or null: a picture that is gone and is not one the event already had.</summary>
+    private static async Task<string?> BlueskyPicturesProblemAsync(
+        ModbotContext db, CalendarEventRequest body, IReadOnlyCollection<Guid> kept, CancellationToken ct)
+    {
+        if (body.BlueskyPictures is not { Count: > 0 } pictures)
+            return null;
+
+        var asked = pictures.Select(p => p.PictureId).Distinct().Where(id => !kept.Contains(id)).ToList();
+        if (asked.Count == 0)
+            return null;
+
+        var found = await db.CalendarCoverPictures.Where(c => asked.Contains(c.Id)).CountAsync(ct);
+        return found == asked.Count ? null : "A Bluesky picture is gone. Add it again.";
+    }
+
     /// <summary>
     /// Deletes a Discord picture no live event uses any more: its event was deleted or given
     /// another one (§15.4). A copy of an event shares its picture, so the picture stays while any
@@ -1565,6 +1585,15 @@ public static class CalendarEndpoints
             return;
 
         if (await db.CalendarEvents.AnyAsync(e => e.CoverPictureId == id && e.DeletedAt == null, ct))
+            return;
+
+        // Or one of its Bluesky pictures: the lists are read whole, a few ids at most.
+        var blueskyLists = await db.CalendarEvents
+            .Where(e => e.DeletedAt == null && e.BlueskyPictureIds != null)
+            .Select(e => e.BlueskyPictureIds!)
+            .ToListAsync(ct);
+
+        if (blueskyLists.Any(list => list.Contains(id)))
             return;
 
         // So may a template.
@@ -1888,6 +1917,13 @@ public static class CalendarEndpoints
         if (body.BlueskyPostBeforeMinutes is { } sentBefore && !CalendarBlueskyText.IsChoice(sentBefore))
             problems.Add(CalendarBlueskyText.BeforeNotAChoice);
 
+        // Bluesky's pictures: null keeps the event's, a list (even an empty one) replaces them.
+        if (body.BlueskyPictures is { Count: > CalendarBlueskyText.MostPictures })
+            problems.Add(CalendarBlueskyText.TooManyPictures);
+
+        if (body.BlueskyPictures?.Any(p => (p.Alt ?? string.Empty).Length > CalendarBlueskyText.AltMaxLength) == true)
+            problems.Add(CalendarBlueskyText.AltTooLong);
+
         foreach (var (what, ownTitle) in new[] { ("VRChat title", vrchatTitle), ("Discord title", discordTitle), ("Google title", googleTitle), ("Bluesky title", blueskyTitle) })
         {
             if (CalendarAutoLinks.HasLink(ownTitle))
@@ -2092,6 +2128,9 @@ public static class CalendarEndpoints
         target.ImageUrl = imageUrl;
         target.VRChatImageId = vrchatImageId;
         target.CoverPictureId = body.CoverPictureId;
+        if (body.BlueskyPictures is { } blueskyPictures)
+            target.BlueskyPictures = [.. blueskyPictures.Select(p => new BlueskyPostPicture(p.PictureId, (p.Alt ?? string.Empty).Trim()))];
+
         target.Category = category;
         target.Languages = Clean(body.Languages);
         target.Platforms = platforms;
@@ -2393,7 +2432,10 @@ public static class CalendarEndpoints
                 e.BlueskyTitle,
                 e.BlueskyDescription,
                 e.AnnounceFirstJoinOnBluesky,
-                e.PostColour);
+                e.PostColour,
+                e.BlueskyPictures is { } blueskyPictures
+                    ? [.. blueskyPictures.Select(p => new CalendarBlueskyPicture(p.PictureId, p.Alt))]
+                    : null);
         })];
     }
 

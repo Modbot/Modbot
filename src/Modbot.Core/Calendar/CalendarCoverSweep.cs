@@ -11,8 +11,8 @@ namespace Modbot.Core.Calendar;
 /// <remarks>
 /// A picture is uploaded when Upload is pressed, before the event or post is saved, so a form closed
 /// without saving leaves one behind. Once it is a day old -- long enough for any form still open --
-/// and no live event, no template, no post and no post's site copy (Bluesky's copy of the picture) points at it, it is
-/// deleted. A post keeps its picture whatever its
+/// and no live event (as its cover or in its Bluesky pictures), no template, no post and no post's site copy
+/// (Bluesky's copy of the picture) points at it, it is deleted. A post keeps its picture whatever its
 /// state: a cancelled one can be duplicated, and a sent one is shown with it. The calendar's schedule loop runs this once an hour
 /// (<see cref="Every"/>), so nothing waits on somebody uploading again.
 /// </remarks>
@@ -25,16 +25,26 @@ public sealed class CalendarCoverSweep(ModbotContext db, IModbotClock clock)
     public static readonly TimeSpan Every = TimeSpan.FromHours(1);
 
     /// <summary>Deletes every picture nothing uses that is older than <see cref="KeptUnsaved"/>; answers how many.</summary>
-    public Task<int> RunOnceAsync(CancellationToken ct)
+    public async Task<int> RunOnceAsync(CancellationToken ct)
     {
         var before = clock.UtcNow - KeptUnsaved;
 
-        return db.CalendarCoverPictures
+        // The pictures of Bluesky's posts sit in a list on the event, read whole: a few ids at most.
+        var inBlueskyPosts = (await db.CalendarEvents
+                .Where(e => e.DeletedAt == null && e.BlueskyPictureIds != null)
+                .Select(e => e.BlueskyPictureIds!)
+                .ToListAsync(ct).ConfigureAwait(false))
+            .SelectMany(ids => ids)
+            .Distinct()
+            .ToList();
+
+        return await db.CalendarCoverPictures
             .Where(c => c.CreatedAt < before
+                && !inBlueskyPosts.Contains(c.Id)
                 && !db.CalendarEvents.Any(e => e.CoverPictureId == c.Id && e.DeletedAt == null)
                 && !db.CalendarTemplates.Any(t => t.CoverPictureId == c.Id)
                 && !db.Posts.Any(p => p.PictureId == c.Id)
                 && !db.PostDestinations.Any(d => d.SitePictureId == c.Id))
-            .ExecuteDeleteAsync(ct);
+            .ExecuteDeleteAsync(ct).ConfigureAwait(false);
     }
 }
