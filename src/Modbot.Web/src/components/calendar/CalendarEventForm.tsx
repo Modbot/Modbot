@@ -1365,8 +1365,6 @@ export function CalendarEventForm({
                         <option value="jp">Japan</option>
                       </Select>
                     </Labelled>
-                    <Field label="Languages" value={languages} placeholder="eng, jpn" onChange={setLanguages} />
-                    <Field label="Tags" value={tags} placeholder="" onChange={setTags} />
                     <VRChatPictureField
                       uploads={pictureUploads}
                       plus={vrchatPlus}
