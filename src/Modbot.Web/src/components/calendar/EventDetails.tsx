@@ -33,6 +33,7 @@ import { NextGame } from './NextGame'
 import { NotSetUp } from './NotSetUp'
 import { TwitchLines } from './TwitchLines'
 import { SHEET, useMedia } from './phone'
+import { PopoverPortal } from '@/components/ui/dialog-portal'
 
 const longDay = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
 
@@ -742,7 +743,7 @@ export function EventDetails({
         <Popover.Anchor asChild>
           <div aria-hidden className="pointer-events-none fixed" style={spot} />
         </Popover.Anchor>
-        <Popover.Portal>
+        <PopoverPortal>
           <Popover.Content
             side="right"
             align="start"
@@ -764,7 +765,7 @@ export function EventDetails({
             </Heading>
             {body}
           </Popover.Content>
-        </Popover.Portal>
+        </PopoverPortal>
       </Popover.Root>
       {confirmation}
     </>

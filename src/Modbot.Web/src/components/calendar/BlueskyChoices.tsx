@@ -12,6 +12,7 @@ import {
   withLanguageToggled,
   withReplyGroupToggled,
 } from '@/lib/blueskyPostSettings'
+import { PopoverPortal } from '@/components/ui/dialog-portal'
 
 // The two pop-ups of Bluesky's New post box, in the box's own dim colours.
 const PANEL = '#1c2733'
@@ -68,7 +69,7 @@ export function InteractChip({
           <Globe className="size-3.5" /> {interactLabel(whoCanReply, quotesOff)}
         </button>
       </Popover.Trigger>
-      <Popover.Portal>
+      <PopoverPortal>
         <Popover.Content
           align="start"
           sideOffset={4}
@@ -96,7 +97,7 @@ export function InteractChip({
             Allow quote posts
           </Row>
         </Popover.Content>
-      </Popover.Portal>
+      </PopoverPortal>
     </Popover.Root>
   )
 }
@@ -113,7 +114,7 @@ export function LanguageButton({ languages, onLanguages }: { languages: string[]
           {languagesLabel(languages)}
         </button>
       </Popover.Trigger>
-      <Popover.Portal>
+      <PopoverPortal>
         <Popover.Content
           align="end"
           sideOffset={4}
@@ -131,7 +132,7 @@ export function LanguageButton({ languages, onLanguages }: { languages: string[]
             )
           })}
         </Popover.Content>
-      </Popover.Portal>
+      </PopoverPortal>
     </Popover.Root>
   )
 }

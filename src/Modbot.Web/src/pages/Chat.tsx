@@ -19,6 +19,7 @@ import { spentText, tokensText, tokensTitle } from '@/lib/aiSpend'
 import { cn } from '@/lib/utils'
 import { PageMessage } from '@/pages/analytics/shared'
 import { isFinal } from '@/lib/tryAgain'
+import { PopoverPortal } from '@/components/ui/dialog-portal'
 
 /** How far from the bottom still counts as "at the bottom" while a reply streams in. */
 const NEAR_BOTTOM = 80
@@ -501,7 +502,7 @@ function Spend({ conversationId }: { conversationId: string }) {
           <Coins className="size-4" />
         </Button>
       </Popover.Trigger>
-      <Popover.Portal>
+      <PopoverPortal>
         <Popover.Content
           align="end"
           sideOffset={4}
@@ -517,7 +518,7 @@ function Spend({ conversationId }: { conversationId: string }) {
             <span className="text-muted-foreground">Loading…</span>
           )}
         </Popover.Content>
-      </Popover.Portal>
+      </PopoverPortal>
     </Popover.Root>
   )
 }

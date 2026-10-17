@@ -12,6 +12,7 @@ import { factDays } from '@/lib/factRows'
 import { usePhoneLayout } from '@/lib/phoneLayout'
 import { cn } from '@/lib/utils'
 import { vrchatMedia } from '@/lib/vrchatMedia'
+import { PopoverPortal } from '@/components/ui/dialog-portal'
 
 /**
  * The pieces the three popups share: one loader, one section, one fact list.
@@ -388,7 +389,7 @@ export function PopupMenu({ onRawData }: { onRawData: () => void }) {
           <MoreHorizontal className="size-4" />
         </button>
       </Popover.Trigger>
-      <Popover.Portal>
+      <PopoverPortal>
         <Popover.Content
           align="end"
           sideOffset={4}
@@ -407,7 +408,7 @@ export function PopupMenu({ onRawData }: { onRawData: () => void }) {
             Raw data
           </button>
         </Popover.Content>
-      </Popover.Portal>
+      </PopoverPortal>
     </Popover.Root>
   )
 }

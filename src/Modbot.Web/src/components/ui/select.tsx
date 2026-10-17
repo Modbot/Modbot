@@ -3,6 +3,7 @@ import { Popover } from 'radix-ui'
 import { Check, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { matchTyped, moveActive, readChoices, type Choice } from '@/lib/dropdown'
+import { PopoverPortal } from '@/components/ui/dialog-portal'
 
 /**
  * The app's dropdown.
@@ -193,7 +194,7 @@ export function Select({
           <ChevronDown className="size-3.5 shrink-0 opacity-60" aria-hidden />
         </button>
       </Popover.Trigger>
-      <Popover.Portal>
+      <PopoverPortal>
         <Popover.Content
           role="listbox"
           tabIndex={-1}
@@ -226,7 +227,7 @@ export function Select({
             />
           ))}
         </Popover.Content>
-      </Popover.Portal>
+      </PopoverPortal>
     </Popover.Root>
   )
 }

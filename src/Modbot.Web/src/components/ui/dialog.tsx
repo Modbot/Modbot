@@ -2,6 +2,7 @@ import * as React from 'react'
 import { Dialog as DialogPrimitive } from 'radix-ui'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { DialogElementContext } from './dialog-element'
 
 /**
  * A modal, on Radix's primitive: focus trapped, Escape closes, the page behind is inert.
@@ -33,6 +34,7 @@ function DialogContent({
   actions,
   foot,
   place = 'sheet',
+  ref,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   title: string
@@ -48,6 +50,9 @@ function DialogContent({
   // A confirmation can be a title and its buttons with nothing between them, and an empty body
   // drew a blank band there.
   const hasBody = React.Children.toArray(children).length > 0
+  // Menus opened inside this dialog are drawn inside it (dialog-element.ts), where its scroll lock
+  // lets the wheel and touch through.
+  const [element, setElement] = React.useState<HTMLElement | null>(null)
 
   return (
     <DialogPrimitive.Portal>
@@ -74,46 +79,53 @@ function DialogContent({
           className,
         )}
         {...props}
+        ref={(node) => {
+          setElement(node)
+          if (typeof ref === 'function') ref(node)
+          else if (ref) ref.current = node
+        }}
       >
-        <div
-          className="flex shrink-0 items-center gap-3 border-b-(length:--hairline) bg-strip px-4 py-2"
-        >
-          {lead}
-          <div className="min-w-0 flex-1">
-            <DialogPrimitive.Title className="truncate font-label" style={{ fontSize: 'calc(var(--text-base) + 1px)' }}>
-              {title}
-            </DialogPrimitive.Title>
-            {subtitle && (
-              <div className="text-muted-foreground [overflow-wrap:anywhere]" style={{ fontSize: 'var(--text-small)' }}>
-                {subtitle}
-              </div>
-            )}
-          </div>
-          {actions}
-          {/* Sized from --control-h rather than from the glyph: on a phone this is the way out of
-              a dialog that covers the screen, and a 24px target is not one a finger can hit. */}
-          <DialogPrimitive.Close
-            className="grid shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
-            style={{ height: 'var(--control-h)', width: 'var(--control-h)' }}
-            aria-label="Close"
-          >
-            <X className="size-4" />
-          </DialogPrimitive.Close>
-        </div>
-        {hasBody && (
+        <DialogElementContext value={element}>
           <div
-            className={cn(
-              'min-h-0 flex-1 overflow-auto px-4 py-4',
-              // With nothing pinned under it, the body is the sheet's last row, so it keeps clear
-              // of the home bar.
-              sheet && !foot && 'sheet:pb-[max(1rem,env(safe-area-inset-bottom))]',
-              bodyClassName,
-            )}
+            className="flex shrink-0 items-center gap-3 border-b-(length:--hairline) bg-strip px-4 py-2"
           >
-            {children}
+            {lead}
+            <div className="min-w-0 flex-1">
+              <DialogPrimitive.Title className="truncate font-label" style={{ fontSize: 'calc(var(--text-base) + 1px)' }}>
+                {title}
+              </DialogPrimitive.Title>
+              {subtitle && (
+                <div className="text-muted-foreground [overflow-wrap:anywhere]" style={{ fontSize: 'var(--text-small)' }}>
+                  {subtitle}
+                </div>
+              )}
+            </div>
+            {actions}
+            {/* Sized from --control-h rather than from the glyph: on a phone this is the way out of
+                a dialog that covers the screen, and a 24px target is not one a finger can hit. */}
+            <DialogPrimitive.Close
+              className="grid shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+              style={{ height: 'var(--control-h)', width: 'var(--control-h)' }}
+              aria-label="Close"
+            >
+              <X className="size-4" />
+            </DialogPrimitive.Close>
           </div>
-        )}
-        {foot}
+          {hasBody && (
+            <div
+              className={cn(
+                'min-h-0 flex-1 overflow-auto px-4 py-4',
+                // With nothing pinned under it, the body is the sheet's last row, so it keeps clear
+                // of the home bar.
+                sheet && !foot && 'sheet:pb-[max(1rem,env(safe-area-inset-bottom))]',
+                bodyClassName,
+              )}
+            >
+              {children}
+            </div>
+          )}
+          {foot}
+        </DialogElementContext>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   )

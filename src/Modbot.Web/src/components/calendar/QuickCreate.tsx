@@ -9,6 +9,7 @@ import { sameDay } from '@/lib/calendarGrid'
 import { timeOfDay } from '@/lib/format'
 import type { Spot } from './entry'
 import { SHEET, useMedia } from './phone'
+import { PopoverPortal } from '@/components/ui/dialog-portal'
 
 const day = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
 
@@ -105,7 +106,7 @@ export function QuickCreate({
       <Popover.Anchor asChild>
         <div aria-hidden className="pointer-events-none fixed" style={spot} />
       </Popover.Anchor>
-      <Popover.Portal>
+      <PopoverPortal>
         <Popover.Content
           side="right"
           align="start"
@@ -122,7 +123,7 @@ export function QuickCreate({
             <div className="flex flex-wrap justify-end gap-2">{buttons}</div>
           </form>
         </Popover.Content>
-      </Popover.Portal>
+      </PopoverPortal>
     </Popover.Root>
   )
 }

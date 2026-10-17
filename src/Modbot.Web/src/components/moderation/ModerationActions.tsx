@@ -34,6 +34,7 @@ import {
 } from '@/lib/moderationActions'
 import { can } from '@/lib/permissions'
 import { openCase } from '@/lib/subject'
+import { PopoverPortal } from '@/components/ui/dialog-portal'
 
 const SEND: Record<ModerationActionName, (body: Parameters<typeof api.kickPerson>[0]) => Promise<ModerationActionResult>> = {
   kick: api.kickPerson,
@@ -102,7 +103,7 @@ export function ModerationActions({
               <MoreHorizontal />
             </Button>
           </Popover.Trigger>
-          <Popover.Portal>
+          <PopoverPortal>
             <Popover.Content
               align="end"
               sideOffset={4}
@@ -110,7 +111,7 @@ export function ModerationActions({
             >
               {buttons}
             </Popover.Content>
-          </Popover.Portal>
+          </PopoverPortal>
         </Popover.Root>
       ) : (
         <div className="flex flex-wrap items-center gap-1.5">{buttons}</div>

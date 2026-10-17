@@ -73,6 +73,7 @@ import { PlatformIcons } from './PlatformIcons'
 import { useDiscordCover, useVRChatPicture, vrchatPictureAddress } from './useVRChatPicture'
 import { DiscordPictureField, VRChatPictureField } from './VRChatPictureField'
 import { FROM_LIST, listMissing, NO_WORLD, OTHER_WORLD, worldChoice } from '@/lib/calendarWorld'
+import { PopoverPortal, MenuPortal } from '@/components/ui/dialog-portal'
 
 
 /** How a repeat stops: never, after its last date, or after a number of times. */
@@ -1120,7 +1121,7 @@ export function CalendarEventForm({
                     value={input.channelId ?? ''}
                     onChange={(id) => set('channelId', id || null)}
                     needs={['viewChannel', 'sendMessages', 'embedLinks']}
-                    allowNone={false}
+                    allowNone
                   />
                   <RolePicker
                     label="Mention role"
@@ -1577,7 +1578,7 @@ function AddPlace({ ready }: { ready: CalendarReady | null | undefined }) {
           <Plus className="size-4" />
         </button>
       </Popover.Trigger>
-      <Popover.Portal>
+      <PopoverPortal>
         <Popover.Content
           align="start"
           sideOffset={4}
@@ -1597,7 +1598,7 @@ function AddPlace({ ready }: { ready: CalendarReady | null | undefined }) {
             </a>
           ))}
         </Popover.Content>
-      </Popover.Portal>
+      </PopoverPortal>
     </Popover.Root>
   )
 }
@@ -1619,7 +1620,7 @@ function LinkMenu({ onPick }: { onPick: (link: string) => void }) {
           <ChevronDown className="size-3" />
         </button>
       </Popover.Trigger>
-      <Popover.Portal>
+      <PopoverPortal>
         <Popover.Content
           align="end"
           sideOffset={4}
@@ -1643,7 +1644,7 @@ function LinkMenu({ onPick }: { onPick: (link: string) => void }) {
             </button>
           ))}
         </Popover.Content>
-      </Popover.Portal>
+      </PopoverPortal>
     </Popover.Root>
   )
 }
@@ -1688,7 +1689,7 @@ function WorldListMenu({
           <ChevronDown className="size-4 text-muted-foreground" />
         </button>
       </DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
+      <MenuPortal>
         <DropdownMenu.Content align="start" sideOffset={4} className={panel} style={{ fontSize: 'var(--text-small)' }}>
           <DropdownMenu.Item className={item} onSelect={() => onList(null)}>
             —
@@ -1706,7 +1707,7 @@ function WorldListMenu({
                   <DropdownMenu.SubTrigger aria-label={`${l.name} worlds`} className={`${item} w-9 justify-center`}>
                     <ChevronRight className="size-3.5 text-muted-foreground" />
                   </DropdownMenu.SubTrigger>
-                  <DropdownMenu.Portal>
+                  <MenuPortal>
                     <DropdownMenu.SubContent
                       sideOffset={4}
                       collisionPadding={8}
@@ -1731,13 +1732,13 @@ function WorldListMenu({
                         ))
                       )}
                     </DropdownMenu.SubContent>
-                  </DropdownMenu.Portal>
+                  </MenuPortal>
                 </DropdownMenu.Sub>
               </div>
             )
           })}
         </DropdownMenu.Content>
-      </DropdownMenu.Portal>
+      </MenuPortal>
     </DropdownMenu.Root>
     </>
   )

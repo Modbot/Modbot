@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState, type ReactNode } from 'react'
 import { Popover } from 'radix-ui'
+import { PopoverPortal } from '@/components/ui/dialog-portal'
 
 // Loaded when first opened: the picker carries every emoji's data.
 const Picker = lazy(() => import('emoji-picker-react'))
@@ -11,7 +12,7 @@ export function EmojiPicker({ onPick, children }: { onPick: (emoji: string) => v
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>{children}</Popover.Trigger>
-      <Popover.Portal>
+      <PopoverPortal>
         <Popover.Content
           align="start"
           sideOffset={4}
@@ -34,7 +35,7 @@ export function EmojiPicker({ onPick, children }: { onPick: (emoji: string) => v
             />
           </Suspense>
         </Popover.Content>
-      </Popover.Portal>
+      </PopoverPortal>
     </Popover.Root>
   )
 }

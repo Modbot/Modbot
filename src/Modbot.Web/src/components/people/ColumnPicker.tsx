@@ -3,6 +3,7 @@ import { Columns3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/settings/fields'
 import { withColumn, type PeopleColumn } from '@/lib/peopleColumns'
+import { PopoverPortal } from '@/components/ui/dialog-portal'
 
 /**
  * The Columns button: a list of the view's columns, each with a switch, and Reset to put the view's
@@ -26,7 +27,7 @@ export function ColumnPicker({
           Columns
         </Button>
       </Popover.Trigger>
-      <Popover.Portal>
+      <PopoverPortal>
         <Popover.Content align="start" sideOffset={4} collisionPadding={8} className="z-50 outline-none">
           <div
             className="w-64 max-w-[calc(100vw-1rem)] overflow-hidden rounded-sm border border-(length:--hairline) bg-popover text-popover-foreground shadow-sm"
@@ -50,7 +51,7 @@ export function ColumnPicker({
             </div>
           </div>
         </Popover.Content>
-      </Popover.Portal>
+      </PopoverPortal>
     </Popover.Root>
   )
 }

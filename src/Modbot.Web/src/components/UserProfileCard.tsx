@@ -11,6 +11,7 @@ import { ago, duration, formatDay } from '@/lib/format'
 import { api, ApiError, type AgeCheckMethod, type CurrentUser, type VRChatUserProfile } from '@/lib/api'
 import { can } from '@/lib/permissions'
 import { useStoredProfile, type StoredProfile } from '@/lib/useStoredProfile'
+import { PopoverPortal } from '@/components/ui/dialog-portal'
 
 /**
  * One person's stored VRChat profile, with how old it is written next to it.
@@ -343,7 +344,7 @@ function AgeMark({
         </button>
       </Popover.Trigger>
 
-      <Popover.Portal>
+      <PopoverPortal>
         {/* Drawn at the top of the page like the dropdown's list, so the popup's own scrolling
             column cannot clip it. */}
         <Popover.Content
@@ -431,7 +432,7 @@ function AgeMark({
             </div>
           )}
         </Popover.Content>
-      </Popover.Portal>
+      </PopoverPortal>
     </Popover.Root>
   )
 }

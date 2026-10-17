@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogFoot } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import type { ChatConversationSummary } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { PopoverPortal } from '@/components/ui/dialog-portal'
 
 /** The headings a conversation list is broken into, newest first. */
 const GROUPS = ['Today', 'Yesterday', 'Previous 7d', 'Older'] as const
@@ -189,7 +190,7 @@ function Row({
             <MoreHorizontal className="size-3.5" />
           </button>
         </Popover.Trigger>
-        <Popover.Portal>
+        <PopoverPortal>
           <Popover.Content
             align="end"
             sideOffset={4}
@@ -216,7 +217,7 @@ function Row({
               Delete
             </MenuItem>
           </Popover.Content>
-        </Popover.Portal>
+        </PopoverPortal>
       </Popover.Root>
     </div>
   )

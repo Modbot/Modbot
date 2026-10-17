@@ -20,6 +20,7 @@ import {
 import { dateTime } from '@/lib/format'
 import { useShortcuts } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
+import { PopoverPortal } from '@/components/ui/dialog-portal'
 
 /**
  * The filter bar: one chip per property (a repeatable property may have several), an add control,
@@ -239,11 +240,11 @@ function Chip({
               {shown || '…'}
             </button>
           </Popover.Trigger>
-          <Popover.Portal>
+          <PopoverPortal>
             <Popover.Content align="start" sideOffset={4} className="z-50 outline-none">
               <ValueEditor property={property} chip={chip} onChange={onChange} onDone={() => setEditing(false)} />
             </Popover.Content>
-          </Popover.Portal>
+          </PopoverPortal>
         </Popover.Root>
       )}
 
@@ -291,12 +292,12 @@ function AddFilter({
           <Kbd keys="f" />
         </Button>
       </Popover.Trigger>
-      <Popover.Portal>
+      <PopoverPortal>
         <Popover.Content align="start" sideOffset={4} className="z-50 outline-none">
           {/* Mounted with the popover, so every opening starts at the property list with nothing typed. */}
           <AddPanel properties={properties} onAdd={onAdd} close={() => onOpenChange(false)} />
         </Popover.Content>
-      </Popover.Portal>
+      </PopoverPortal>
     </Popover.Root>
   )
 }

@@ -3,6 +3,7 @@ import { Popover } from 'radix-ui'
 import { Check, ChevronDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { PopoverPortal } from '@/components/ui/dialog-portal'
 
 /** A short state beside a name: a missing permission is a problem, "Removed" is just a fact. */
 export type PickerMark = { text: string; tone: 'problem' | 'quiet' }
@@ -116,7 +117,7 @@ export function Picker({
             <ChevronDown className="size-3.5 shrink-0 opacity-60" />
           </button>
         </Popover.Trigger>
-        <Popover.Portal>
+        <PopoverPortal>
           <Popover.Content
             align="start"
             sideOffset={4}
@@ -169,7 +170,7 @@ export function Picker({
               )}
             </div>
           </Popover.Content>
-        </Popover.Portal>
+        </PopoverPortal>
       </Popover.Root>
     </div>
   )
