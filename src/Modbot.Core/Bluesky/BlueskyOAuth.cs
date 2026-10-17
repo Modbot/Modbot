@@ -151,11 +151,28 @@ public sealed class BlueskyOAuth(IHttpClientFactory http, ISecretProtector prote
     /// collection, a delete needs delete, and the picture needs an image blob. The profile's
     /// create and update are for pinning a post on it (Pin the next event): a sign-in made before
     /// that was added lacks it, and the pin waits until Sign in with Bluesky is done again. The same goes
-    /// for <see cref="RepliesScope"/>, which reading replies, mentions and quotes needs.
+    /// for <see cref="RepliesScope"/>, which reading replies, mentions and quotes needs, and for the
+    /// two gate records (who may reply, quote posts off): a sign-in made before they were added keeps
+    /// posting, but a post that needs a gate waits until Sign in with Bluesky is done again.
     /// </summary>
     public const string NarrowScope =
-        "atproto repo:app.bsky.feed.post?action=create&action=update&action=delete repo:app.bsky.actor.profile?action=create&action=update blob:image/* "
+        "atproto repo:app.bsky.feed.post?action=create&action=update&action=delete repo:app.bsky.actor.profile?action=create&action=update "
+        + "repo:app.bsky.feed.threadgate?action=create&action=update&action=delete repo:app.bsky.feed.postgate?action=create&action=update&action=delete "
+        + "blob:image/* "
         + RepliesScope;
+
+    /// <summary>
+    /// Whether a sign-in with this scope may make a post's threadgate and postgate: it names both
+    /// collections, or it is <see cref="WideScope"/>. A sign-in made before the narrow scope had them does not.
+    /// </summary>
+    public static bool CanSetWhoCanReply(string? scope)
+    {
+        var parts = scope?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? [];
+
+        return parts.Contains("transition:generic")
+            || (parts.Any(s => s.StartsWith("repo:app.bsky.feed.threadgate", StringComparison.Ordinal))
+                && parts.Any(s => s.StartsWith("repo:app.bsky.feed.postgate", StringComparison.Ordinal)));
+    }
 
     /// <summary>
     /// The one call to Bluesky's AppView the account's own server passes on for Modbot: the list of

@@ -45979,6 +45979,30 @@
             "items": {
               "$ref": "#/components/schemas/CalendarBlueskyPicture"
             }
+          },
+          "blueskyWhoCanReply": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "blueskyQuotesOff": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "blueskyLanguages": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -46424,6 +46448,28 @@
             ],
             "items": {
               "$ref": "#/components/schemas/CalendarBlueskyPicture"
+            }
+          },
+          "blueskyWhoCanReply": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "blueskyQuotesOff": {
+            "type": "boolean",
+            "default": false
+          },
+          "blueskyLanguages": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
             }
           }
         }
@@ -47675,6 +47721,30 @@
             ],
             "items": {
               "$ref": "#/components/schemas/CalendarBlueskyPicture"
+            }
+          },
+          "blueskyWhoCanReply": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "blueskyQuotesOff": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "blueskyLanguages": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
             }
           }
         }

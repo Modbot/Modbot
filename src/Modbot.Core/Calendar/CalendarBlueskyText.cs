@@ -52,6 +52,12 @@ public static class CalendarBlueskyText
     /// <summary>The words for an alt text over <see cref="AltMaxLength"/>.</summary>
     public const string AltTooLong = "A Bluesky picture's alt text is longer than 2000 characters.";
 
+    /// <summary>The words for a post given more than <see cref="BlueskyLanguages.Most"/> languages, or one that is no language code.</summary>
+    public const string LanguagesNotAllowed = "A Bluesky post has at most 3 languages, each a code such as en.";
+
+    /// <summary>The words for a choice of who may reply that is not one of Bluesky's.</summary>
+    public const string ReplyChoiceNotAllowed = "Who can reply to a Bluesky post is Anyone, Nobody, or any of Your followers, People you follow and People you mention.";
+
     public static bool IsChoice(int minutes) => BeforeChoices.Contains(minutes);
 
     /// <summary>When the post for <paramref name="occurrence"/> goes: its start, earlier by the event's choice.</summary>
@@ -159,10 +165,23 @@ public static class CalendarBlueskyText
     /// The post's own list of pictures, or null for the cover alone. Null gives the same fingerprint as
     /// before pictures had a list, so a post that went out is not taken down and made again for it.
     /// </param>
-    public static string Fingerprint(string text, Guid? pictureId, IReadOnlyList<BlueskyPostPicture>? pictures = null) =>
-        pictures is null
-            ? CalendarFingerprint.Of(text, pictureId)
-            : CalendarFingerprint.Of(text, pictureId, string.Join('\u001f', pictures.Select(p => $"{p.PictureId}\u001e{p.Alt}")));
+    /// <param name="whoCanReply">Who may reply, as the event keeps it. Null (anyone) adds nothing to the fingerprint.</param>
+    /// <param name="quotesOff">Quote posts are off. False adds nothing to the fingerprint.</param>
+    /// <param name="languages">The post's languages. None adds nothing to the fingerprint.</param>
+    public static string Fingerprint(
+        string text, Guid? pictureId, IReadOnlyList<BlueskyPostPicture>? pictures = null,
+        IReadOnlyList<string>? whoCanReply = null, bool quotesOff = false, IReadOnlyList<string>? languages = null)
+    {
+        var own = pictures is null ? null : string.Join('\u001f', pictures.Select(p => $"{p.PictureId}\u001e{p.Alt}"));
+
+        // The reply, quote and language choices count only once one is made, so a post that went out
+        // before they existed keeps its fingerprint and is not taken down and made again.
+        if (whoCanReply is null && !quotesOff && languages is not { Count: > 0 })
+            return own is null ? CalendarFingerprint.Of(text, pictureId) : CalendarFingerprint.Of(text, pictureId, own);
+
+        return CalendarFingerprint.Of(
+            text, pictureId, own, string.Join(',', whoCanReply ?? []), quotesOff, string.Join(',', languages ?? []));
+    }
 
     /// <summary>
     /// The pictures the post goes with when the event has a list of its own, each with the alt text it

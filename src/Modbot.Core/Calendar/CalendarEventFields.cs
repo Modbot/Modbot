@@ -38,6 +38,9 @@ public static class CalendarEventFields
             ["blueskyPictures"] = e.BlueskyPictures is { } pictures
                 ? string.Join(", ", pictures.Select(p => $"{p.PictureId}: {p.Alt}"))
                 : null,
+            ["blueskyWhoCanReply"] = e.BlueskyWhoCanReply is { } whoCanReply ? string.Join(", ", whoCanReply) : null,
+            ["blueskyQuotesOff"] = e.BlueskyQuotesOff,
+            ["blueskyLanguages"] = e.BlueskyLanguages is { } blueskyLanguages ? string.Join(", ", blueskyLanguages) : null,
             ["category"] = e.Category,
             ["modbotCategories"] = string.Join(", ", e.Categories.Select(c => c.Name).Order(StringComparer.Ordinal)),
             ["languages"] = string.Join(", ", e.Languages),

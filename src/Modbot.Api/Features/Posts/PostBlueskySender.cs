@@ -58,6 +58,8 @@ public sealed class PostBlueskySender
     public const string AccountChanged = "That Bluesky account is not the one in Settings.";
     public const string ReplyParentGone = "The post this answers is no longer on Bluesky.";
     public const string KeyTaken = "Bluesky says this post is already there, but could not show it.";
+    public const string SignInAgain = "Sign in with Bluesky again to let Modbot set who can reply.";
+    public const string GatesNotMade = "The post is up, but who can reply or quote it could not be set.";
 
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
@@ -122,6 +124,10 @@ public sealed class PostBlueskySender
         // While Bluesky limits Modbot nothing is asked of it, a read-back included.
         if (!pass.Stopped)
             await LookAsync(pass).ConfigureAwait(false);
+
+        // A post that is up without its reply or quote setting gets it, even while posting is held.
+        if (!pass.Stopped)
+            await SetGatesAsync(pass).ConfigureAwait(false);
 
         await FailLateAsync(pass).ConfigureAwait(false);
 
@@ -204,7 +210,9 @@ public sealed class PostBlueskySender
 
         if (read.Found is { } found)
         {
-            await PostedAsync(pass, post, destination, found, adopted: true).ConfigureAwait(false);
+            // The settings were not tried: the post was never confirmed, so they are made on a later pass.
+            await PostedAsync(pass, post, destination, found, adopted: true, gatesLeft: PostTexts.BlueskyOptionsOf(destination).HasGates)
+                .ConfigureAwait(false);
             _log.Information("Bluesky post {PostId} had gone through after all", post.Id);
             return;
         }
@@ -406,6 +414,18 @@ public sealed class PostBlueskySender
             return;
         }
 
+        // A reply or quote setting needs permission a sign-in made before it existed lacks. That is
+        // said before anything is sent: the post is never made open to everyone when it was set not to be.
+        var options = PostTexts.BlueskyOptionsOf(destination);
+
+        if (options.HasGates
+            && _session.Read(pass.SessionEncrypted)?.OAuth is { } grant
+            && !BlueskyOAuth.CanSetWhoCanReply(grant.Scope))
+        {
+            await NotSentAsync(pass, destination, SignInAgain, waitingSince, null).ConfigureAwait(false);
+            return;
+        }
+
         // The key is made once, and kept for every try after: the heart of at most once.
         destination.ClientKey ??= Tid.Next(_clock);
         var key = destination.ClientKey;
@@ -420,7 +440,7 @@ public sealed class PostBlueskySender
 
         // An event's post carries the pictures it was given, up to four, each with its alt text; any other
         // post its one picture, described by its title.
-        List<(Guid Id, string Alt)> wanted = PostTexts.BlueskyOptionsOf(destination).Pictures is { Count: > 0 } own
+        List<(Guid Id, string Alt)> wanted = options.Pictures is { Count: > 0 } own
             ? [.. own.Take(Modbot.Core.Calendar.CalendarBlueskyText.MostPictures).Select(p => (p.PictureId, p.Alt))]
             : PostTexts.BlueskyPictureFor(post, destination) is { } pictureId
                 ? [(pictureId, title ?? string.Empty)]
@@ -456,14 +476,16 @@ public sealed class PostBlueskySender
         }
 
         // createdAt is this send's own time: feeds sort by it (fact 21).
-        var record = BlueskyPostRecord.Build(text, pass.Now, card, replyTo, images);
+        var record = BlueskyPostRecord.Build(text, pass.Now, card, replyTo, images, options.Languages);
 
         var put = await _client.PutRecordAsync(access, access.Did, BlueskyClient.PostCollection, key, record, pass.Ct)
             .ConfigureAwait(false);
 
         if (put.Value is { } made)
         {
-            await PostedAsync(pass, post, destination, made, adopted: false).ConfigureAwait(false);
+            var notSet = await PutGatesAsync(pass, access, made.Uri, key, options).ConfigureAwait(false);
+            await PostedAsync(pass, post, destination, made, adopted: false, gatesLeft: notSet is not null, gatesError: notSet)
+                .ConfigureAwait(false);
             return;
         }
 
@@ -475,7 +497,9 @@ public sealed class PostBlueskySender
             var read = await ReadBackAsync(pass, access.Did, key).ConfigureAwait(false);
             if (read.Found is { } found)
             {
-                await PostedAsync(pass, post, destination, found, adopted: true).ConfigureAwait(false);
+                var notSet = await PutGatesAsync(pass, access, found.Uri, key, options).ConfigureAwait(false);
+                await PostedAsync(pass, post, destination, found, adopted: true, gatesLeft: notSet is not null, gatesError: notSet)
+                    .ConfigureAwait(false);
                 return;
             }
 
@@ -572,22 +596,110 @@ public sealed class PostBlueskySender
         return _session.StopAsync(_db, failure, pass.Ct);
     }
 
+    // ── Who may reply, quote posts ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Makes the post's threadgate and postgate, which sit at the post's own key. The post goes first, as
+    /// Bluesky's own app does it. Null when they are made or none is wanted; otherwise the sentence that
+    /// says why not (a limit stops the lane, a token that ended is refreshed next pass). A record already
+    /// there is the one an earlier try made, since the post's key is never reused for another post.
+    /// </summary>
+    private async Task<string?> PutGatesAsync(Pass pass, BlueskyAccess access, string postUri, string key, BlueskyPostOptions options)
+    {
+        if (!options.HasGates)
+            return null;
+
+        var records = new (string Collection, JsonObject? Record)[]
+        {
+            (BlueskyPostGates.ThreadgateCollection, BlueskyPostGates.Threadgate(postUri, options.WhoCanReply, pass.Now)),
+            (BlueskyPostGates.PostgateCollection, BlueskyPostGates.Postgate(postUri, options.QuotesOff, pass.Now)),
+        };
+
+        foreach (var (collection, record) in records)
+        {
+            if (record is null)
+                continue;
+
+            var put = await _client.PutRecordAsync(access, access.Did, collection, key, record, pass.Ct).ConfigureAwait(false);
+
+            if (put.Failure is not { } failure || failure.Problem == BlueskyProblem.InvalidSwap)
+                continue;
+
+            if (failure.StopsTheLane)
+                await StopAsync(pass, failure).ConfigureAwait(false);
+            else if (failure.Problem is BlueskyProblem.TokenExpired or BlueskyProblem.TokenRefused)
+                await _session.ExpiredAsync(_db, access.AccessJwt, pass.Ct).ConfigureAwait(false);
+
+            _log.Warning("Bluesky took the post {Key} but not its {Collection}: {Reason}", key, collection, BlueskyErrors.Sentence(failure));
+            return $"{GatesNotMade} {(failure.StopsTheLane ? BlueskyErrors.Limited : BlueskyErrors.Sentence(failure))}";
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// A post that is up without its reply or quote setting gets it: the destinations marked
+    /// <see cref="BlueskyPostOptions.SettingsToSend"/>, a couple a pass.
+    /// </summary>
+    private async Task SetGatesAsync(Pass pass)
+    {
+        var waiting = await _db.PostDestinations
+            .Where(d => d.Network == PostNetworks.Bluesky
+                && d.State == PostDestinationStates.Posted
+                && d.ExternalId != null
+                && d.ClientKey != null
+                && EF.Functions.JsonContains(d.Options, "{\"settingsToSend\":true}"))
+            .OrderBy(d => d.PostedAt)
+            .Take(LooksPerPass)
+            .ToListAsync(pass.Ct).ConfigureAwait(false);
+
+        if (waiting.Count == 0)
+            return;
+
+        var signIn = await _session.AccessAsync(_db, prove: false, pass.Ct).ConfigureAwait(false);
+        if (signIn.Access is not { } access)
+        {
+            pass.Stopped |= signIn.Hold == BlueskyHold.Stopped;
+            return;
+        }
+
+        foreach (var destination in waiting)
+        {
+            if (pass.Stopped || !string.Equals(destination.Target, access.Did, StringComparison.Ordinal))
+                continue;
+
+            var options = PostTexts.BlueskyOptionsOf(destination);
+            var notSet = await PutGatesAsync(pass, access, destination.ExternalId!, destination.ClientKey!, options).ConfigureAwait(false);
+
+            destination.Options = PostTexts.WriteBlueskyOptions(options with { SettingsToSend = notSet is not null });
+            destination.Error = Trim(notSet);
+            destination.ErrorAt = notSet is null ? null : pass.Now;
+            destination.UpdatedAt = pass.Now;
+
+            await _db.SaveChangesAsync(pass.Ct).ConfigureAwait(false);
+        }
+    }
+
     // ── Outcomes ─────────────────────────────────────────────────────────────────────────
 
-    private async Task PostedAsync(Pass pass, Post post, PostDestination destination, BlueskyRecordRef made, bool adopted)
+    /// <param name="gatesLeft">The post's reply or quote setting is still to be made: a later pass makes it.</param>
+    /// <param name="gatesError">Why the setting could not be made now, shown with the post; null when it was not tried or is made.</param>
+    private async Task PostedAsync(
+        Pass pass, Post post, PostDestination destination, BlueskyRecordRef made, bool adopted, bool gatesLeft = false, string? gatesError = null)
     {
         var key = destination.ClientKey!;
 
         destination.State = PostDestinationStates.Posted;
         destination.ExternalId = made.Uri;
         destination.Link = BlueskyText.PostLink(destination.Target, key);
-        destination.Options = PostTexts.WriteBlueskyOptions(PostTexts.BlueskyOptionsOf(destination) with { Cid = made.Cid.Length > 0 ? made.Cid : null });
+        destination.Options = PostTexts.WriteBlueskyOptions(
+            PostTexts.BlueskyOptionsOf(destination) with { Cid = made.Cid.Length > 0 ? made.Cid : null, SettingsToSend = gatesLeft });
         destination.PostedAt = pass.Now;
         destination.MayBeSent = false;
         destination.SendIfMissing = false;
         destination.CheckAt = null;
-        destination.Error = null;
-        destination.ErrorAt = null;
+        destination.Error = Trim(gatesError);
+        destination.ErrorAt = gatesError is null ? null : pass.Now;
         destination.MissingPermission = null;
         destination.UpdatedAt = pass.Now;
 
@@ -660,6 +772,9 @@ public sealed class PostBlueskySender
         public Uri? Server { get; } = BlueskyIdentity.ServerAddress(settings.BlueskyServer);
 
         public string? Handle { get; } = settings.BlueskyHandle;
+
+        /// <summary>The saved sign-in, sealed: its scope says whether a post may carry a reply or quote setting.</summary>
+        public string? SessionEncrypted { get; } = settings.BlueskySessionEncrypted;
 
         /// <summary>Bluesky is limiting Modbot: nothing more is asked of it this pass.</summary>
         public bool Stopped { get; set; } = settings.BlueskyStoppedUntil is { } until && now < until;

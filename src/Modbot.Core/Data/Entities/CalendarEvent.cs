@@ -114,6 +114,19 @@ public class CalendarEvent
         }
     }
 
+    /// <summary>
+    /// Who may reply to Bluesky's post. Null is anyone (no reply setting is made, as before the choice
+    /// existed); <c>["nobody"]</c> is nobody; otherwise any of <c>followers</c>, <c>following</c> and
+    /// <c>mentioned</c> (<see cref="BlueskyReplyChoices"/>).
+    /// </summary>
+    public List<string>? BlueskyWhoCanReply { get; set; }
+
+    /// <summary>Quote posts of Bluesky's post are not allowed. False, the start, leaves them open.</summary>
+    public bool BlueskyQuotesOff { get; set; }
+
+    /// <summary>The languages Bluesky's post says it is written in, up to three BCP 47 codes. Null or empty says none.</summary>
+    public List<string>? BlueskyLanguages { get; set; }
+
     // ── When ─────────────────────────────────────────────────────────────────────────────
 
     /// <summary>When the first occurrence starts.</summary>

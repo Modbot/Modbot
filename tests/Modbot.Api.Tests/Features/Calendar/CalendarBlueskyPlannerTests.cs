@@ -26,11 +26,16 @@ public sealed class CalendarBlueskyPlannerTests(PostgresFixture db)
     {
         public List<(string Did, string Key)> Deletes { get; } = [];
 
+        /// <summary>The keys deleted with their reply and quote settings.</summary>
+        public List<string> WithGates { get; } = [];
+
         public PostSiteOutcome Answer { get; set; } = PostSiteOutcome.Ok;
 
-        public Task<PostSiteOutcome> DeleteAsync(string did, string recordKey, CancellationToken ct = default)
+        public Task<PostSiteOutcome> DeleteAsync(string did, string recordKey, bool withGates = false, CancellationToken ct = default)
         {
             Deletes.Add((did, recordKey));
+            if (withGates)
+                WithGates.Add(recordKey);
             return Task.FromResult(Answer);
         }
     }
@@ -224,6 +229,87 @@ public sealed class CalendarBlueskyPlannerTests(PostgresFixture db)
 
         Assert.Equal(1, pass.Deleted);
         Assert.Equal([(FakeBluesky.Did, "oldkey")], _bluesky.Deletes);
+    }
+
+    [Fact]
+    public async Task AnEventWithNoReplyQuoteOrLanguageChoiceKeepsTheFingerprintFromBefore_AndHasNoGates()
+    {
+        await SetUpAsync();
+        var e = await AddEventAsync(TimeSpan.FromHours(3));
+
+        await PassAsync();
+
+        var destination = Assert.Single(Assert.Single(await PostsAsync(e.Id)).Destinations);
+        var options = PostTexts.BlueskyOptionsOf(destination);
+        Assert.Equal(CalendarBlueskyText.Fingerprint(destination.TextOverride!, null), options.Fingerprint);
+        Assert.False(options.HasGates);
+        Assert.Null(options.WhoCanReply);
+        Assert.False(options.QuotesOff);
+        Assert.Null(options.Languages);
+    }
+
+    [Fact]
+    public async Task TheChoicesGoIntoThePostsOptions_InTheFormsOrder()
+    {
+        await SetUpAsync();
+        var e = await AddEventAsync(TimeSpan.FromHours(3), x =>
+        {
+            x.BlueskyWhoCanReply = ["mentioned", "followers"];
+            x.BlueskyQuotesOff = true;
+            x.BlueskyLanguages = ["en", " de ", "EN"];
+        });
+
+        await PassAsync();
+
+        var options = PostTexts.BlueskyOptionsOf(Assert.Single(Assert.Single(await PostsAsync(e.Id)).Destinations));
+        Assert.Equal(["followers", "mentioned"], options.WhoCanReply);
+        Assert.True(options.QuotesOff);
+        Assert.Equal(["en", "de"], options.Languages);
+        Assert.True(options.HasGates);
+    }
+
+    [Theory]
+    [InlineData("reply")]
+    [InlineData("quote")]
+    [InlineData("language")]
+    public async Task ChangingWhoCanReplyQuotesOrLanguagesRewritesThePostThatWentOut_AndTakesItsGatesDown(string change)
+    {
+        await SetUpAsync();
+        var e = await AddEventAsync(TimeSpan.FromHours(3), x => x.BlueskyWhoCanReply = ["nobody"]);
+        await PassAsync();
+        await PostedAsync(Assert.Single(await PostsAsync(e.Id)), "oldkey");
+
+        await EditAsync(e.Id, x =>
+        {
+            if (change == "reply")
+                x.BlueskyWhoCanReply = ["followers"];
+            else if (change == "quote")
+                x.BlueskyQuotesOff = true;
+            else
+                x.BlueskyLanguages = ["en"];
+        });
+        var pass = await PassAsync();
+
+        Assert.Equal(1, pass.Deleted);
+        Assert.Equal([(FakeBluesky.Did, "oldkey")], _bluesky.Deletes);
+
+        // The old post had a reply setting, so its threadgate goes with it.
+        Assert.Equal(["oldkey"], _bluesky.WithGates);
+    }
+
+    [Fact]
+    public async Task APostWithNoGatesIsDeletedWithoutAskingForThem()
+    {
+        await SetUpAsync();
+        var e = await AddEventAsync(TimeSpan.FromHours(3));
+        await PassAsync();
+        await PostedAsync(Assert.Single(await PostsAsync(e.Id)), "oldkey");
+
+        await EditAsync(e.Id, x => x.BlueskyLanguages = ["en"]);
+        await PassAsync();
+
+        Assert.Equal([(FakeBluesky.Did, "oldkey")], _bluesky.Deletes);
+        Assert.Empty(_bluesky.WithGates);
     }
 
     [Fact]

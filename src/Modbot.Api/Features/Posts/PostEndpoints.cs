@@ -628,7 +628,8 @@ public static class PostEndpoints
                 var outcome = destination.Network switch
                 {
                     PostNetworks.VRChat => await vrchat.DeleteAsync(destination.Target, messageId, ct),
-                    PostNetworks.Bluesky => await bluesky.DeleteAsync(destination.Target, BlueskyKeyOf(destination), ct),
+                    PostNetworks.Bluesky => await bluesky.DeleteAsync(
+                        destination.Target, BlueskyKeyOf(destination), PostTexts.BlueskyOptionsOf(destination).HasGates, ct),
                     _ => await discord.DeleteAsync(destination.Target, messageId, "Post deleted from Modbot", ct),
                 };
 

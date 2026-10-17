@@ -45,8 +45,10 @@ public static class BlueskyPostRecord
     /// <summary>The record, ready for <c>putRecord</c>.</summary>
     /// <param name="replyTo">The post this one answers, or null for a post of its own. Modbot replies only to its own top-level posts, so that post is both the root and the parent.</param>
     /// <param name="images">The post's pictures, up to four, or null for none. A post has the pictures or the link card, never both: with a picture, <paramref name="card"/> is left out (the link stays clickable in the text).</param>
+    /// <param name="langs">The languages the post is written in (<c>langs</c>), up to three; null or empty leaves the field out.</param>
     public static JsonObject Build(
-        string text, DateTimeOffset createdAt, BlueskyCard? card, BlueskyReplyTo? replyTo = null, IReadOnlyList<BlueskyImage>? images = null)
+        string text, DateTimeOffset createdAt, BlueskyCard? card, BlueskyReplyTo? replyTo = null, IReadOnlyList<BlueskyImage>? images = null,
+        IReadOnlyList<string>? langs = null)
     {
         ArgumentNullException.ThrowIfNull(text);
 
@@ -56,6 +58,9 @@ public static class BlueskyPostRecord
             ["text"] = text,
             ["createdAt"] = createdAt.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture),
         };
+
+        if (langs is { Count: > 0 })
+            record["langs"] = new JsonArray([.. langs.Take(BlueskyLanguages.Most).Select(l => (JsonNode?)JsonValue.Create(l))]);
 
         var facets = BlueskyText.Facets(text);
         if (facets.Count > 0)

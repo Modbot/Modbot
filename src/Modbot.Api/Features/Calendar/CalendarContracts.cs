@@ -84,6 +84,12 @@ namespace Modbot.Api.Features.Calendar;
 /// answered it with its alt text. An empty list says no picture; null keeps what the event has, which for
 /// an event never given a list is the cover alone.
 /// </param>
+/// <param name="BlueskyWhoCanReply">
+/// Who may reply to Bluesky's post: <c>anyone</c>, <c>nobody</c>, or any of <c>followers</c>, <c>following</c>
+/// and <c>mentioned</c>. Null keeps what the event has; a new event starts with anyone.
+/// </param>
+/// <param name="BlueskyQuotesOff">Quote posts of Bluesky's post are not allowed. Null keeps what the event has; a new event allows them.</param>
+/// <param name="BlueskyLanguages">The languages Bluesky's post is written in, up to 3 codes such as <c>en</c>. Null keeps what the event has; an empty list says none.</param>
 public sealed record CalendarEventRequest(
     string Title,
     string? Description,
@@ -136,7 +142,10 @@ public sealed record CalendarEventRequest(
     int? BlueskyPostBeforeMinutes = null,
     bool AnnounceFirstJoinOnBluesky = false,
     int? PostColour = null,
-    IReadOnlyList<CalendarBlueskyPicture>? BlueskyPictures = null);
+    IReadOnlyList<CalendarBlueskyPicture>? BlueskyPictures = null,
+    IReadOnlyList<string>? BlueskyWhoCanReply = null,
+    bool? BlueskyQuotesOff = null,
+    IReadOnlyList<string>? BlueskyLanguages = null);
 
 /// <summary>One picture of an event's Bluesky post: a kept picture and its alt text.</summary>
 /// <param name="PictureId">The picture, as <c>POST /api/calendar/cover</c> answered it.</param>
@@ -329,6 +338,9 @@ public sealed record CalendarPictureLinkRequest(string? Url);
 /// <param name="BlueskyPostBeforeMinutes">How long before a date starts its Bluesky post goes.</param>
 /// <param name="PostColour">The channel post's colour while a date is scheduled, <c>0xRRGGBB</c>; null for Modbot's violet.</param>
 /// <param name="BlueskyPictures">The pictures of Bluesky's post, first first; null when the post goes with the cover alone.</param>
+/// <param name="BlueskyWhoCanReply">Who may reply to Bluesky's post: <c>anyone</c>, <c>nobody</c>, or any of <c>followers</c>, <c>following</c>, <c>mentioned</c>.</param>
+/// <param name="BlueskyQuotesOff">Quote posts of Bluesky's post are not allowed.</param>
+/// <param name="BlueskyLanguages">The languages Bluesky's post is written in; empty for none.</param>
 /// <param name="VRChatRoleIds">
 /// The group roles VRChat shows the event to, kept as VRChat said them for an event read in from
 /// VRChat; null or empty for everyone it is visible to. An event narrowed to roles is for members
@@ -408,7 +420,10 @@ public sealed record CalendarEventView(
     string? BlueskyDescription = null,
     bool AnnounceFirstJoinOnBluesky = false,
     int? PostColour = null,
-    IReadOnlyList<CalendarBlueskyPicture>? BlueskyPictures = null);
+    IReadOnlyList<CalendarBlueskyPicture>? BlueskyPictures = null,
+    IReadOnlyList<string>? BlueskyWhoCanReply = null,
+    bool BlueskyQuotesOff = false,
+    IReadOnlyList<string>? BlueskyLanguages = null);
 
 /// <summary>A time the channel streamed on Twitch while this event was on (Twitch design, step 3).</summary>
 /// <param name="Id">Twitch's stream id. Opaque.</param>

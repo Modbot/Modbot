@@ -1919,6 +1919,14 @@ public static class CalendarEndpoints
         if (body.BlueskyPictures?.Any(p => (p.Alt ?? string.Empty).Length > CalendarBlueskyText.AltMaxLength) == true)
             problems.Add(CalendarBlueskyText.AltTooLong);
 
+        // Who may reply and the languages: null keeps the event's.
+        if (!BlueskyPostGates.IsChoice(body.BlueskyWhoCanReply))
+            problems.Add(CalendarBlueskyText.ReplyChoiceNotAllowed);
+
+        if (BlueskyLanguages.Clean(body.BlueskyLanguages) is { } languages
+            && (languages.Count > BlueskyLanguages.Most || !languages.All(BlueskyLanguages.IsCode)))
+            problems.Add(CalendarBlueskyText.LanguagesNotAllowed);
+
         foreach (var (what, ownTitle) in new[] { ("VRChat title", vrchatTitle), ("Discord title", discordTitle), ("Google title", googleTitle), ("Bluesky title", blueskyTitle) })
         {
             if (CalendarAutoLinks.HasLink(ownTitle))
@@ -2125,6 +2133,14 @@ public static class CalendarEndpoints
         target.CoverPictureId = body.CoverPictureId;
         if (body.BlueskyPictures is { } blueskyPictures)
             target.BlueskyPictures = [.. blueskyPictures.Select(p => new BlueskyPostPicture(p.PictureId, (p.Alt ?? string.Empty).Trim()))];
+
+        if (body.BlueskyWhoCanReply is not null)
+            target.BlueskyWhoCanReply = BlueskyPostGates.Normalize(body.BlueskyWhoCanReply);
+
+        target.BlueskyQuotesOff = body.BlueskyQuotesOff ?? target.BlueskyQuotesOff;
+
+        if (body.BlueskyLanguages is not null)
+            target.BlueskyLanguages = BlueskyLanguages.Clean(body.BlueskyLanguages);
 
         target.Category = category;
         target.Languages = Clean(body.Languages);
@@ -2430,7 +2446,10 @@ public static class CalendarEndpoints
                 e.PostColour,
                 e.BlueskyPictures is { } blueskyPictures
                     ? [.. blueskyPictures.Select(p => new CalendarBlueskyPicture(p.PictureId, p.Alt))]
-                    : null);
+                    : null,
+                BlueskyPostGates.Normalize(e.BlueskyWhoCanReply) ?? [BlueskyPostGates.Anyone],
+                e.BlueskyQuotesOff,
+                BlueskyLanguages.Clean(e.BlueskyLanguages) ?? []);
         })];
     }
 

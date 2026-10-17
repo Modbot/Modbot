@@ -17,5 +17,9 @@ public interface IBlueskyPostActions
     /// that is already gone counts as done. Only the account in Settings can delete: a post sent
     /// from an account removed since is said to be out of reach.
     /// </summary>
-    Task<PostSiteOutcome> DeleteAsync(string did, string recordKey, CancellationToken ct = default);
+    /// <param name="withGates">
+    /// The post has a threadgate or a postgate at the same key (who may reply, quote posts off): they are
+    /// deleted with it, after it, so the post is never left open. Asking again after a failure is safe.
+    /// </param>
+    Task<PostSiteOutcome> DeleteAsync(string did, string recordKey, bool withGates = false, CancellationToken ct = default);
 }

@@ -29,7 +29,7 @@ public class PostBlueskyEndpointTests(PostgresFixture db)
 
         public PostSiteOutcome Answer { get; set; } = PostSiteOutcome.Ok;
 
-        public Task<PostSiteOutcome> DeleteAsync(string did, string recordKey, CancellationToken ct = default)
+        public Task<PostSiteOutcome> DeleteAsync(string did, string recordKey, bool withGates = false, CancellationToken ct = default)
         {
             Deletes.Add((did, recordKey));
             return Task.FromResult(Answer);

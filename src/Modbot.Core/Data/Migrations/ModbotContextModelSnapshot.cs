@@ -1191,6 +1191,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("bluesky_description");
 
+                    b.PrimitiveCollection<string>("BlueskyLanguages")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("bluesky_languages");
+
                     b.PrimitiveCollection<string>("BlueskyPictureAlts")
                         .HasColumnType("jsonb")
                         .HasColumnName("bluesky_picture_alts");
@@ -1203,10 +1207,18 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("bluesky_post_before_minutes");
 
+                    b.Property<bool>("BlueskyQuotesOff")
+                        .HasColumnType("boolean")
+                        .HasColumnName("bluesky_quotes_off");
+
                     b.Property<string>("BlueskyTitle")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("bluesky_title");
+
+                    b.PrimitiveCollection<string>("BlueskyWhoCanReply")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("bluesky_who_can_reply");
 
                     b.Property<DateTimeOffset?>("CancelledAt")
                         .HasColumnType("timestamp with time zone")

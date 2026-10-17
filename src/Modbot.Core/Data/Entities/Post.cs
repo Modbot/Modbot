@@ -375,12 +375,31 @@ public sealed record VRChatPostOptions(
 /// For an event's post: the pictures the post goes with, in order, up to four, each with its alt text
 /// (Bluesky's own picture grid). Null for a post with its one picture, <see cref="PictureId"/>.
 /// </param>
+/// <param name="WhoCanReply">
+/// For an event's post: who may reply, as <see cref="Modbot.Core.Bluesky.BlueskyPostGates.Normalize"/> keeps it. Null is
+/// anyone: no threadgate is made.
+/// </param>
+/// <param name="QuotesOff">For an event's post: quote posts are not allowed, so a postgate is made.</param>
+/// <param name="Languages">For an event's post: the languages it is written in (<c>langs</c>), up to three. Null for none.</param>
+/// <param name="SettingsToSend">
+/// The post is on Bluesky but its threadgate or postgate is not yet: a try to make them did not go through, and
+/// the sender makes them on a later pass.
+/// </param>
 public sealed record BlueskyPostOptions(
     Guid? PictureId = null,
     string? Cid = null,
     bool KeyTaken = false,
     string? Fingerprint = null,
-    IReadOnlyList<BlueskyPostPicture>? Pictures = null);
+    IReadOnlyList<BlueskyPostPicture>? Pictures = null,
+    IReadOnlyList<string>? WhoCanReply = null,
+    bool QuotesOff = false,
+    IReadOnlyList<string>? Languages = null,
+    bool SettingsToSend = false)
+{
+    /// <summary>Whether the post has a threadgate or a postgate to make, and to take down with it.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool HasGates => WhoCanReply is not null || QuotesOff;
+}
 
 /// <summary>One picture of a Bluesky post: a <c>calendar_cover_picture</c> id and its alt text.</summary>
 /// <param name="PictureId">The kept picture.</param>

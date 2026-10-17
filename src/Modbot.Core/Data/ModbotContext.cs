@@ -3168,6 +3168,8 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Ignore(e => e.BlueskyPictures);
             entity.Property(e => e.BlueskyPictureIds).HasColumnType("jsonb");
             entity.Property(e => e.BlueskyPictureAlts).HasColumnType("jsonb");
+            entity.Property(e => e.BlueskyWhoCanReply).HasColumnType("jsonb");
+            entity.Property(e => e.BlueskyLanguages).HasColumnType("jsonb");
             entity.HasOne<CalendarCoverPicture>()
                 .WithMany()
                 .HasForeignKey(e => e.CoverPictureId)

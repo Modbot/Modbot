@@ -375,7 +375,10 @@ public static class CalendarTemplateEndpoints
             PostColour: target.PostColour,
             BlueskyPictures: target.BlueskyPictures is { } blueskyPictures
                 ? [.. blueskyPictures.Select(p => new CalendarBlueskyPicture(p.PictureId, p.Alt))]
-                : null));
+                : null,
+            BlueskyWhoCanReply: target.BlueskyWhoCanReply,
+            BlueskyQuotesOff: target.BlueskyQuotesOff,
+            BlueskyLanguages: target.BlueskyLanguages));
     }
 
     /// <summary>
@@ -438,6 +441,9 @@ public static class CalendarTemplateEndpoints
             BlueskyDescription: f.BlueskyDescription,
             BlueskyPostBeforeMinutes: f.BlueskyPostBeforeMinutes,
             PostColour: f.PostColour,
-            BlueskyPictures: f.BlueskyPictures);
+            BlueskyPictures: f.BlueskyPictures,
+            BlueskyWhoCanReply: f.BlueskyWhoCanReply,
+            BlueskyQuotesOff: f.BlueskyQuotesOff,
+            BlueskyLanguages: f.BlueskyLanguages);
     }
 }

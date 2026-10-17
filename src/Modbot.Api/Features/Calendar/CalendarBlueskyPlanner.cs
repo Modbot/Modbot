@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
+using Modbot.Core.Bluesky;
 using Modbot.Core.Calendar;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -99,7 +100,10 @@ public sealed class CalendarBlueskyPlanner
         DateTimeOffset SendAt,
         string Fingerprint,
         string TimeZone,
-        IReadOnlyList<BlueskyPostPicture>? Pictures)
+        IReadOnlyList<BlueskyPostPicture>? Pictures,
+        IReadOnlyList<string>? WhoCanReply,
+        bool QuotesOff,
+        IReadOnlyList<string>? Languages)
     {
         public bool Due(DateTimeOffset now) => SendAt <= now;
 
@@ -225,15 +229,23 @@ public sealed class CalendarBlueskyPlanner
             var pictures = CalendarBlueskyText.PicturesOf(calendarEvent, title);
             var picture = pictures is null ? calendarEvent.CoverPictureId : pictures.FirstOrDefault()?.PictureId;
 
+            // Who may reply, quote posts and languages: none chosen is the post as it always was.
+            var whoCanReply = BlueskyPostGates.Normalize(calendarEvent.BlueskyWhoCanReply);
+            var quotesOff = calendarEvent.BlueskyQuotesOff;
+            var languages = BlueskyLanguages.Clean(calendarEvent.BlueskyLanguages)?.Take(BlueskyLanguages.Most).ToList();
+
             wants[occurrence.StartsAt] = new Want(
                 occurrence.StartsAt,
                 title,
                 text,
                 picture,
                 CalendarBlueskyText.SendAt(calendarEvent, occurrence),
-                CalendarBlueskyText.Fingerprint(text, picture, pictures),
+                CalendarBlueskyText.Fingerprint(text, picture, pictures, whoCanReply, quotesOff, languages),
                 calendarEvent.TimeZone,
-                pictures);
+                pictures,
+                whoCanReply,
+                quotesOff,
+                languages);
         }
 
         return wants;
@@ -351,7 +363,7 @@ public sealed class CalendarBlueskyPlanner
             return;
 
         run.Deleted++;
-        var outcome = await _bluesky.DeleteAsync(destination.Target, key, run.Ct).ConfigureAwait(false);
+        var outcome = await _bluesky.DeleteAsync(destination.Target, key, options.HasGates, run.Ct).ConfigureAwait(false);
 
         if (!outcome.Done)
         {
@@ -432,7 +444,8 @@ public sealed class CalendarBlueskyPlanner
         destination.TitleOverride = null;
         destination.TextOverride = want.Text;
         destination.SitePictureId = want.PictureId;
-        destination.Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(want.PictureId, null, false, want.Fingerprint, want.Pictures));
+        destination.Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(
+            want.PictureId, null, false, want.Fingerprint, want.Pictures, want.WhoCanReply, want.QuotesOff, want.Languages));
 
         if (destination.State != PostDestinationStates.Waiting || destination.ClientKey is null)
         {
