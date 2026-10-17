@@ -113,8 +113,10 @@ export function QuickCreate({
     if (asking) e.preventDefault()
   }
 
+  // With a title typed the popover is modal: a press on the grid only dismisses it (and asks), and
+  // never reaches an event or an empty slot behind it. Untouched, one click closes it and acts.
   return (
-    <Popover.Root open onOpenChange={(open) => !open && leave()}>
+    <Popover.Root open modal={title !== ''} onOpenChange={(open) => !open && leave()}>
       <Popover.Anchor asChild>
         <div aria-hidden className="pointer-events-none fixed" style={spot} />
       </Popover.Anchor>
@@ -126,7 +128,6 @@ export function QuickCreate({
           collisionPadding={8}
           aria-label="New event"
           onInteractOutside={holdOpen}
-          onEscapeKeyDown={holdOpen}
           className="z-40 flex w-[22rem] max-w-[calc(100vw-1rem)] flex-col gap-3 rounded-sm border-(length:--hairline) bg-popover p-(--panel-pad) text-popover-foreground shadow-sm outline-none"
           style={{ fontSize: 'var(--text-small)' }}
         >

@@ -372,9 +372,9 @@ export function CalendarEventForm({
   }
 
   const save = async (draft: boolean) => {
-    // A draft goes nowhere, so it needs no world. Scheduled, the list matters only to VRChat, and its
-    // field is on VRChat's tab.
-    if (!draft && input.publishToVRChat && missingList) {
+    // A draft goes nowhere, so it needs no world. Scheduled, the list matters only to VRChat (its
+    // calendar, or the instance Modbot opens), and its field is on VRChat's tab.
+    if (!draft && (input.publishToVRChat || input.autoOpen) && missingList) {
       setListMissed(true)
       openTab('vrchat')
       return
