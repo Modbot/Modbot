@@ -34,6 +34,7 @@ test('a file over 50 MB or of another type is refused', () => {
   assert.equal(videoFileProblem({ size: 1000, type: 'video/quicktime' }), null)
   assert.equal(videoFileProblem({ size: BLUESKY_VIDEO_MAX_BYTES, type: 'video/webm' }), null)
   assert.equal(videoFileProblem({ size: BLUESKY_VIDEO_MAX_BYTES + 1, type: 'video/mp4' }), 'The video is larger than 50 MB.')
+  assert.equal(videoFileProblem({ size: 1000, type: '' }), null)
   assert.equal(videoFileProblem({ size: 1000, type: 'image/png' }), 'The video must be an MP4, MPEG, WebM or QuickTime file.')
 })
 

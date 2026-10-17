@@ -138,7 +138,16 @@ public sealed class BlueskyClient(IHttpClientFactory http, IModbotClock clock)
     }
 
     /// <summary>
-    /// <c>uploadBlob</c>: the picture. The answer is the blob reference the post's picture carries.
+    /// How long a video upload may take. The 20 seconds every other call has would fail a 50 MB video on any
+    /// link slower than about 20 Mbit/s. Nothing else is given longer.
+    /// </summary>
+    public static readonly TimeSpan VideoUploadTimeout = TimeSpan.FromMinutes(5);
+
+    private static TimeSpan? UploadTimeout(string contentType) =>
+        contentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase) ? VideoUploadTimeout : null;
+
+    /// <summary>
+    /// <c>uploadBlob</c>: the picture or the video. The answer is the blob reference the post's picture carries.
     /// The same bytes give the same reference, so sending it again is safe.
     /// </summary>
     public async Task<BlueskyResult<JsonObject>> UploadBlobAsync(BlueskyAccess access, byte[] bytes, string contentType, CancellationToken ct)
@@ -153,7 +162,7 @@ public sealed class BlueskyClient(IHttpClientFactory http, IModbotClock clock)
             return content;
         }
 
-        var answer = await SendAsync(HttpMethod.Post, access.Server, "com.atproto.repo.uploadBlob", access, Content, signingIn: false, ct).ConfigureAwait(false);
+        var answer = await SendAsync(HttpMethod.Post, access.Server, "com.atproto.repo.uploadBlob", access, Content, signingIn: false, ct, UploadTimeout(contentType)).ConfigureAwait(false);
 
         return answer.Value?["blob"] is JsonObject blob
             ? BlueskyResult<JsonObject>.Ok((JsonObject)blob.DeepClone())
@@ -451,7 +460,8 @@ public sealed class BlueskyClient(IHttpClientFactory http, IModbotClock clock)
     /// more with the nonce it gave, which is why the body is made by <paramref name="content"/>.
     /// </summary>
     private async Task<BlueskyResult<JsonObject>> SendAsync(
-        HttpMethod method, Uri server, string path, BlueskyAccess? access, Func<HttpContent>? content, bool signingIn, CancellationToken ct)
+        HttpMethod method, Uri server, string path, BlueskyAccess? access, Func<HttpContent>? content, bool signingIn, CancellationToken ct,
+        TimeSpan? timeout = null)
     {
         var address = new Uri(server, "xrpc/" + path);
 
@@ -475,7 +485,13 @@ public sealed class BlueskyClient(IHttpClientFactory http, IModbotClock clock)
 
             try
             {
-                using var response = await http.CreateClient(HttpClientName).SendAsync(request, ct).ConfigureAwait(false);
+                // A client from the factory is new for each call, so a call that needs longer than the usual 20 seconds sets its own.
+                using var client = http.CreateClient(HttpClientName);
+
+                if (timeout is { } longer)
+                    client.Timeout = longer;
+
+                using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
                 var text = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
                 if (access?.DpopKey is not null)

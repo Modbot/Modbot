@@ -32,7 +32,8 @@ export function videoWithAlt(video: BlueskyVideo, alt: string): BlueskyVideo {
 /** Why a file may not be the video, or null: the same sentences the server says. */
 export function videoFileProblem(file: { size: number; type: string }): string | null {
   if (file.size > BLUESKY_VIDEO_MAX_BYTES) return 'The video is larger than 50 MB.'
-  if (!BLUESKY_VIDEO_TYPES.includes(file.type)) return 'The video must be an MP4, MPEG, WebM or QuickTime file.'
+  // A file the browser gave no type is left to the server, which tells a video by its first bytes.
+  if (file.type !== '' && !BLUESKY_VIDEO_TYPES.includes(file.type)) return 'The video must be an MP4, MPEG, WebM or QuickTime file.'
   return null
 }
 

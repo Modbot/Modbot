@@ -96,8 +96,10 @@ public sealed class VideoLinks
         {
             return VideoLinkResult.Refused(Private);
         }
-        catch (HttpRequestException)
+        catch (Exception e) when (e is HttpRequestException or IOException or InvalidDataException)
         {
+            // A connection that drops partway through the body (an IOException) or a body that does not
+            // decode (InvalidDataException) is a link that could not be fetched, like one that never answered.
             return VideoLinkResult.Refused(Unreachable);
         }
     }
@@ -136,7 +138,7 @@ public sealed class VideoLinks
             if (response.Content.Headers.ContentLength > VideoFormats.MaxBytes)
                 return VideoLinkResult.Refused(TooBig);
 
-            var bytes = await ReadAsync(response.Content, VideoFormats.MaxBytes + 1, ct).ConfigureAwait(false);
+            var bytes = await ReadAsync(response.Content, response.Content.Headers.ContentLength, VideoFormats.MaxBytes + 1, ct).ConfigureAwait(false);
 
             if (bytes.Length > VideoFormats.MaxBytes)
                 return VideoLinkResult.Refused(TooBig);
@@ -158,17 +160,41 @@ public sealed class VideoLinks
         return false;
     }
 
-    private static async Task<byte[]> ReadAsync(HttpContent content, int most, CancellationToken ct)
+    /// <summary>
+    /// At most <paramref name="most"/> bytes of the body. With a length that is known and within the limit the
+    /// array is made once at that size; otherwise the body is gathered as it comes.
+    /// </summary>
+    private static async Task<byte[]> ReadAsync(HttpContent content, long? length, int most, CancellationToken ct)
     {
         await using var body = await content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+
+        if (length is { } known and > 0 and < int.MaxValue && known <= most)
+        {
+            var whole = new byte[known];
+            var got = 0;
+
+            while (got < whole.Length)
+            {
+                var read = await body.ReadAsync(whole.AsMemory(got), ct).ConfigureAwait(false);
+
+                if (read == 0)
+                    break;
+
+                got += read;
+            }
+
+            // A body that ends early gives what came, as a gathered one does.
+            return got == whole.Length ? whole : whole[..got];
+        }
+
         using var copy = new MemoryStream();
         var buffer = new byte[81920];
-        int read;
+        int more;
 
-        while ((read = await body.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
+        while ((more = await body.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
         {
             var room = most - (int)copy.Length;
-            copy.Write(buffer, 0, Math.Min(read, room));
+            copy.Write(buffer, 0, Math.Min(more, room));
 
             if (copy.Length >= most)
                 break;

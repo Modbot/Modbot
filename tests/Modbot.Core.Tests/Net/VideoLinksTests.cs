@@ -247,6 +247,82 @@ public class VideoLinksTests
         Assert.Equal(VideoFormats.MaxBytes, result.Bytes!.Length);
     }
 
+    /// <summary>A body that gives some bytes and then fails the way a dropped connection or a bad encoding does.</summary>
+    private sealed class FailingStream(byte[] first, Exception failure) : Stream
+    {
+        private int _given;
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => Read(buffer.AsSpan(offset, count));
+
+        public override int Read(Span<byte> buffer)
+        {
+            if (_given >= first.Length)
+                throw failure;
+
+            var take = Math.Min(buffer.Length, first.Length - _given);
+            first.AsSpan(_given, take).CopyTo(buffer);
+            _given += take;
+            return take;
+        }
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) => ValueTask.FromResult(Read(buffer.Span));
+
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
+            Task.FromResult(Read(buffer.AsSpan(offset, count)));
+
+        public override void Flush()
+        {
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    public static TheoryData<Exception, bool> BodiesThatFailPartway() => new()
+    {
+        { new IOException("The connection was closed."), true },
+        { new IOException("The connection was closed."), false },
+        { new InvalidDataException("The archive entry was compressed using an unsupported compression method."), true },
+        { new InvalidDataException("The archive entry was compressed using an unsupported compression method."), false },
+    };
+
+    [Theory]
+    [MemberData(nameof(BodiesThatFailPartway))]
+    public async Task ABodyThatFailsPartwayIsUnreachable_NotAnError(Exception failure, bool saysHowBigItIs)
+    {
+        var table = new Table().Answer("https://videos.example/a", () =>
+        {
+            var content = new StreamContent(new FailingStream(Mp4, failure));
+
+            if (saysHowBigItIs)
+                content.Headers.ContentLength = Mp4.Length + 1000;
+
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+        });
+
+        var result = await new VideoLinks(table).FetchAsync("https://videos.example/a", Ct);
+
+        Assert.Null(result.Bytes);
+        Assert.Equal(VideoLinks.Unreachable, result.Problem);
+    }
+
     [Fact]
     public async Task AnErrorAnswerIsUnreachable()
     {

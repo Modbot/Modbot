@@ -208,7 +208,7 @@ export function CalendarEventForm({
   // Bluesky's pictures on their way up (one count per pick), and why the last one was not added.
   const [blueskyUploads, setBlueskyUploads] = useState(0)
   const [blueskyVideoUploads, setBlueskyVideoUploads] = useState(0)
-  const [blueskyPictureError, setBlueskyPictureError] = useState<string | null>(null)
+  const [blueskyMediaError, setBlueskyMediaError] = useState<string | null>(null)
   // Where an emoji goes: the Bluesky box last clicked into.
   const [putBlueskyText, setPutBlueskyText] = useState<{ put: (words: string) => boolean } | null>(null)
   const uploading = vrchatPicture.uploading || discordCover.uploading || blueskyUploads > 0 || blueskyVideoUploads > 0
@@ -447,13 +447,13 @@ export function CalendarEventForm({
   // Each picture is kept by Modbot as a cover is, with the small JPEG copy Bluesky is sent.
   const addBlueskyPictures = async (files: File[]) => {
     const room = BLUESKY_PICTURES_MAX - shownPictures(input.blueskyPictures, input.coverPictureId).length
-    setBlueskyPictureError(null)
+    setBlueskyMediaError(null)
     setBlueskyUploads((n) => n + 1)
 
     try {
       for (const file of files.slice(0, Math.max(room, 0))) {
         if (file.size > CALENDAR_COVER_MAX_BYTES) {
-          setBlueskyPictureError('A picture is larger than 8 MB.')
+          setBlueskyMediaError('A picture is larger than 8 MB.')
           continue
         }
 
@@ -468,7 +468,7 @@ export function CalendarEventForm({
         editBlueskyPictures((list) => withPictures(list, [{ pictureId: coverId, alt: '' }]))
       }
     } catch (e) {
-      setBlueskyPictureError(e instanceof ApiError ? problemsOf(e)[0] : 'Could not add the picture.')
+      setBlueskyMediaError(e instanceof ApiError ? problemsOf(e)[0] : 'Could not add the picture.')
     } finally {
       setBlueskyUploads((n) => n - 1)
     }
@@ -484,7 +484,7 @@ export function CalendarEventForm({
 
   const addBlueskyVideoFile = async (file: File) => {
     const problem = videoFileProblem(file)
-    setBlueskyPictureError(problem)
+    setBlueskyMediaError(problem)
     if (problem) return
 
     setBlueskyVideoUploads((n) => n + 1)
@@ -492,7 +492,7 @@ export function CalendarEventForm({
       const { videoId } = await calendarApi.uploadBlueskyVideo(file)
       setBlueskyVideo(videoFromFile(videoId))
     } catch (e) {
-      setBlueskyPictureError(e instanceof ApiError ? problemsOf(e)[0] : 'Could not add the video.')
+      setBlueskyMediaError(e instanceof ApiError ? problemsOf(e)[0] : 'Could not add the video.')
     } finally {
       setBlueskyVideoUploads((n) => n - 1)
     }
@@ -500,7 +500,7 @@ export function CalendarEventForm({
 
   const addBlueskyVideoLink = (url: string): boolean => {
     const problem = videoLinkProblem(url)
-    setBlueskyPictureError(problem)
+    setBlueskyMediaError(problem)
     if (problem) return false
 
     setBlueskyVideo(videoFromLink(url))
@@ -1174,7 +1174,7 @@ export function CalendarEventForm({
                       onVideoAlt={(alt) => set('blueskyVideo', video ? videoWithAlt(video, alt) : video)}
                       onVideoRemove={() => set('blueskyVideo', NO_VIDEO)}
                       videoUploading={blueskyVideoUploads > 0}
-                      error={blueskyPictureError}
+                      error={blueskyMediaError}
                       onEmoji={(emoji) => putBlueskyText?.put(emoji)}
                       whoCanReply={input.blueskyWhoCanReply ?? ['anyone']}
                       onWhoCanReply={(choice) => set('blueskyWhoCanReply', choice)}

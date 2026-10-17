@@ -95,8 +95,9 @@ function imagesOf(files: FileList | null): File[] {
   return Array.from(files ?? []).filter((f) => f.type.startsWith('image/'))
 }
 
+/** The first video file, or a file the browser gave no type: some systems do not know a video's type, and the server tells by the bytes. */
 function videoOf(files: FileList | null): File | undefined {
-  return Array.from(files ?? []).find((f) => f.type.startsWith('video/'))
+  return Array.from(files ?? []).find((f) => f.type === '' || f.type.startsWith('video/'))
 }
 
 /** The pictures (each with its ALT and remove buttons), or the link card, or an empty spot to drop or pick a picture. */
