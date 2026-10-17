@@ -306,6 +306,107 @@ public class CalendarCoverTests(PostgresFixture db)
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    private static object BodyWithBlueskyPictures(ApiTestHost host, IEnumerable<(Guid Id, string Alt)> pictures, Guid? cover = null)
+    {
+        var start = host.Clock.UtcNow.AddDays(2);
+
+        return new
+        {
+            title = "Movie night",
+            description = "Bring snacks",
+            startsAt = start.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture),
+            endsAt = start.AddHours(2).ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture),
+            timeZone = "UTC",
+            repeat = "none",
+            publishToDiscord = true,
+            coverPictureId = cover,
+            blueskyPictures = pictures.Select(p => new { pictureId = p.Id, alt = p.Alt }).ToArray(),
+            draft = true,
+        };
+    }
+
+    [Fact]
+    public async Task AnEventIsSavedWithItsBlueskyPicturesInOrder_EachWithItsAltText()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+        var first = await UploadedAsync(host, manager);
+        var second = await UploadedAsync(host, manager);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/calendar/events", BodyWithBlueskyPictures(host, [(second, "The cabin"), (first, "")]), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var pictures = (await ApiTestHost.BodyOf(response, Ct)).GetProperty("blueskyPictures").EnumerateArray().ToList();
+        Assert.Equal([second, first], pictures.Select(p => p.GetProperty("pictureId").GetGuid()));
+        Assert.Equal(["The cabin", string.Empty], pictures.Select(p => p.GetProperty("alt").GetString()));
+    }
+
+    [Fact]
+    public async Task MoreThanFourBlueskyPicturesAreRefused()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+        var pictures = new List<(Guid, string)>();
+
+        for (var i = 0; i < CalendarBlueskyText.MostPictures + 1; i++)
+            pictures.Add((await UploadedAsync(host, manager), string.Empty));
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/calendar/events", BodyWithBlueskyPictures(host, pictures), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(CalendarBlueskyText.TooManyPictures, await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ABlueskyAltTextOver2000CharactersIsRefused()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+        var picture = await UploadedAsync(host, manager);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post,
+            "/api/calendar/events",
+            BodyWithBlueskyPictures(host, [(picture, new string('x', CalendarBlueskyText.AltMaxLength + 1))]),
+            manager,
+            Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(CalendarBlueskyText.AltTooLong, await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ABlueskyPictureThatIsNotKeptIsRefused()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/calendar/events", BodyWithBlueskyPictures(host, [(Guid.CreateVersion7(), "Gone")]), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AFormerCoverStaysKeptWhileTheEventsBlueskyPicturesListIt()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+        var picture = await UploadedAsync(host, manager);
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/calendar/events", BodyWithBlueskyPictures(host, [(picture, "Poster")], cover: picture), manager, Ct);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var id = (await ApiTestHost.BodyOf(response, Ct)).GetProperty("id").GetGuid();
+
+        var other = await UploadedAsync(host, manager);
+        var updated = await host.SendJsonAsync(HttpMethod.Put, $"/api/calendar/events/{id}", Body(host, other), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        Assert.True(await KeptAsync(picture));
+    }
+
     [Fact]
     public async Task DeletingTheEventDeletesItsPicture()
     {

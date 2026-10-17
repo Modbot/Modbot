@@ -1,4 +1,20 @@
+/* The emoji picker's own styles go in the first layer, so the app's theme and utilities beat them. */
+@layer epr, theme, base, components, utilities;
 @import "tailwindcss";
+
+/* The emoji picker (EmojiPicker.tsx) in the app's colours. */
+.emoji-picker {
+  --epr-bg-color: var(--popover);
+  --epr-category-label-bg-color: var(--popover);
+  --epr-text-color: var(--muted-foreground);
+  --epr-highlight-color: var(--primary);
+  --epr-hover-bg-color: var(--accent);
+  --epr-focus-bg-color: var(--accent);
+  --epr-picker-border-color: var(--border);
+  --epr-search-input-bg-color: transparent;
+  --epr-search-border-color: var(--input);
+  --epr-search-border-color-active: var(--ring);
+}
 
 /* Fonts are bundled, never fetched from a font service (brand design 2026-09-16 §4). */
 @import "@fontsource/ibm-plex-sans/400.css";

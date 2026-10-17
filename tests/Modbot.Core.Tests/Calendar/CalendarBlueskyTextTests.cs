@@ -156,6 +156,62 @@ public class CalendarBlueskyTextTests
         Assert.NotEqual(a, CalendarBlueskyText.Fingerprint("one", picture));
     }
 
+    [Fact]
+    public void ANullListOfPicturesGivesTheFingerprintFromBeforePicturesHadAList()
+    {
+        var picture = Guid.CreateVersion7();
+
+        Assert.Equal(CalendarFingerprint.Of("one", picture), CalendarBlueskyText.Fingerprint("one", picture, null));
+        Assert.Equal(CalendarFingerprint.Of("one", null), CalendarBlueskyText.Fingerprint("one", null));
+    }
+
+    [Fact]
+    public void TheFingerprintChangesWithThePicturesTheirOrderAndTheirAltText()
+    {
+        var a = Guid.CreateVersion7();
+        var b = Guid.CreateVersion7();
+
+        var one = CalendarBlueskyText.Fingerprint("one", a, [new BlueskyPostPicture(a, "x"), new BlueskyPostPicture(b, "y")]);
+
+        Assert.Equal(one, CalendarBlueskyText.Fingerprint("one", a, [new BlueskyPostPicture(a, "x"), new BlueskyPostPicture(b, "y")]));
+        Assert.NotEqual(one, CalendarBlueskyText.Fingerprint("one", a, [new BlueskyPostPicture(b, "y"), new BlueskyPostPicture(a, "x")]));
+        Assert.NotEqual(one, CalendarBlueskyText.Fingerprint("one", a, [new BlueskyPostPicture(a, "x"), new BlueskyPostPicture(b, "z")]));
+        Assert.NotEqual(one, CalendarBlueskyText.Fingerprint("one", a, null));
+    }
+
+    [Fact]
+    public void AnEventWithNoListOfPicturesGoesWithTheCoverAlone()
+    {
+        var e = Event();
+        e.CoverPictureId = Guid.CreateVersion7();
+
+        Assert.Null(CalendarBlueskyText.PicturesOf(e, "Hangout"));
+    }
+
+    [Fact]
+    public void AnEventsListOfPicturesKeepsItsOrder_AndABlankAltTextIsTheTitle()
+    {
+        var a = Guid.CreateVersion7();
+        var b = Guid.CreateVersion7();
+        var e = Event();
+        e.BlueskyPictures = [new BlueskyPostPicture(a, "  A poster "), new BlueskyPostPicture(b, "   ")];
+
+        var pictures = CalendarBlueskyText.PicturesOf(e, "Hangout")!;
+
+        Assert.Equal([a, b], pictures.Select(p => p.PictureId));
+        Assert.Equal(["A poster", "Hangout"], pictures.Select(p => p.Alt));
+    }
+
+    [Fact]
+    public void AnEmptyListOfPicturesIsAPostWithNone_NotTheCover()
+    {
+        var e = Event();
+        e.CoverPictureId = Guid.CreateVersion7();
+        e.BlueskyPictures = [];
+
+        Assert.Empty(CalendarBlueskyText.PicturesOf(e, "Hangout")!);
+    }
+
     private static CalendarCategory Category(string name, string? tag = null) =>
         new() { Id = Guid.CreateVersion7(), Name = name, BlueskyTag = tag };
 

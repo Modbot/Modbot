@@ -14,10 +14,13 @@ import { ApiError } from '@/lib/api'
 import {
   blankEvent,
   calendarApi,
+  CALENDAR_COVER_MAX_BYTES,
   CATEGORY_LABEL,
+  coverAddress,
   DAYS,
   inputFrom,
   PLATFORM_LABEL,
+  type BlueskyPicture,
   type CalendarEvent,
   type CalendarEventInput,
   type CalendarInviteChoices,
@@ -60,7 +63,9 @@ import { CopyButton, PasteButton } from './PasteButton'
 import { VRChatPreviews } from './VRChatPreviews'
 import { DiscordPreviews } from './DiscordPreviews'
 import { BlueskyPreviews } from './BlueskyPreviews'
-import { BLUESKY_BYTE_LIMIT } from '@/lib/postRules'
+import { BLUESKY_BYTE_LIMIT, BLUESKY_PICTURE_MAX_BYTES } from '@/lib/postRules'
+import { BLUESKY_PICTURES_MAX, shownPictures, withoutPicture, withPictureChanged, withPictures } from '@/lib/blueskyPictures'
+import { smallJpeg } from '@/lib/pictureFiles'
 import { PlatformIcons } from './PlatformIcons'
 import { useDiscordCover, useVRChatPicture, vrchatPictureAddress } from './useVRChatPicture'
 import { DiscordPictureField, VRChatPictureField } from './VRChatPictureField'
@@ -197,7 +202,12 @@ export function CalendarEventForm({
     onUploaded: (coverId) => set('coverPictureId', coverId),
     initialLink: input.imageUrl,
   })
-  const uploading = vrchatPicture.uploading || discordCover.uploading
+  // Bluesky's pictures on their way up (one count per pick), and why the last one was not added.
+  const [blueskyUploads, setBlueskyUploads] = useState(0)
+  const [blueskyPictureError, setBlueskyPictureError] = useState<string | null>(null)
+  // Where an emoji goes: the Bluesky box last clicked into.
+  const [putBlueskyText, setPutBlueskyText] = useState<{ put: (words: string) => boolean } | null>(null)
+  const uploading = vrchatPicture.uploading || discordCover.uploading || blueskyUploads > 0
   // Everything a save was refused for, one line each, in the server's order.
   const [error, setError] = useState<string[] | null>(null)
   // What a save found worth a second look, one line each. The next save of the same form goes through.
@@ -421,6 +431,43 @@ export function CalendarEventForm({
   const chooseEverywhere = (file: Blob) => {
     if (pictureUploads && vrchatPlus !== false && input.publishToVRChat) vrchatPicture.openFile(file)
     if (discordOn) discordCover.openFile(file)
+  }
+
+  // Bluesky's pictures: its own list once edited, else the cover. Every edit writes the whole list.
+  const editBlueskyPictures = (change: (list: BlueskyPicture[]) => BlueskyPicture[]) =>
+    setInput((current) => ({
+      ...current,
+      blueskyPictures: change(shownPictures(current.blueskyPictures, current.coverPictureId)),
+    }))
+
+  // Each picture is kept by Modbot as a cover is, with the small JPEG copy Bluesky is sent.
+  const addBlueskyPictures = async (files: File[]) => {
+    const room = BLUESKY_PICTURES_MAX - shownPictures(input.blueskyPictures, input.coverPictureId).length
+    setBlueskyPictureError(null)
+    setBlueskyUploads((n) => n + 1)
+
+    try {
+      for (const file of files.slice(0, Math.max(room, 0))) {
+        if (file.size > CALENDAR_COVER_MAX_BYTES) {
+          setBlueskyPictureError('A picture is larger than 8 MB.')
+          continue
+        }
+
+        const { coverId } = await calendarApi.uploadCover(file)
+
+        try {
+          await calendarApi.uploadCoverBlueskyCopy(coverId, await smallJpeg(file, BLUESKY_PICTURE_MAX_BYTES))
+        } catch {
+          // Nothing to say: the picture is kept, and goes as it is when it is under 1 MB.
+        }
+
+        editBlueskyPictures((list) => withPictures(list, [{ pictureId: coverId, alt: '' }]))
+      }
+    } catch (e) {
+      setBlueskyPictureError(e instanceof ApiError ? problemsOf(e)[0] : 'Could not add the picture.')
+    } finally {
+      setBlueskyUploads((n) => n - 1)
+    }
   }
 
   const discordPreview = discordCover.draft ? (
@@ -1068,23 +1115,20 @@ export function CalendarEventForm({
                   const e = editingFor('bluesky', shown ?? input)
                   const drawn = answer.preview?.bluesky ?? null
                   const lines = drawn ? postAround(drawn.text, e.title.asked, e.description.asked) : { before: '', after: '' }
-                  const before = input.blueskyPostBeforeMinutes ?? DEFAULT_BLUESKY_BEFORE
+                  const pictures = shownPictures(input.blueskyPictures, input.coverPictureId)
                   return (
                     <BlueskyPreviews
                       title={e.title.value || sharedNow().title}
                       before={lines.before}
                       after={lines.after}
-                      picture={discordPreview}
-                      pictureUrl={drawn?.pictureUrl ?? null}
-                      // Bluesky is sent the Discord cover: a picture here opens its crop box.
-                      onPicture={(f) => {
-                        chooseEverywhere(f)
-                        if (!discordOn) discordCover.openFile(f)
-                      }}
+                      pictures={pictures.map((picture) => ({ id: picture.pictureId, url: coverAddress(picture.pictureId), alt: picture.alt }))}
+                      onAddFiles={(files) => void addBlueskyPictures(files)}
+                      onAlt={(index, alt) => editBlueskyPictures((list) => withPictureChanged(list, index, { alt }))}
+                      onRemove={(index) => editBlueskyPictures((list) => withoutPicture(list, index))}
+                      uploading={blueskyUploads > 0}
+                      error={blueskyPictureError}
+                      onEmoji={(emoji) => putBlueskyText?.put(emoji)}
                       card={drawn?.card ?? null}
-                      handle={drawn?.handle ?? null}
-                      displayName={drawn?.displayName ?? null}
-                      postAt={new Date(new Date(input.startsAt).getTime() - before * 60_000).toISOString()}
                       count={
                         drawn
                           ? { label: `${drawn.graphemes} / ${drawn.limit}`, over: drawn.graphemes > drawn.limit || drawn.bytes > BLUESKY_BYTE_LIMIT }
@@ -1098,6 +1142,7 @@ export function CalendarEventForm({
                             value={e.title.value}
                             onChange={e.title.onChange}
                             onActive={e.title.onActive}
+                            onPutText={(put) => setPutBlueskyText({ put })}
                             placeholder={e.title.placeholder || 'Add a title'}
                             className="h-auto min-w-0 flex-1 border-none bg-transparent p-0 text-inherit text-[length:inherit]! font-[inherit] focus-visible:ring-0 empty:before:font-normal empty:before:text-current empty:before:opacity-50"
                           />
@@ -1113,6 +1158,7 @@ export function CalendarEventForm({
                             value={e.description.value}
                             onChange={e.description.onChange}
                             onActive={e.description.onActive}
+                            onPutText={(put) => setPutBlueskyText({ put })}
                             placeholder={e.description.placeholder || 'Add a description'}
                             className="min-h-0 min-w-0 flex-1 border-none bg-transparent p-0 text-inherit text-[length:inherit]! focus-visible:ring-0 empty:before:text-current empty:before:opacity-50"
                           />

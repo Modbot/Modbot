@@ -409,7 +409,8 @@ notification) and four on vrchat.com (group events tab, event page, calendar, ca
 **Discord** tab has the **Events list**, **Event page** and **Link in chat** views of the Discord
 event, and **In the channel** for the post. Click the names above a picture to show or hide a view;
 what you type shows in every view that is open. The **Link in chat** view has not been measured
-against Discord yet, so it may be a little off.
+against Discord yet, so it may be a little off. The **Bluesky** tab has no views: it is Bluesky's
+**New post** box, and nothing else.
 
 A place's card is read when its tab opens, and drawn again a moment after the form changes. The
 lines the place adds around your words (the time, the world, the join link) come from the server,
@@ -432,8 +433,8 @@ are under the card too, and go where you last clicked.
   world's name and page under it. Links typed in Google's own description show as plain words here. A padlock beside the title means only the people the calendar is
   shared with will see it, because **Check** found the calendar is not public, or shows the public
   only free or busy.
-- **Bluesky**: the post for the event's next date, as Bluesky will show it: the account's name, the
-  text, the event's cover picture in full (or the link card when it has no picture), and how many of Bluesky's 300 characters it uses.
+- **Bluesky**: the post for the event's next date in Bluesky's **New post** box: the text, the post's
+  pictures with their alt text (or the link card when it has no picture), and a ring that counts down Bluesky's 300 characters.
 
 A card does not save anything or send anything to VRChat, Discord or Google. It can draw an event
 that is not finished yet, with no title or no channel, but shows the error instead if something would
@@ -1324,11 +1325,13 @@ given its own title or description (see
 [Changing one date of a repeating event](#changing-one-date-of-a-repeating-event)) shows those
 words instead.
 
-The event's cover picture goes with the post as a full picture, in place of the link card. Modbot
-sends a small copy made when the cover is chosen. A cover chosen before that gets its copy the next
-time someone who can manage the calendar or templates opens the Calendar page, made in their browser
-without a word on screen. Until then it goes as it is when it is 1 MB or smaller; otherwise the post
-has no picture.
+The post's pictures go with it as full pictures, in place of the link card: up to four, in the order
+they have in the box, each with its alt text. A picture with no alt text of its own is described by the
+post's title. Until the pictures of the post are changed in the **Bluesky** tab, the post goes with the
+event's cover picture alone. Modbot sends a small copy made when a picture is chosen. A cover chosen
+before that gets its copy the next time someone who can manage the calendar or templates opens the
+Calendar page, made in their browser without a word on screen. Until then it goes as it is when it is
+1 MB or smaller; otherwise the post has no picture.
 
 ### Tags
 
@@ -1367,8 +1370,17 @@ when a date changes or is cancelled afterwards. See [Weekly line-up](/moderation
 
 ### Bluesky settings on the form
 
-The **Bluesky** tab has **Post it**. Its card's title and description can be typed in,
-as described under [Title and description](#title-and-description).
+The **Bluesky** tab is Bluesky's **New post** box, with **Post it** below it. The title and the
+description are typed straight into the box, as described under
+[Title and description](#title-and-description).
+
+- **Pictures.** The picture button, or dropping pictures on the box, adds up to four. The event's cover is the
+  first picture by default. **ALT** on a picture opens its alt text, which
+  is up to 2,000 characters and falls back to the post's title while empty. The cross on a picture takes it out.
+  A picture is kept by Modbot as soon as it is added, so **Save** waits for one that is still uploading.
+- **Emoji.** The smiley button opens a full emoji picker. The emoji goes in at the caret of the title or
+  description you last clicked into.
+- **The ring** shows how many of the post's 300 characters are left, and turns red once it is over.
 
 ### Changes, cancelling and deleting
 

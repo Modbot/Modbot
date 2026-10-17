@@ -95,6 +95,7 @@ export function FillInText({
   multiline = false,
   links = true,
   onActive,
+  onPutText,
   placeholder = '',
   className,
 }: {
@@ -104,6 +105,8 @@ export function FillInText({
   multiline?: boolean
   links?: boolean
   onActive?: (insert: (name: string) => boolean) => void
+  /** Like `onActive`, for a function that puts plain words (an emoji) at the caret. */
+  onPutText?: (put: (words: string) => boolean) => void
   /** Muted words drawn in the box while it is empty. */
   placeholder?: string
   /** Classes laid over the box's own, to sit it inside something else (a service's card). */
@@ -143,14 +146,8 @@ export function FillInText({
     selection?.addRange(range)
   }
 
-  /** False when the field is gone from the screen, so nothing was put in. */
-  const insert = (name: string) => {
-    const field = box.current
-    const clean = cleanFillInName(name)
-    if (!field) return false
-    if (!links && autoLinkOf(clean)) return false
-    if (clean === '') return true
-
+  /** Puts `node` at the caret (or at the end when the caret has not been in this field) and moves the caret after it. */
+  const place = (field: HTMLElement, node: Node) => {
     field.focus()
 
     const range = caret.current ?? document.createRange()
@@ -160,9 +157,8 @@ export function FillInText({
     }
 
     range.deleteContents()
-    const chip = makeChip(clean)
-    range.insertNode(chip)
-    range.setStartAfter(chip)
+    range.insertNode(node)
+    range.setStartAfter(node)
     range.collapse(true)
 
     const selection = window.getSelection()
@@ -171,6 +167,25 @@ export function FillInText({
     caret.current = range.cloneRange()
 
     onChange(text(field))
+  }
+
+  /** False when the field is gone from the screen, so nothing was put in. */
+  const insert = (name: string) => {
+    const field = box.current
+    const clean = cleanFillInName(name)
+    if (!field) return false
+    if (!links && autoLinkOf(clean)) return false
+    if (clean === '') return true
+
+    place(field, makeChip(clean))
+    return true
+  }
+
+  /** Puts plain words (an emoji) at the caret. False when the field is gone from the screen. */
+  const putText = (words: string) => {
+    const field = box.current
+    if (!field) return false
+    if (words !== '') place(field, document.createTextNode(words))
     return true
   }
 
@@ -191,11 +206,15 @@ export function FillInText({
         multiline ? 'min-h-[calc(var(--control-h)*2.4)] whitespace-pre-wrap [overflow-wrap:anywhere]' : 'h-(--control-h) overflow-hidden whitespace-nowrap',
         className,
       )}
-      onFocus={() => onActive?.(insert)}
+      onFocus={() => {
+        onActive?.(insert)
+        onPutText?.(putText)
+      }}
       onClick={(e) => {
         pick(e.target)
         remember()
         onActive?.(insert)
+        onPutText?.(putText)
       }}
       onKeyUp={remember}
       onBlur={() => {

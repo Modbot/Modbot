@@ -101,6 +101,8 @@ export type CalendarListChoice = { id: string; name: string }
 /** Who an event can invite. `lists` is null without See members and See profiles (a template: or Manage templates). */
 export type CalendarInviteChoices = { staff: CalendarStaffChoice[]; lists: CalendarListChoice[] | null }
 
+/** One picture of Bluesky's post: a kept picture (as `POST /api/calendar/cover` answered) and its alt text. */
+export type BlueskyPicture = { pictureId: string; alt: string }
 
 export type CalendarEvent = {
   id: string
@@ -175,6 +177,8 @@ export type CalendarEvent = {
   featured?: boolean
   /** The picture cropped for Discord (calendar design §15.4). Missing from an older server. */
   coverPictureId?: string | null
+  /** The pictures of Bluesky's post, first first, up to 4; null when it goes with the cover alone. Missing from an older server. */
+  blueskyPictures?: BlueskyPicture[] | null
   /** Ticked for the Google calendar in Settings. Missing from an older server. */
   publishToGoogle?: boolean
   /** Each date gets its own Bluesky post. Missing from an older server. */
@@ -474,6 +478,8 @@ export type CalendarEventInput = {
   postColour: number | null
   /** The picture cropped for Discord (calendar design §15.4): the event cover and the post picture. */
   coverPictureId: string | null
+  /** The pictures of Bluesky's post, first first, up to 4, each with its alt text; null for the cover alone. */
+  blueskyPictures?: BlueskyPicture[] | null
   /**
    * Send to the Google calendar in Settings. Left out keeps what the event has; for a new event the
    * server ticks it when Google Calendar is set up and everyone may see the event.
@@ -818,6 +824,7 @@ export function blankEvent(now: Date): CalendarEventInput {
     mentionRoleId: null,
     postColour: null,
     coverPictureId: null,
+    blueskyPictures: null,
     vrChatTitle: '',
     vrChatDescription: '',
     discordTitle: '',
@@ -879,6 +886,7 @@ export function inputFrom(event: CalendarEvent): CalendarEventInput {
     mentionRoleId: event.mentionRoleId ?? null,
     postColour: event.postColour ?? null,
     coverPictureId: event.coverPictureId ?? null,
+    blueskyPictures: event.blueskyPictures ?? null,
     // Left out by an older server, and then left as the event has it.
     publishToGoogle: event.publishToGoogle ?? null,
     vrChatTitle: event.vrChatTitle ?? '',

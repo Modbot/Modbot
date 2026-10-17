@@ -389,6 +389,17 @@
       ]
     },
     {
+      "name": "LanguageDetection.Ai",
+      "version": "1.1.0",
+      "licence": "Other",
+      "url": "https://github.com/KRSogaard/language-detection",
+      "source": null,
+      "direct": true,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
       "name": "MicroCom.Runtime",
       "version": "0.11.0",
       "licence": "MIT",
@@ -401,7 +412,7 @@
     },
     {
       "name": "Microsoft.AspNetCore.Cryptography.Internal",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://asp.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -412,7 +423,7 @@
     },
     {
       "name": "Microsoft.AspNetCore.Cryptography.KeyDerivation",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://asp.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -423,7 +434,7 @@
     },
     {
       "name": "Microsoft.AspNetCore.DataProtection",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://asp.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -434,7 +445,7 @@
     },
     {
       "name": "Microsoft.AspNetCore.DataProtection.Abstractions",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://asp.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -445,7 +456,7 @@
     },
     {
       "name": "Microsoft.AspNetCore.DataProtection.EntityFrameworkCore",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://asp.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -456,7 +467,7 @@
     },
     {
       "name": "Microsoft.AspNetCore.OpenApi",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://asp.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -543,8 +554,19 @@
       ]
     },
     {
+      "name": "Microsoft.DotNet.PlatformAbstractions",
+      "version": "3.1.6",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/core-setup",
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
       "name": "Microsoft.EntityFrameworkCore",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://docs.microsoft.com/ef/core",
       "source": "https://github.com/dotnet/dotnet",
@@ -555,7 +577,7 @@
     },
     {
       "name": "Microsoft.EntityFrameworkCore.Abstractions",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://docs.microsoft.com/ef/core",
       "source": "https://github.com/dotnet/dotnet",
@@ -566,7 +588,7 @@
     },
     {
       "name": "Microsoft.EntityFrameworkCore.Analyzers",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://docs.microsoft.com/ef/core",
       "source": "https://github.com/dotnet/dotnet",
@@ -577,7 +599,7 @@
     },
     {
       "name": "Microsoft.EntityFrameworkCore.Design",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://docs.microsoft.com/ef/core",
       "source": "https://github.com/dotnet/dotnet",
@@ -588,7 +610,7 @@
     },
     {
       "name": "Microsoft.EntityFrameworkCore.Relational",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://docs.microsoft.com/ef/core",
       "source": "https://github.com/dotnet/dotnet",
@@ -598,8 +620,19 @@
       ]
     },
     {
+      "name": "Microsoft.Extensions.AI.Abstractions",
+      "version": "10.8.3",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/extensions",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
       "name": "Microsoft.Extensions.ApiDescription.Server",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://asp.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -610,7 +643,7 @@
     },
     {
       "name": "Microsoft.Extensions.Caching.Abstractions",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://dot.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -621,7 +654,7 @@
     },
     {
       "name": "Microsoft.Extensions.Caching.Memory",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://dot.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -632,7 +665,7 @@
     },
     {
       "name": "Microsoft.Extensions.Configuration",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://dot.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -643,7 +676,7 @@
     },
     {
       "name": "Microsoft.Extensions.Configuration.Abstractions",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://dot.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -654,7 +687,7 @@
     },
     {
       "name": "Microsoft.Extensions.Configuration.Binder",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://dot.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -665,7 +698,7 @@
     },
     {
       "name": "Microsoft.Extensions.DependencyInjection",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://dot.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -676,7 +709,7 @@
     },
     {
       "name": "Microsoft.Extensions.DependencyInjection.Abstractions",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://dot.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -687,18 +720,19 @@
     },
     {
       "name": "Microsoft.Extensions.DependencyModel",
-      "version": "10.0.12",
+      "version": "9.0.9, 10.0.0, 10.0.13",
       "licence": "MIT",
       "url": "https://dot.net",
       "source": "https://github.com/dotnet/dotnet",
       "direct": false,
       "usedBy": [
+        "Desktop",
         "Server"
       ]
     },
     {
       "name": "Microsoft.Extensions.Diagnostics",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://dot.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -709,7 +743,7 @@
     },
     {
       "name": "Microsoft.Extensions.Diagnostics.Abstractions",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://dot.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -720,7 +754,7 @@
     },
     {
       "name": "Microsoft.Extensions.FileProviders.Abstractions",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://dot.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -731,7 +765,7 @@
     },
     {
       "name": "Microsoft.Extensions.Hosting.Abstractions",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://dot.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -742,7 +776,7 @@
     },
     {
       "name": "Microsoft.Extensions.Http",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://dot.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -753,7 +787,7 @@
     },
     {
       "name": "Microsoft.Extensions.Identity.Core",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://asp.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -764,7 +798,7 @@
     },
     {
       "name": "Microsoft.Extensions.Logging",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://dot.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -775,7 +809,7 @@
     },
     {
       "name": "Microsoft.Extensions.Logging.Abstractions",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://dot.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -786,7 +820,7 @@
     },
     {
       "name": "Microsoft.Extensions.Options",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://dot.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -797,7 +831,7 @@
     },
     {
       "name": "Microsoft.Extensions.Options.ConfigurationExtensions",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://dot.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -808,7 +842,7 @@
     },
     {
       "name": "Microsoft.Extensions.Primitives",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://dot.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -819,7 +853,7 @@
     },
     {
       "name": "Microsoft.OpenApi",
-      "version": "2.12.0",
+      "version": "2.12.2",
       "licence": "MIT",
       "url": "https://github.com/Microsoft/OpenAPI.NET",
       "source": null,
@@ -840,6 +874,39 @@
       ]
     },
     {
+      "name": "ModelContextProtocol",
+      "version": "2.2.0",
+      "licence": "Apache-2.0",
+      "url": "https://csharp.sdk.modelcontextprotocol.io",
+      "source": "https://github.com/modelcontextprotocol/csharp-sdk",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "ModelContextProtocol.AspNetCore",
+      "version": "2.2.0",
+      "licence": "Apache-2.0",
+      "url": "https://csharp.sdk.modelcontextprotocol.io",
+      "source": "https://github.com/modelcontextprotocol/csharp-sdk",
+      "direct": true,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "ModelContextProtocol.Core",
+      "version": "2.2.0",
+      "licence": "Apache-2.0",
+      "url": "https://csharp.sdk.modelcontextprotocol.io",
+      "source": "https://github.com/modelcontextprotocol/csharp-sdk",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
       "name": "Mono.TextTemplating",
       "version": "3.0.0",
       "licence": "MIT",
@@ -848,6 +915,28 @@
       "direct": false,
       "usedBy": [
         "Server"
+      ]
+    },
+    {
+      "name": "NAudio.Core",
+      "version": "3.1.0",
+      "licence": "MIT",
+      "url": "https://naudio.github.io/NAudio",
+      "source": "https://github.com/naudio/NAudio",
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "NAudio.Wasapi",
+      "version": "3.1.0",
+      "licence": "MIT",
+      "url": "https://naudio.github.io/NAudio",
+      "source": "https://github.com/naudio/NAudio",
+      "direct": true,
+      "usedBy": [
+        "Desktop"
       ]
     },
     {
@@ -903,6 +992,116 @@
       "direct": true,
       "usedBy": [
         "Server"
+      ]
+    },
+    {
+      "name": "org.k2fsa.sherpa.onnx",
+      "version": "1.13.8",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/k2-fsa/sherpa-onnx",
+      "source": null,
+      "direct": true,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "org.k2fsa.sherpa.onnx.runtime.android-arm64",
+      "version": "1.13.8",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/k2-fsa/sherpa-onnx",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "org.k2fsa.sherpa.onnx.runtime.android-x64",
+      "version": "1.13.8",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/k2-fsa/sherpa-onnx",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "org.k2fsa.sherpa.onnx.runtime.linux-arm64",
+      "version": "1.13.8",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/k2-fsa/sherpa-onnx",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "org.k2fsa.sherpa.onnx.runtime.linux-x64",
+      "version": "1.13.8",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/k2-fsa/sherpa-onnx",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "org.k2fsa.sherpa.onnx.runtime.osx-arm64",
+      "version": "1.13.8",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/k2-fsa/sherpa-onnx",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "org.k2fsa.sherpa.onnx.runtime.osx-x64",
+      "version": "1.13.8",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/k2-fsa/sherpa-onnx",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "org.k2fsa.sherpa.onnx.runtime.win-arm64",
+      "version": "1.13.8",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/k2-fsa/sherpa-onnx",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "org.k2fsa.sherpa.onnx.runtime.win-x64",
+      "version": "1.13.8",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/k2-fsa/sherpa-onnx",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "org.k2fsa.sherpa.onnx.runtime.win-x86",
+      "version": "1.13.8",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/k2-fsa/sherpa-onnx",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
       ]
     },
     {
@@ -962,6 +1161,17 @@
       ]
     },
     {
+      "name": "Serilog.AspNetCore",
+      "version": "10.0.0",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/serilog/serilog-aspnetcore",
+      "source": null,
+      "direct": true,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
       "name": "Serilog.Expressions",
       "version": "5.0.0",
       "licence": "Apache-2.0",
@@ -1002,6 +1212,18 @@
       "source": null,
       "direct": true,
       "usedBy": [
+        "Desktop",
+        "Server"
+      ]
+    },
+    {
+      "name": "Serilog.Settings.Configuration",
+      "version": "10.0.0",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/serilog/serilog-settings-configuration",
+      "source": null,
+      "direct": false,
+      "usedBy": [
         "Server"
       ]
     },
@@ -1014,6 +1236,17 @@
       "direct": true,
       "usedBy": [
         "Desktop",
+        "Server"
+      ]
+    },
+    {
+      "name": "Serilog.Sinks.Debug",
+      "version": "3.0.0",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/serilog/serilog-sinks-debug",
+      "source": null,
+      "direct": false,
+      "usedBy": [
         "Server"
       ]
     },
@@ -1037,6 +1270,7 @@
       "source": "https://github.com/datalust/serilog-sinks-seq",
       "direct": true,
       "usedBy": [
+        "Desktop",
         "Server"
       ]
     },
@@ -1058,6 +1292,105 @@
       "url": "https://github.com/SharpGenTools/SharpGenTools",
       "source": null,
       "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "SharpZipLib",
+      "version": "1.4.2",
+      "licence": "MIT",
+      "url": "https://github.com/icsharpcode/SharpZipLib",
+      "source": null,
+      "direct": true,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Silk.NET.Core",
+      "version": "2.23.0",
+      "licence": "MIT",
+      "url": "https://github.com/dotnet/Silk.NET",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Silk.NET.Maths",
+      "version": "2.23.0",
+      "licence": "MIT",
+      "url": "https://github.com/dotnet/Silk.NET",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Silk.NET.OpenAL",
+      "version": "2.23.0",
+      "licence": "MIT",
+      "url": "https://github.com/dotnet/Silk.NET",
+      "source": null,
+      "direct": true,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Silk.NET.OpenAL.Extensions.Enumeration",
+      "version": "2.23.0",
+      "licence": "MIT",
+      "url": "https://github.com/dotnet/Silk.NET",
+      "source": null,
+      "direct": true,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Silk.NET.OpenAL.Soft.Native",
+      "version": "1.23.1",
+      "licence": "LGPL-2.0-or-later",
+      "url": "https://github.com/dotnet/Silk.NET",
+      "source": "https://github.com/kcat/openal-soft",
+      "direct": true,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Silk.NET.OpenXR",
+      "version": "2.23.0",
+      "licence": "MIT",
+      "url": "https://github.com/dotnet/Silk.NET",
+      "source": null,
+      "direct": true,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Silk.NET.OpenXR.Extensions.KHR",
+      "version": "2.23.0",
+      "licence": "MIT",
+      "url": "https://github.com/dotnet/Silk.NET",
+      "source": null,
+      "direct": true,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Silk.NET.Vulkan",
+      "version": "2.23.0",
+      "licence": "MIT",
+      "url": "https://github.com/dotnet/Silk.NET",
+      "source": null,
+      "direct": true,
       "usedBy": [
         "Desktop"
       ]
@@ -1217,8 +1550,19 @@
       ]
     },
     {
+      "name": "System.Numerics.Tensors",
+      "version": "9.0.0",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/runtime",
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
       "name": "System.Security.Cryptography.Pkcs",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://dot.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -1229,7 +1573,7 @@
     },
     {
       "name": "System.Security.Cryptography.ProtectedData",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://dot.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -1240,7 +1584,7 @@
     },
     {
       "name": "System.Security.Cryptography.Xml",
-      "version": "10.0.12",
+      "version": "10.0.13",
       "licence": "MIT",
       "url": "https://dot.net",
       "source": "https://github.com/dotnet/dotnet",
@@ -1316,8 +1660,19 @@
       ]
     },
     {
+      "name": "Vortice.MediaFoundation",
+      "version": "3.8.3",
+      "licence": "MIT",
+      "url": "https://github.com/amerkoleci/Vortice.Windows",
+      "source": null,
+      "direct": true,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
       "name": "VRChat.API",
-      "version": "2.20.9",
+      "version": "2.21.1-nightly.41",
       "licence": "MIT",
       "url": "https://github.com/vrchatapi/vrchatapi-csharp",
       "source": null,
@@ -1393,6 +1748,14 @@
       "direct": false
     },
     {
+      "name": "@radix-ui/react-collection",
+      "version": "1.1.15",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
       "name": "@radix-ui/react-compose-refs",
       "version": "1.1.5",
       "licence": "MIT",
@@ -1417,8 +1780,24 @@
       "direct": false
     },
     {
+      "name": "@radix-ui/react-direction",
+      "version": "1.1.4",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
       "name": "@radix-ui/react-dismissable-layer",
       "version": "1.1.19",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
+      "name": "@radix-ui/react-dropdown-menu",
+      "version": "2.1.24",
       "licence": "MIT",
       "url": "https://radix-ui.com/primitives",
       "source": "https://github.com/radix-ui/primitives",
@@ -1443,6 +1822,14 @@
     {
       "name": "@radix-ui/react-id",
       "version": "1.1.4",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
+      "name": "@radix-ui/react-menu",
+      "version": "2.1.24",
       "licence": "MIT",
       "url": "https://radix-ui.com/primitives",
       "source": "https://github.com/radix-ui/primitives",
@@ -1489,6 +1876,14 @@
       "direct": false
     },
     {
+      "name": "@radix-ui/react-roving-focus",
+      "version": "1.1.19",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
       "name": "@radix-ui/react-slot",
       "version": "1.3.3",
       "licence": "MIT",
@@ -1515,6 +1910,14 @@
     {
       "name": "@radix-ui/react-use-effect-event",
       "version": "0.0.5",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
+      "name": "@radix-ui/react-use-is-hydrated",
+      "version": "0.1.3",
       "licence": "MIT",
       "url": "https://radix-ui.com/primitives",
       "source": "https://github.com/radix-ui/primitives",
@@ -1695,6 +2098,14 @@
       "url": "https://github.com/wooorm/devlop",
       "source": null,
       "direct": false
+    },
+    {
+      "name": "emoji-picker-react",
+      "version": "5.0.0",
+      "licence": "MIT",
+      "url": "https://ealush.com/emoji-picker-react",
+      "source": "https://github.com/ealush/emoji-picker-react",
+      "direct": true
     },
     {
       "name": "es-toolkit",

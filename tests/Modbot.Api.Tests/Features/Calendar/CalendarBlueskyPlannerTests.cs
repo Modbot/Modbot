@@ -164,6 +164,68 @@ public sealed class CalendarBlueskyPlannerTests(PostgresFixture db)
         Assert.Contains("Movie night", post.Text, StringComparison.Ordinal);
     }
 
+    private async Task<Guid> AddPictureAsync()
+    {
+        var id = Guid.CreateVersion7();
+        await using var context = db.NewContext();
+        context.CalendarCoverPictures.Add(new CalendarCoverPicture { Id = id, Bytes = [1, 2, 3], ContentType = "image/png", CreatedAt = _clock.UtcNow });
+        await context.SaveChangesAsync(Ct);
+        return id;
+    }
+
+    [Fact]
+    public async Task AnEventsListOfPicturesGoesWithThePost_FirstPictureFirst_BlankAltTextTheTitle()
+    {
+        await SetUpAsync();
+        var first = await AddPictureAsync();
+        var second = await AddPictureAsync();
+        var e = await AddEventAsync(
+            TimeSpan.FromHours(3),
+            x => x.BlueskyPictures = [new BlueskyPostPicture(second, "The cabin"), new BlueskyPostPicture(first, " ")]);
+
+        await PassAsync();
+
+        var destination = Assert.Single(Assert.Single(await PostsAsync(e.Id)).Destinations);
+        var options = PostTexts.BlueskyOptionsOf(destination);
+        Assert.Equal(second, options.PictureId);
+        Assert.Equal(second, destination.SitePictureId);
+        Assert.Equal([second, first], options.Pictures!.Select(p => p.PictureId));
+        Assert.Equal(["The cabin", "Movie night"], options.Pictures!.Select(p => p.Alt));
+    }
+
+    [Fact]
+    public async Task AnEventWithNoListOfPicturesGoesWithTheCoverAlone_AndKeepsTheFingerprintFromBefore()
+    {
+        await SetUpAsync();
+        var cover = await AddPictureAsync();
+        var e = await AddEventAsync(TimeSpan.FromHours(3), x => x.CoverPictureId = cover);
+
+        await PassAsync();
+
+        var destination = Assert.Single(Assert.Single(await PostsAsync(e.Id)).Destinations);
+        var options = PostTexts.BlueskyOptionsOf(destination);
+        Assert.Equal(cover, options.PictureId);
+        Assert.Null(options.Pictures);
+        Assert.Equal(CalendarBlueskyText.Fingerprint(destination.TextOverride!, cover), options.Fingerprint);
+    }
+
+    [Fact]
+    public async Task ChangingAPicturesAltTextRewritesThePostThatWentOut()
+    {
+        await SetUpAsync();
+        var picture = await AddPictureAsync();
+        var e = await AddEventAsync(TimeSpan.FromHours(3), x => x.BlueskyPictures = [new BlueskyPostPicture(picture, "Before")]);
+        await PassAsync();
+        var post = Assert.Single(await PostsAsync(e.Id));
+        await PostedAsync(post, "oldkey");
+
+        await EditAsync(e.Id, x => x.BlueskyPictures = [new BlueskyPostPicture(picture, "After")]);
+        var pass = await PassAsync();
+
+        Assert.Equal(1, pass.Deleted);
+        Assert.Equal([(FakeBluesky.Did, "oldkey")], _bluesky.Deletes);
+    }
+
     [Fact]
     public async Task AnEventMadeInsideItsLeadTimeIsPostedRightAway_WithTheSendTimeSetToNow()
     {

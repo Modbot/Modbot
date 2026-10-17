@@ -202,6 +202,42 @@ public class BlueskyTextTests
     }
 
     [Fact]
+    public void SeveralPicturesAreEmbeddedInOrder_EachWithItsOwnDescription()
+    {
+        var card = new BlueskyCard("https://example.com/a", "Movie night", string.Empty);
+        var first = new JsonObject { ["$type"] = "blob", ["size"] = 100 };
+        var second = new JsonObject { ["$type"] = "blob", ["size"] = 200 };
+        var third = new JsonObject { ["$type"] = "blob", ["size"] = 300 };
+
+        var record = BlueskyPostRecord.Build(
+            "Movie night",
+            DateTimeOffset.UnixEpoch,
+            card,
+            images: [new BlueskyImage(first, "A poster", null, null), new BlueskyImage(second, "The cabin", 1600, 900), new BlueskyImage(third, string.Empty, null, null)]);
+
+        var embed = record["embed"]!;
+        Assert.Equal("app.bsky.embed.images", embed["$type"]!.GetValue<string>());
+        Assert.Null(embed["external"]);
+
+        var images = embed["images"]!.AsArray();
+        Assert.Equal(3, images.Count);
+        Assert.Equal(["A poster", "The cabin", string.Empty], images.Select(i => i!["alt"]!.GetValue<string>()));
+        Assert.Equal([100, 200, 300], images.Select(i => i!["image"]!["size"]!.GetValue<int>()));
+        Assert.Null(images[0]!["aspectRatio"]);
+        Assert.Equal(1600, images[1]!["aspectRatio"]!["width"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public void AnEmptyListOfPicturesLeavesTheCardIn()
+    {
+        var card = new BlueskyCard("https://example.com/a", "Movie night", string.Empty);
+
+        var record = BlueskyPostRecord.Build("Movie night", DateTimeOffset.UnixEpoch, card, images: []);
+
+        Assert.Equal("app.bsky.embed.external", record["embed"]!["$type"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void APictureOfUnknownShapeLeavesTheShapeOut()
     {
         var blob = new JsonObject { ["$type"] = "blob", ["size"] = 900 };
