@@ -1119,7 +1119,8 @@ export function CalendarEventForm({
                   <ChannelPicker
                     label="Channel"
                     value={input.channelId ?? ''}
-                    onChange={(id) => set('channelId', id || null)}
+                    // No channel means no channel post: the server refuses a post with nowhere to go.
+                    onChange={(id) => setInput((current) => ({ ...current, channelId: id || null, postToChannel: id ? current.postToChannel : false }))}
                     needs={['viewChannel', 'sendMessages', 'embedLinks']}
                     allowNone
                   />

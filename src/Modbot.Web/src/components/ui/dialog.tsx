@@ -53,6 +53,14 @@ function DialogContent({
   // Menus opened inside this dialog are drawn inside it (dialog-element.ts), where its scroll lock
   // lets the wheel and touch through.
   const [element, setElement] = React.useState<HTMLElement | null>(null)
+  const keepElement = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      setElement(node)
+      if (typeof ref === 'function') ref(node)
+      else if (ref) ref.current = node
+    },
+    [ref],
+  )
 
   return (
     <DialogPrimitive.Portal>
@@ -79,11 +87,7 @@ function DialogContent({
           className,
         )}
         {...props}
-        ref={(node) => {
-          setElement(node)
-          if (typeof ref === 'function') ref(node)
-          else if (ref) ref.current = node
-        }}
+        ref={keepElement}
       >
         <DialogElementContext value={element}>
           <div
