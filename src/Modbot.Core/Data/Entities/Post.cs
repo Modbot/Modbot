@@ -381,6 +381,10 @@ public sealed record VRChatPostOptions(
 /// </param>
 /// <param name="QuotesOff">For an event's post: quote posts are not allowed, so a postgate is made.</param>
 /// <param name="Languages">For an event's post: the languages it is written in (<c>langs</c>), up to three. Null for none.</param>
+/// <param name="Video">
+/// For an event's post: the video the post goes with, instead of pictures. Null for none. Only the kept file's
+/// id or the link travel here; the bytes are read, or fetched, as the post is made.
+/// </param>
 /// <param name="SettingsToSend">
 /// The post is on Bluesky but its threadgate or postgate is not yet: a try to make them did not go through, and
 /// the sender makes them on a later pass.
@@ -394,7 +398,8 @@ public sealed record BlueskyPostOptions(
     IReadOnlyList<string>? WhoCanReply = null,
     bool QuotesOff = false,
     IReadOnlyList<string>? Languages = null,
-    bool SettingsToSend = false)
+    bool SettingsToSend = false,
+    BlueskyPostVideo? Video = null)
 {
     /// <summary>Whether the post has a threadgate or a postgate to make, and to take down with it.</summary>
     [System.Text.Json.Serialization.JsonIgnore]
@@ -405,3 +410,9 @@ public sealed record BlueskyPostOptions(
 /// <param name="PictureId">The kept picture.</param>
 /// <param name="Alt">The picture's description for people who cannot see it. May be empty.</param>
 public sealed record BlueskyPostPicture(Guid PictureId, string Alt);
+
+/// <summary>The one video of a Bluesky post: a kept file or a link, and its alt text.</summary>
+/// <param name="VideoId">The kept file (<c>calendar_bluesky_video</c>), or null when the video is a link.</param>
+/// <param name="Url">The link Modbot fetches the video from as the post goes out, or null when the video is a kept file.</param>
+/// <param name="Alt">The video's description for people who cannot see it. May be empty.</param>
+public sealed record BlueskyPostVideo(Guid? VideoId, string? Url, string Alt);

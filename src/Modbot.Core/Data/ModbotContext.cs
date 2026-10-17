@@ -390,6 +390,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
     public DbSet<CalendarCoverPicture> CalendarCoverPictures => Set<CalendarCoverPicture>();
 
+    /// <summary>Videos kept for events' Bluesky posts until the posts go out.</summary>
+    public DbSet<CalendarBlueskyVideo> CalendarBlueskyVideos => Set<CalendarBlueskyVideo>();
+
     /// <summary>The birthdays members set with <c>/birthday set</c>: a month and a day, no year.</summary>
     public DbSet<MemberBirthday> MemberBirthdays => Set<MemberBirthday>();
 
@@ -2945,6 +2948,17 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasIndex(e => e.CreatedAt).HasDatabaseName("ix_calendar_cover_picture_created_at");
         });
 
+        // A video kept for an event's Bluesky post until the post goes out. No foreign key: events,
+        // templates and posts point at it by id, and the sweep deletes what nothing points at.
+        builder.Entity<CalendarBlueskyVideo>(entity =>
+        {
+            entity.ToTable("calendar_bluesky_video");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.ContentType).HasMaxLength(32);
+            entity.HasIndex(e => e.CreatedAt).HasDatabaseName("ix_calendar_bluesky_video_created_at");
+        });
+
         // Pictures members posted in Discord for the group gallery. Each picture of a message is
         // stored once, however many times the message is seen.
         builder.Entity<GallerySubmission>(entity =>
@@ -3166,6 +3180,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.ToTable("calendar_event");
             entity.Ignore(e => e.AutoLinks);
             entity.Ignore(e => e.BlueskyPictures);
+            entity.Ignore(e => e.BlueskyVideo);
             entity.Property(e => e.BlueskyPictureIds).HasColumnType("jsonb");
             entity.Property(e => e.BlueskyPictureAlts).HasColumnType("jsonb");
             entity.Property(e => e.BlueskyWhoCanReply).HasColumnType("jsonb");
@@ -3187,6 +3202,8 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.GoogleDescription).HasMaxLength(CalendarEvent.MaxDescriptionLength);
             entity.Property(e => e.BlueskyTitle).HasMaxLength(CalendarEvent.MaxTitleLength);
             entity.Property(e => e.BlueskyDescription).HasMaxLength(CalendarEvent.MaxDescriptionLength);
+            entity.Property(e => e.BlueskyVideoUrl).HasMaxLength(2048);
+            entity.Property(e => e.BlueskyVideoAlt).HasMaxLength(2000);
             entity.Property(e => e.TimeZone).HasMaxLength(64);
             entity.Property(e => e.Repeat).HasMaxLength(16);
             entity.Property(e => e.RepeatDays).HasColumnType("jsonb");

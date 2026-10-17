@@ -115,6 +115,32 @@ public class CalendarEvent
     }
 
     /// <summary>
+    /// The kept video file of Bluesky's post (<c>calendar_bluesky_video</c>), or null. With a video the
+    /// post carries no pictures and not the cover. At most one of this and <see cref="BlueskyVideoUrl"/> is set.
+    /// </summary>
+    public Guid? BlueskyVideoId { get; set; }
+
+    /// <summary>The link Bluesky's post fetches its video from as it goes out, or null. At most one of this and <see cref="BlueskyVideoId"/> is set.</summary>
+    public string? BlueskyVideoUrl { get; set; }
+
+    /// <summary>The alt text of the video. Blank says the post's title.</summary>
+    public string? BlueskyVideoAlt { get; set; }
+
+    /// <summary>The three columns above as one: the video of Bluesky's post, or null for none.</summary>
+    public BlueskyPostVideo? BlueskyVideo
+    {
+        get => BlueskyVideoId is null && BlueskyVideoUrl is null
+            ? null
+            : new BlueskyPostVideo(BlueskyVideoId, BlueskyVideoUrl, BlueskyVideoAlt ?? string.Empty);
+        set
+        {
+            BlueskyVideoId = value?.VideoId;
+            BlueskyVideoUrl = value?.Url;
+            BlueskyVideoAlt = value is null ? null : value.Alt;
+        }
+    }
+
+    /// <summary>
     /// Who may reply to Bluesky's post. Null is anyone (no reply setting is made, as before the choice
     /// existed); <c>["nobody"]</c> is nobody; otherwise any of <c>followers</c>, <c>following</c> and
     /// <c>mentioned</c> (<see cref="BlueskyReplyChoices"/>).

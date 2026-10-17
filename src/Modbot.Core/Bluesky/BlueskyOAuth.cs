@@ -148,7 +148,9 @@ public sealed class BlueskyOAuth(IHttpClientFactory http, ISecretProtector prote
 
     /// <summary>
     /// The narrowest scopes that post: <c>putRecord</c> needs both create and update on the post
-    /// collection, a delete needs delete, and the picture needs an image blob. The profile's
+    /// collection, a delete needs delete, and the picture needs an image blob and a video a video blob
+    /// (a sign-in made before the video blob was added keeps posting; a post with a video waits until
+    /// Sign in with Bluesky is done again, see <see cref="CanUploadVideo"/>). The profile's
     /// create and update are for pinning a post on it (Pin the next event): a sign-in made before
     /// that was added lacks it, and the pin waits until Sign in with Bluesky is done again. The same goes
     /// for <see cref="RepliesScope"/>, which reading replies, mentions and quotes needs, and for the
@@ -158,7 +160,7 @@ public sealed class BlueskyOAuth(IHttpClientFactory http, ISecretProtector prote
     public const string NarrowScope =
         "atproto repo:app.bsky.feed.post?action=create&action=update&action=delete repo:app.bsky.actor.profile?action=create&action=update "
         + "repo:app.bsky.feed.threadgate?action=create&action=update&action=delete repo:app.bsky.feed.postgate?action=create&action=update&action=delete "
-        + "blob:image/* "
+        + "blob:image/* blob:video/* "
         + RepliesScope;
 
     /// <summary>
@@ -173,6 +175,15 @@ public sealed class BlueskyOAuth(IHttpClientFactory http, ISecretProtector prote
             || (parts.Any(s => s.StartsWith("repo:app.bsky.feed.threadgate", StringComparison.Ordinal))
                 && parts.Any(s => s.StartsWith("repo:app.bsky.feed.postgate", StringComparison.Ordinal)));
     }
+
+    /// <summary>
+    /// Whether a sign-in with this scope may upload a video: it names <c>blob:video/*</c> (or all
+    /// blobs), or it is <see cref="WideScope"/>. A sign-in made before the narrow scope had it does not.
+    /// </summary>
+    public static bool CanUploadVideo(string? scope) =>
+        scope is not null
+        && scope.Split(' ', StringSplitOptions.RemoveEmptyEntries).Any(
+            s => s is "transition:generic" or "blob:video/*" or "blob:*/*" or "blob:*");
 
     /// <summary>
     /// The one call to Bluesky's AppView the account's own server passes on for Modbot: the list of

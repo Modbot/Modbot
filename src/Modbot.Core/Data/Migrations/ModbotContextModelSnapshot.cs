@@ -973,6 +973,40 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("ban_reason", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarBlueskyVideo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<byte[]>("Bytes")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("bytes");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_calendar_bluesky_video");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("ix_calendar_bluesky_video_created_at");
+
+                    b.ToTable("calendar_bluesky_video", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarCategory", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1215,6 +1249,20 @@ namespace Modbot.Core.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("bluesky_title");
+
+                    b.Property<string>("BlueskyVideoAlt")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("bluesky_video_alt");
+
+                    b.Property<Guid?>("BlueskyVideoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("bluesky_video_id");
+
+                    b.Property<string>("BlueskyVideoUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("bluesky_video_url");
 
                     b.PrimitiveCollection<string>("BlueskyWhoCanReply")
                         .HasColumnType("jsonb")

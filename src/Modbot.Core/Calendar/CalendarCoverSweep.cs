@@ -6,7 +6,8 @@ namespace Modbot.Core.Calendar;
 
 /// <summary>
 /// Deletes pictures cropped for Discord that no event or post was saved with (calendar design §15.4,
-/// posts design §2.2).
+/// posts design §2.2), and the same for the videos kept for Bluesky's posts
+/// (<see cref="CalendarBlueskyVideosInUse"/> says which are still needed).
 /// </summary>
 /// <remarks>
 /// A picture is uploaded when Upload is pressed, before the event or post is saved, so a form closed
@@ -33,7 +34,7 @@ public sealed class CalendarCoverSweep(ModbotContext db, IModbotClock clock)
         // The pictures of Bluesky's posts: an event's, a template's, and those a post was sent with.
         var inBlueskyPosts = (await CalendarBlueskyPicturesInUse.ReadAsync(db, ct).ConfigureAwait(false)).ToList();
 
-        return await db.CalendarCoverPictures
+        var pictures = await db.CalendarCoverPictures
             .Where(c => c.CreatedAt < before
                 && !inBlueskyPosts.Contains(c.Id)
                 && !db.CalendarEvents.Any(e => e.CoverPictureId == c.Id && e.DeletedAt == null)
@@ -41,5 +42,14 @@ public sealed class CalendarCoverSweep(ModbotContext db, IModbotClock clock)
                 && !db.Posts.Any(p => p.PictureId == c.Id)
                 && !db.PostDestinations.Any(d => d.SitePictureId == c.Id))
             .ExecuteDeleteAsync(ct).ConfigureAwait(false);
+
+        // The videos kept for Bluesky's posts, on the same day's wait.
+        var videosInUse = (await CalendarBlueskyVideosInUse.ReadAsync(db, ct).ConfigureAwait(false)).ToList();
+
+        var videos = await db.CalendarBlueskyVideos
+            .Where(v => v.CreatedAt < before && !videosInUse.Contains(v.Id))
+            .ExecuteDeleteAsync(ct).ConfigureAwait(false);
+
+        return pictures + videos;
     }
 }

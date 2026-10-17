@@ -41,6 +41,9 @@ public static class CalendarEventFields
             ["blueskyWhoCanReply"] = e.BlueskyWhoCanReply is { } whoCanReply ? string.Join(", ", whoCanReply) : null,
             ["blueskyQuotesOff"] = e.BlueskyQuotesOff,
             ["blueskyLanguages"] = e.BlueskyLanguages is { } blueskyLanguages ? string.Join(", ", blueskyLanguages) : null,
+            ["blueskyVideo"] = e.BlueskyVideo is { } video
+                ? $"{video.VideoId?.ToString() ?? video.Url}: {video.Alt}"
+                : null,
             ["category"] = e.Category,
             ["modbotCategories"] = string.Join(", ", e.Categories.Select(c => c.Name).Order(StringComparer.Ordinal)),
             ["languages"] = string.Join(", ", e.Languages),

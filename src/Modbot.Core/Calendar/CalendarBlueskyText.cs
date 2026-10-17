@@ -52,6 +52,21 @@ public static class CalendarBlueskyText
     /// <summary>The words for an alt text over <see cref="AltMaxLength"/>.</summary>
     public const string AltTooLong = "A Bluesky picture's alt text is longer than 2000 characters.";
 
+    /// <summary>The words for a post given pictures and a video: Bluesky allows a video no pictures beside it.</summary>
+    public const string VideoAndPictures = "A Bluesky post has pictures or a video, not both.";
+
+    /// <summary>The words for a video alt text over <see cref="AltMaxLength"/>.</summary>
+    public const string VideoAltTooLong = "A Bluesky video's alt text is longer than 2000 characters.";
+
+    /// <summary>The words for a video that is both a kept file and a link, or neither.</summary>
+    public const string VideoNeedsOneSource = "A Bluesky video is a file or a link.";
+
+    /// <summary>The words for a video file that is gone.</summary>
+    public const string VideoGone = "The Bluesky video is gone. Add it again.";
+
+    /// <summary>The words for a post's video that could not go with it. Followed by why.</summary>
+    public const string VideoNotSent = "The post is up without its video.";
+
     /// <summary>The words for a post given more than <see cref="BlueskyLanguages.Most"/> languages, or one that is no language code.</summary>
     public const string LanguagesNotAllowed = "A Bluesky post has at most 3 languages, each a code such as en.";
 
@@ -168,19 +183,41 @@ public static class CalendarBlueskyText
     /// <param name="whoCanReply">Who may reply, as the event keeps it. Null (anyone) adds nothing to the fingerprint.</param>
     /// <param name="quotesOff">Quote posts are off. False adds nothing to the fingerprint.</param>
     /// <param name="languages">The post's languages. None adds nothing to the fingerprint.</param>
+    /// <param name="video">The post's video, or null for none. None adds nothing to the fingerprint.</param>
     public static string Fingerprint(
         string text, Guid? pictureId, IReadOnlyList<BlueskyPostPicture>? pictures = null,
-        IReadOnlyList<string>? whoCanReply = null, bool quotesOff = false, IReadOnlyList<string>? languages = null)
+        IReadOnlyList<string>? whoCanReply = null, bool quotesOff = false, IReadOnlyList<string>? languages = null,
+        BlueskyPostVideo? video = null)
     {
         var own = pictures is null ? null : string.Join('\u001f', pictures.Select(p => $"{p.PictureId}\u001e{p.Alt}"));
 
         // The reply, quote and language choices count only once one is made, so a post that went out
         // before they existed keeps its fingerprint and is not taken down and made again.
-        if (whoCanReply is null && !quotesOff && languages is not { Count: > 0 })
+        if (whoCanReply is null && !quotesOff && languages is not { Count: > 0 } && video is null)
             return own is null ? CalendarFingerprint.Of(text, pictureId) : CalendarFingerprint.Of(text, pictureId, own);
 
+        if (video is null)
+        {
+            return CalendarFingerprint.Of(
+                text, pictureId, own, string.Join(',', whoCanReply ?? []), quotesOff, string.Join(',', languages ?? []));
+        }
+
         return CalendarFingerprint.Of(
-            text, pictureId, own, string.Join(',', whoCanReply ?? []), quotesOff, string.Join(',', languages ?? []));
+            text, pictureId, own, string.Join(',', whoCanReply ?? []), quotesOff, string.Join(',', languages ?? []),
+            $"{video.VideoId}\u001e{video.Url}\u001e{video.Alt}");
+    }
+
+    /// <summary>
+    /// The video the post goes with when the event has one, with the alt text it was given, or the post's
+    /// title when it was given none. Null for an event with no video.
+    /// </summary>
+    public static BlueskyPostVideo? VideoOf(CalendarEvent calendarEvent, string? title)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        return calendarEvent.BlueskyVideo is { } own
+            ? own with { Alt = string.IsNullOrWhiteSpace(own.Alt) ? title ?? string.Empty : own.Alt.Trim() }
+            : null;
     }
 
     /// <summary>

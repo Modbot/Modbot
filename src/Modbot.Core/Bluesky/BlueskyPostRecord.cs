@@ -18,6 +18,15 @@ public sealed record BlueskyCard(string Uri, string Title, string Description);
 /// <param name="Height">The picture's height, or null when not known. Width and height travel together, so the feed keeps the picture's shape instead of cropping it.</param>
 public sealed record BlueskyImage(JsonObject Blob, string Alt, int? Width, int? Height);
 
+/// <summary>
+/// The one video a post carries in full (<c>app.bsky.embed.video</c>), instead of pictures or a link card.
+/// </summary>
+/// <param name="Blob">The video's blob, as <c>uploadBlob</c> answered.</param>
+/// <param name="Alt">The video's description for people who cannot see it. May be empty.</param>
+/// <param name="Width">The video's width, or null when not known.</param>
+/// <param name="Height">The video's height, or null when not known. Width and height travel together.</param>
+public sealed record BlueskyVideoEmbed(JsonObject Blob, string Alt, int? Width, int? Height);
+
 /// <summary>The post a reply answers: its address and content id, as Bluesky gave them.</summary>
 public sealed record BlueskyReplyTo(string Uri, string Cid);
 
@@ -46,9 +55,10 @@ public static class BlueskyPostRecord
     /// <param name="replyTo">The post this one answers, or null for a post of its own. Modbot replies only to its own top-level posts, so that post is both the root and the parent.</param>
     /// <param name="images">The post's pictures, up to four, or null for none. A post has the pictures or the link card, never both: with a picture, <paramref name="card"/> is left out (the link stays clickable in the text).</param>
     /// <param name="langs">The languages the post is written in (<c>langs</c>), up to three; null or empty leaves the field out.</param>
+    /// <param name="video">The post's one video, or null for none. A post has the video, the pictures or the link card: a video leaves out both of the others (Bluesky allows no pictures beside a video).</param>
     public static JsonObject Build(
         string text, DateTimeOffset createdAt, BlueskyCard? card, BlueskyReplyTo? replyTo = null, IReadOnlyList<BlueskyImage>? images = null,
-        IReadOnlyList<string>? langs = null)
+        IReadOnlyList<string>? langs = null, BlueskyVideoEmbed? video = null)
     {
         ArgumentNullException.ThrowIfNull(text);
 
@@ -75,7 +85,21 @@ public static class BlueskyPostRecord
             };
         }
 
-        if (images is { Count: > 0 })
+        if (video is not null)
+        {
+            var embed = new JsonObject
+            {
+                ["$type"] = "app.bsky.embed.video",
+                ["video"] = video.Blob.DeepClone(),
+                ["alt"] = video.Alt,
+            };
+
+            if (video.Width is > 0 && video.Height is > 0)
+                embed["aspectRatio"] = new JsonObject { ["width"] = video.Width, ["height"] = video.Height };
+
+            record["embed"] = embed;
+        }
+        else if (images is { Count: > 0 })
         {
             var entries = new JsonArray();
 

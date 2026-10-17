@@ -1073,6 +1073,42 @@ public static class CalendarEndpoints
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
 
+        // The video picked in the form for Bluesky's post: kept by Modbot until the post goes out,
+        // because Bluesky deletes an upload no post points to within hours. Its own request, like
+        // a cover, so saving stays plain JSON.
+        group.MapPost("/bluesky-video", (
+                HttpContext http,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                CancellationToken ct) => CalendarBlueskyVideoFiles.UploadAsync(http, db, clock, ct))
+            // No declared request body: the body is a file.
+            .RequiresFlag(ModbotPermissions.ViewCalendar)
+            .WithName("UploadCalendarBlueskyVideo")
+            .WithSummary("Upload Bluesky video")
+            .WithDescription(
+                "Keeps a video for an event's Bluesky post. Needs Manage calendar or Manage templates. The "
+                + "body is the video itself: an MP4, MPEG, WebM or QuickTime file of at most 50 MB, told apart "
+                + "by its first bytes. Answers with its id; save that in the event's blueskyVideo. Modbot keeps "
+                + "it until the event is deleted or given another video; one no event was saved with is "
+                + "deleted once it is a day old, within the hour after. It goes to Bluesky only as the post is made.")
+            .Produces<CalendarBlueskyVideoFileView>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status413PayloadTooLarge);
+
+        group.MapGet("/bluesky-video/{id:guid}", (
+                HttpContext http,
+                [FromRoute] Guid id,
+                [FromServices] ModbotContext db,
+                CancellationToken ct) => CalendarBlueskyVideoFiles.GetAsync(http, id, db, ct))
+            .RequiresFlag(ModbotPermissions.ViewCalendar)
+            .WithName("GetCalendarBlueskyVideo")
+            .WithSummary("Get Bluesky video")
+            .WithDescription("The video kept for an event's Bluesky post.")
+            .Produces<byte[]>(StatusCodes.Status200OK, "video/mp4", "video/quicktime", "video/webm", "video/mpeg")
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+
         // The picture behind an event's picture link, for the form to crop and turn into a PNG in
         // the browser (§15.2). Fetched by Modbot, kept nowhere (PictureLinkFetch).
         group.MapPost("/picture-link", (

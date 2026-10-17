@@ -84,6 +84,10 @@ namespace Modbot.Api.Features.Calendar;
 /// answered it with its alt text. An empty list says no picture; null keeps what the event has, which for
 /// an event never given a list is the cover alone.
 /// </param>
+/// <param name="BlueskyVideo">
+/// The video of Bluesky's post, a kept file or a link with its alt text, instead of pictures: sent with
+/// pictures it is refused. An object with neither a file nor a link takes the video away; null keeps what the event has.
+/// </param>
 /// <param name="BlueskyWhoCanReply">
 /// Who may reply to Bluesky's post: <c>anyone</c>, <c>nobody</c>, or any of <c>followers</c>, <c>following</c>
 /// and <c>mentioned</c>. Null keeps what the event has; a new event starts with anyone.
@@ -145,7 +149,17 @@ public sealed record CalendarEventRequest(
     IReadOnlyList<CalendarBlueskyPicture>? BlueskyPictures = null,
     IReadOnlyList<string>? BlueskyWhoCanReply = null,
     bool? BlueskyQuotesOff = null,
-    IReadOnlyList<string>? BlueskyLanguages = null);
+    IReadOnlyList<string>? BlueskyLanguages = null,
+    CalendarBlueskyVideoChoice? BlueskyVideo = null);
+
+/// <summary>
+/// The video of an event's Bluesky post: a kept file or a link, and its alt text. Exactly one of
+/// <paramref name="VideoId"/> and <paramref name="Url"/> is set; neither, in a request, takes the video away.
+/// </summary>
+/// <param name="VideoId">A file kept by Modbot, as <c>POST /api/calendar/bluesky-video</c> answered it.</param>
+/// <param name="Url">An https link Modbot fetches the video from as the post goes out.</param>
+/// <param name="Alt">The video's description for people who cannot see it. Blank says the post's title.</param>
+public sealed record CalendarBlueskyVideoChoice(Guid? VideoId = null, string? Url = null, string? Alt = null);
 
 /// <summary>One picture of an event's Bluesky post: a kept picture and its alt text.</summary>
 /// <param name="PictureId">The picture, as <c>POST /api/calendar/cover</c> answered it.</param>
@@ -338,6 +352,7 @@ public sealed record CalendarPictureLinkRequest(string? Url);
 /// <param name="BlueskyPostBeforeMinutes">How long before a date starts its Bluesky post goes.</param>
 /// <param name="PostColour">The channel post's colour while a date is scheduled, <c>0xRRGGBB</c>; null for Modbot's violet.</param>
 /// <param name="BlueskyPictures">The pictures of Bluesky's post, first first; null when the post goes with the cover alone.</param>
+/// <param name="BlueskyVideo">The video of Bluesky's post, a kept file or a link; null for none.</param>
 /// <param name="BlueskyWhoCanReply">Who may reply to Bluesky's post: <c>anyone</c>, <c>nobody</c>, or any of <c>followers</c>, <c>following</c>, <c>mentioned</c>.</param>
 /// <param name="BlueskyQuotesOff">Quote posts of Bluesky's post are not allowed.</param>
 /// <param name="BlueskyLanguages">The languages Bluesky's post is written in; empty for none.</param>
@@ -423,7 +438,8 @@ public sealed record CalendarEventView(
     IReadOnlyList<CalendarBlueskyPicture>? BlueskyPictures = null,
     IReadOnlyList<string>? BlueskyWhoCanReply = null,
     bool BlueskyQuotesOff = false,
-    IReadOnlyList<string>? BlueskyLanguages = null);
+    IReadOnlyList<string>? BlueskyLanguages = null,
+    CalendarBlueskyVideoChoice? BlueskyVideo = null);
 
 /// <summary>A time the channel streamed on Twitch while this event was on (Twitch design, step 3).</summary>
 /// <param name="Id">Twitch's stream id. Opaque.</param>
