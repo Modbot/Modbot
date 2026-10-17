@@ -282,7 +282,7 @@ wherever you choose to store them. These pages describe what is kept and how it 
   Bluesky when the event changes, is cancelled or is deleted. The post's text is the event's title,
   the date's time, the world's name, the description, a link and the tags (one for each of the event's categories,
   made from its name unless the group set another, and any tags the group set to go on every post; all public), and its picture is the event's cover
-  picture when that is 1 MB or smaller, or, when the event has a video, that video instead. A video file you
+  picture when that is 1 MB or smaller, or, when the event has a video or a GIF, that video or GIF instead. A video file you
   choose is kept by Modbot (in its database, with the event's pictures) until no event, template or post still
   to be sent uses it, and goes to the Bluesky account's server only as the post is made; a video link is kept only as an
   address, and Modbot downloads the video from it when the post goes out, which sends that address's website a
@@ -291,7 +291,7 @@ wherever you choose to store them. These pages describe what is kept and how it 
   searches for a GIF, that moderator's own browser asks Klipy, with the Klipy key you set under **Settings**,
   **Bluesky**, **GIF search**, the words searched for, a random number that stays in that browser, and the browser's
   region and address, and loads the pictures from Klipy; Modbot's server is not in between and sees none of it.
-  Everyone who can edit events gets the Klipy key. When the event has languages picked, they go in the post; when it
+  Everyone who can manage the calendar or its templates gets the Klipy key. When the event has languages picked, they go in the post; when it
   limits who can reply or turns quote posts off, Modbot also makes a small record next to the post saying
   so (public on Bluesky, with the post's address) and deletes it with the post. For each such post Modbot keeps in its database, with the other
   posts, the post's address on Bluesky and the start of the date it is about, so that a restart never

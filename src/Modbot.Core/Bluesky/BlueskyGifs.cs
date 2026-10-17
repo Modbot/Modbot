@@ -23,7 +23,11 @@ public static class BlueskyGifs
     /// <summary>The longest a GIF address may be: the column's.</summary>
     public const int MaxUrlLength = 2048;
 
-    /// <summary>What is wrong with a GIF address, or null: it must be an https address on Klipy's media host, with no user name, password or port.</summary>
+    /// <summary>
+    /// What is wrong with a GIF address, or null: it must be an https address on Klipy's media host, with no user
+    /// name, password or port, a path under <c>/ii/</c>, and the height and width (<c>hh</c> and <c>ww</c>) in its
+    /// query, which Bluesky's apps need to read it as a GIF.
+    /// </summary>
     public static string? Problem(string? url)
     {
         if (string.IsNullOrWhiteSpace(url) || url.Length > MaxUrlLength)
@@ -36,16 +40,35 @@ public static class BlueskyGifs
             && string.Equals(address.Host, MediaHost, StringComparison.OrdinalIgnoreCase)
             && address.IsDefaultPort
             && string.IsNullOrEmpty(address.UserInfo)
-            && address.AbsolutePath.Length > 1;
+            && address.AbsolutePath.StartsWith("/ii/", StringComparison.Ordinal)
+            && address.AbsolutePath.Length > "/ii/".Length
+            && HasQueryName(address, "hh")
+            && HasQueryName(address, "ww");
 
         return ok ? null : NotKlipy;
     }
 
-    /// <summary>The link card a GIF is posted as: the address, the alt text as its title, and "Alt: " and the alt text as its line.</summary>
-    public static BlueskyCard Card(BlueskyPostGif gif)
+    /// <summary>
+    /// The link card a GIF is posted as, worded the way Bluesky's app words one: the address, and the line "Alt: "
+    /// and the alt text. With no alt text the line is "ALT: " and the post's title (or "GIF" when that is empty
+    /// too), never a bare "Alt: ".
+    /// </summary>
+    public static BlueskyCard Card(BlueskyPostGif gif, string? postTitle = null)
     {
         ArgumentNullException.ThrowIfNull(gif);
 
-        return new BlueskyCard(gif.Url, gif.Alt, "Alt: " + gif.Alt);
+        var alt = gif.Alt?.Trim() ?? string.Empty;
+
+        if (alt.Length > 0)
+            return new BlueskyCard(gif.Url, alt, "Alt: " + alt);
+
+        var fallback = string.IsNullOrWhiteSpace(postTitle) ? "GIF" : postTitle.Trim();
+
+        return new BlueskyCard(gif.Url, fallback, "ALT: " + fallback);
     }
+
+    private static bool HasQueryName(Uri address, string name) =>
+        address.Query.TrimStart('?')
+            .Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Any(part => part.Split('=')[0] == name);
 }

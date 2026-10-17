@@ -443,7 +443,7 @@ public sealed class PostBlueskySender
 
         // A GIF goes out as a link card of its own, the way Bluesky's app posts one; only a Klipy address is sent.
         var gif = options.Gif is { } wantedGif && BlueskyGifs.Problem(wantedGif.Url) is null ? wantedGif : null;
-        var card = gif is not null ? BlueskyGifs.Card(gif) : BlueskyPostRecord.CardFor(title, text);
+        var card = gif is not null ? BlueskyGifs.Card(gif, title) : BlueskyPostRecord.CardFor(title, text);
         var images = new List<BlueskyImage>();
 
         // An event's post carries the pictures it was given, up to four, each with its alt text; any other

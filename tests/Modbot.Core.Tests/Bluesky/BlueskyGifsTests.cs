@@ -10,7 +10,8 @@ public class BlueskyGifsTests
 
     [Theory]
     [InlineData(Good)]
-    [InlineData("https://STATIC.klipy.com/ii/a/b.gif")]
+    [InlineData("https://STATIC.klipy.com/ii/a/b.gif?hh=1&ww=2")]
+    [InlineData("https://static.klipy.com/ii/a/b.gif?ww=2&mp4=x&hh=1")]
     [InlineData("  " + Good + "  ")]
     public void AKlipyMediaAddressIsAccepted(string url) => Assert.Null(BlueskyGifs.Problem(url));
 
@@ -20,22 +21,30 @@ public class BlueskyGifsTests
     [InlineData("   ")]
     [InlineData("not an address")]
     [InlineData("http://static.klipy.com/ii/a/b.gif")]
-    [InlineData("https://klipy.com/ii/a/b.gif")]
-    [InlineData("https://api.klipy.com/ii/a/b.gif")]
-    [InlineData("https://media.tenor.com/a/b.gif")]
-    [InlineData("https://static.klipy.com.example.com/ii/a/b.gif")]
-    [InlineData("https://static.klipy.com@example.com/ii/a/b.gif")]
-    [InlineData("https://user:secret@static.klipy.com/ii/a/b.gif")]
-    [InlineData("https://static.klipy.com:8443/ii/a/b.gif")]
+    [InlineData("http://static.klipy.com/ii/a/b.gif?hh=1&ww=2")]
+    [InlineData("https://klipy.com/ii/a/b.gif?hh=1&ww=2")]
+    [InlineData("https://api.klipy.com/ii/a/b.gif?hh=1&ww=2")]
+    [InlineData("https://media.tenor.com/a/b.gif?hh=1&ww=2")]
+    [InlineData("https://static.klipy.com.example.com/ii/a/b.gif?hh=1&ww=2")]
+    [InlineData("https://static.klipy.com@example.com/ii/a/b.gif?hh=1&ww=2")]
+    [InlineData("https://user:secret@static.klipy.com/ii/a/b.gif?hh=1&ww=2")]
+    [InlineData("https://static.klipy.com:8443/ii/a/b.gif?hh=1&ww=2")]
     [InlineData("https://static.klipy.com")]
     [InlineData("https://static.klipy.com/")]
-    [InlineData("ftp://static.klipy.com/ii/a/b.gif")]
+    [InlineData("ftp://static.klipy.com/ii/a/b.gif?hh=1&ww=2")]
+    [InlineData("https://static.klipy.com/a/b.gif?hh=1&ww=2")]
+    [InlineData("https://static.klipy.com/iii/a/b.gif?hh=1&ww=2")]
+    [InlineData("https://static.klipy.com/ii/")]
+    [InlineData("https://static.klipy.com/ii/a/b.gif")]
+    [InlineData("https://static.klipy.com/ii/a/b.gif?hh=1")]
+    [InlineData("https://static.klipy.com/ii/a/b.gif?ww=2")]
+    [InlineData("https://static.klipy.com/ii/a/b.gif?xhh=1&xww=2")]
     public void AnythingElseIsRefused(string? url) => Assert.Equal(BlueskyGifs.NotKlipy, BlueskyGifs.Problem(url));
 
     [Fact]
     public void AnAddressOverTheColumnLengthIsRefused()
     {
-        var tooLong = "https://static.klipy.com/ii/" + new string('a', BlueskyGifs.MaxUrlLength);
+        var tooLong = "https://static.klipy.com/ii/" + new string('a', BlueskyGifs.MaxUrlLength) + "?hh=1&ww=2";
 
         Assert.Equal(BlueskyGifs.NotKlipy, BlueskyGifs.Problem(tooLong));
     }
@@ -55,6 +64,19 @@ public class BlueskyGifsTests
         Assert.Equal("Alt: A cat waves", external["description"]!.GetValue<string>());
         Assert.Null(external["thumb"]);
         Assert.Null(embed["images"]);
+    }
+
+    [Theory]
+    [InlineData("", "Game night", "Game night", "ALT: Game night")]
+    [InlineData("   ", null, "GIF", "ALT: GIF")]
+    [InlineData("", "  ", "GIF", "ALT: GIF")]
+    [InlineData(" A cat ", "Game night", "A cat", "Alt: A cat")]
+    public void WithoutAltTextTheCardSaysTheTitleInCapitals_NeverABareAlt(string alt, string? postTitle, string title, string description)
+    {
+        var card = BlueskyGifs.Card(new BlueskyPostGif(Good, alt), postTitle);
+
+        Assert.Equal(title, card.Title);
+        Assert.Equal(description, card.Description);
     }
 
     [Fact]

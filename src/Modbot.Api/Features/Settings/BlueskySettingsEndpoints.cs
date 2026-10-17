@@ -321,7 +321,7 @@ public static class BlueskySettingsEndpoints
                     .Field("blueskyLineupDay", lineupDayBefore, lineupDayAfter)
                     .Field("blueskyLineupHour", lineupHourBefore, lineupHourAfter)
                     .Field("blueskyLineupTimeZone", lineupZoneBefore, lineupZoneAfter)
-                    .Field("klipyKey", klipyBefore, klipyAfter);
+                    .Secret("klipyKey", klipyChanged);
 
                 await db.SaveChangesAsync(ct);
                 await change.RecordAsync(http, ct);

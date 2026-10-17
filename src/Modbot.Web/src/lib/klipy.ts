@@ -95,6 +95,7 @@ export function parseKlipyPage(body: unknown): KlipyPage {
   for (const item of items) {
     if (!isRecord(item)) continue
     const post = firstSize(item.file, POST_SIZES)
+    // A result with no GIF file is left out: the post is a GIF address, so such a result could not be posted.
     if (!post) continue
     const grid = firstSize(item.file, GRID_SIZES) ?? post
     const sizeFiles = isRecord(post.sizeFiles) ? post.sizeFiles : {}
