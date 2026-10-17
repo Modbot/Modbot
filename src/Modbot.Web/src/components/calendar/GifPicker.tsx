@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Popover } from 'radix-ui'
+import { PopoverPortal } from '@/components/ui/dialog-portal'
 import {
   KLIPY_PLACEHOLDER,
   klipyCustomerId,
@@ -82,7 +83,7 @@ export function GifPicker({
       }}
     >
       <Popover.Trigger asChild>{children}</Popover.Trigger>
-      <Popover.Portal>
+      <PopoverPortal>
         <Popover.Content
           align="start"
           sideOffset={4}
@@ -130,7 +131,7 @@ export function GifPicker({
             </button>
           )}
         </Popover.Content>
-      </Popover.Portal>
+      </PopoverPortal>
     </Popover.Root>
   )
 }
