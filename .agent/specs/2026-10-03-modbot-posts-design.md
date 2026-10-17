@@ -387,7 +387,7 @@ post's `at://` address is `external_id` and its content id `options.cid`.
   off and "Bluesky is not set up." otherwise, in the chip's own order (phase-2 finding of 3a: it
   used to say "No Bluesky account is set up yet." even while the chip said Off).
 - **Not in 3a or 3b**: `langs` (no language picker), pictures beyond the card, the event kinds and
-  the Cancelled reply (step 4). (2026-10-17: the calendar's Bluesky post now carries `langs`, with
+  the Cancelled reply (step 4). (2026-10-16: the calendar's Bluesky post now carries `langs`, with
   who can reply and quote settings.)
 
 ### 4.2d Bluesky weekly line-up (added 2026-10-14)

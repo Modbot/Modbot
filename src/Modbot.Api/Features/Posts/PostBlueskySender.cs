@@ -643,9 +643,15 @@ public sealed class PostBlueskySender
     /// </summary>
     private async Task SetGatesAsync(Pass pass)
     {
+        // Only the account's own posts: another account's would otherwise take the places of these,
+        // and would make every pass sign in for nothing.
+        if (pass.Did is not { } did)
+            return;
+
         var due = _db.PostDestinations
             .Where(d => d.Network == PostNetworks.Bluesky
                 && d.State == PostDestinationStates.Posted
+                && d.Target == did
                 && d.ExternalId != null
                 && d.ClientKey != null
                 && (d.CheckAt == null || d.CheckAt <= pass.Now)
@@ -661,9 +667,7 @@ public sealed class PostBlueskySender
             return;
         }
 
-        // Only the signed-in account's posts: another account's would otherwise take the places of these.
         var waiting = await due
-            .Where(d => d.Target == access.Did)
             .OrderBy(d => d.PostedAt)
             .Take(LooksPerPass)
             .ToListAsync(pass.Ct).ConfigureAwait(false);
@@ -703,7 +707,8 @@ public sealed class PostBlueskySender
         destination.PostedAt = pass.Now;
         destination.MayBeSent = false;
         destination.SendIfMissing = false;
-        destination.CheckAt = null;
+        // A setting that failed now waits like any other failure before a later pass tries it again.
+        destination.CheckAt = gatesError is null ? null : pass.Now + PostRules.NotSentRetryAfter;
         destination.Error = Trim(gatesError);
         destination.ErrorAt = gatesError is null ? null : pass.Now;
         destination.MissingPermission = null;
