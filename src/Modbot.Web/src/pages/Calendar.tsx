@@ -37,6 +37,7 @@ import {
   type CalendarView,
   type PublicCalendarFeed,
   hasRun,
+  titleOf,
   vrchatReadProblem,
 } from '@/lib/calendar'
 import {
@@ -255,7 +256,7 @@ export function Calendar({ me }: { me: CurrentUser }) {
               start: new Date(new Date(o.startsAt).getTime() + (shift?.startBy ?? 0)),
               end: new Date(new Date(o.endsAt).getTime() + (shift?.endBy ?? 0)),
               date: o.plannedStartsAt,
-              title: o.title || event.title,
+              title: titleOf(o.title || event.title),
               cancelled,
             }
           }

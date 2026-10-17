@@ -50,6 +50,7 @@ export function QuickCreate({
 
   useEffect(() => {
     onTyped(title !== '')
+    return () => onTyped(false)
   }, [title, onTyped])
 
   // Closing with a title typed asks first; an untouched form just closes.

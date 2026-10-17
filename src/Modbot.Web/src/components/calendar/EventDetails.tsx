@@ -16,6 +16,7 @@ import {
   PLACE_STATE_LABEL,
   repeatEveryText,
   STATE_LABEL,
+  titleOf,
   worldAt,
   type CalendarEvent,
   type CalendarOccurrence,
@@ -491,7 +492,7 @@ function CancelBody({ event, onClose, onDone }: { event: CalendarEvent; onClose:
 
   return (
     <DialogContent
-      title={`Cancel “${event.title}”?`}
+      title={`Cancel “${titleOf(event.title)}”?`}
       className="max-w-[460px]"
       foot={
         <DialogFoot>
@@ -603,7 +604,7 @@ export function EventDetails({
   const found = dateAt(event, start)
   const occurrence = found?.occurrence ?? null
   const dateCancelled = found?.cancelled ?? false
-  const title = occurrence?.title || event.title
+  const title = titleOf(occurrence?.title || event.title)
   const ownDate =
     event.repeat !== 'none' &&
     (event.state === 'scheduled' || event.state === 'open') &&
@@ -656,7 +657,7 @@ export function EventDetails({
       <ConfirmDialog
         open={confirm === 'delete'}
         onOpenChange={(open) => !open && setConfirm(null)}
-        title={`Delete “${event.title}”?`}
+        title={`Delete “${titleOf(event.title)}”?`}
         action="Delete"
         failed="Could not delete the event."
         onConfirm={() => calendarApi.remove(event.id)}

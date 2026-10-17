@@ -315,7 +315,8 @@ place's tab, plus a world if the instance should open by itself, and a channel i
   changes?**: **Keep editing** goes back to the form, **Discard** closes it. A form you did not touch
   closes at once.
 
-**Save draft** needs nothing filled in, not even a world. **Schedule** asks for a world list to be
+**Save draft** needs nothing filled in, not even a title or a world. A draft with no title shows as
+**Untitled event** on the calendar and in its details, and **Schedule** refuses it until it has one. **Schedule** asks for a world list to be
 picked only when VRChat is on: it opens the **VRChat** tab and says **Pick a list**.
 
 The buttons stay at the bottom of the form while you scroll, and are the same on every tab, on a
@@ -453,7 +454,7 @@ There is no title or description on the **Shared info** tab. Each place has its 
 
 | Field | Notes |
 |---|---|
-| **Title** | Required: an event needs a title from at least one place. Up to 100 characters. The count beside it, such as **12 / 100**, turns red when it is too long. |
+| **Title** | Required to schedule: an event needs a title from at least one place. A draft needs none. Up to 100 characters. The count beside it, such as **12 / 100**, turns red when it is too long. |
 | **Description** | Optional, except for the VRChat calendar. Up to 1,000 characters, counted the same way. Line breaks are kept. The Discord event and the Discord post share one title and description. |
 
 **What each place is sent.** A place with a title of its own is sent that. A place with none is sent the
@@ -463,7 +464,8 @@ description. An empty box shows those words muted, so you can see what that plac
 event made before the form changed keeps its title and description; they show muted in any box that
 has no words of its own.
 
-An event with no title anywhere is refused with **An event needs a title.**, a draft too. An event
+An event with no title anywhere is refused with **An event needs a title.** when you **Schedule** or
+**Save** it. A draft may have none, and shows as **Untitled event**. An event
 that goes to the VRChat calendar needs a description, from the **VRChat** tab or from any other place's.
 
 Each place shows its own text the way that place reads it:

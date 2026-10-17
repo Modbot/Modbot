@@ -108,6 +108,17 @@ public class CalendarSiteTextRequestTests
     }
 
     [Fact]
+    public void ADraftWithNoTitleIsAccepted_AndAScheduledEventWithNoTitleIsRefused()
+    {
+        var draft = new CalendarEvent();
+
+        Assert.Empty(CalendarEndpoints.ApplyAll(Request(title: "") with { Draft = true }, draft));
+        Assert.Equal(string.Empty, draft.Title);
+
+        Assert.Contains(CalendarVRChatChecks.NoTitle, CalendarEndpoints.ApplyAll(Request(title: "  "), new CalendarEvent()));
+    }
+
+    [Fact]
     public void VRChatsOwnDescriptionIsTheOneVRChatNeeds()
     {
         Assert.Contains(

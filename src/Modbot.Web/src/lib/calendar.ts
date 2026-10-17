@@ -237,6 +237,11 @@ export type CalendarTwitchStream = {
   link: string | null
 }
 
+/** What an event with no title is called wherever its title is shown. Only a draft can have none. */
+export function titleOf(title: string | null | undefined): string {
+  return title?.trim() || 'Untitled event'
+}
+
 /**
  * The world to show for one time of an event. An event that picks from a list has a world only for
  * the date it is on now; its other dates show the list instead (world lists design §5).

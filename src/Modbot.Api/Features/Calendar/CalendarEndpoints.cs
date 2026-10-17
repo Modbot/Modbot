@@ -1996,7 +1996,8 @@ public static class CalendarEndpoints
         var problems = new List<string>();
 
         var title = body.Title?.Trim() ?? string.Empty;
-        if (title.Length == 0 && !preview)
+        // A draft may stay untitled until it is scheduled; the app shows it as "Untitled event".
+        if (title.Length == 0 && !preview && !body.Draft)
             problems.Add(CalendarVRChatChecks.NoTitle);
 
         if (title.Length > CalendarEvent.MaxTitleLength)

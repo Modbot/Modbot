@@ -11,10 +11,13 @@ namespace Modbot.Api.Features.Chat.Tools;
 /// <summary>The calendar, read the way the Calendar page reads it.</summary>
 internal static class CalendarRows
 {
+    /// <summary>A draft may have no title; the app calls it this wherever its title is shown.</summary>
+    private static string Named(string title) => string.IsNullOrWhiteSpace(title) ? "Untitled event" : title;
+
     public static object Row(CalendarEventView e) => new
     {
         eventId = e.Id,
-        e.Title,
+        Title = Named(e.Title),
         e.State,
         startsAt = e.Occurrences.Count > 0 ? e.Occurrences[0].StartsAt : e.StartsAt,
         endsAt = e.Occurrences.Count > 0 ? e.Occurrences[0].EndsAt : e.EndsAt,
@@ -36,7 +39,7 @@ internal static class CalendarRows
     {
         foreach (var e in events)
         {
-            yield return new ChatReference(ChatReference.Event, e.Id.ToString(), e.Title);
+            yield return new ChatReference(ChatReference.Event, e.Id.ToString(), Named(e.Title));
 
             if (e.WorldId is { } world)
                 yield return new ChatReference(ChatReference.World, world, e.WorldName);
