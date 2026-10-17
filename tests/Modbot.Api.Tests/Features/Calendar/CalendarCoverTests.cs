@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Features.Calendar;
 using Modbot.Core.Calendar;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Posts;
 using Modbot.TestSupport;
 
 namespace Modbot.Api.Tests.Features.Calendar;
@@ -480,6 +481,58 @@ public class CalendarCoverTests(PostgresFixture db)
         Assert.False(await KeptAsync(unsaved));
         Assert.True(await KeptAsync(saved));
         Assert.True(await KeptAsync(young));
+    }
+
+    /// <summary>
+    /// A Bluesky post that was sent keeps every picture of its list (pictures 2 to 4 sit only in the
+    /// destination's options): the sweep does not delete them, and nor does letting go of the cover.
+    /// </summary>
+    [Fact]
+    public async Task ThePicturesOfASentBlueskyPostAreNeitherSweptNorDropped()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+        var first = await UploadedAsync(host, manager);
+        var second = await UploadedAsync(host, manager);
+        var third = await UploadedAsync(host, manager);
+        var unsaved = await UploadedAsync(host, manager);
+        var eventId = await CreateAsync(host, manager, first);
+
+        await using (var context = db.NewContext())
+        {
+            var post = new Post
+            {
+                Id = Guid.CreateVersion7(),
+                Kind = PostKinds.EventDate,
+                Status = PostStatuses.Scheduled,
+                Title = "Movie night",
+                Text = "Bring snacks",
+                CreatedAt = host.Clock.UtcNow,
+                UpdatedAt = host.Clock.UtcNow,
+            };
+            post.Destinations.Add(new PostDestination
+            {
+                Id = Guid.CreateVersion7(),
+                Network = PostNetworks.Bluesky,
+                State = PostDestinationStates.Posted,
+                Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(
+                    Pictures: [new BlueskyPostPicture(first, "Poster"), new BlueskyPostPicture(second, ""), new BlueskyPostPicture(third, "Crowd")])),
+            });
+            context.Posts.Add(post);
+            await context.SaveChangesAsync(Ct);
+        }
+
+        host.Clock.Advance(CalendarCoverSweep.KeptUnsaved + TimeSpan.FromMinutes(1));
+        await using (var context = db.NewContext())
+            await new CalendarCoverSweep(context, host.Clock).RunOnceAsync(Ct);
+
+        Assert.True(await KeptAsync(second));
+        Assert.True(await KeptAsync(third));
+        Assert.False(await KeptAsync(unsaved));
+
+        await host.SendJsonAsync(HttpMethod.Delete, $"/api/calendar/events/{eventId}", null, manager, Ct);
+
+        Assert.True(await KeptAsync(first));
     }
 
     /// <summary>Uploading deletes nothing: the sweep alone does.</summary>

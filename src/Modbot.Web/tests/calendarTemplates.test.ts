@@ -48,6 +48,7 @@ const input: CalendarEventInput = {
   announceFirstJoinOnBluesky: false,
   mentionRoleId: null,
   postColour: null,
+  blueskyPictures: null,
   coverPictureId: null,
   vrChatTitle: 'Movies in VRChat',
   vrChatDescription: '',
@@ -106,6 +107,19 @@ test('a template keeps the post colour, and one saved before post colours loads 
 
   const { postColour: _colour, ...old } = picked
   assert.equal(inputFromTemplate(old as typeof picked, input).postColour, null)
+})
+
+test('a template keeps its Bluesky pictures and their alt text, and one saved without them loads with none', () => {
+  const pictures = [
+    { pictureId: '11111111-1111-1111-1111-111111111111', alt: 'A stage' },
+    { pictureId: '22222222-2222-2222-2222-222222222222', alt: '' },
+  ]
+  const saved = fieldsFromInput({ ...input, blueskyPictures: pictures }, 120)
+  assert.deepEqual(saved.blueskyPictures, pictures)
+  assert.deepEqual(inputFromTemplate(saved, input).blueskyPictures, pictures)
+
+  const { blueskyPictures: _pictures, ...old } = saved
+  assert.equal(inputFromTemplate(old as typeof saved, { ...input, blueskyPictures: pictures }).blueskyPictures, null)
 })
 
 test('a template loads into the form over the dates it is given', () => {

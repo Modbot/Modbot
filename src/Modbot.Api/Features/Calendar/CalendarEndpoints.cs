@@ -1560,7 +1560,7 @@ public static class CalendarEndpoints
     }
 
     /// <summary>What is wrong with the pictures an event names for its Bluesky post, or null: a picture that is gone and is not one the event already had.</summary>
-    private static async Task<string?> BlueskyPicturesProblemAsync(
+    internal static async Task<string?> BlueskyPicturesProblemAsync(
         ModbotContext db, CalendarEventRequest body, IReadOnlyCollection<Guid> kept, CancellationToken ct)
     {
         if (body.BlueskyPictures is not { Count: > 0 } pictures)
@@ -1587,13 +1587,8 @@ public static class CalendarEndpoints
         if (await db.CalendarEvents.AnyAsync(e => e.CoverPictureId == id && e.DeletedAt == null, ct))
             return;
 
-        // Or one of its Bluesky pictures: the lists are read whole, a few ids at most.
-        var blueskyLists = await db.CalendarEvents
-            .Where(e => e.DeletedAt == null && e.BlueskyPictureIds != null)
-            .Select(e => e.BlueskyPictureIds!)
-            .ToListAsync(ct);
-
-        if (blueskyLists.Any(list => list.Contains(id)))
+        // Or one of its Bluesky pictures: an event's, a template's, or one a Bluesky post was sent with.
+        if ((await CalendarBlueskyPicturesInUse.ReadAsync(db, ct)).Contains(id))
             return;
 
         // So may a template.

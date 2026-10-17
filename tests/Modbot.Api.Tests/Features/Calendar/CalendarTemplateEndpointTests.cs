@@ -356,6 +356,64 @@ public class CalendarTemplateEndpointTests(PostgresFixture db)
         Assert.Empty(CategoryIdsOf(await ListAsync(host, manager)));
     }
 
+    private static object[] BlueskyPictures(params (Guid Id, string Alt)[] pictures) =>
+        [.. pictures.Select(p => new { pictureId = p.Id, alt = p.Alt })];
+
+    /// <summary>A template keeps the Bluesky pictures it was saved with, in order, each with its alt text.</summary>
+    [Fact]
+    public async Task ATemplateKeepsItsBlueskyPicturesAndTheirAltText()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+        var first = await UploadedCoverAsync(host, manager);
+        var second = await UploadedCoverAsync(host, manager);
+
+        var fields = Fields();
+        fields["blueskyPictures"] = BlueskyPictures((second, "The cabin"), (first, ""));
+        await CreateAsync(host, manager, fields: fields);
+
+        var pictures = Assert.Single((await ListAsync(host, manager)).GetProperty("templates").EnumerateArray())
+            .GetProperty("fields").GetProperty("blueskyPictures").EnumerateArray().ToList();
+        Assert.Equal([second, first], pictures.Select(p => p.GetProperty("pictureId").GetGuid()));
+        Assert.Equal(["The cabin", string.Empty], pictures.Select(p => p.GetProperty("alt").GetString()));
+    }
+
+    /// <summary>A save naming a Bluesky picture that is gone is refused, as an event's is.</summary>
+    [Fact]
+    public async Task ASaveNamingAGoneBlueskyPictureIsRefused()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+
+        var fields = Fields();
+        fields["blueskyPictures"] = BlueskyPictures((Guid.CreateVersion7(), "Gone"));
+        var response = await host.SendJsonAsync(HttpMethod.Post, Path, Body("Gone", fields), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    /// <summary>The sweep keeps the Bluesky pictures a template lists, however old.</summary>
+    [Fact]
+    public async Task TheCoverSweepKeepsATemplatesBlueskyPictures()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+        var used = await UploadedCoverAsync(host, manager);
+        var unused = await UploadedCoverAsync(host, manager);
+
+        var fields = Fields();
+        fields["blueskyPictures"] = BlueskyPictures((used, "Poster"));
+        await CreateAsync(host, manager, fields: fields);
+
+        host.Clock.Advance(CalendarCoverSweep.KeptUnsaved + TimeSpan.FromMinutes(1));
+        await using (var context = db.NewContext())
+            await new CalendarCoverSweep(context, host.Clock).RunOnceAsync(Ct);
+
+        await using var check = db.NewContext();
+        Assert.True(await check.CalendarCoverPictures.AnyAsync(c => c.Id == used, Ct));
+        Assert.False(await check.CalendarCoverPictures.AnyAsync(c => c.Id == unused, Ct));
+    }
+
     /// <summary>The sweep keeps a picture a template uses, however old, and a template without it loses it.</summary>
     [Fact]
     public async Task TheCoverSweepKeepsATemplatesPicture()

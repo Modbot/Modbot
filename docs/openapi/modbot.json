@@ -47667,6 +47667,15 @@
               "integer"
             ],
             "format": "int32"
+          },
+          "blueskyPictures": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CalendarBlueskyPicture"
+            }
           }
         }
       },

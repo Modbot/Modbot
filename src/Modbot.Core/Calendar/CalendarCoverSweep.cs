@@ -11,8 +11,9 @@ namespace Modbot.Core.Calendar;
 /// <remarks>
 /// A picture is uploaded when Upload is pressed, before the event or post is saved, so a form closed
 /// without saving leaves one behind. Once it is a day old -- long enough for any form still open --
-/// and no live event (as its cover or in its Bluesky pictures), no template, no post and no post's site copy
-/// (Bluesky's copy of the picture) points at it, it is deleted. A post keeps its picture whatever its
+/// and no live event (as its cover or in its Bluesky pictures), no template (as its cover or in its Bluesky
+/// pictures), no post, no post's site copy (Bluesky's copy of the picture) and no sent Bluesky post's
+/// pictures point at it, it is deleted. A post keeps its picture whatever its
 /// state: a cancelled one can be duplicated, and a sent one is shown with it. The calendar's schedule loop runs this once an hour
 /// (<see cref="Every"/>), so nothing waits on somebody uploading again.
 /// </remarks>
@@ -29,14 +30,8 @@ public sealed class CalendarCoverSweep(ModbotContext db, IModbotClock clock)
     {
         var before = clock.UtcNow - KeptUnsaved;
 
-        // The pictures of Bluesky's posts sit in a list on the event, read whole: a few ids at most.
-        var inBlueskyPosts = (await db.CalendarEvents
-                .Where(e => e.DeletedAt == null && e.BlueskyPictureIds != null)
-                .Select(e => e.BlueskyPictureIds!)
-                .ToListAsync(ct).ConfigureAwait(false))
-            .SelectMany(ids => ids)
-            .Distinct()
-            .ToList();
+        // The pictures of Bluesky's posts: an event's, a template's, and those a post was sent with.
+        var inBlueskyPosts = (await CalendarBlueskyPicturesInUse.ReadAsync(db, ct).ConfigureAwait(false)).ToList();
 
         return await db.CalendarCoverPictures
             .Where(c => c.CreatedAt < before

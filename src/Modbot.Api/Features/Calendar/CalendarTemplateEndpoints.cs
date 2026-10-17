@@ -306,6 +306,10 @@ public static class CalendarTemplateEndpoints
         if (await CalendarEndpoints.CoverProblemAsync(db, asEvent, keptFields?.CoverPictureId, ct) is { } coverProblem)
             problems.Add(coverProblem);
 
+        if (await CalendarEndpoints.BlueskyPicturesProblemAsync(
+                db, asEvent, (keptFields?.BlueskyPictures ?? []).Select(p => p.PictureId).ToList(), ct) is { } picturesProblem)
+            problems.Add(picturesProblem);
+
         var categories = await CalendarEndpoints.CategoriesAsync(db, asEvent, problems, ct);
 
         if (problems.Count > 0)
@@ -368,7 +372,10 @@ public static class CalendarTemplateEndpoints
             BlueskyPostBeforeMinutes: fields.BlueskyPostBeforeMinutes,
             BlueskyTitle: target.BlueskyTitle,
             BlueskyDescription: target.BlueskyDescription,
-            PostColour: target.PostColour));
+            PostColour: target.PostColour,
+            BlueskyPictures: target.BlueskyPictures is { } blueskyPictures
+                ? [.. blueskyPictures.Select(p => new CalendarBlueskyPicture(p.PictureId, p.Alt))]
+                : null));
     }
 
     /// <summary>
@@ -430,6 +437,7 @@ public static class CalendarTemplateEndpoints
             BlueskyTitle: f.BlueskyTitle,
             BlueskyDescription: f.BlueskyDescription,
             BlueskyPostBeforeMinutes: f.BlueskyPostBeforeMinutes,
-            PostColour: f.PostColour);
+            PostColour: f.PostColour,
+            BlueskyPictures: f.BlueskyPictures);
     }
 }

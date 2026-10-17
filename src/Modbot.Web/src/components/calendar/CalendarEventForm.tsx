@@ -1159,6 +1159,7 @@ export function CalendarEventForm({
                             onChange={e.description.onChange}
                             onActive={e.description.onActive}
                             onPutText={(put) => setPutBlueskyText({ put })}
+                            putFirst
                             placeholder={e.description.placeholder || 'Add a description'}
                             className="min-h-0 min-w-0 flex-1 border-none bg-transparent p-0 text-inherit text-[length:inherit]! focus-visible:ring-0 empty:before:text-current empty:before:opacity-50"
                           />

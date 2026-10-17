@@ -96,6 +96,7 @@ export function FillInText({
   links = true,
   onActive,
   onPutText,
+  putFirst = false,
   placeholder = '',
   className,
 }: {
@@ -107,6 +108,8 @@ export function FillInText({
   onActive?: (insert: (name: string) => boolean) => void
   /** Like `onActive`, for a function that puts plain words (an emoji) at the caret. */
   onPutText?: (put: (words: string) => boolean) => void
+  /** Hands `onPutText` its function when the box appears too, so the parent has one before any click. */
+  putFirst?: boolean
   /** Muted words drawn in the box while it is empty. */
   placeholder?: string
   /** Classes laid over the box's own, to sit it inside something else (a service's card). */
@@ -188,6 +191,13 @@ export function FillInText({
     if (words !== '') place(field, document.createTextNode(words))
     return true
   }
+
+  // The parent has this box's function from the start, before anything was clicked.
+  useEffect(() => {
+    if (putFirst) onPutText?.(putText)
+    // Once, when the box appears.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div
