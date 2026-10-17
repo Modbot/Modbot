@@ -249,6 +249,47 @@ public class BlueskyTextTests
     }
 
     [Fact]
+    public void AVideoIsEmbeddedInFull_AndLeavesOutThePicturesAndTheCard()
+    {
+        var card = new BlueskyCard("https://example.com/a", "Movie night", string.Empty);
+        var picture = new JsonObject { ["$type"] = "blob", ["size"] = 900 };
+        var blob = new JsonObject { ["$type"] = "blob", ["size"] = 5000 };
+
+        var record = BlueskyPostRecord.Build(
+            "Movie night https://example.com/a",
+            DateTimeOffset.UnixEpoch,
+            card,
+            images: [new BlueskyImage(picture, "A poster", null, null)],
+            video: new BlueskyVideoEmbed(blob, "The trailer", 1920, 1080));
+
+        var embed = record["embed"]!;
+        Assert.Equal("app.bsky.embed.video", embed["$type"]!.GetValue<string>());
+        Assert.Null(embed["external"]);
+        Assert.Null(embed["images"]);
+        Assert.Equal(5000, embed["video"]!["size"]!.GetValue<int>());
+        Assert.Equal("The trailer", embed["alt"]!.GetValue<string>());
+        Assert.Equal(1920, embed["aspectRatio"]!["width"]!.GetValue<int>());
+        Assert.Equal(1080, embed["aspectRatio"]!["height"]!.GetValue<int>());
+    }
+
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData(1920, null)]
+    [InlineData(null, 1080)]
+    [InlineData(0, 1080)]
+    public void AVideoWithoutBothWidthAndHeightLeavesTheShapeOut(int? width, int? height)
+    {
+        var blob = new JsonObject { ["$type"] = "blob", ["size"] = 5000 };
+
+        var record = BlueskyPostRecord.Build("Hello", DateTimeOffset.UnixEpoch, card: null, video: new BlueskyVideoEmbed(blob, string.Empty, width, height));
+
+        var embed = record["embed"]!;
+        Assert.Equal("app.bsky.embed.video", embed["$type"]!.GetValue<string>());
+        Assert.Null(embed["aspectRatio"]);
+        Assert.Equal(string.Empty, embed["alt"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void AReplyNamesThePostItAnswersAsBothRootAndParent_AndAPostOfItsOwnHasNoReply()
     {
         var own = BlueskyPostRecord.Build("Hello", DateTimeOffset.UnixEpoch, card: null);

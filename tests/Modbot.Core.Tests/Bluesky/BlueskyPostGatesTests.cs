@@ -169,6 +169,33 @@ public class BlueskyPostGatesTests
     }
 
     [Fact]
+    public void NoVideoGivesTheFingerprintFromBeforeVideosExisted()
+    {
+        var picture = Guid.CreateVersion7();
+        List<BlueskyPostPicture> pictures = [new(picture, "x")];
+
+        Assert.Equal(CalendarFingerprint.Of("one", picture), CalendarBlueskyText.Fingerprint("one", picture, null, null, false, null, null));
+        Assert.Equal(
+            CalendarBlueskyText.Fingerprint("one", picture, pictures, [BlueskyPostGates.Nobody], true, ["en"]),
+            CalendarBlueskyText.Fingerprint("one", picture, pictures, [BlueskyPostGates.Nobody], true, ["en"], null));
+    }
+
+    [Fact]
+    public void AVideoChangesTheFingerprint_AndSoDoesItsFileItsLinkAndItsAlt()
+    {
+        var plain = CalendarBlueskyText.Fingerprint("one", null);
+        var file = Guid.CreateVersion7();
+
+        var withFile = CalendarBlueskyText.Fingerprint("one", null, video: new BlueskyPostVideo(file, null, "x"));
+        var otherFile = CalendarBlueskyText.Fingerprint("one", null, video: new BlueskyPostVideo(Guid.CreateVersion7(), null, "x"));
+        var withLink = CalendarBlueskyText.Fingerprint("one", null, video: new BlueskyPostVideo(null, "https://example.com/a.mp4", "x"));
+        var otherAlt = CalendarBlueskyText.Fingerprint("one", null, video: new BlueskyPostVideo(file, null, "y"));
+
+        Assert.Equal(5, new[] { plain, withFile, otherFile, withLink, otherAlt }.Distinct().Count());
+        Assert.Equal(withFile, CalendarBlueskyText.Fingerprint("one", null, video: new BlueskyPostVideo(file, null, "x")));
+    }
+
+    [Fact]
     public void EachChoiceChangesTheFingerprint()
     {
         var plain = CalendarBlueskyText.Fingerprint("one", null);

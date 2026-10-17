@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Features.Calendar;
 using Modbot.Core.Calendar;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Net;
 using Modbot.Core.Posts;
 using Modbot.TestSupport;
 
@@ -388,6 +389,168 @@ public class CalendarCoverTests(PostgresFixture db)
             HttpMethod.Post, "/api/calendar/events", BodyWithBlueskyPictures(host, [(Guid.CreateVersion7(), "Gone")]), manager, Ct);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    // --- Bluesky's video ---
+
+    private static byte[] Mp4() => [0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6F, 0x6D, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8];
+
+    private static async Task<Guid> VideoUploadedAsync(ApiTestHost host, string cookie)
+    {
+        var request = host.Authenticated(HttpMethod.Post, "/api/calendar/bluesky-video", cookie);
+        request.Content = new ByteArrayContent(Mp4());
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue("video/mp4");
+
+        var response = await host.Client.SendAsync(request, Ct);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return (await ApiTestHost.BodyOf(response, Ct)).GetProperty("videoId").GetGuid();
+    }
+
+    private static object BodyWithBlueskyVideo(
+        ApiTestHost host, Guid? videoId = null, string? url = null, string? alt = null, IEnumerable<(Guid Id, string Alt)>? pictures = null)
+    {
+        var start = host.Clock.UtcNow.AddDays(2);
+
+        return new
+        {
+            title = "Movie night",
+            description = "Bring snacks",
+            startsAt = start.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture),
+            endsAt = start.AddHours(2).ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture),
+            timeZone = "UTC",
+            repeat = "none",
+            publishToDiscord = true,
+            blueskyVideo = new { videoId, url, alt },
+            blueskyPictures = pictures?.Select(p => new { pictureId = p.Id, alt = p.Alt }).ToArray(),
+            draft = true,
+        };
+    }
+
+    [Fact]
+    public async Task AnEventIsSavedWithItsBlueskyVideoFile_AndItsAltText()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+        var video = await VideoUploadedAsync(host, manager);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/calendar/events", BodyWithBlueskyVideo(host, videoId: video, alt: "The trailer"), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var saved = (await ApiTestHost.BodyOf(response, Ct)).GetProperty("blueskyVideo");
+        Assert.Equal(video, saved.GetProperty("videoId").GetGuid());
+        Assert.Equal("The trailer", saved.GetProperty("alt").GetString());
+    }
+
+    [Fact]
+    public async Task AnEventIsSavedWithItsBlueskyVideoLink_AsAnAddressOnly()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/calendar/events", BodyWithBlueskyVideo(host, url: " https://videos.example/trailer.mp4 "), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var saved = (await ApiTestHost.BodyOf(response, Ct)).GetProperty("blueskyVideo");
+        Assert.Equal("https://videos.example/trailer.mp4", saved.GetProperty("url").GetString());
+        Assert.False(saved.TryGetProperty("videoId", out var kept) && kept.ValueKind == System.Text.Json.JsonValueKind.String);
+    }
+
+    [Fact]
+    public async Task ABlueskyVideoFileWithPicturesIsRefused()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+        var video = await VideoUploadedAsync(host, manager);
+        var picture = await UploadedAsync(host, manager);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/calendar/events", BodyWithBlueskyVideo(host, videoId: video, pictures: [(picture, "Poster")]), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(CalendarBlueskyText.VideoAndPictures, await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ABlueskyVideoLinkWithPicturesIsRefused()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+        var picture = await UploadedAsync(host, manager);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post,
+            "/api/calendar/events",
+            BodyWithBlueskyVideo(host, url: "https://videos.example/trailer.mp4", pictures: [(picture, "Poster")]),
+            manager,
+            Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(CalendarBlueskyText.VideoAndPictures, await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ABlueskyVideoThatIsBothAFileAndALinkIsRefused()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+        var video = await VideoUploadedAsync(host, manager);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/calendar/events", BodyWithBlueskyVideo(host, videoId: video, url: "https://videos.example/trailer.mp4"), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(CalendarBlueskyText.VideoNeedsOneSource, await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ABlueskyVideoAltTextOver2000CharactersIsRefused()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+        var video = await VideoUploadedAsync(host, manager);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post,
+            "/api/calendar/events",
+            BodyWithBlueskyVideo(host, videoId: video, alt: new string('x', CalendarBlueskyText.AltMaxLength + 1)),
+            manager,
+            Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(CalendarBlueskyText.VideoAltTooLong, await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("http://videos.example/trailer.mp4")]
+    [InlineData("not a link")]
+    [InlineData("https://videos.example:8443/trailer.mp4")]
+    [InlineData("https://127.0.0.1/trailer.mp4")]
+    [InlineData("https://localhost/trailer.mp4")]
+    public async Task ABlueskyVideoLinkThatMayNotBeFetchedIsRefused(string link)
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/calendar/events", BodyWithBlueskyVideo(host, url: link), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(VideoLinks.Problem(link)!, await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ABlueskyVideoFileThatIsNotKeptIsRefused()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/calendar/events", BodyWithBlueskyVideo(host, videoId: Guid.CreateVersion7()), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(CalendarBlueskyText.VideoGone, await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
     }
 
     private static object BodyWithBlueskyChoices(ApiTestHost host, string[]? whoCanReply, bool? quotesOff, string[]? languages)

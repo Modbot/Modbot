@@ -6,6 +6,7 @@ using Modbot.Api.Features.Posts;
 using Modbot.Core.Bluesky;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Net;
 using Modbot.Core.Posts;
 using Modbot.Core.Security;
 using Modbot.TestSupport;
@@ -64,7 +65,7 @@ public sealed class PostBlueskySenderTests
         await context.SaveChangesAsync(Ct);
     }
 
-    private async Task<PostBlueskyPass> PassAsync()
+    private async Task<PostBlueskyPass> PassAsync(VideoLinks? videoLinks = null)
     {
         await using var context = _db.NewContext();
         var sender = new PostBlueskySender(
@@ -75,7 +76,8 @@ public sealed class PostBlueskySenderTests
             new PostClaim(context, _clock),
             _session,
             Client(),
-            new BlueskyIdentity(new OneHandlerClients(_bluesky)));
+            new BlueskyIdentity(new OneHandlerClients(_bluesky)),
+            videoLinks: videoLinks);
 
         return await sender.RunOnceAsync(Ct);
     }
@@ -801,6 +803,192 @@ public sealed class PostBlueskySenderTests
         Assert.Equal(PostBlueskySender.SignInAgain, destination.Error);
         Assert.Empty(PutRecords());
         Assert.Empty(_bluesky.Gates);
+    }
+
+    // --- Video ---
+
+    /// <summary>An MP4 that is only a header: a file-type box and a track header of the size given, padded to <paramref name="length"/> bytes.</summary>
+    private static byte[] Mp4(int width, int height, int length)
+    {
+        static byte[] Box(string type, params byte[][] parts)
+        {
+            var body = parts.SelectMany(p => p).ToArray();
+            var box = new byte[8 + body.Length];
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(box, (uint)box.Length);
+            System.Text.Encoding.ASCII.GetBytes(type).CopyTo(box, 4);
+            body.CopyTo(box, 8);
+            return box;
+        }
+
+        var track = new byte[84];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(track.AsSpan(40), 0x10000);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(track.AsSpan(56), 0x10000);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(track.AsSpan(76), (uint)width << 16);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(track.AsSpan(80), (uint)height << 16);
+
+        var head = Box("ftyp", "isom"u8.ToArray(), new byte[4]).Concat(Box("moov", Box("trak", Box("tkhd", track)))).ToArray();
+        var bytes = new byte[Math.Max(length, head.Length)];
+        head.CopyTo(bytes, 0);
+        return bytes;
+    }
+
+    private async Task<Guid> AddVideoAsync(byte[] bytes)
+    {
+        var id = Guid.CreateVersion7();
+        await using var context = _db.NewContext();
+        context.CalendarBlueskyVideos.Add(new CalendarBlueskyVideo { Id = id, Bytes = bytes, ContentType = "video/mp4", CreatedAt = _clock.UtcNow });
+        await context.SaveChangesAsync(Ct);
+        return id;
+    }
+
+    /// <summary>Answers every link with one response and counts the asks.</summary>
+    private sealed class LinkHandler(Func<HttpResponseMessage> answer) : HttpMessageHandler
+    {
+        public int Asked { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Asked++;
+            return Task.FromResult(answer());
+        }
+    }
+
+    private static HttpResponseMessage VideoAnswer(byte[] bytes)
+    {
+        var content = new ByteArrayContent(bytes);
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("video/mp4");
+        return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+    }
+
+    [Fact]
+    public async Task APostWithAVideoFileCarriesItInFull_UploadedFirst_WithItsAltAndShape_AndNoCardOrPictures()
+    {
+        await SetUpAsync();
+        var video = Mp4(1280, 720, 3000);
+        var file = await AddVideoAsync(video);
+        var (picture, copy) = await AddPicturesAsync(Jpeg(2000, 800, 900));
+
+        var (_, destinationId) = await AddPostAsync(text: "Tickets at https://example.com/night", shape: (post, destination) =>
+        {
+            post.PictureId = picture;
+            destination.SitePictureId = copy;
+            destination.Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(
+                picture, Pictures: [new BlueskyPostPicture(picture, "A poster")], Video: new BlueskyPostVideo(file, null, "The trailer")));
+        });
+
+        await PassAsync();
+
+        Assert.Equal([video.Length], _bluesky.Blobs);
+        var record = Assert.Single(PutRecords())["record"]!;
+        var embed = record["embed"]!;
+        Assert.Equal("app.bsky.embed.video", embed["$type"]!.GetValue<string>());
+        Assert.Null(embed["external"]);
+        Assert.Null(embed["images"]);
+        Assert.Equal("video/mp4", embed["video"]!["mimeType"]!.GetValue<string>());
+        Assert.Equal(video.Length, embed["video"]!["size"]!.GetValue<int>());
+        Assert.Equal("The trailer", embed["alt"]!.GetValue<string>());
+        Assert.Equal(1280, embed["aspectRatio"]!["width"]!.GetValue<int>());
+        Assert.Equal(720, embed["aspectRatio"]!["height"]!.GetValue<int>());
+        Assert.Single(record["facets"]!.AsArray());
+
+        var destinationAfter = await DestinationAsync(destinationId);
+        Assert.Equal(PostDestinationStates.Posted, destinationAfter.State);
+        Assert.Null(destinationAfter.Error);
+    }
+
+    [Fact]
+    public async Task AVideoLinkIsFetchedWhenThePostGoesOut_AndCarriedInFull()
+    {
+        await SetUpAsync();
+        var video = Mp4(640, 360, 2000);
+        var handler = new LinkHandler(() => VideoAnswer(video));
+
+        await AddPostAsync(shape: (_, destination) => destination.Options = PostTexts.WriteBlueskyOptions(
+            new BlueskyPostOptions(Video: new BlueskyPostVideo(null, "https://videos.example/trailer.mp4", "The trailer"))));
+
+        await PassAsync(new VideoLinks(handler));
+
+        Assert.Equal(1, handler.Asked);
+        Assert.Equal([video.Length], _bluesky.Blobs);
+        var embed = Assert.Single(PutRecords())["record"]!["embed"]!;
+        Assert.Equal("app.bsky.embed.video", embed["$type"]!.GetValue<string>());
+        Assert.Equal(640, embed["aspectRatio"]!["width"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task AVideoLinkThatFailsPostsWithoutTheVideo_AndTheEventSaysWhy()
+    {
+        await SetUpAsync();
+        var handler = new LinkHandler(() => new HttpResponseMessage(HttpStatusCode.NotFound));
+
+        var (_, destinationId) = await AddPostAsync(text: "Tickets at https://example.com/night", shape: (_, destination) =>
+            destination.Options = PostTexts.WriteBlueskyOptions(
+                new BlueskyPostOptions(Video: new BlueskyPostVideo(null, "https://videos.example/gone.mp4", "The trailer"))));
+
+        var pass = await PassAsync(new VideoLinks(handler));
+
+        Assert.Equal(1, pass.Sent);
+        Assert.Empty(_bluesky.Blobs);
+        var embed = Assert.Single(PutRecords())["record"]!["embed"]!;
+        Assert.NotEqual("app.bsky.embed.video", embed["$type"]!.GetValue<string>());
+
+        var destination = await DestinationAsync(destinationId);
+        Assert.Equal(PostDestinationStates.Posted, destination.State);
+        Assert.Equal($"{Modbot.Core.Calendar.CalendarBlueskyText.VideoNotSent} {VideoLinks.Unreachable}", destination.Error);
+        Assert.Null(destination.CheckAt);
+    }
+
+    [Fact]
+    public async Task AVideoFileThatIsGonePostsWithoutTheVideo_AndTheEventSaysWhy()
+    {
+        await SetUpAsync();
+
+        var (_, destinationId) = await AddPostAsync(shape: (_, destination) =>
+            destination.Options = PostTexts.WriteBlueskyOptions(
+                new BlueskyPostOptions(Video: new BlueskyPostVideo(Guid.CreateVersion7(), null, "The trailer"))));
+
+        await PassAsync();
+
+        Assert.Empty(_bluesky.Blobs);
+        Assert.Null(Assert.Single(PutRecords())["record"]!["embed"]);
+
+        var destination = await DestinationAsync(destinationId);
+        Assert.Equal(PostDestinationStates.Posted, destination.State);
+        Assert.Equal(
+            $"{Modbot.Core.Calendar.CalendarBlueskyText.VideoNotSent} {Modbot.Core.Calendar.CalendarBlueskyText.VideoGone}", destination.Error);
+    }
+
+    [Fact]
+    public async Task ASignInWithoutTheVideoScopePostsWithoutTheVideo_SayingToSignInAgain_AndUploadsNothing()
+    {
+        // A sign-in with Bluesky made before the narrow scope had blob:video/*.
+        var oldScope = "atproto repo:app.bsky.feed.post?action=create&action=update&action=delete blob:image/*";
+        var key = BlueskyKeys.NewPrivateJwk();
+        var access = _bluesky.GrantAccess(key);
+        var grant = new BlueskyOAuthGrant(
+            FakeBluesky.AuthServer, FakeBluesky.TokenEndpoint, "https://modbot.example/client.json", key, _clock.UtcNow.AddHours(1), oldScope);
+        var tokens = new BlueskyTokens(access, "refresh", FakeBluesky.Did, FakeBluesky.Handle, grant);
+
+        await SetUpAsync(s =>
+        {
+            s.BlueskyAppPasswordEncrypted = null;
+            s.BlueskyOAuthSignedIn = true;
+            s.BlueskySessionEncrypted = _session.Protect(tokens);
+        });
+
+        var file = await AddVideoAsync(Mp4(1280, 720, 3000));
+        var (_, destinationId) = await AddPostAsync(shape: (_, destination) =>
+            destination.Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(Video: new BlueskyPostVideo(file, null, "The trailer"))));
+
+        var pass = await PassAsync();
+
+        Assert.Equal(1, pass.Sent);
+        Assert.Empty(_bluesky.Blobs);
+        Assert.Null(Assert.Single(PutRecords())["record"]!["embed"]);
+
+        var destination = await DestinationAsync(destinationId);
+        Assert.Equal(PostDestinationStates.Posted, destination.State);
+        Assert.Equal($"{Modbot.Core.Calendar.CalendarBlueskyText.VideoNotSent} {PostBlueskySender.SignInAgainForVideo}", destination.Error);
     }
 
     /// <summary>The app password and session are stored as they are: the protector's own tests cover the encryption.</summary>

@@ -776,6 +776,20 @@ public sealed class FakeBluesky : HttpMessageHandler
         };
     }
 
+    /// <summary>
+    /// A sign-in with Bluesky as if it had just been made with this DPoP key: the access token it gives, bound to the key,
+    /// for a test that needs a working session with a scope of its own and not the sign-in itself.
+    /// </summary>
+    public string GrantAccess(string privateJwk)
+    {
+        var jwk = Modbot.Core.Bluesky.BlueskyKeys.PublicJwk(privateJwk, withUse: false)!;
+        BoundKey = jwk["x"]!.GetValue<string>() + "." + jwk["y"]!.GetValue<string>();
+        _requests++;
+        AccessJwt = Jwt($"oauth-access-{_requests}", Now() + OAuthAccessLifetime);
+        OAuthRefresh = $"oauth-refresh-{_requests}";
+        return AccessJwt;
+    }
+
     /// <summary>An access token that has ended, for a test that wants the next call refused.</summary>
     public void EndAccessToken() => AccessJwt = "ended";
 
