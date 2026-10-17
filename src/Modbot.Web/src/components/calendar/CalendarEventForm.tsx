@@ -693,7 +693,8 @@ export function CalendarEventForm({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         title={template ? (template.id ? 'Edit template' : 'New template') : event ? 'Edit event' : 'New event'}
-        className="max-w-[720px]"
+        // Always as tall as a dialog may be, so switching tabs never changes its height; the body scrolls.
+        className="h-[calc(100dvh-1.5rem)] max-w-[720px] sheet:h-[calc(var(--visible-h,100dvh)*0.85)]"
         foot={
           <DialogFoot>
             {error && (
