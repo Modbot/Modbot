@@ -642,6 +642,124 @@ public sealed class PostBlueskySenderTests
         Assert.Equal(1, _bluesky.Puts);
     }
 
+    private const string Threadgate = "app.bsky.feed.threadgate";
+    private const string Postgate = "app.bsky.feed.postgate";
+
+    [Fact]
+    public async Task APostPutsItsThreadgateAndPostgateAfterIt_AndItsLanguagesOnThePost()
+    {
+        await SetUpAsync();
+        var (_, destinationId) = await AddPostAsync(shape: (_, d) => d.Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(
+            WhoCanReply: ["followers", "mentioned"], QuotesOff: true, Languages: ["en", "de"])));
+
+        var pass = await PassAsync();
+
+        Assert.Equal(1, pass.Sent);
+        var puts = PutRecords();
+        Assert.Equal(
+            [BlueskyClient.PostCollection, Threadgate, Postgate],
+            puts.Select(p => p["collection"]!.GetValue<string>()));
+
+        var key = puts[0]["rkey"]!.GetValue<string>();
+        Assert.All(puts, p => Assert.Equal(key, p["rkey"]!.GetValue<string>()));
+        Assert.All(puts, p => Assert.Null(p["swapRecord"]));
+        Assert.Equal(["en", "de"], puts[0]["record"]!["langs"]!.AsArray().Select(l => l!.GetValue<string>()));
+
+        var uri = $"at://{FakeBluesky.Did}/app.bsky.feed.post/{key}";
+        var threadgate = puts[1]["record"]!;
+        Assert.Equal(uri, threadgate["post"]!.GetValue<string>());
+        Assert.Equal(
+            ["app.bsky.feed.threadgate#followerRule", "app.bsky.feed.threadgate#mentionRule"],
+            threadgate["allow"]!.AsArray().Select(r => r!["$type"]!.GetValue<string>()).Order());
+
+        var postgate = puts[2]["record"]!;
+        Assert.Equal(uri, postgate["post"]!.GetValue<string>());
+        Assert.Equal("app.bsky.feed.postgate#disableRule", postgate["embeddingRules"]![0]!["$type"]!.GetValue<string>());
+
+        // The post is counted alone; each gate sits in its own collection at the post's key.
+        Assert.Equal(1, _bluesky.Puts);
+        Assert.Single(_bluesky.Posts);
+        Assert.Equal([(Postgate, key), (Threadgate, key)], _bluesky.Gates.Keys.Order());
+        Assert.False(PostTexts.BlueskyOptionsOf(await DestinationAsync(destinationId)).SettingsToSend);
+    }
+
+    [Fact]
+    public async Task APostForAnyone_WithQuotesAllowed_PutsNoGates()
+    {
+        await SetUpAsync();
+        await AddPostAsync(shape: (_, d) => d.Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(Languages: ["en"])));
+
+        await PassAsync();
+
+        Assert.Single(PutRecords());
+        Assert.Empty(_bluesky.Gates);
+    }
+
+    [Fact]
+    public async Task AGateThatFailsLeavesTheSettingToSend_AndALaterPassMakesIt_WithoutSendingThePostAgain()
+    {
+        await SetUpAsync();
+        var (_, destinationId) = await AddPostAsync(shape: (_, d) => d.Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(
+            WhoCanReply: ["nobody"], QuotesOff: true)));
+
+        var refusedOnce = false;
+        _bluesky.GatePutAnswer = (_, _) =>
+        {
+            if (refusedOnce)
+                return null;
+
+            refusedOnce = true;
+            return FakeBluesky.Json(HttpStatusCode.BadGateway, FakeBluesky.Error("UpstreamFailure", "Upstream Failure"));
+        };
+
+        var first = await PassAsync();
+
+        Assert.Equal(1, first.Sent);
+        var waiting = await DestinationAsync(destinationId);
+        Assert.Equal(PostDestinationStates.Posted, waiting.State);
+        Assert.True(PostTexts.BlueskyOptionsOf(waiting).SettingsToSend);
+        Assert.NotNull(waiting.Error);
+        Assert.Empty(_bluesky.Gates);
+
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        await PassAsync();
+
+        var done = await DestinationAsync(destinationId);
+        Assert.False(PostTexts.BlueskyOptionsOf(done).SettingsToSend);
+        Assert.Null(done.Error);
+        Assert.Equal(2, _bluesky.Gates.Count);
+        Assert.Equal(1, _bluesky.Puts);
+        Assert.Single(_bluesky.Posts);
+    }
+
+    [Fact]
+    public async Task ASignInWithoutTheGateScopesWaitsWithSignInAgain_AndPutsNothing()
+    {
+        // A sign-in with Bluesky made before the two gate collections were asked for.
+        var oldScope = "atproto repo:app.bsky.feed.post?action=create&action=update&action=delete blob:image/*";
+        var grant = new BlueskyOAuthGrant(
+            FakeBluesky.AuthServer, FakeBluesky.TokenEndpoint, "https://modbot.example/client.json", BlueskyKeys.NewPrivateJwk(), _clock.UtcNow.AddHours(1), oldScope);
+        var tokens = new BlueskyTokens("access", "refresh", FakeBluesky.Did, FakeBluesky.Handle, grant);
+
+        await SetUpAsync(s =>
+        {
+            s.BlueskyOAuthSignedIn = true;
+            s.BlueskySessionEncrypted = _session.Protect(tokens);
+        });
+
+        var (_, destinationId) = await AddPostAsync(shape: (_, d) => d.Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(
+            WhoCanReply: ["followers"])));
+
+        var pass = await PassAsync();
+
+        Assert.Equal(0, pass.Sent);
+        var destination = await DestinationAsync(destinationId);
+        Assert.Equal(PostDestinationStates.Waiting, destination.State);
+        Assert.Equal(PostBlueskySender.SignInAgain, destination.Error);
+        Assert.Empty(PutRecords());
+        Assert.Empty(_bluesky.Gates);
+    }
+
     /// <summary>The app password and session are stored as they are: the protector's own tests cover the encryption.</summary>
     private sealed class PlainProtector : ISecretProtector
     {

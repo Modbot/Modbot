@@ -56,6 +56,15 @@ public sealed class FakeBluesky : HttpMessageHandler
     /// <summary>The posts on the account, by record key, as they were put.</summary>
     public Dictionary<string, JsonObject> Posts { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>The threadgates and postgates on the account, by collection and the key of the post they belong to, as put.</summary>
+    public Dictionary<(string Collection, string Key), JsonObject> Gates { get; } = [];
+
+    /// <summary>How many puts of a threadgate or postgate were made (they are not counted in <see cref="Puts"/>).</summary>
+    public int GatePuts { get; private set; }
+
+    /// <summary>A scripted answer to a put of a threadgate or postgate, by collection and key. Null for the store's own.</summary>
+    public Func<string, string, HttpResponseMessage?>? GatePutAnswer { get; set; }
+
     /// <summary>The blobs uploaded, by size.</summary>
     public List<int> Blobs { get; } = [];
 
@@ -364,8 +373,15 @@ public sealed class FakeBluesky : HttpMessageHandler
                 if (Authorised(bearer) is { } refused)
                     return refused;
 
-                var key = JsonNode.Parse(body ?? "{}")?["rkey"]?.GetValue<string>() ?? string.Empty;
-                Posts.Remove(key);
+                var sent = JsonNode.Parse(body ?? "{}");
+                var key = sent?["rkey"]?.GetValue<string>() ?? string.Empty;
+                var collection = sent?["collection"]?.GetValue<string>() ?? string.Empty;
+
+                if (collection is "app.bsky.feed.threadgate" or "app.bsky.feed.postgate")
+                    Gates.Remove((collection, key));
+                else
+                    Posts.Remove(key);
+
                 return Json(HttpStatusCode.OK, new JsonObject());
             }
         }
@@ -384,6 +400,10 @@ public sealed class FakeBluesky : HttpMessageHandler
 
         if (sent["collection"]?.GetValue<string>() == "app.bsky.actor.profile")
             return PutProfile(sent, record);
+
+        var collection = sent["collection"]?.GetValue<string>() ?? string.Empty;
+        if (collection is "app.bsky.feed.threadgate" or "app.bsky.feed.postgate")
+            return PutGate(collection, key, sent, record);
 
         Puts++;
 
@@ -411,6 +431,25 @@ public sealed class FakeBluesky : HttpMessageHandler
         }
 
         return Json(HttpStatusCode.OK, new JsonObject { ["uri"] = $"at://{Did}/app.bsky.feed.post/{key}", ["cid"] = $"bafy-{key}" });
+    }
+
+    /// <summary>A threadgate or postgate: kept at the post's own key in its own collection, made once like a post.</summary>
+    private HttpResponseMessage PutGate(string collection, string key, JsonObject sent, JsonObject record)
+    {
+        GatePuts++;
+
+        if (GatePutAnswer?.Invoke(collection, key) is { } scripted)
+            return scripted;
+
+        if (!sent.ContainsKey("swapRecord") || sent["swapRecord"] is not null)
+            return Json(HttpStatusCode.BadRequest, Error("InvalidRequest", "The test expects swapRecord: null"));
+
+        if (Gates.ContainsKey((collection, key)))
+            return Json(HttpStatusCode.BadRequest, Error("InvalidSwap", "Record was at bafy-old"));
+
+        Gates[(collection, key)] = (JsonObject)record.DeepClone();
+
+        return Json(HttpStatusCode.OK, new JsonObject { ["uri"] = $"at://{Did}/{collection}/{key}", ["cid"] = $"bafy-{collection}-{key}" });
     }
 
     private HttpResponseMessage PutProfile(JsonObject sent, JsonObject record)

@@ -390,6 +390,94 @@ public class CalendarCoverTests(PostgresFixture db)
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    private static object BodyWithBlueskyChoices(ApiTestHost host, string[]? whoCanReply, bool? quotesOff, string[]? languages)
+    {
+        var start = host.Clock.UtcNow.AddDays(2);
+
+        return new
+        {
+            title = "Movie night",
+            description = "Bring snacks",
+            startsAt = start.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture),
+            endsAt = start.AddHours(2).ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture),
+            timeZone = "UTC",
+            repeat = "none",
+            publishToDiscord = true,
+            blueskyWhoCanReply = whoCanReply,
+            blueskyQuotesOff = quotesOff,
+            blueskyLanguages = languages,
+            draft = true,
+        };
+    }
+
+    [Fact]
+    public async Task AnEventIsSavedWithWhoCanReplyQuotePostsAndLanguages_AndALeftOutFieldKeepsThem()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+
+        var created = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/calendar/events", BodyWithBlueskyChoices(host, ["followers", "mentioned"], true, ["en", "de"]), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        var saved = await ApiTestHost.BodyOf(created, Ct);
+        Assert.Equal(["followers", "mentioned"], saved.GetProperty("blueskyWhoCanReply").EnumerateArray().Select(w => w.GetString()));
+        Assert.True(saved.GetProperty("blueskyQuotesOff").GetBoolean());
+        Assert.Equal(["en", "de"], saved.GetProperty("blueskyLanguages").EnumerateArray().Select(l => l.GetString()));
+
+        // Saved again without them: the event keeps what it has.
+        var id = saved.GetProperty("id").GetGuid();
+        var kept = await host.SendJsonAsync(
+            HttpMethod.Put, $"/api/calendar/events/{id}", BodyWithBlueskyChoices(host, null, null, null), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, kept.StatusCode);
+        var again = await ApiTestHost.BodyOf(kept, Ct);
+        Assert.Equal(["followers", "mentioned"], again.GetProperty("blueskyWhoCanReply").EnumerateArray().Select(w => w.GetString()));
+        Assert.True(again.GetProperty("blueskyQuotesOff").GetBoolean());
+        Assert.Equal(["en", "de"], again.GetProperty("blueskyLanguages").EnumerateArray().Select(l => l.GetString()));
+
+        // Anyone, quote posts allowed and no language put it back.
+        var reset = await host.SendJsonAsync(
+            HttpMethod.Put, $"/api/calendar/events/{id}", BodyWithBlueskyChoices(host, ["anyone"], false, []), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, reset.StatusCode);
+        var open = await ApiTestHost.BodyOf(reset, Ct);
+        Assert.Equal(["anyone"], open.GetProperty("blueskyWhoCanReply").EnumerateArray().Select(w => w.GetString()));
+        Assert.False(open.GetProperty("blueskyQuotesOff").GetBoolean());
+        Assert.Empty(open.GetProperty("blueskyLanguages").EnumerateArray());
+    }
+
+    [Theory]
+    [InlineData("nobody", "followers")]
+    [InlineData("anyone", "nobody")]
+    [InlineData("followers", "everyone")]
+    public async Task AReplyChoiceThatIsNotABlueskyChoiceIsRefused(string first, string second)
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/calendar/events", BodyWithBlueskyChoices(host, [first, second], false, []), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(CalendarBlueskyText.ReplyChoiceNotAllowed, await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("en", "de", "fr", "es")]
+    [InlineData("en", "not a code", "", "")]
+    public async Task MoreThanThreeLanguagesOrABadCodeIsRefused(string a, string b, string c, string d)
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/calendar/events", BodyWithBlueskyChoices(host, ["anyone"], false, [a, b, c, d]), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(CalendarBlueskyText.LanguagesNotAllowed, await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task AFormerCoverStaysKeptWhileTheEventsBlueskyPicturesListIt()
     {

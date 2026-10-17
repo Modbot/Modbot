@@ -356,6 +356,25 @@ public class CalendarTemplateEndpointTests(PostgresFixture db)
         Assert.Empty(CategoryIdsOf(await ListAsync(host, manager)));
     }
 
+    /// <summary>A template keeps who can reply, quote posts and the languages it was saved with.</summary>
+    [Fact]
+    public async Task ATemplateKeepsWhoCanReplyQuotePostsAndLanguages()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+
+        var fields = Fields();
+        fields["blueskyWhoCanReply"] = new[] { "followers", "mentioned" };
+        fields["blueskyQuotesOff"] = true;
+        fields["blueskyLanguages"] = new[] { "en", "de" };
+        await CreateAsync(host, manager, fields: fields);
+
+        var saved = Assert.Single((await ListAsync(host, manager)).GetProperty("templates").EnumerateArray()).GetProperty("fields");
+        Assert.Equal(["followers", "mentioned"], saved.GetProperty("blueskyWhoCanReply").EnumerateArray().Select(w => w.GetString()));
+        Assert.True(saved.GetProperty("blueskyQuotesOff").GetBoolean());
+        Assert.Equal(["en", "de"], saved.GetProperty("blueskyLanguages").EnumerateArray().Select(l => l.GetString()));
+    }
+
     private static object[] BlueskyPictures(params (Guid Id, string Alt)[] pictures) =>
         [.. pictures.Select(p => new { pictureId = p.Id, alt = p.Alt })];
 
