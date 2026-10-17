@@ -11,6 +11,8 @@ namespace Modbot.Core.Data.Entities;
 /// template can name that something else deletes are real columns: the Discord picture, so the
 /// hourly clean-up of unused pictures leaves it alone, and the world list. Each is set to nothing
 /// when what it names is deleted, as an event's are. <see cref="Fields"/> never holds either.
+/// The Bluesky post's pictures are the one exception: they stay in <see cref="Fields"/>, and the
+/// clean-up reads them from there (CalendarBlueskyPicturesInUse) so it leaves them alone too.
 /// </para>
 /// </remarks>
 public class CalendarTemplate
