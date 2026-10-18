@@ -171,6 +171,31 @@ public class WorldListEndpointTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task AWorldInAList_CarriesItsBuilds_SoTheEventFormCanTickThem()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+
+        await KnowAsync(host.Clock.UtcNow, "wrld_builds", "wrld_unread");
+        await using (var context = db.NewContext())
+        {
+            await context.VRChatWorlds.Where(w => w.WorldId == "wrld_builds")
+                .ExecuteUpdateAsync(s => s.SetProperty(w => w.Platforms, "[\"android\",\"standalonewindows\"]"), Ct);
+        }
+
+        await CreateListAsync(host, manager, ListBody("Builds", ("wrld_builds", null, null), ("wrld_unread", null, null)));
+
+        var lists = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, "/api/world-lists", null, manager, Ct), Ct);
+        var worlds = Assert.Single(lists.GetProperty("lists").EnumerateArray()).GetProperty("worlds").EnumerateArray().ToList();
+
+        var read = Assert.Single(worlds, w => w.GetProperty("worldId").GetString() == "wrld_builds");
+        Assert.Equal(["android", "standalonewindows"], read.GetProperty("platforms").EnumerateArray().Select(p => p.GetString()).ToArray());
+
+        var unread = Assert.Single(worlds, w => w.GetProperty("worldId").GetString() == "wrld_unread");
+        Assert.Equal(JsonValueKind.Null, unread.GetProperty("platforms").ValueKind);
+    }
+
+    [Fact]
     public async Task TheMostPlayersCannotBeFewerThanTheFewest()
     {
         await using var host = await StartAsync();
