@@ -32,8 +32,42 @@ public static class OverlayButton
     /// <summary>The words under the label while the shortcut is not changed: <see cref="ButtonShortcut.Default"/> in words.</summary>
     public const string DefaultShortcut = "Right stick back 5s";
 
-    /// <summary>The button's texture, in pixels. Square, like every panel.</summary>
-    public const int PanelPixels = 256;
+    /// <summary>The button's card, in pixels: the face with the eye and the words. Square.</summary>
+    public const int CardPixels = 256;
+
+    /// <summary>
+    /// The clear ground around the card on every side, in pixels. The bar takes the strip under the
+    /// card (edit mode only) and the card stays in the middle of the picture, so the card has the
+    /// same size and the same spot whether the bar is there or not. Room for the bar at the narrowest
+    /// the button can be, where a metre is the most pixels.
+    /// </summary>
+    public const int EdgePixels = 96;
+
+    /// <summary>The button's texture, in pixels. Square, like every panel: the card with its clear ground around it.</summary>
+    public const int PanelPixels = CardPixels + (EdgePixels * 2);
+
+    /// <summary>How many times wider and taller the texture's square is than the card.</summary>
+    public const float CanvasScale = PanelPixels / (float)CardPixels;
+
+    /// <summary>
+    /// A placement as the room draws it. <see cref="OverlayPlacement.Width"/> is the card's, as it is
+    /// saved and as a controller sizes it; the picture is <see cref="CanvasScale"/> times as wide and
+    /// as tall, in the middle of which the card stands, so the card keeps its width in metres and its
+    /// spot. The square is stretched with <see cref="OverlayPlacement.Wide"/> and
+    /// <see cref="OverlayPlacement.Tall"/>, as a panel made bigger is.
+    /// </summary>
+    public static OverlayPlacement Drawn(OverlayPlacement card)
+    {
+        ArgumentNullException.ThrowIfNull(card);
+        return card with { Wide = CanvasScale, Tall = CanvasScale };
+    }
+
+    /// <summary>The card's own placement, as it is saved, from the one the room draws (<see cref="Drawn"/>).</summary>
+    public static OverlayPlacement Card(OverlayPlacement drawn)
+    {
+        ArgumentNullException.ThrowIfNull(drawn);
+        return drawn with { Wide = 1f, Tall = 1f };
+    }
 
     /// <summary>How wide the button is in the corner, in metres.</summary>
     public const float CornerWidth = 0.16f;

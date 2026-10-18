@@ -14,7 +14,7 @@ namespace Modbot.Overlay.Tests.Views;
 /// </summary>
 public class ButtonViewTests
 {
-    private const double Size = OverlayButton.PanelPixels;
+    private const double Size = OverlayButton.CardPixels;
 
     private static OverlayLook VRChatLook()
     {
@@ -182,7 +182,7 @@ public class ButtonViewTests
             var left = box.TranslatePoint(new Point(0, 0), root)!.Value.X;
             var right = left + box.Bounds.Width;
 
-            Assert.True(left >= 0 && right <= OverlayButton.PanelPixels, $"The words run from {left} to {right}.");
+            Assert.True(left >= 0 && right <= OverlayButton.CardPixels, $"The words run from {left} to {right}.");
         });
     }
 

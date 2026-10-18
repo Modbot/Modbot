@@ -433,31 +433,64 @@ public static class PanelFrame
     }
 
     /// <summary>
-    /// The show and hide button: its card, and the bar in a row of its own under it while the bar is
-    /// there at all (edit mode). Without a bar the card is the whole picture, as it always was.
+    /// The show and hide button: its card in the middle of the picture, and the bar in a strip of its
+    /// own under the card while the bar is there at all (edit mode).
     /// </summary>
     /// <remarks>
-    /// The card gives up the bar's row rather than the bar being drawn over it, so the bar never
-    /// covers the eye or the words. The button is small, so the bar is the only thing beside the
-    /// card, and it has no room for hints.
+    /// <para>The card is the same size and in the same place with the bar there or not (user,
+    /// 2026-10-18; it used to give up a row to the bar, so the card shrank and its middle moved up when
+    /// edit mode came on). The picture is a square with clear ground around the card
+    /// (<see cref="OverlayButton.EdgePixels"/> on every side), and the room is told the square is
+    /// that much bigger around the same middle (<see cref="OverlayButton.Drawn"/>). With the bar
+    /// off the ground is empty, and a ray on it looks past the button
+    /// (<see cref="OverlayTargets.Drawn"/> finds nothing there).</para>
+    /// <para>The bar never covers the eye or the words. The button is small, so the bar is the only
+    /// thing beside the card, and it has no room for hints.</para>
     /// </remarks>
     /// <param name="card">What <see cref="ButtonView.Build"/> made, without a cursor.</param>
     /// <param name="bar">The bar, or null while edit mode is off.</param>
-    /// <param name="side">The button's texture size in pixels, which the bar is sized by.</param>
+    /// <param name="side">The button's texture size in pixels (the card and its ground), which the bar is sized by.</param>
     public static Control Button(Control card, PanelBar? bar, PanelCursor? cursor, double side = OverlayButton.PanelPixels)
     {
         ArgumentNullException.ThrowIfNull(card);
 
-        if (bar is not { } shown)
-            return WithCursor(card, cursor);
+        var cardSide = side * OverlayButton.CardPixels / OverlayButton.PanelPixels;
+        var edge = (side - cardSide) / 2;
 
-        var frame = new Grid { RowDefinitions = new RowDefinitions("*,Auto") };
-        Grid.SetRow(card, 0);
-        frame.Children.Add(card);
+        var frame = new Panel
+        {
+            Width = side,
+            Height = side,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top,
+            Children =
+            {
+                new Panel
+                {
+                    Width = cardSide,
+                    Height = cardSide,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Children = { card },
+                },
+            },
+        };
 
-        var strip = Bar(shown, BarFor(shown, side, OverlayButton.CornerWidth));
-        Grid.SetRow(strip, 1);
-        frame.Children.Add(strip);
+        if (bar is { } shown)
+        {
+            // The strip under the card is as tall as the ground there; the bar is held to it.
+            var strip = Bar(shown, BarFor(shown, side, OverlayButton.CornerWidth * OverlayButton.CanvasScale, edge));
+            strip.VerticalAlignment = VerticalAlignment.Top;
+            frame.Children.Add(new Panel
+            {
+                Width = side,
+                Height = edge,
+                Margin = new Thickness(0, edge + cardSide, 0, 0),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+                Children = { strip },
+            });
+        }
 
         return WithCursor(frame, cursor);
     }

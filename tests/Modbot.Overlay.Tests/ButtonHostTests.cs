@@ -119,8 +119,8 @@ public class ButtonHostTests
             var presses = 0;
             host.Pressed += () => presses++;
 
-            // A hair inside the panel's left edge, in the margin the face leaves clear.
-            var edge = (OverlayButton.CornerWidth / 2f) - 0.002f;
+            // A hair outside the card's left edge, in the clear ground around it.
+            var edge = (OverlayButton.CornerWidth / 2f) + 0.01f;
 
             runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host, across: -edge), click: true));
             host.PollInput(TimeSpan.Zero);
@@ -184,6 +184,78 @@ public class ButtonHostTests
             Assert.NotNull(face);
             Assert.True(padlock.Value.Down > face.Value.Down, "The bar is under the face.");
             Assert.True(padlock.Value.Across < hand.Value.Across, "Lock, then the hand.");
+        });
+    }
+
+    /// <summary>The card's left, right, top and bottom edges in the picture's pixels, read along the middle of the picture.</summary>
+    private static (int Left, int Right, int Top, int Bottom) CardEdges(ButtonHost host)
+    {
+        bool OnCard(int x, int y) => host.TargetAt((x + 0.5f) / Size, (y + 0.5f) / Size) is OverlayTarget.PanelButton;
+
+        var middle = Size / 2;
+        var across = Enumerable.Range(0, Size).Where(x => OnCard(x, middle)).ToList();
+        var down = Enumerable.Range(0, Size).Where(y => OnCard(middle, y)).ToList();
+
+        return (across.Min(), across.Max() + 1, down.Min(), down.Max() + 1);
+    }
+
+    [Theory]
+    [InlineData(ButtonPlace.Corner)]
+    [InlineData(ButtonPlace.Wrist)]
+    public void TheCardIsTheSameSizeAndInTheSameSpotWithEditModeOnAndOff(ButtonPlace place)
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build(place);
+            using var button = host;
+            var cardWidth = OverlayButton.ToPlacement(place).Width;
+
+            var off = CardEdges(host);
+            var placed = runtime.Placed.Count;
+            var told = runtime.Placed[^1];
+            var spot = host.Placement;
+
+            host.EditMode = true;
+            var on = CardEdges(host);
+
+            // In the picture: the same edges, in the middle of it.
+            Assert.Equal(off, on);
+            Assert.InRange(off.Left + off.Right, Size - 1, Size + 1);
+            Assert.InRange(off.Top + off.Bottom, Size - 1, Size + 1);
+            Assert.InRange(off.Right - off.Left, OverlayButton.CardPixels * 0.8, OverlayButton.CardPixels);
+            Assert.Equal(off.Right - off.Left, off.Bottom - off.Top);
+
+            // In the room: nothing is told again, and what was told puts the card's 256 pixels at its own width.
+            Assert.Equal(placed, runtime.Placed.Count);
+            Assert.Equal(told, runtime.Placed[^1]);
+            Assert.Equal(spot, host.Placement);
+            Assert.Equal(cardWidth, told.Width);
+            Assert.Equal(cardWidth, OverlayButton.CardPixels * told.Side / Size, 4);
+            Assert.Equal(OverlayButton.ToPlacement(place).Offset, told.Offset);
+
+            host.EditMode = false;
+            Assert.Equal(off, CardEdges(host));
+        });
+    }
+
+    [Fact]
+    public void TheBarIsInTheGroundUnderTheCardAndNothingIsDrawnThereWithEditModeOff()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, _) = Build();
+            using var button = host;
+            var card = CardEdges(host);
+            var underTheCard = (card.Bottom + Size) / 2;
+
+            Assert.Null(host.TargetAt(0.5f, (underTheCard + 0.5f) / Size));
+
+            host.EditMode = true;
+
+            var padlock = Find(host, t => t is OverlayTarget.Lock)!.Value;
+            Assert.True(padlock.Down * Size >= card.Bottom, "The lock is under the card.");
+            Assert.True(padlock.Down * Size <= Size, "The lock is inside the picture.");
+            Assert.IsType<OverlayTarget.Bar>(host.TargetAt(0.5f, (underTheCard + 0.5f) / Size));
         });
     }
 
@@ -415,7 +487,7 @@ public class ButtonHostTests
             host.Place(ButtonPlace.Wrist, left);
 
             Assert.Equal(left, host.Placement);
-            Assert.Equal(left, runtime.Placed[^1]);
+            Assert.Equal(OverlayButton.Drawn(left), runtime.Placed[^1]);
 
             host.Place(ButtonPlace.Corner);
 
@@ -466,10 +538,12 @@ public class ButtonHostTests
     /// <summary>Points at a spot on the button, then clicks it.</summary>
     private static void Press(ButtonHost host, AttachedRuntime runtime, (float Across, float Down) spot, double at)
     {
+        // The fractions are of the picture's square, which is bigger than the card.
         var centre = host.Placement.Offset;
+        var side = OverlayButton.Drawn(host.Placement).Side;
         var target = new Vector3(
-            centre.X + ((spot.Across - 0.5f) * host.Placement.Width),
-            centre.Y - ((spot.Down - 0.5f) * host.Placement.Width),
+            centre.X + ((spot.Across - 0.5f) * side),
+            centre.Y - ((spot.Down - 0.5f) * side),
             centre.Z);
         var aim = Hands.AimingAt(Vector3.Zero, target);
 
@@ -492,7 +566,7 @@ public class ButtonHostTests
             host.Place(ButtonPlace.Wrist);
 
             Assert.Equal(OverlayAnchor.LeftHand, host.Placement.Anchor);
-            Assert.Equal(host.Placement, runtime.Placed[^1]);
+            Assert.Equal(OverlayButton.Drawn(host.Placement), runtime.Placed[^1]);
             Assert.False(host.Placement.Locked);
         });
     }

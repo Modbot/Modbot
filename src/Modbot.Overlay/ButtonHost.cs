@@ -20,6 +20,12 @@ namespace Modbot.Overlay;
 /// A click on its face raises <see cref="Pressed"/> and nothing else: what a press means, showing or
 /// hiding the headset panel, is the companion's to decide, because the panel belongs to another
 /// host. With the hand on, a ray passes through the face, so only the bar answers.</para>
+/// <para><strong>The card does not move when edit mode comes on</strong> (user, 2026-10-18; the bar used
+/// to take a row of the card). The picture is a square with the card in the middle and clear ground
+/// around it, and the bar has the strip of ground under the card; with edit mode off that strip is
+/// empty and a ray passes through it. The room is told the bigger square around the same middle
+/// (<see cref="OverlayButton.Drawn"/>), so the card is the same size in metres and in the same spot
+/// either way, and <see cref="Placement"/>, the saved spot, is still the card's.</para>
 /// <para><strong>It stays when the panel is hidden.</strong> It is an overlay of its own with a
 /// handle of its own, so hiding the headset panel takes down only that panel and Modbot's connection
 /// to the VR runtime stays up.</para>
@@ -83,7 +89,7 @@ public sealed class ButtonHost : IDisposable
         Width = surface.Width;
         Height = surface.Height;
         _interaction = Interaction(place, placement);
-        _runtime.Place(_interaction.Placement);
+        _runtime.Place(DrawnPlacement);
     }
 
     /// <summary>
@@ -122,14 +128,14 @@ public sealed class ButtonHost : IDisposable
         Width = resolution;
         Height = resolution;
         _interaction = Interaction(place, placement);
-        _runtime.Place(_interaction.Placement);
+        _runtime.Place(DrawnPlacement);
     }
 
     /// <param name="place">The place setting, whose own spot is where two quick grips send the button.</param>
     /// <param name="placement">Where it was left in that place, or null for the place's own spot.</param>
     private OverlayInteraction Interaction(ButtonPlace place, OverlayPlacement? placement) => new(
-        placement ?? OverlayButton.ToPlacement(place),
-        home: OverlayButton.ToPlacement(place),
+        OverlayButton.Drawn(placement ?? OverlayButton.ToPlacement(place)),
+        home: OverlayButton.Drawn(OverlayButton.ToPlacement(place)),
         keepAnchor: OverlayButton.ToPlacement(place).Anchor,
         homeResetsWidth: true)
     {
@@ -174,8 +180,15 @@ public sealed class ButtonHost : IDisposable
 
     public int Height { get; }
 
-    /// <summary>Where the button is, as a controller or the settings last put it.</summary>
-    public OverlayPlacement Placement => _interaction.Placement;
+    /// <summary>
+    /// Where the button is, as a controller or the settings last put it: the card's own placement, as it
+    /// is saved. The room is told the same spot with the picture's square drawn around the card
+    /// (<see cref="OverlayButton.Drawn"/>), which is also the square the controllers' rays are measured on.
+    /// </summary>
+    public OverlayPlacement Placement => OverlayButton.Card(_interaction.Placement);
+
+    /// <summary>What the room is told: the card's placement with the square its picture is drawn on.</summary>
+    private OverlayPlacement DrawnPlacement => _interaction.Placement;
 
     /// <summary>
     /// Whether the bar under the button, the lock and the hand, comes up at all. Off by default,
@@ -250,7 +263,7 @@ public sealed class ButtonHost : IDisposable
             if (!value)
             {
                 // A button being carried is let go where it is, not left stuck to the hand.
-                _interaction.Place(_interaction.Placement);
+                _interaction.Place(DrawnPlacement);
                 Holding = null;
                 Busy = null;
                 _rayOnPanel = false;
@@ -321,11 +334,11 @@ public sealed class ButtonHost : IDisposable
     public void Place(ButtonPlace place, OverlayPlacement? placement = null)
     {
         var own = OverlayButton.ToPlacement(place);
-        _interaction.Home = own;
+        _interaction.Home = OverlayButton.Drawn(own);
         _interaction.KeepAnchor = own.Anchor;
-        _interaction.Place(placement ?? OverlayButton.ToPlacement(place));
+        _interaction.Place(OverlayButton.Drawn(placement ?? own));
         Holding = null;
-        _runtime.Place(_interaction.Placement);
+        _runtime.Place(DrawnPlacement);
         Draw();
     }
 
@@ -383,7 +396,7 @@ public sealed class ButtonHost : IDisposable
         if (result.PlacementChanged)
         {
             _runtime.Place(result.Placement);
-            PlacementChanged?.Invoke(result.Placement);
+            PlacementChanged?.Invoke(OverlayButton.Card(result.Placement));
         }
 
         // Looked up before the redraw: a press lands on what was drawn when it was made. The face
@@ -448,9 +461,9 @@ public sealed class ButtonHost : IDisposable
 
     private void Switch(OverlayPlacement placement)
     {
-        _interaction.Place(placement);
-        _runtime.Place(_interaction.Placement);
-        PlacementChanged?.Invoke(_interaction.Placement);
+        _interaction.Place(OverlayButton.Drawn(placement));
+        _runtime.Place(DrawnPlacement);
+        PlacementChanged?.Invoke(Placement);
     }
 
     public OverlayRuntimeStatus Start()
@@ -460,7 +473,7 @@ public sealed class ButtonHost : IDisposable
         if (status.State is not OverlayRuntimeState.Running)
             return status;
 
-        _runtime.Place(_interaction.Placement);
+        _runtime.Place(DrawnPlacement);
 
         // Attaching shows the overlay; a button switched off stays down, with no texture made.
         if (!_shown)

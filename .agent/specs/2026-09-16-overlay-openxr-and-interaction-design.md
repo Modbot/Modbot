@@ -191,6 +191,19 @@ Every change goes through `Place` and is saved. Nothing here needs a text box (M
 > left (0.48 and 0.34 of the view, from the pop-ups' 0.40 and 0.26). The rule is in `CLAUDE.md`:
 > every VR panel can be locked, made click-through and moved.
 
+> **Note, 2026-10-18: the button's card does not change with edit mode.** The bar used to take a
+> row of the button's square picture, so turning edit mode on squeezed the card shorter and moved its
+> middle up. Now the picture is a bigger square (`OverlayButton.PanelPixels`, 448) with the 256-pixel
+> card (`CardPixels`) in the middle of it and clear ground (`EdgePixels`, 96) on every side, and the
+> bar has the strip of ground under the card (`PanelFrame.Button`). With edit mode off the strip is
+> empty and a ray passes through it (the hit test counts only what is drawn). The room is told the
+> square, not the card: `OverlayButton.Drawn` sets `Wide` and `Tall` to `CanvasScale` (1.75) and leaves
+> `Width` alone, so the card keeps its width in metres and its spot (the middle of the square is the
+> placement's pose), the controllers' rays are measured on the same square, and the card's own
+> placement, `ButtonHost.Placement`, is still what is saved in `overlayButtonSpots`
+> (`OverlayButton.Card` takes the square back out). The bar is still drawn one real-world size
+> (c4871688), held to the strip.
+
 > **Note, 2026-10-18: either hand on the panel can grip it, not only the pointer.** The owner
 > pointed with the left hand and aimed the right at the panel to get ready to resize; the right,
 > being nearer, became the pointer, and the left hand's grip was ignored until the right ray left

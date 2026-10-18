@@ -262,11 +262,47 @@ public class PanelFrameTests
 
     private static double ButtonLockMetres(OverlayPlacement placement)
     {
-        var bar = PanelBar.For(placement, true);
+        // The bar is told the square the room draws, which is bigger than the card.
+        var bar = PanelBar.For(OverlayButton.Drawn(placement), true);
         var (_, targets) = Draw(
             () => PanelFrame.Button(new Border(), bar, null, OverlayButton.PanelPixels),
             OverlayButton.PanelPixels);
         return LockMetres(targets, bar, OverlayButton.PanelPixels);
+    }
+
+    private static Rect ButtonCard(PanelBar? bar)
+    {
+        var (_, targets) = Draw(
+            () => PanelFrame.Button(new Border { Tag = new OverlayTarget.PanelButton() }, bar, null, OverlayButton.PanelPixels),
+            OverlayButton.PanelPixels);
+        return Bounds<OverlayTarget.PanelButton>(targets);
+    }
+
+    [Fact]
+    public void TheButtonCardKeepsItsSizeAndSpotWhetherTheBarIsThereOrNot()
+    {
+        var without = ButtonCard(null);
+        var drawn = OverlayButton.Drawn(ButtonPlacement);
+
+        Assert.Equal(new Rect(OverlayButton.EdgePixels, OverlayButton.EdgePixels, OverlayButton.CardPixels, OverlayButton.CardPixels), without);
+
+        foreach (var bar in new[] { PanelBar.For(drawn, false), PanelBar.For(drawn, true), PanelBar.For(drawn with { Locked = true, ClickThrough = true }, true) })
+            Assert.Equal(without, ButtonCard(bar));
+    }
+
+    [Fact]
+    public void TheButtonBarHasItsOwnStripUnderTheCardInsideThePicture()
+    {
+        var bar = PanelBar.For(OverlayButton.Drawn(ButtonPlacement with { Width = OverlayPlacement.MinWidth }), true);
+        var (_, targets) = Draw(
+            () => PanelFrame.Button(new Border { Tag = new OverlayTarget.PanelButton() }, bar, null, OverlayButton.PanelPixels),
+            OverlayButton.PanelPixels);
+
+        var card = Bounds<OverlayTarget.PanelButton>(targets);
+        var strip = Bounds<OverlayTarget.Bar>(targets);
+
+        Assert.True(strip.Top >= card.Bottom, "The bar is under the card.");
+        Assert.True(strip.Bottom <= OverlayButton.PanelPixels, "The bar is inside the picture, even at the narrowest the button can be.");
     }
 
     /// <summary>Within 5%: Avalonia lays a bar out on whole pixels, which is a pixel out on the smallest buttons.</summary>
