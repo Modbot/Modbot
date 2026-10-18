@@ -31,6 +31,13 @@ internal sealed partial class CompanionHost
         if (_state is null || !_state.Settings.Talk.On || _talk is not null)
             return;
 
+        // Pressing a key on somebody's behalf is a Windows call, and nothing here is worth starting without it.
+        if (!OperatingSystem.IsWindows())
+        {
+            _state.TalkProblem = "Only works on Windows.";
+            return;
+        }
+
         var osc = new VRChatOsc();
         osc.Start();
 

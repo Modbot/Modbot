@@ -1220,6 +1220,41 @@ public class CompanionSourceGuardTests
         Assert.Equal(["\"output_log_*.txt\""], patterns);
     }
 
+    [Fact]
+    public void OnlyTheTalkFeatureOpensAnOscSocketOrPressesAKey()
+    {
+        // Talk in Discord or VRChat (design spec 2026-10-17): the one UDP socket and the one
+        // SendInput call in the client belong to it, so a reader of the source finds every
+        // keystroke Modbot ever sends, and every packet, in two named files.
+        var withSocket = ClientSources()
+            .Where(f => Regex.IsMatch(File.ReadAllText(f), @"\b(UdpClient|OSCQueryService\w*|MeaModDiscovery)\b"))
+            .Select(Path.GetFileName)
+            .ToList();
+
+        Assert.Equal(["VRChatOsc.cs"], withSocket);
+
+        var pressing = ClientSources()
+            .Where(f => File.ReadAllText(f).Contains("SendInput", StringComparison.Ordinal))
+            .Select(Path.GetFileName)
+            .ToList();
+
+        Assert.Equal(["WindowsKeyPresser.cs"], pressing);
+    }
+
+    [Fact]
+    public void TheOscServiceOnlyEverAddressesThisPcsOwnLoopback()
+    {
+        // VRChat is on this PC, so every packet goes to the loopback address and the service is
+        // told to bind there. An address typed in, looked up or broadcast has no place in it.
+        var source = File.ReadAllText(ClientSources().Single(f => Path.GetFileName(f) == "VRChatOsc.cs"));
+
+        foreach (var forbidden in new[] { "IPAddress.Parse", "IPAddress.Broadcast", "IPAddress.Any", "IPAddress.IPv6", "Dns.", "Multicast" })
+            Assert.DoesNotContain(forbidden, source, StringComparison.Ordinal);
+
+        Assert.DoesNotMatch(@"new\s+IPEndPoint\(\s*(?!IPAddress\.Loopback)", source);
+        Assert.Contains(".WithHostIP(IPAddress.Loopback)", source, StringComparison.Ordinal);
+    }
+
     private static string FindRepoRoot()
     {
         var directory = new DirectoryInfo(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!);
