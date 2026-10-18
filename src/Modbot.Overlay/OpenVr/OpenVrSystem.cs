@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using Modbot.Overlay.Interaction;
@@ -151,6 +152,10 @@ internal sealed unsafe class OpenVrSystem
     private readonly OpenVrInput? _input;
     private readonly InputSourceChoice _choice;
     private ControllerInputSource? _logged;
+    private long _updated;
+
+    /// <summary>Reads of tracking closer together than this share one refresh of the action state.</summary>
+    private static readonly TimeSpan SamePoll = TimeSpan.FromMilliseconds(2);
 
     private OpenVrSystem(nint table, OpenVrInput? input, string? whyNoInput)
     {
@@ -181,8 +186,10 @@ internal sealed unsafe class OpenVrSystem
             input = OpenVrInput.Open(OpenVrInput.ManifestPath, out var why);
             reason = why;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or EntryPointNotFoundException)
+        catch (Exception ex)
         {
+            // Anything at all: a surprise here must not take the controllers down with it.
+            Log.Warning(ex, "SteamVR Input could not be set up");
             reason = ex.Message;
         }
 
@@ -246,7 +253,17 @@ internal sealed unsafe class OpenVrSystem
         ActionHand leftActions = default, rightActions = default;
         if (_input is { } input)
         {
-            input.Update();
+            // Several panels read tracking in the same frame; the action state only has to be
+            // refreshed once for all of them. A frame is at least 5 ms even at 144 Hz, so a read
+            // inside that window of the last refresh is the same poll.
+            var now = Stopwatch.GetTimestamp();
+            if (_updated == 0 || Stopwatch.GetElapsedTime(_updated, now) >= SamePoll)
+            {
+                input.Update();
+                _updated = now;
+            }
+
+
             leftActions = input.Read(Interaction.Hand.Left);
             rightActions = input.Read(Interaction.Hand.Right);
         }

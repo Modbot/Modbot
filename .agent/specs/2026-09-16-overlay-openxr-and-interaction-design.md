@@ -297,7 +297,9 @@ nothing at run time to catch a wrong guess. Modbot does not open it.
 **What it is now.** `HandState` carries two poses instead of one: `Device`, where the controller is,
 and `Aim`, where it points. The OpenVR path fills `Device` from the tracked pose and works `Aim` out
 of it by tilting **35° downwards about the controller's own side-to-side axis**. Nothing else
-moves; the ray still starts where the controller is.
+moves; the ray still starts where the controller is. (2026-10-17: read through SteamVR Input, §4.1,
+`Aim` is SteamVR's own `tip` pose, so OpenVR does have a pointing pose to ask for now; the 35° tilt
+is the fallback, used on the legacy read and for a binding that gives no tip pose.)
 
 **How sure that number is: not very.** 35° is the middle of the range runtimes use between the two
 poses for the controllers a moderator is likely to be wearing — a Valve Index or an Oculus Touch,
