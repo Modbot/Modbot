@@ -239,6 +239,9 @@ public sealed record CompanionAppSnapshot(
     /// <summary>Whether this copy looks for updates, so the sidebar can offer a check now.</summary>
     public bool CanCheckForUpdates { get; init; }
 
+    /// <summary>Whether the window's X hides it to the tray, for the Settings page's Close to tray box and the Quit button.</summary>
+    public bool CloseToTray { get; init; } = true;
+
     /// <summary>Whether the lock and the hand show on the panels, for the SteamVR page's Edit mode switch.</summary>
     public bool OverlayEditMode { get; init; }
 
@@ -279,13 +282,11 @@ public sealed record CompanionAppSnapshot(
     public NotificationFilters NotificationFiltersOrDefault => NotificationFilters ?? NotificationFilters.Default;
 
     /// <summary>
-    /// Whether the Settings page's own "Settings" card has anything to put in it.
+    /// Whether the Settings page shows the start-with-Windows switch.
     /// </summary>
     /// <remarks>
-    /// Its one control is the start-with-Windows switch, which only an installed copy shows. A copy
-    /// run from a folder was left with a heading, a line under it and nothing else, which reads as a
-    /// screen that failed to draw rather than as a switch that does not apply here. The card
-    /// follows the switch.
+    /// Only an installed copy shows it. The Close to tray box beside it shows in every copy, so the
+    /// card itself is always there.
     /// </remarks>
     public bool ShowStartupCard => Startup is { Visible: true };
 
@@ -547,6 +548,7 @@ public sealed class CompanionAppState
             UpdateFound = UpdateFound,
             UpdateReady = UpdateReady,
             CanCheckForUpdates = CanCheckForUpdates,
+            CloseToTray = Settings.CloseToTray,
             OverlayEditMode = Settings.OverlayEditMode,
             OverlayPushSpeed = Settings.OverlayPushSpeed,
             OverlayVRChatLook = Settings.OverlayVRChatLook,

@@ -76,6 +76,13 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public string? VRChatLogFolder { get; init; }
 
     /// <summary>
+    /// Whether the window's X hides it to the tray (on) or quits (off). On unless
+    /// <c>"closeToTray": false</c> is in the file, so a file written before this setting existed
+    /// keeps closing to the tray as it always did.
+    /// </summary>
+    public bool CloseToTray { get; init; } = true;
+
+    /// <summary>
     /// Where the event backup goes, and whether it is sent: the environment, then the file's
     /// <c>cloud</c> object, then on to <c>https://cloud.modbot.co</c>.
     /// </summary>
@@ -223,6 +230,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
 
     public const string StartWithWindowsField = "startWithWindows";
 
+    public const string CloseToTrayField = "closeToTray";
+
     public const string VRChatLogFolderField = "vrchatLogFolder";
 
     public const string OverlayOnField = "overlayOn";
@@ -298,6 +307,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         {
             CheckForUpdates = shape?.CheckForUpdates ?? true,
             StartWithWindows = shape?.StartWithWindows ?? true,
+            CloseToTray = shape?.CloseToTray ?? true,
             VRChatLogFolder = string.IsNullOrWhiteSpace(shape?.VRChatLogFolder) ? null : shape.VRChatLogFolder.Trim(),
             Cloud = CloudSettings.Resolve(shape?.Cloud?.Endpoint, shape?.Cloud?.Disabled, environment),
             OverlayOn = shape?.OverlayOn ?? true,
@@ -649,7 +659,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("overlayButtonPlace")] string? OverlayButtonPlace = null,
         [property: JsonPropertyName("overlayButtonStick")] string? OverlayButtonStick = null,
         [property: JsonPropertyName("overlayButtonDirection")] string? OverlayButtonDirection = null,
-        [property: JsonPropertyName("overlayButtonHold")] int? OverlayButtonHold = null);
+        [property: JsonPropertyName("overlayButtonHold")] int? OverlayButtonHold = null,
+        [property: JsonPropertyName("closeToTray")] bool? CloseToTray = null);
 
     private sealed record CloudShape(
         [property: JsonPropertyName("endpoint")] string? Endpoint,

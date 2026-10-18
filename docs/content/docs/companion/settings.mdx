@@ -3,7 +3,7 @@ title: Client settings
 description: Every setting in the companion, including starting with Windows, the voice, Modbot Cloud backup, and the ones kept in its settings file.
 ---
 
-The client's **Settings** page has the start-with-Windows switch, the **Tell me about** card, the
+The client's **Settings** page has the start-with-Windows switch, the **Close to tray** box, the **Tell me about** card, the
 **Voice** card, the [**Clips**](/companion/clips) card, the [**Listening**](/companion/listening)
 card and the VRChat log folder. Everything else is set in the client's settings file or in environment variables on
 your PC: the pairing page, update checks, Modbot Cloud backup, and how much the client writes to
@@ -182,8 +182,8 @@ Modbot Cloud keeps events for 365 days by default. See [Privacy](/privacy).
 ## Start Modbot Companion when my computer starts
 
 **On by default**, and only shown in a copy installed with `Modbot-win-Setup.exe`. The portable
-zip, and a copy you built yourself, do not show this switch — the **Settings** card it sits in is
-not there at all — and never touch the Windows startup list.
+zip, and a copy you built yourself, do not show this switch and never touch the Windows startup
+list.
 
 While it is on, Modbot adds itself to your own Windows startup list and starts in the tray, with no
 window, when you sign in to Windows. The client checks the entry every time it starts and fixes it
@@ -197,6 +197,20 @@ Task Manager if you want it again.
 
 Uninstalling the client removes the startup entry.
 
+## Close to tray
+
+A tick box on the **Settings** page, **on by default**, shown in every copy. It decides what the
+window's X button does, and whether the **Quit** button at the foot of the window asks first.
+
+| | Close to tray on | Close to tray off |
+|---|---|---|
+| The X button | Hides the window. The client keeps running and reporting from the tray. | Quits the client. |
+| The **Quit** button | Asks first: "Modbot will stop reporting and won't stay in the tray." Choose **Quit** to quit, or **Cancel** to carry on. | Quits straight away. |
+
+Quitting from the window does the same as **Quit — stops reporting** in the tray menu: everything
+the client runs is stopped, then it exits. The choice is saved in the settings file as
+`closeToTray`; a settings file from before this box existed reads as on.
+
 ## Settings in the settings file
 
 The client keeps its settings in `%APPDATA%\Modbot\settings.json`. Every field is optional. The
@@ -208,6 +222,7 @@ the file:
 | `pairingPage` | `https://my.modbot.co/go?redir=/pair` | The page **Pair with a server** opens. See [Pairing page](#pairing-page). |
 | `checkForUpdates` | `true` | Whether an installed client looks for newer versions. See [Check for updates](#check-for-updates). |
 | `startWithWindows` | `true` | The **Start Modbot Companion when my computer starts** switch. |
+| `closeToTray` | `true` | The [**Close to tray**](#close-to-tray) box. `false` makes the X button quit. |
 | `vrchatLogFolder` | blank | The [VRChat log folder](#vrchat-log-folder). |
 | `overlayOn` | `true` | The **Overlay on** switch on the **SteamVR** page. `false` stops the main headset panel entirely. See [Turning it off](/companion/overlay#turning-it-off). |
 | `overlayButtonPlace` | `corner` | Where the [show and hide button](/companion/overlay#the-show-and-hide-button) sits, the **Button place** choice on the **SteamVR** page: `corner` or `wrist`. Anything else is the corner. Whether the panel is hidden is not saved. |
@@ -485,7 +500,7 @@ the last sound finished, so a rush of arrivals is one sound rather than ten.
 ```
 
 `trayNoticesShown` counts how many times closing the window with the X has told you the client is
-still running in the tray. After three it stops. Set it back to `0` to be told again.
+still running in the tray (only while [Close to tray](#close-to-tray) is on). After three it stops. Set it back to `0` to be told again.
 
 ### Which sound plays for what
 

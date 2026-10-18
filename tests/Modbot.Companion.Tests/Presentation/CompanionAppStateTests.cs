@@ -177,8 +177,8 @@ public class CompanionAppStateTests : IDisposable
     [Fact]
     public void TheSettingsCardIsNotDrawnWhenTheSwitchInItIsNot()
     {
-        // The card holds one switch, and only an installed copy shows it. A copy run from a folder
-        // was left with a heading and nothing under it, which reads as a screen that failed to draw.
+        // Only an installed copy shows the start-with-Windows switch; the card's other box, Close
+        // to tray, shows everywhere, so this answers for the switch alone.
         var state = State();
 
         Assert.False(state.Snapshot().ShowStartupCard);
@@ -186,6 +186,18 @@ public class CompanionAppStateTests : IDisposable
         state.Startup = new StartupState(Visible: true, On: true, TurnedOffInWindows: false);
 
         Assert.True(state.Snapshot().ShowStartupCard);
+    }
+
+    [Fact]
+    public void TheSnapshotCarriesTheCloseToTraySetting()
+    {
+        var state = State();
+
+        Assert.True(state.Snapshot().CloseToTray);
+
+        state.Settings = state.Settings with { CloseToTray = false };
+
+        Assert.False(state.Snapshot().CloseToTray);
     }
 
     [Fact]

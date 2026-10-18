@@ -290,4 +290,34 @@ public class CompanionSettingsTests : IDisposable
         Assert.DoesNotContain("eventsFilters", File.ReadAllText(Path_), StringComparison.Ordinal);
         Assert.False(CompanionSettings.Load(Path_, NoEnvironment).CheckForUpdates);
     }
+
+    [Theory]
+    [InlineData("""{ "pairingPage": "https://modbot.example/pair" }""")]
+    [InlineData("{}")]
+    public void AFileWithoutCloseToTrayReadsAsOn(string json)
+    {
+        Write(json);
+
+        Assert.True(CompanionSettings.Load(Path_, NoEnvironment).CloseToTray);
+    }
+
+    [Fact]
+    public void AMissingFileReadsCloseToTrayAsOn()
+        => Assert.True(CompanionSettings.Load(Path_, NoEnvironment).CloseToTray);
+
+    [Fact]
+    public void CloseToTrayIsSavedAndReadBackWithEveryOtherFieldKept()
+    {
+        Write("""{ "pairingPage": "https://modbot.example/pair", "checkForUpdates": false }""");
+
+        Assert.True(CompanionSettings.SaveSwitch(Path_, CompanionSettings.CloseToTrayField, false));
+
+        var off = CompanionSettings.Load(Path_, NoEnvironment);
+        Assert.False(off.CloseToTray);
+        Assert.False(off.CheckForUpdates);
+        Assert.Equal(new Uri("https://modbot.example/pair"), off.PairingPage);
+
+        Assert.True(CompanionSettings.SaveSwitch(Path_, CompanionSettings.CloseToTrayField, true));
+        Assert.True(CompanionSettings.Load(Path_, NoEnvironment).CloseToTray);
+    }
 }

@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Modbot.Companion.Clips;
 using Modbot.Companion.Ingest;
 using Modbot.Companion.Journal;
@@ -123,9 +124,9 @@ public sealed partial class MainWindow : Window
     // Built once for the same reason: a switch rebuilt every second can lose the click on it.
     private readonly CheckBox _startupBox;
 
-    // The card that switch sits in, kept so the refresh can hide the whole card rather than leave
-    // a heading over an empty box in a copy that does not show the switch.
-    private Border? _startupCard;
+    // The Close to tray box sits in the same card and shows in every copy, so the card never
+    // stands empty when the start-with-Windows switch is hidden.
+    private readonly CheckBox _closeToTrayBox;
 
     private readonly CheckBox _overlayOnBox;
 
@@ -202,6 +203,13 @@ public sealed partial class MainWindow : Window
         {
             if (!Quiet)
                 _actions.SetStartWithWindows(_startupBox.IsChecked == true);
+        };
+
+        _closeToTrayBox = new CheckBox { Content = Ui.Text("Close to tray", Ui.T.Density.TextSmall, Ui.T.TextBrush) };
+        _closeToTrayBox.IsCheckedChanged += (_, _) =>
+        {
+            if (!Quiet)
+                _actions.SetCloseToTray(_closeToTrayBox.IsChecked == true);
         };
 
         _overlayOnBox = new CheckBox { Content = Ui.Text("Overlay on", Ui.T.Density.TextSmall, Ui.T.TextBrush) };
@@ -347,9 +355,10 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Closing the window hides it. Avalonia cannot show a window again once it has really
-    /// closed, and the tray's "Open Modbot" must bring this one back, so the close button hides
-    /// it and only the application shutting down closes it for good.
+    /// Closing the window hides it, or quits when Close to tray is off. Avalonia cannot show a
+    /// window again once it has really closed, and the tray's "Open Modbot" must bring this one
+    /// back, so the close button hides it and only the application shutting down closes it for
+    /// good.
     /// </summary>
     protected override void OnClosing(WindowClosingEventArgs e)
     {
@@ -359,6 +368,15 @@ public sealed partial class MainWindow : Window
             return;
 
         e.Cancel = true;
+
+        if (!CloseChoices.XHidesToTray(_snapshot.CloseToTray))
+        {
+            // The same quit as the tray's, run after this close has finished so the shutdown does
+            // not close a window that is already closing.
+            Dispatcher.UIThread.Post(_actions.Quit);
+            return;
+        }
+
         Hide();
 
         // The client is still running and still reporting, which is the point of the tray icon and
@@ -1335,12 +1353,11 @@ public sealed partial class MainWindow : Window
     private void RenderSettings()
     {
         DetachFromParent(_startupBox);
+        DetachFromParent(_closeToTrayBox);
 
-        _startupCard = Ui.Card(
-            new StackPanel { Spacing = 6, Children = { _startupBox } },
-            "Settings");
-
-        _body.Children.Add(_startupCard);
+        _body.Children.Add(Ui.Card(
+            new StackPanel { Spacing = 6, Children = { _startupBox, _closeToTrayBox } },
+            "Settings"));
 
         _body.Children.Add(Ui.Card(DesktopOverlayCard(), "Desktop overlay"));
         _body.Children.Add(Ui.Card(DesktopNotifyCard(), "Notification overlay"));
@@ -1365,18 +1382,15 @@ public sealed partial class MainWindow : Window
     private void RefreshSettings() => Quietly(() =>
     {
         // Shown only in an installed copy. Turned off in Windows' own Startup apps list shows off,
-        // and cannot be turned back on from here. The card goes with it: the switch is all it
-        // holds, and a heading over nothing reads as a screen that failed to draw. Decided here
-        // rather than where the card is built, because the page is built once and refreshed
-        // after that, and the first build can happen before the host has said.
+        // and cannot be turned back on from here. Decided here rather than where the card is
+        // built, because the page is built once and refreshed after that, and the first build can
+        // happen before the host has said.
         var startup = _snapshot.Startup;
         _startupBox.IsVisible = _snapshot.ShowStartupCard;
-
-        if (_startupCard is not null)
-            _startupCard.IsVisible = _snapshot.ShowStartupCard;
-
         _startupBox.IsChecked = startup is { On: true };
         _startupBox.IsEnabled = startup is { TurnedOffInWindows: false };
+
+        _closeToTrayBox.IsChecked = _snapshot.CloseToTray;
 
         RefreshDesktopOverlayControls();
         RefreshDesktopNotifyControls();
@@ -2016,6 +2030,12 @@ public sealed record MainWindowActions(
     /// first few times only.
     /// </summary>
     public Action ClosedToTray { get; init; } = () => { };
+
+    /// <summary>The Settings page's Close to tray box.</summary>
+    public Action<bool> SetCloseToTray { get; init; } = _ => { };
+
+    /// <summary>Quits: stops everything, then exits. The same as the tray menu's Quit.</summary>
+    public Action Quit { get; init; } = () => { };
 
     /// <summary>
     /// The Settings page's Restart button. True once a fresh copy has been started and this one is

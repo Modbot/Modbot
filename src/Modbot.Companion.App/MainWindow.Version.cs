@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Modbot.Companion.Presentation;
 using Modbot.Core;
 
 namespace Modbot.Companion.App;
@@ -37,6 +38,8 @@ public sealed partial class MainWindow
 
     private readonly Button _issues = Ui.Button(Issues.Label);
 
+    private readonly Button _quit = Ui.Button("Quit");
+
     /// <summary>
     /// How long what a check came to stays under the button. "Up to date" is true when it is said
     /// and stops being worth believing an hour later, so it does not stay.
@@ -62,6 +65,21 @@ public sealed partial class MainWindow
         _issues.Margin = new Thickness(0, 4, 0, 0);
         _issues.Click += async (_, _) => await CrashGuard.RunAsync(
             "opening bugs and feedback", async () => await Launcher.LaunchUriAsync(Issues.Page));
+
+        _quit.Margin = new Thickness(0, 4, 0, 0);
+        _quit.Click += async (_, _) => await CrashGuard.RunAsync("quitting Modbot", QuitPressedAsync);
+    }
+
+    /// <summary>
+    /// Quit. With Close to tray on, Modbot lives in the tray, so quitting asks first; with it off
+    /// the window is the client and quits straight away, like the X.
+    /// </summary>
+    private async Task QuitPressedAsync()
+    {
+        if (CloseChoices.QuitAsksFirst(_snapshot.CloseToTray) && !await QuitWindow.AskAsync(this))
+            return;
+
+        _actions.Quit();
     }
 
     /// <summary>
@@ -136,7 +154,7 @@ public sealed partial class MainWindow
     {
         Spacing = 2,
         Margin = new Thickness(0, 6, 0, 0),
-        Children = { _versionLine, _updateLine, _updateRestart, _checkUpdates, _checkLine, _issues },
+        Children = { _versionLine, _updateLine, _updateRestart, _checkUpdates, _checkLine, _issues, _quit },
     };
 
     private async Task UpdateRestartPressedAsync()

@@ -653,7 +653,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         // Only in a test copy started in debug mode; anywhere else nothing listens.
         StartTestRemote();
 
-        InstallTray(desktop);
+        InstallTray();
         ListenForLinks();
         StartUpdateChecks();
         ApplyStartWithWindows();
@@ -1833,6 +1833,19 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         if (!CompanionSettings.SaveEventsFilters(_settingsPath, filters))
             Log.Warning("Could not save the Events filters to {Path}", _settingsPath);
+    }
+
+    private void SetCloseToTray(bool on)
+    {
+        if (_state is null || _state.Settings.CloseToTray == on)
+            return;
+
+        _state.Settings = _state.Settings with { CloseToTray = on };
+
+        if (!CompanionSettings.SaveSwitch(_settingsPath, CompanionSettings.CloseToTrayField, on))
+            Log.Warning("Could not save the close-to-tray switch to {Path}", _settingsPath);
+
+        Render();
     }
 
     private void SetStartWithWindows(bool on)
@@ -3555,7 +3568,7 @@ internal sealed partial class CompanionHost : IOverlayListener
     /// asked to trust this program not to be. The same decision satisfies both, which is a good
     /// sign that neither is theatre.
     /// </remarks>
-    private void InstallTray(IClassicDesktopStyleApplicationLifetime desktop)
+    private void InstallTray()
     {
         var open = new NativeMenuItem("Open Modbot");
         open.Click += (_, _) => ShowWindow();
@@ -3565,11 +3578,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             "opening bugs and feedback", async () => await Window.Launcher.LaunchUriAsync(Issues.Page));
 
         var quit = new NativeMenuItem("Quit — stops reporting");
-        quit.Click += (_, _) =>
-        {
-            StopEverything();
-            desktop.Shutdown();
-        };
+        quit.Click += (_, _) => QuitNow();
 
         _tray = new TrayIcon
         {
@@ -3583,6 +3592,16 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         _tray.Clicked += (_, _) => ShowWindow();
         TrayIcon.SetIcons(Application.Current!, [_tray]);
+    }
+
+    /// <summary>
+    /// Quits: stops everything, then exits. The tray's Quit, the window's Quit button and the X
+    /// with Close to tray off all come here, so they leave the machine in the same state.
+    /// </summary>
+    private void QuitNow()
+    {
+        StopEverything();
+        _desktop?.Shutdown();
     }
 
     /// <summary>
@@ -3848,6 +3867,8 @@ internal sealed partial class CompanionHost : IOverlayListener
                 SetNotificationFilters = SetNotificationFilters,
                 TestBleep = TestBleep,
                 ClosedToTray = ClosedToTray,
+                SetCloseToTray = SetCloseToTray,
+                Quit = QuitNow,
                 RestartAsync = RestartAsync,
                 CheckForUpdatesAsync = () => _updates?.CheckNowAsync() ?? Task.FromResult(UpdateCheckOutcome.CannotCheck),
                 SetDesktopOverlay = SetDesktopOverlay,
