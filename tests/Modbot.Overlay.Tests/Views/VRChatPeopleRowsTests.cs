@@ -117,6 +117,69 @@ public class VRChatPeopleRowsTests
         Assert.Contains("Users (1 of 2)", texts);
     }
 
+    private static readonly IReadOnlyList<RosterMember> Mixed =
+    [
+        new("usr_a", "Rin", RosterStanding.Flagged, 0, [], EighteenPlus: true),
+        new("usr_b", "Kai", RosterStanding.Staff, 0, [], EighteenPlus: true),
+        new("usr_c", "Mira", RosterStanding.Member, 0, [], EighteenPlus: false),
+        new("usr_d", "Jo", RosterStanding.Member, 0, []),
+        new("usr_e", "Ash", RosterStanding.Ordinary, 0, [], EighteenPlus: true),
+    ];
+
+    [Fact]
+    public void TheHeadingCountsMembersEighteenPlusAndStaffOfEverybodyHere()
+    {
+        var texts = Texts(Screen(Mixed));
+
+        Assert.Contains("Users (5)", texts);
+        Assert.Contains("· 2 members · 3 18+ · 1 staff", texts);
+    }
+
+    [Fact]
+    public void AFilterLeavesTheCountsOfEverybodyHere()
+    {
+        var texts = Texts(Screen(Mixed, filters: new ListFilters(Name: "Kai")));
+
+        Assert.Contains("Users (1 of 5)", texts);
+        Assert.Contains("· 2 members · 3 18+ · 1 staff", texts);
+    }
+
+    [Fact]
+    public void TheModbotLookSaysTheSameCountsAfterTheNumberHere()
+    {
+        var texts = Texts(Screen(Mixed), OverlayLook.Headset);
+
+        Assert.Contains("5 here", texts);
+        Assert.Contains("· 2 members · 3 18+ · 1 staff", texts);
+    }
+
+    [Fact]
+    public void TheHeadingStaysOnOneLineWithTheFreshnessAtTheDefaultWidth()
+    {
+        var many = Enumerable.Range(0, 120)
+            .Select(i => new RosterMember("usr_" + i, "P" + i, RosterStanding.Member, 0, [], EighteenPlus: true))
+            .ToList();
+
+        var (tallyRight, freshnessLeft, tallyHeight, headingHeight) = Draw(
+            Screen(many, filters: new ListFilters(Name: "P1")),
+            root =>
+            {
+                var blocks = root.GetLogicalDescendants().OfType<TextBlock>().ToList();
+                var tally = blocks.First(t => t.Text is not null && t.Text.StartsWith("· ", StringComparison.Ordinal));
+                var freshness = blocks.First(t => t.Text == "up to date");
+                var heading = blocks.First(t => t.Text is not null && t.Text.StartsWith("Users (", StringComparison.Ordinal));
+
+                return (
+                    tally.TranslatePoint(new Point(tally.Bounds.Width, 0), root)!.Value.X,
+                    freshness.TranslatePoint(new Point(0, 0), root)!.Value.X,
+                    tally.Bounds.Height,
+                    heading.Bounds.Height);
+            });
+
+        Assert.True(tallyRight <= freshnessLeft, $"Counts end at {tallyRight}, freshness starts at {freshnessLeft}.");
+        Assert.True(tallyHeight <= headingHeight, "The counts wrapped onto a second line.");
+    }
+
     [Fact]
     public void TheHeadsetKeepsItsOwnCountAndItsOwnRows()
     {

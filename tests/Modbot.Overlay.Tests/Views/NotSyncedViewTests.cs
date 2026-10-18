@@ -150,6 +150,7 @@ public class NotSyncedViewTests
 
         Assert.DoesNotContain(FilterPart.Who, parts);
         Assert.DoesNotContain(FilterPart.Rank, parts);
+        Assert.DoesNotContain(FilterPart.EighteenPlus, parts);
         Assert.Contains(FilterPart.Time, parts);
         Assert.Contains(FilterPart.Sort, parts);
     }

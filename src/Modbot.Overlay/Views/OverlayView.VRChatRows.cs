@@ -61,12 +61,15 @@ public sealed partial class OverlayView
     /// VRChat's heading over its list: "Users (12)" with a chevron after it, and at the far end how old
     /// the list is. Not something that folds; the chevron is how VRChat's heading looks.
     /// </summary>
-    private Control UsersHeading(string words, string? state, IBrush stateBrush)
+    private Control UsersHeading(string words, string counts, string? state, IBrush stateBrush)
     {
         var v = V!;
 
         var heading = Text(words, 20, v.Text, FontWeight.Bold);
         heading.VerticalAlignment = VerticalAlignment.Center;
+
+        var tally = Text("· " + counts, T.Density.TextSmall, v.Heading, FontWeight.Bold);
+        tally.VerticalAlignment = VerticalAlignment.Bottom;
 
         var chevron = new Viewbox
         {
@@ -87,7 +90,7 @@ public sealed partial class OverlayView
 
         var head = new DockPanel { LastChildFill = false, Margin = new Thickness(2, 2, 2, 0) };
 
-        var left = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { heading, chevron } };
+        var left = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { heading, chevron, tally } };
         DockPanel.SetDock(left, Avalonia.Controls.Dock.Left);
         head.Children.Add(left);
 

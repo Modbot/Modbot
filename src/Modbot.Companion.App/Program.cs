@@ -3696,7 +3696,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         // desktop screen keeps its three.
         var most = Math.Max(
             NotifyOverlaySettings.MostPopUpsAtOnce,
-            (int)Math.Round(NotifyOverlaySettings.MostPopUpsAtOnce * (_state?.Settings.NotifyOverlay.Tall ?? 1f)));
+            (int)Math.Round(NotifyOverlaySettings.MostPopUpsAtOnce * (_state?.Settings.NotifyOverlay.Tall ?? 1f), MidpointRounding.AwayFromZero));
         _popUps.MostAtOnce = most;
 
         if (_notifyHost is not null)

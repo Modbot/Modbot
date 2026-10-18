@@ -12,15 +12,15 @@ public class ListFilteringTests
 {
     private static readonly DateTimeOffset Now = new(2026, 9, 26, 21, 0, 0, TimeSpan.Zero);
 
-    private static RosterMember Member(string name, RosterStanding standing = RosterStanding.Ordinary, TrustRank? rank = TrustRank.User)
-        => new("usr_" + name, name, standing, 0, [], rank);
+    private static RosterMember Member(string name, RosterStanding standing = RosterStanding.Ordinary, TrustRank? rank = TrustRank.User, bool? eighteenPlus = null)
+        => new("usr_" + name, name, standing, 0, [], rank, eighteenPlus);
 
     private static readonly IReadOnlyList<RosterMember> People =
     [
-        Member("Rin", RosterStanding.Flagged, TrustRank.NewUser),
-        Member("Kai", RosterStanding.Staff, TrustRank.TrustedUser),
-        Member("Mira", RosterStanding.Member, TrustRank.KnownUser),
-        Member("Jo", RosterStanding.Ordinary, TrustRank.Visitor),
+        Member("Rin", RosterStanding.Flagged, TrustRank.NewUser, false),
+        Member("Kai", RosterStanding.Staff, TrustRank.TrustedUser, true),
+        Member("Mira", RosterStanding.Member, TrustRank.KnownUser, true),
+        Member("Jo", RosterStanding.Ordinary, TrustRank.Visitor, false),
         Member("Ash", RosterStanding.Ordinary, null),
         Member("𝕬𝖑𝖊𝖝"),
     ];
@@ -72,6 +72,64 @@ public class ListFilteringTests
     public void NotKnownIsSomebodyWhoseRankTheServerHasNotSaid()
     {
         Assert.Equal(["Ash"], Names(new ListFilters(Ranks: new RankPick().Toggle(null))));
+    }
+
+    [Fact]
+    public void EighteenPlusKeepsOnlyThoseWithTheMark()
+    {
+        Assert.Equal(["Kai", "Mira"], Names(new ListFilters(EighteenPlus: EighteenPlusPick.Yes)));
+    }
+
+    [Fact]
+    public void NotEighteenPlusKeepsOnlyThoseKnownToLackTheMark()
+    {
+        Assert.Equal(["Rin", "Jo"], Names(new ListFilters(EighteenPlus: EighteenPlusPick.No)));
+    }
+
+    [Fact]
+    public void SomebodyWhoseMarkIsNotKnownIsShownUnderAnyOnly()
+    {
+        Assert.Contains("Ash", Names(new ListFilters(EighteenPlus: EighteenPlusPick.Any)));
+        Assert.DoesNotContain("Ash", Names(new ListFilters(EighteenPlus: EighteenPlusPick.Yes)));
+        Assert.DoesNotContain("Ash", Names(new ListFilters(EighteenPlus: EighteenPlusPick.No)));
+    }
+
+    [Fact]
+    public void EighteenPlusWorksWithTheOtherFilters()
+    {
+        Assert.Equal(["Mira"], Names(new ListFilters(Who: Who.Members, EighteenPlus: EighteenPlusPick.Yes)));
+        Assert.Empty(Names(new ListFilters(Who: Who.Staff, EighteenPlus: EighteenPlusPick.No)));
+        Assert.Equal(["Kai"], Names(new ListFilters(EighteenPlus: EighteenPlusPick.Yes, Time: TimeWindow.Earlier)));
+        Assert.Equal(["Mira"], Names(new ListFilters(EighteenPlus: EighteenPlusPick.Yes, Name: "mir")));
+    }
+
+    [Fact]
+    public void EighteenPlusHidesAndIsPicked()
+    {
+        var filters = new ListFilters(EighteenPlus: EighteenPlusPick.Yes);
+
+        Assert.True(filters.Hides);
+        Assert.True(filters.AnyPicked);
+    }
+
+    [Fact]
+    public void TheCountsSayMembersEighteenPlusAndStaffOfEverybodyHere()
+    {
+        Assert.Equal("1 member · 2 18+ · 1 staff", ListFiltering.HereCounts(People));
+    }
+
+    [Fact]
+    public void ACountOfNothingIsStillWritten()
+    {
+        Assert.Equal("0 members · 0 18+ · 0 staff", ListFiltering.HereCounts([]));
+    }
+
+    [Fact]
+    public void AFlaggedMemberIsCountedAsFlaggedButStillAsEighteenPlus()
+    {
+        RosterMember[] flagged = [Member("Rin", RosterStanding.Flagged, eighteenPlus: true), Member("Kai", RosterStanding.Member), Member("Jo", RosterStanding.Member)];
+
+        Assert.Equal("2 members · 1 18+ · 0 staff", ListFiltering.HereCounts(flagged));
     }
 
     [Fact]

@@ -190,7 +190,7 @@ public class OverlayPageTests
     public void TheInstanceListAndTheAuditLogEachHaveTheirOwnFilters()
     {
         Assert.Equal(
-            [FilterPart.Who, FilterPart.Rank, FilterPart.Time, FilterPart.Name, FilterPart.Sort],
+            [FilterPart.Who, FilterPart.Rank, FilterPart.EighteenPlus, FilterPart.Time, FilterPart.Name, FilterPart.Sort],
             Parts(Screen(OverlayPage.Instance)));
 
         Assert.Equal(

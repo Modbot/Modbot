@@ -542,6 +542,7 @@ public sealed class OverlayDriver : IDisposable
     private static ListFilters Picked(ListFilters filters, OverlayTarget.Pick pick) => pick.Part switch
     {
         FilterPart.Who when Enum.IsDefined((Who)pick.Choice) => filters with { Who = (Who)pick.Choice, Open = null },
+        FilterPart.EighteenPlus when Enum.IsDefined((EighteenPlusPick)pick.Choice) => filters with { EighteenPlus = (EighteenPlusPick)pick.Choice, Open = null },
         FilterPart.Time when Enum.IsDefined((TimeWindow)pick.Choice) => filters with { Time = (TimeWindow)pick.Choice, Open = null },
         FilterPart.Sort when Enum.IsDefined((RosterOrder)pick.Choice) => filters with { Order = (RosterOrder)pick.Choice, Open = null },
         FilterPart.Rank => filters with { Ranks = filters.Ranks.Toggle(pick.Choice < 0 ? null : (TrustRank)pick.Choice) },

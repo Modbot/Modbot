@@ -15,6 +15,18 @@ public enum Who
     NotInGroup,
 }
 
+/// <summary>Which people the Instance list shows by their 18+ mark.</summary>
+public enum EighteenPlusPick
+{
+    Any,
+
+    /// <summary>Only people carrying the 18+ mark.</summary>
+    Yes,
+
+    /// <summary>Only people known not to carry it. Somebody whose mark is not known is shown under Any only.</summary>
+    No,
+}
+
 /// <summary>How long ago something happened: joining, on the Instance list; the row, on the Audit Log.</summary>
 public enum TimeWindow
 {
@@ -44,6 +56,9 @@ public enum FilterPart
 {
     Who,
     Rank,
+
+    /// <summary>The Instance list only.</summary>
+    EighteenPlus,
 
     /// <summary>"Joined" on the Instance list, "When" on the Audit Log.</summary>
     Time,
@@ -169,6 +184,7 @@ public sealed record ListFilters(
     RankPick Ranks = default,
     TimeWindow Time = TimeWindow.Any,
     string? Name = null,
+    EighteenPlusPick EighteenPlus = EighteenPlusPick.Any,
     RosterOrder Order = RosterOrder.Standing,
     KindPick Kinds = default,
     FilterPart? Open = null)
@@ -180,7 +196,7 @@ public sealed record ListFilters(
     public const int LongestName = 32;
 
     /// <summary>Whether anything picked can hide a row. The order hides nothing.</summary>
-    public bool Hides => Who != Who.All || !Ranks.IsEmpty || Time != TimeWindow.Any || Name is { Length: > 0 } || !Kinds.IsEmpty;
+    public bool Hides => Who != Who.All || !Ranks.IsEmpty || EighteenPlus != EighteenPlusPick.Any || Time != TimeWindow.Any || Name is { Length: > 0 } || !Kinds.IsEmpty;
 
     /// <summary>Whether anything at all is picked, which is when Clear is offered.</summary>
     public bool AnyPicked => Hides || Order != RosterOrder.Standing;
@@ -237,6 +253,7 @@ public static class ListFiltering
         var shown = members.Where(member =>
             Lets(filters.Who, member.Standing)
             && filters.Ranks.Lets(member.TrustRank)
+            && Lets(filters.EighteenPlus, member.EighteenPlus)
             && LetsArrival(filters.Time, arrivals.TryGetValue(member.SubjectId, out var at), at, now)
             && Matches(member.DisplayName, term));
 
@@ -257,6 +274,21 @@ public static class ListFiltering
                 .ThenBy(SortName, StringComparer.OrdinalIgnoreCase)
                 .ToList(),
         };
+    }
+
+    /// <summary>
+    /// What the Instance list's heading says about the people here, with the same meaning as the Who
+    /// filter: "25 members · 12 18+ · 3 staff". Members and staff are the people the server stands as
+    /// such (<see cref="RosterStanding.Member"/>, <see cref="RosterStanding.Staff"/>), so a flagged
+    /// member is counted in neither. A zero count is still written.
+    /// </summary>
+    public static string HereCounts(IReadOnlyList<RosterMember> present)
+    {
+        var members = present.Count(member => member.Standing is RosterStanding.Member);
+        var staff = present.Count(member => member.Standing is RosterStanding.Staff);
+        var adults = present.Count(member => member.EighteenPlus == true);
+
+        return (members == 1 ? "1 member" : members + " members") + " · " + adults + " 18+ · " + staff + " staff";
     }
 
     /// <summary>
@@ -406,6 +438,13 @@ public static class ListFiltering
         Who.Members => standing is RosterStanding.Member,
         Who.Staff => standing is RosterStanding.Staff,
         Who.NotInGroup => standing is RosterStanding.Ordinary,
+        _ => true,
+    };
+
+    private static bool Lets(EighteenPlusPick pick, bool? eighteenPlus) => pick switch
+    {
+        EighteenPlusPick.Yes => eighteenPlus == true,
+        EighteenPlusPick.No => eighteenPlus == false,
         _ => true,
     };
 

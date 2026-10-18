@@ -646,6 +646,9 @@ public sealed partial class OverlayView
         {
             row.Children.Add(FilterChip(list, FilterPart.Who, filters, filters.Who is Who.All ? null : WhoWords(filters.Who)));
             row.Children.Add(FilterChip(list, FilterPart.Rank, filters, filters.Ranks.IsEmpty ? null : RankWords(filters.Ranks)));
+
+            if (list is OverlayPage.Instance)
+                row.Children.Add(FilterChip(list, FilterPart.EighteenPlus, filters, filters.EighteenPlus is EighteenPlusPick.Any ? null : filters.EighteenPlus is EighteenPlusPick.Yes ? "Yes" : "No"));
         }
 
         if (list is OverlayPage.Events)
@@ -678,6 +681,7 @@ public sealed partial class OverlayView
     {
         FilterPart.Who => "Who",
         FilterPart.Rank => "Rank",
+        FilterPart.EighteenPlus => "18+",
         FilterPart.Time => list is OverlayPage.Instance ? "Joined" : "When",
         FilterPart.Name => "Name",
         FilterPart.Sort => "Sort",
@@ -763,6 +767,17 @@ public sealed partial class OverlayView
                         filters.Ranks.Has(rank),
                         new OverlayTarget.Pick(list, part, rank is { } value ? (int)value : -1),
                         rank));
+                }
+
+                break;
+
+            case FilterPart.EighteenPlus:
+                foreach (var pick in Enum.GetValues<EighteenPlusPick>())
+                {
+                    strip.Children.Add(Choice(
+                        pick switch { EighteenPlusPick.Yes => "18+", EighteenPlusPick.No => "Not 18+", _ => "Any" },
+                        filters.EighteenPlus == pick,
+                        new OverlayTarget.Pick(list, part, (int)pick)));
                 }
 
                 break;
@@ -1239,7 +1254,7 @@ public sealed partial class OverlayView
             // VRChat's own heading over its list of users: "Users" and how many are here, with how old
             // the list is at the far end. The people go under it, each in a card of theirs.
             var users = filters.Hides ? $"Users ({shownHere} of {here})" : $"Users ({here})";
-            rows.Children.Add(UsersHeading(users, freshness, freshnessBrush));
+            rows.Children.Add(UsersHeading(users, ListFiltering.HereCounts(present), freshness, freshnessBrush));
 
             if (nobody is not null)
                 rows.Children.Add(InfoCard(nobody));
@@ -1251,7 +1266,18 @@ public sealed partial class OverlayView
                 LastChildFill = false,
                 Children =
                 {
-                    Dock(Text(count, T.Density.TextSmall, T.TextDimBrush, FontWeight.SemiBold), Avalonia.Controls.Dock.Left),
+                    Dock(
+                        new StackPanel
+                        {
+                            Orientation = Orientation.Horizontal,
+                            Spacing = 8,
+                            Children =
+                            {
+                                Text(count, T.Density.TextSmall, T.TextDimBrush, FontWeight.SemiBold),
+                                Text("· " + ListFiltering.HereCounts(present), T.Density.TextSmall, T.TextDimBrush, FontWeight.SemiBold),
+                            },
+                        },
+                        Avalonia.Controls.Dock.Left),
                 },
             };
 

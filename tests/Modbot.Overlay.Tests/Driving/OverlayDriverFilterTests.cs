@@ -105,6 +105,26 @@ public class OverlayDriverFilterTests
     }
 
     [Fact]
+    public async Task EighteenPlusTakesOneChoiceKeepsItWithTheOthersAndClearResetsIt()
+    {
+        var (driver, _, _) = await Build();
+
+        driver.Tap(new OverlayTarget.Filter(OverlayPage.Instance, FilterPart.EighteenPlus));
+        driver.Tap(new OverlayTarget.Pick(OverlayPage.Instance, FilterPart.EighteenPlus, (int)EighteenPlusPick.Yes));
+        driver.Tap(new OverlayTarget.Pick(OverlayPage.Instance, FilterPart.Who, (int)Who.Staff));
+
+        Assert.Equal(EighteenPlusPick.Yes, driver.RosterFilters.EighteenPlus);
+        Assert.Equal(Who.Staff, driver.RosterFilters.Who);
+        Assert.Null(driver.RosterFilters.Open);
+
+        driver.Tap(new OverlayTarget.Pick(OverlayPage.Instance, FilterPart.EighteenPlus, 99));
+        Assert.Equal(EighteenPlusPick.Yes, driver.RosterFilters.EighteenPlus);
+
+        driver.Tap(new OverlayTarget.ClearFilters(OverlayPage.Instance));
+        Assert.Equal(EighteenPlusPick.Any, driver.RosterFilters.EighteenPlus);
+    }
+
+    [Fact]
     public async Task RanksAreTickedOneAtATimeAndTheChoicesStayOpen()
     {
         var (driver, _, _) = await Build();
