@@ -166,8 +166,8 @@ public class WornHandTests
     }
 
     /// <summary>
-    /// The double grip that sends the panel back in front of the head is reached through pointing
-    /// like everything else, so the worn hand cannot do it either.
+    /// The double grip that sends the panel back in front of the head is out of the worn hand's
+    /// reach too: Aimed leaves the worn hand out, and both pointing and gripping use Aimed.
     /// </summary>
     [Theory]
     [InlineData(Hand.Left)]
