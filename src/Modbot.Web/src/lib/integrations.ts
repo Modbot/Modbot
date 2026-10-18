@@ -160,7 +160,7 @@ function blueskyStatus(bluesky: IntegrationReading['bluesky']): State {
 /**
  * Needs setup until a key and a calendar are saved and Check has run on them; then Failed when
  * Check, or the sending since, found a problem (a refused key, a calendar Modbot cannot change),
- * Off while Sending is off, and Working when events are being sent.
+ * Off while Keep Google updated is off, and Working when events are being sent.
  */
 function googleStatus(google: IntegrationReading['googleCalendar']): State {
   if (google === undefined) return UNKNOWN

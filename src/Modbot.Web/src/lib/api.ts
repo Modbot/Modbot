@@ -4336,7 +4336,7 @@ export type GoogleCalendarSettings = {
   sending?: boolean
   /** Every event Modbot put on the calendar is being deleted. */
   removing?: boolean
-  /** The last Check passed for this key and calendar: Sending, Add all and Remove may be used. */
+  /** The last Check passed for this key and calendar: Keep Google updated, Tick all upcoming events and Delete Modbot's events from Google may be used. */
   canSend?: boolean
 }
 
@@ -5842,7 +5842,7 @@ export const api = {
   addAllToGoogleCalendar: () =>
     post<{ added: number; settings: GoogleCalendarSettings }>('/api/settings/google-calendar/add-all'),
 
-  /** Turns Sending off and deletes every event Modbot put on the calendar, through the sending loop. */
+  /** Turns Keep Google updated off and deletes every event Modbot put on the calendar, through the sending loop. */
   removeGoogleCalendarEvents: () => post<GoogleCalendarSettings>('/api/settings/google-calendar/remove-events'),
 
   // ── Bluesky ─────────────────────────────────────────────────────────────────────────────

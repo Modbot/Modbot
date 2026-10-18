@@ -4,7 +4,7 @@ import { api, ApiError, type GoogleCalendarCheck, type GoogleCalendarSettings } 
 import { DOCS_URL } from '@/lib/docs'
 import { timeOfDay } from '@/lib/format'
 import { useStillAhead } from '@/lib/useStillAhead'
-import { ConfirmButton, Fact, Field, Outcome, Placeholder, Switch } from '../fields'
+import { ConfirmButton, Fact, Field, Hint, Outcome, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 
 /** The largest key file read. A real one is about 2.3 KB; the server refuses over 16 KB too. */
@@ -19,7 +19,7 @@ const PUBLIC: Record<GoogleCalendarCheck['public'], string> = {
 
 /**
  * Settings → Google Calendar (Google Calendar design §3.1): the service account's key file, the
- * calendar, Check, Sending (step 2), and the calendar's own links once Check finds it public.
+ * calendar, Check, Sync to Google (step 2), and the calendar's own links once Check finds it public.
  *
  * The setup card lists the four steps in short (the owner asked for this text; CLAUDE.md's rule
  * against explanations is waived for it alone) and links to the docs page `moderation/google-calendar`.
@@ -260,8 +260,8 @@ function CalendarCard({
 }
 
 /**
- * Sending events to the calendar (Google Calendar design §3.1, step 2): the switch, Add all for the
- * events planned before Google was set up, and Remove Modbot's events, which asks first. Off leaves
+ * Sending events to the calendar (Google Calendar design §3.1, step 2): the switch, Tick all upcoming
+ * events for the events planned before Google was set up, and Delete Modbot's events from Google, which asks first. Off leaves
  * what is on Google as it is (decision 7).
  */
 function SendingCard({
@@ -299,28 +299,31 @@ function SendingCard({
   const remove = () => run('removing', () => api.removeGoogleCalendarEvents(), onSaved)
 
   return (
-    <SettingsCard
-      title="Sending"
-      footer={
-        <>
-          <Button type="button" size="xs" variant="outline" disabled={busy !== null || !canSend} onClick={addAll}>
-            {busy === 'adding' ? 'Adding…' : 'Add all'}
-          </Button>
-          <ConfirmButton variant="outline" disabled={busy !== null || !canSend || !!settings.removing} onConfirm={remove}>
-            {settings.removing ? 'Removing…' : "Remove Modbot's events"}
-          </ConfirmButton>
-          <Outcome tone="ok">{done}</Outcome>
-          <Outcome tone="problem">{problem}</Outcome>
-        </>
-      }
-    >
-      <Switch
-        checked={!!settings.sending}
-        disabled={busy !== null || (!settings.sending && !canSend)}
-        onChange={setSending}
-      >
-        Sending
-      </Switch>
+    <SettingsCard title="Sync to Google">
+      <div className="flex flex-col gap-1">
+        <Switch
+          checked={!!settings.sending}
+          disabled={busy !== null || (!settings.sending && !canSend)}
+          onChange={setSending}
+        >
+          Keep Google updated
+        </Switch>
+        <Hint>Adds and updates events ticked for Google.</Hint>
+      </div>
+      <div className="flex flex-col items-start gap-1">
+        <Button type="button" size="xs" variant="outline" disabled={busy !== null || !canSend} onClick={addAll}>
+          {busy === 'adding' ? 'Adding…' : 'Tick all upcoming events'}
+        </Button>
+        <Hint>Puts every scheduled public event on Google.</Hint>
+      </div>
+      <div className="flex flex-col items-start gap-1">
+        <ConfirmButton variant="outline" disabled={busy !== null || !canSend || !!settings.removing} onConfirm={remove}>
+          {settings.removing ? 'Removing…' : "Delete Modbot's events from Google"}
+        </ConfirmButton>
+        <Hint>Your own events stay.</Hint>
+      </div>
+      <Outcome tone="ok">{done}</Outcome>
+      <Outcome tone="problem">{problem}</Outcome>
     </SettingsCard>
   )
 }
