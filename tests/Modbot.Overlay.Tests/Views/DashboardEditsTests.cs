@@ -1,4 +1,5 @@
 using Modbot.Companion.Overlay;
+using Modbot.Companion.Presentation;
 using Modbot.Overlay.Views;
 
 namespace Modbot.Overlay.Tests.Views;
@@ -69,5 +70,27 @@ public class DashboardEditsTests
         Assert.StartsWith("Pop-up stays ", DashboardEdits.Label(settings, DashboardSlider.Seconds));
         Assert.StartsWith("Distance ", DashboardEdits.Label(settings, DashboardSlider.Distance));
         Assert.EndsWith(" m", DashboardEdits.Label(settings, DashboardSlider.Width));
+    }
+
+    [Fact]
+    public void TheGripSliderIsTheWindowsOneToFourteenAndNeverGoesPastEitherEnd()
+    {
+        var range = DashboardEdits.RangeOf(DashboardSlider.Grip);
+
+        Assert.Equal(CompanionSettings.MinGripSensitivity, range.Minimum);
+        Assert.Equal(CompanionSettings.MaxGripSensitivity, range.Maximum);
+        Assert.Equal(CompanionSettings.MaxGripSensitivity, DashboardEdits.SteppedGrip(CompanionSettings.MaxGripSensitivity, 1));
+        Assert.Equal(CompanionSettings.MinGripSensitivity, DashboardEdits.SteppedGrip(CompanionSettings.MinGripSensitivity, -1));
+        Assert.Equal(CompanionSettings.DefaultGripSensitivity + 1, DashboardEdits.SteppedGrip(CompanionSettings.DefaultGripSensitivity, 1));
+    }
+
+    [Fact]
+    public void TheGripLabelReadsTheWayTheWindowWritesIt()
+    {
+        var screen = DashboardScreen.Default with { GripSensitivity = 12 };
+
+        Assert.Equal("Grip sensitivity 12", DashboardEdits.Label(screen, DashboardSlider.Grip));
+        Assert.Equal(12, DashboardEdits.ValueOf(screen, DashboardSlider.Grip));
+        Assert.StartsWith("Pop-up stays ", DashboardEdits.Label(screen, DashboardSlider.Seconds));
     }
 }

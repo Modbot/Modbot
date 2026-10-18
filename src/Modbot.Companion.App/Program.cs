@@ -2122,6 +2122,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             _overlayHost.KeepLastFrame = _state?.DebugMode is true;
             _overlayHost.EditMode = _state?.Settings.OverlayEditMode is true;
             _overlayHost.PushStep = PushStep(_state?.Settings.OverlayPushSpeed);
+            OpenVrSession.Shared.GripTake = CompanionSettings.GripTake(_state?.Settings.OverlayGripSensitivity ?? CompanionSettings.DefaultGripSensitivity);
 
             MakeButtonHost();
 
@@ -2574,6 +2575,26 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         if (_buttonHost is not null)
             _buttonHost.PushStep = PushStep(speed);
+
+        Render();
+    }
+
+    /// <summary>
+    /// The <strong>Grip sensitivity</strong> slider, on the SteamVR page and on the dashboard tab:
+    /// how lightly a squeeze takes hold of a panel. Saved, then acted on at once.
+    /// </summary>
+    private void SetOverlayGripSensitivity(int level)
+    {
+        level = CompanionSettings.ClampGripSensitivity(level);
+        if (_state is null || _state.Settings.OverlayGripSensitivity == level)
+            return;
+
+        _state.Settings = _state.Settings with { OverlayGripSensitivity = level };
+
+        if (!CompanionSettings.SaveNumber(_settingsPath, CompanionSettings.OverlayGripSensitivityField, level))
+            Log.Warning("Could not save the grip sensitivity to {Path}", _settingsPath);
+
+        OpenVrSession.Shared.GripTake = CompanionSettings.GripTake(level);
 
         Render();
     }
@@ -3415,6 +3436,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         _dashboard.PutBackPressed += PutOverlayBack;
         _dashboard.NotifyOverlayChanged += SetNotifyOverlay;
         _dashboard.FiltersChanged += SetNotificationFilters;
+        _dashboard.GripSensitivityChanged += SetOverlayGripSensitivity;
 
         // How long SteamVR held a press before it was read: with the draw times beside it, a tab
         // that is slow to answer can be put down to the press arriving late or the page drawing late.
@@ -3438,7 +3460,8 @@ internal sealed partial class CompanionHost : IOverlayListener
                 _state.Settings.Overlay.Anchor,
                 _state.Settings.NotifyOverlay,
                 _state.Settings.NotificationFilters,
-                _state.Settings.OverlayButtonOn);
+                _state.Settings.OverlayButtonOn,
+                _state.Settings.OverlayGripSensitivity);
 
     private void DashboardTick()
     {
@@ -3967,6 +3990,7 @@ internal sealed partial class CompanionHost : IOverlayListener
                 SetOverlayButtonShortcut = SetOverlayButtonShortcut,
                 PutOverlayBack = PutOverlayBack,
                 SetOverlayPushSpeed = SetOverlayPushSpeed,
+                SetOverlayGripSensitivity = SetOverlayGripSensitivity,
                 SetNotifications = SetNotifications,
                 SetNotificationFilters = SetNotificationFilters,
                 TestBleep = TestBleep,

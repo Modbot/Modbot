@@ -36,8 +36,8 @@ public sealed class DashboardHost : IDisposable
     /// <summary>The page's texture, across. A 2.5-metre page at the panels' sharpness.</summary>
     public const int PageWidth = 1600;
 
-    /// <summary>The page's texture, down.</summary>
-    public const int PageHeight = 1100;
+    /// <summary>The page's texture, down. Tall enough for the Overlay card's Grip sensitivity slider under its Fixed to choices.</summary>
+    public const int PageHeight = 1240;
 
     /// <summary>The picture on the tab's button, square.</summary>
     public const int ThumbnailSide = 256;
@@ -140,6 +140,9 @@ public sealed class DashboardHost : IDisposable
 
     /// <summary>A pop-up tick changed the notification filters.</summary>
     public event Action<NotificationFilters>? FiltersChanged;
+
+    /// <summary>The <strong>Grip sensitivity</strong> slider moved, 1 to 14.</summary>
+    public event Action<int>? GripSensitivityChanged;
 
     /// <summary>
     /// The trigger went down on the page, before whatever it landed on is acted on. For the log:
@@ -272,6 +275,9 @@ public sealed class DashboardHost : IDisposable
             case DashboardTarget.PopUp tick:
                 FiltersChanged?.Invoke(_screen.Filters.With(NotificationWay.PopUp, tick.Kind, !_screen.Filters.PopUpShows(tick.Kind)));
                 break;
+            case DashboardTarget.Step { Which: DashboardSlider.Grip } step:
+                ChangedGrip(DashboardEdits.SteppedGrip(_screen.GripSensitivity, step.By));
+                break;
             case DashboardTarget.Step step:
                 Changed(DashboardEdits.Stepped(notify, step.Which, step.By));
                 break;
@@ -293,7 +299,18 @@ public sealed class DashboardHost : IDisposable
 
         var travel = bounds.Width - DashboardView.KnobSide;
         var fraction = travel > 0 ? (x - bounds.X - (DashboardView.KnobSide / 2)) / travel : 0;
-        Changed(DashboardEdits.With(_screen.Notify, slider, DashboardEdits.RangeOf(slider).At(fraction)));
+        var value = DashboardEdits.RangeOf(slider).At(fraction);
+        if (slider is DashboardSlider.Grip)
+            ChangedGrip((int)value);
+        else
+            Changed(DashboardEdits.With(_screen.Notify, slider, value));
+    }
+
+    /// <summary>Raised only for a real change, like <see cref="Changed"/>.</summary>
+    private void ChangedGrip(int level)
+    {
+        if (level != _screen.GripSensitivity)
+            GripSensitivityChanged?.Invoke(level);
     }
 
     /// <summary>Raised only for a real change, so a laser resting on a slider writes nothing.</summary>

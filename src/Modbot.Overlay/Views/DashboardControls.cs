@@ -32,6 +32,7 @@ public static class DashboardControls
         DashboardSlider.Distance => "Distance",
         DashboardSlider.Width => "Width",
         DashboardSlider.Opacity => "Opacity",
+        DashboardSlider.Grip => "Grip sensitivity",
         _ => "Pop-up stays",
     };
 
@@ -132,7 +133,7 @@ public static class DashboardControls
             DashboardTarget.Spot spot => new(label, "choice", spot.Where == notify.Spot && notify.Placed is null, null, placed.Bounds, target),
             DashboardTarget.PopUp tick => new(label, "tick", screen.Filters.PopUpShows(tick.Kind), null, placed.Bounds, target),
             DashboardTarget.Step => new(label, "step", null, null, placed.Bounds, target),
-            DashboardTarget.Track track => new(label, "slider", null, Math.Round(DashboardEdits.ValueOf(notify, track.Which), 3), placed.Bounds, target),
+            DashboardTarget.Track track => new(label, "slider", null, Math.Round(DashboardEdits.ValueOf(screen, track.Which), 3), placed.Bounds, target),
             _ => new(label, "button", null, null, placed.Bounds, target),
         };
     }

@@ -1,7 +1,7 @@
 {
   "controller_type": "knuckles",
   "name": "Modbot default for Valve Index controllers",
-  "description": "Grab is how far the grip is squeezed, not how hard.",
+  "description": "Grab is how hard the grip is squeezed (its force sensor), as XSOverlay reads it.",
   "bindings": {
     "/actions/modbot": {
       "poses": [
@@ -13,13 +13,13 @@
       "sources": [
         {
           "path": "/user/hand/left/input/grip",
-          "mode": "trigger",
-          "inputs": { "pull": { "output": "/actions/modbot/in/grab" } }
+          "mode": "force_sensor",
+          "inputs": { "force": { "output": "/actions/modbot/in/grab" } }
         },
         {
           "path": "/user/hand/right/input/grip",
-          "mode": "trigger",
-          "inputs": { "pull": { "output": "/actions/modbot/in/grab" } }
+          "mode": "force_sensor",
+          "inputs": { "force": { "output": "/actions/modbot/in/grab" } }
         },
         {
           "path": "/user/hand/left/input/trigger",

@@ -243,6 +243,54 @@ public class DashboardHostTests
     }
 
     [Fact]
+    public void TheGripSliderAsksForASensitivityAndLeavesTheNotificationsAlone()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            using var host = Host(new FakeRuntime());
+            host.Update(DashboardScreen.Default);
+
+            var grip = new List<int>();
+            var notify = 0;
+            host.GripSensitivityChanged += level =>
+            {
+                grip.Add(level);
+                host.Update(host.Showing with { GripSensitivity = level });
+            };
+            host.NotifyOverlayChanged += _ => notify++;
+
+            var track = FindOrFail(host, new DashboardTarget.Track(DashboardSlider.Grip));
+            var y = track.Center.Y;
+
+            host.Handle(new DashboardPointer(DashboardPointerKind.Down, track.Right, y));
+            host.Handle(new DashboardPointer(DashboardPointerKind.Up, track.Right, y));
+
+            Press(host, Middle(host, new DashboardTarget.Step(DashboardSlider.Grip, -1)));
+
+            Assert.Equal(CompanionSettings.MaxGripSensitivity, grip[0]);
+            Assert.Equal(CompanionSettings.MaxGripSensitivity - 1, grip[1]);
+            Assert.Equal(0, notify);
+        });
+    }
+
+    [Fact]
+    public void TheGripSliderAtItsEndAsksForNothingWhenPushedFurther()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            using var host = Host(new FakeRuntime());
+            host.Update(DashboardScreen.Default with { GripSensitivity = CompanionSettings.MaxGripSensitivity });
+
+            var raised = 0;
+            host.GripSensitivityChanged += _ => raised++;
+
+            Press(host, Middle(host, new DashboardTarget.Step(DashboardSlider.Grip, 1)));
+
+            Assert.Equal(0, raised);
+        });
+    }
+
+    [Fact]
     public void TheLaserMovingWithNothingHeldChangesNothing()
     {
         AvaloniaTestHost.Run(() =>

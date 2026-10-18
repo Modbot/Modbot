@@ -147,6 +147,19 @@ public sealed partial class MainWindow : Window
     };
 
     private readonly TextBlock _pushSpeedLabel = Ui.Dim("");
+
+    /// <summary>How lightly a squeeze takes hold of a panel, 1 to 14; the right end is the lightest.</summary>
+    private readonly Slider _gripSensitivity = new()
+    {
+        Minimum = CompanionSettings.MinGripSensitivity,
+        Maximum = CompanionSettings.MaxGripSensitivity,
+        TickFrequency = 1,
+        IsSnapToTickEnabled = true,
+        Width = 220,
+        VerticalAlignment = VerticalAlignment.Center,
+    };
+
+    private readonly TextBlock _gripSensitivityLabel = Ui.Dim("");
     private readonly TextBox _logFolderBox;
     private readonly TextBlock _logFolderWatching = Ui.Faint("");
 
@@ -227,6 +240,13 @@ public sealed partial class MainWindow : Window
             _pushSpeedLabel.Text = $"Push speed {(int)e.NewValue}";
             if (!Quiet)
                 _actions.SetOverlayPushSpeed((int)e.NewValue);
+        };
+
+        _gripSensitivity.ValueChanged += (_, e) =>
+        {
+            _gripSensitivityLabel.Text = $"Grip sensitivity {(int)e.NewValue}";
+            if (!Quiet)
+                _actions.SetOverlayGripSensitivity((int)e.NewValue);
         };
 
         _editModeBox.Content = Ui.Text("Edit mode", Ui.T.Density.TextSmall, Ui.T.TextBrush);
@@ -1597,6 +1617,11 @@ public sealed partial class MainWindow : Window
                 _pushSpeed.Value = _snapshot.OverlayPushSpeed;
 
             _pushSpeedLabel.Text = $"Push speed {(int)_pushSpeed.Value}";
+
+            if (!_gripSensitivity.IsPointerOver && !_gripSensitivity.IsFocused)
+                _gripSensitivity.Value = _snapshot.OverlayGripSensitivity;
+
+            _gripSensitivityLabel.Text = $"Grip sensitivity {(int)_gripSensitivity.Value}";
         });
 
         DetachFromParent(_overlayOnBox);
@@ -1604,6 +1629,8 @@ public sealed partial class MainWindow : Window
         DetachFromParent(_buttonOnBox);
         DetachFromParent(_pushSpeed);
         DetachFromParent(_pushSpeedLabel);
+        DetachFromParent(_gripSensitivity);
+        DetachFromParent(_gripSensitivityLabel);
 
         var pill = !overlay.On
             ? Ui.Pill("Off", Ui.T.Palette.TextFaint, Ui.T.Palette.Surface2)
@@ -1623,7 +1650,7 @@ public sealed partial class MainWindow : Window
         var top = new StackPanel
         {
             Spacing = 12,
-            Children = { _overlayOnBox, _editModeBox, Ui.Field("Look", LookChoices(_snapshot.OverlayVRChatLook)), _buttonOnBox, Ui.Field("Button place", ButtonPlaceChoices(_snapshot.OverlayButtonPlace)), Ui.Field("Shortcut", ShortcutChoices(_snapshot.OverlayButtonShortcut)), Ui.Field("Hold time", HoldChoices(_snapshot.OverlayButtonShortcut)), Ui.Field(_pushSpeedLabel, _pushSpeed) },
+            Children = { _overlayOnBox, _editModeBox, Ui.Field("Look", LookChoices(_snapshot.OverlayVRChatLook)), _buttonOnBox, Ui.Field("Button place", ButtonPlaceChoices(_snapshot.OverlayButtonPlace)), Ui.Field("Shortcut", ShortcutChoices(_snapshot.OverlayButtonShortcut)), Ui.Field("Hold time", HoldChoices(_snapshot.OverlayButtonShortcut)), Ui.Field(_pushSpeedLabel, _pushSpeed), Ui.Field(_gripSensitivityLabel, _gripSensitivity) },
         };
         Control header = pill;
 
@@ -2019,6 +2046,9 @@ public sealed record MainWindowActions(
 
     /// <summary>The SteamVR page's Push speed slider, 1 to 10.</summary>
     public Action<int> SetOverlayPushSpeed { get; init; } = _ => { };
+
+    /// <summary>The SteamVR page's Grip sensitivity slider, 1 to 14.</summary>
+    public Action<int> SetOverlayGripSensitivity { get; init; } = _ => { };
 
     /// <summary>The SteamVR page's Look choice: true for VRChat's colours, false for Modbot's own.</summary>
     public Action<bool> SetOverlayVRChatLook { get; init; } = _ => { };

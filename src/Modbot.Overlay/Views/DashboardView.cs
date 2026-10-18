@@ -62,7 +62,7 @@ public static class DashboardView
             Spacing = Gutter,
             Children =
             {
-                Card("Placement", PlacementLines(screen.Notify)),
+                Card("Placement", PlacementLines(screen)),
                 Card("Button", [Switch(DashboardSwitch.Button, "Show VR button", screen.ButtonOn)]),
             },
         };
@@ -120,6 +120,7 @@ public static class DashboardView
         [
             line,
             Field("Fixed to", Choices(choices, 4)),
+            Field(DashboardEdits.Label(screen, DashboardSlider.Grip), Slider(screen, DashboardSlider.Grip)),
         ];
     }
 
@@ -161,8 +162,10 @@ public static class DashboardView
         ];
     }
 
-    private static Control[] PlacementLines(NotifyOverlaySettings notify)
-        => [.. Enum.GetValues<DashboardSlider>().Select(slider => Field(DashboardEdits.Label(notify, slider), Slider(notify, slider)))];
+    private static Control[] PlacementLines(DashboardScreen screen)
+        => [.. Enum.GetValues<DashboardSlider>()
+            .Where(slider => slider is not DashboardSlider.Grip)
+            .Select(slider => Field(DashboardEdits.Label(screen, slider), Slider(screen, slider)))];
 
     private static Control Card(string heading, Control[] lines)
     {
@@ -331,10 +334,10 @@ public static class DashboardView
     /// A slider between a minus and a plus: the track fills up to the value and a knob sits on
     /// it. The whole track's height can be pressed and dragged, not only the thin line.
     /// </summary>
-    private static Control Slider(NotifyOverlaySettings notify, DashboardSlider which)
+    private static Control Slider(DashboardScreen screen, DashboardSlider which)
     {
         var range = DashboardEdits.RangeOf(which);
-        var fraction = range.FractionOf(DashboardEdits.ValueOf(notify, which));
+        var fraction = range.FractionOf(DashboardEdits.ValueOf(screen, which));
 
         const double knobSide = KnobSide;
 

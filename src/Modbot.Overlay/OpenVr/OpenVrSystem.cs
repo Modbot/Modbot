@@ -240,8 +240,12 @@ internal sealed unsafe class OpenVrSystem
         return card == 0 ? null : (long)card;
     }
 
-    public OverlayTracking Read()
+    /// <param name="gripTake">How far the grip has to be squeezed to take hold of a panel, from the Grip sensitivity setting.</param>
+    public OverlayTracking Read(float gripTake)
     {
+        _leftGrip.Take = gripTake;
+        _rightGrip.Take = gripTake;
+
         fixed (byte* poses = _poses)
         {
             ((delegate* unmanaged[Stdcall]<int, float, void*, uint, void>)Slot(GetDeviceToAbsoluteTrackingPose))(

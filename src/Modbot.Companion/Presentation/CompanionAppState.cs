@@ -261,6 +261,9 @@ public sealed record CompanionAppSnapshot(
     /// <summary>The Push speed slider's value, 1 to 10.</summary>
     public int OverlayPushSpeed { get; init; } = CompanionSettings.DefaultPushSpeed;
 
+    /// <summary>The Grip sensitivity slider's value, 1 to 14.</summary>
+    public int OverlayGripSensitivity { get; init; } = CompanionSettings.DefaultGripSensitivity;
+
     /// <summary>Talk in Discord / Talk in VRChat: its switch and the two recorded keys, for the Settings page.</summary>
     public TalkSettings Talk { get; init; } = TalkSettings.Default;
 
@@ -561,6 +564,7 @@ public sealed class CompanionAppState
             CloseToTray = Settings.CloseToTray,
             OverlayEditMode = Settings.OverlayEditMode,
             OverlayPushSpeed = Settings.OverlayPushSpeed,
+            OverlayGripSensitivity = Settings.OverlayGripSensitivity,
             OverlayVRChatLook = Settings.OverlayVRChatLook,
             OverlayButtonPlace = Settings.OverlayButtonPlace,
             OverlayButtonOn = Settings.OverlayButtonOn,

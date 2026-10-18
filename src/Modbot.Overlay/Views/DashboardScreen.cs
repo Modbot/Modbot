@@ -21,12 +21,14 @@ namespace Modbot.Overlay.Views;
 /// <param name="Notify">The notification overlay (<c>notifyOverlay</c>).</param>
 /// <param name="Filters">Which kinds of event pop up (<c>notificationFilters.popUp</c>), with the other two ways as they are.</param>
 /// <param name="ButtonOn">Whether the show and hide button is in the headset (<c>overlayButtonOn</c>).</param>
+/// <param name="GripSensitivity">How lightly a squeeze takes hold of a panel, 1 to 14 (<c>overlayGripSensitivity</c>).</param>
 public sealed record DashboardScreen(
     bool OverlayOn,
     OverlayAnchor Anchor,
     NotifyOverlaySettings Notify,
     NotificationFilters Filters,
-    bool ButtonOn = true)
+    bool ButtonOn = true,
+    int GripSensitivity = CompanionSettings.DefaultGripSensitivity)
 {
     /// <summary>Everything at its default, for a tab drawn before the settings have been read.</summary>
     public static DashboardScreen Default { get; } = new(
@@ -49,7 +51,7 @@ public enum DashboardSwitch
     Button,
 }
 
-/// <summary>The notification overlay's numbers, each a slider on the tab.</summary>
+/// <summary>The notification overlay's numbers, and the grip's, each a slider on the tab.</summary>
 public enum DashboardSlider
 {
     Across,
@@ -58,6 +60,9 @@ public enum DashboardSlider
     Width,
     Opacity,
     Seconds,
+
+    /// <summary>How lightly a squeeze takes hold of a panel. Not a notification setting: <see cref="DashboardScreen.GripSensitivity"/>.</summary>
+    Grip,
 }
 
 /// <summary>Something on the tab the laser can press.</summary>
@@ -168,10 +173,11 @@ public static class DashboardEdits
         DashboardSlider.Distance => new(NotifyOverlaySettings.MinDistance, NotifyOverlaySettings.MaxDistance, 0.05),
         DashboardSlider.Width => new(NotifyOverlaySettings.MinWidth, NotifyOverlaySettings.MaxWidth, 0.05),
         DashboardSlider.Opacity => new(NotifyOverlaySettings.MinOpacity, 1, 0.05),
+        DashboardSlider.Grip => new(CompanionSettings.MinGripSensitivity, CompanionSettings.MaxGripSensitivity, 1),
         _ => new(NotifyOverlaySettings.MinSeconds, NotifyOverlaySettings.MaxSeconds, 1),
     };
 
-    /// <summary>A slider's value as the settings hold it.</summary>
+    /// <summary>A notification slider's value as the settings hold it. Not for <see cref="DashboardSlider.Grip"/>.</summary>
     public static double ValueOf(NotifyOverlaySettings settings, DashboardSlider slider)
     {
         ArgumentNullException.ThrowIfNull(settings);
@@ -183,9 +189,22 @@ public static class DashboardEdits
             DashboardSlider.Distance => settings.Distance,
             DashboardSlider.Width => settings.Width,
             DashboardSlider.Opacity => settings.Opacity,
+            DashboardSlider.Grip => throw new ArgumentOutOfRangeException(nameof(slider), "The grip is not a notification setting."),
             _ => settings.Seconds,
         };
     }
+
+    /// <summary>Any slider's value as the tab's settings hold it.</summary>
+    public static double ValueOf(DashboardScreen screen, DashboardSlider slider)
+    {
+        ArgumentNullException.ThrowIfNull(screen);
+
+        return slider is DashboardSlider.Grip ? screen.GripSensitivity : ValueOf(screen.Notify, slider);
+    }
+
+    /// <summary>The grip sensitivity moved one step up (+1) or down (-1), kept inside its range.</summary>
+    public static int SteppedGrip(int level, int by)
+        => (int)RangeOf(DashboardSlider.Grip).Snap(level + Math.Sign(by));
 
     /// <summary>The settings with one slider moved to a value, snapped and kept inside its range.</summary>
     public static NotifyOverlaySettings With(NotifyOverlaySettings settings, DashboardSlider slider, double value)
@@ -200,6 +219,7 @@ public static class DashboardEdits
             DashboardSlider.Distance => settings with { Distance = snapped },
             DashboardSlider.Width => settings with { Width = snapped },
             DashboardSlider.Opacity => settings with { Opacity = snapped },
+            DashboardSlider.Grip => throw new ArgumentOutOfRangeException(nameof(slider), "The grip is not a notification setting."),
             _ => settings with { Seconds = snapped },
         };
     }
@@ -208,7 +228,15 @@ public static class DashboardEdits
     public static NotifyOverlaySettings Stepped(NotifyOverlaySettings settings, DashboardSlider slider, int by)
         => With(settings, slider, ValueOf(settings, slider) + (Math.Sign(by) * RangeOf(slider).Step));
 
-    /// <summary>The slider's label with its value, written the way the window writes it.</summary>
+    /// <summary>Any slider's label with its value, as the tab's settings hold it.</summary>
+    public static string Label(DashboardScreen screen, DashboardSlider slider)
+    {
+        ArgumentNullException.ThrowIfNull(screen);
+
+        return slider is DashboardSlider.Grip ? $"Grip sensitivity {screen.GripSensitivity}" : Label(screen.Notify, slider);
+    }
+
+    /// <summary>A notification slider's label with its value, written the way the window writes it.</summary>
     public static string Label(NotifyOverlaySettings settings, DashboardSlider slider)
     {
         ArgumentNullException.ThrowIfNull(settings);
@@ -220,6 +248,7 @@ public static class DashboardEdits
             DashboardSlider.Distance => $"Distance {settings.Distance:0.00} m",
             DashboardSlider.Width => $"Width {settings.Width:0.00} m",
             DashboardSlider.Opacity => $"Opacity {settings.Opacity:0%}",
+            DashboardSlider.Grip => throw new ArgumentOutOfRangeException(nameof(slider), "The grip is not a notification setting."),
             _ => $"Pop-up stays {settings.Seconds:0} s",
         };
     }

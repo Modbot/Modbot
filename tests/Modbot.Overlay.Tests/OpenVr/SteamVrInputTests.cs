@@ -108,9 +108,9 @@ public class SteamVrInputTests
         var device = new Pose(new Vector3(0.1f, 1f, -0.3f), Quaternion.Identity);
         var aim = new Pose(new Vector3(0.1f, 1f, -0.3f), Quaternion.CreateFromAxisAngle(Vector3.UnitY, 0.5f));
 
-        var light = new ActionHand(true, GripHold.Take - 0.01f, false, false, Vector2.Zero, device, aim)
+        var light = new ActionHand(true, GripHold.DefaultTake - 0.01f, false, false, Vector2.Zero, device, aim)
             .ToHandState(new GripHold());
-        var firm = new ActionHand(true, GripHold.Take, false, true, new Vector2(0f, 0.5f), device, aim)
+        var firm = new ActionHand(true, GripHold.DefaultTake, false, true, new Vector2(0f, 0.5f), device, aim)
             .ToHandState(new GripHold());
 
         Assert.False(light.Grab);

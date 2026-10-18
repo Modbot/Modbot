@@ -179,6 +179,30 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public static int ClampPushSpeed(int speed) => Math.Clamp(speed, MinPushSpeed, MaxPushSpeed);
 
     /// <summary>
+    /// How lightly a squeeze takes hold of a panel, 1 to 14, from the SteamVR page's
+    /// <strong>Grip sensitivity</strong> slider as <c>"overlayGripSensitivity"</c>. A higher number
+    /// is a lighter squeeze; each step is a twentieth of the grip's travel, from 0.75 at 1 down to
+    /// 0.1 at 14 (<see cref="GripTake"/>). The default of 10 is 0.3, the same as XSOverlay.
+    /// </summary>
+    public int OverlayGripSensitivity { get; init; } = DefaultGripSensitivity;
+
+    public const int DefaultGripSensitivity = 10;
+
+    public const int MinGripSensitivity = 1;
+
+    public const int MaxGripSensitivity = 14;
+
+    /// <summary>The grip sensitivity inside its bounds.</summary>
+    public static int ClampGripSensitivity(int level) => Math.Clamp(level, MinGripSensitivity, MaxGripSensitivity);
+
+    /// <summary>
+    /// How far the grip has to be squeezed, of its full travel, to take hold of a panel at a
+    /// sensitivity: 0.75 at the lowest, 0.1 at the highest, a twentieth for each step.
+    /// </summary>
+    public static float GripTake(int level)
+        => (float)Math.Round(0.8 - (ClampGripSensitivity(level) * 0.05), 2);
+
+    /// <summary>
     /// Where the headset panel is and how big. Saved as the <c>overlay</c> object whenever a
     /// controller moves it or the settings page changes it, so it is where it was left.
     /// </summary>
@@ -262,6 +286,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
 
     public const string OverlayPushSpeedField = "overlayPushSpeed";
 
+    public const string OverlayGripSensitivityField = "overlayGripSensitivity";
+
     public const string OverlayVRChatLookField = "overlayVRChatLook";
 
     public const string OverlayButtonPlaceField = "overlayButtonPlace";
@@ -341,6 +367,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             OverlayOn = shape?.OverlayOn ?? true,
             OverlayEditMode = shape?.OverlayEditMode ?? false,
             OverlayPushSpeed = ClampPushSpeed(shape?.OverlayPushSpeed ?? DefaultPushSpeed),
+            OverlayGripSensitivity = ClampGripSensitivity(shape?.OverlayGripSensitivity ?? DefaultGripSensitivity),
             OverlayVRChatLook = shape?.OverlayVRChatLook ?? true,
             OverlayButtonPlace = OverlayButton.Parse(shape?.OverlayButtonPlace),
             OverlayButtonOn = shape?.OverlayButtonOn ?? true,
@@ -718,6 +745,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("listenForPhrase")] ListeningShape? Listening,
         [property: JsonPropertyName("overlayEditMode")] bool? OverlayEditMode = null,
         [property: JsonPropertyName("overlayPushSpeed")] int? OverlayPushSpeed = null,
+        [property: JsonPropertyName("overlayGripSensitivity")] int? OverlayGripSensitivity = null,
         [property: JsonPropertyName("overlayVRChatLook")] bool? OverlayVRChatLook = null,
         [property: JsonPropertyName("overlayButtonPlace")] string? OverlayButtonPlace = null,
         [property: JsonPropertyName("overlayButtonOn")] bool? OverlayButtonOn = null,

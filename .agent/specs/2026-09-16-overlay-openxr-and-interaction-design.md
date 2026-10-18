@@ -249,30 +249,40 @@ panel is not picking up a rock. The panel needed a squeeze nobody wants to make 
 
 **What it is now.** The squeeze is read as a number — axis 2 of `VRControllerState_t`, which is
 where SteamVR's own legacy bindings put an analogue grip, or, through SteamVR Input (§4.1), the
-`grab` action's 0 to 1 value, bound to the grip's value and not its force on an Index — and
-`GripHold` decides:
+`grab` action's 0 to 1 value, which on an Index is the grip's **force sensor** read as an analogue
+number (`force_sensor` mode, input `force`, the way XSOverlay's Index binding reads its grab), not
+SteamVR's grip *button* made from it, and not the finger curl (`trigger` mode, input `pull`),
+which reads high just from holding the controller and made the panel grab at once (2026-10-17) —
+and `GripHold` decides:
 
-- **0.25** of full travel takes the panel,
-- it is let go below **0.15**,
+- the squeeze set by the **Grip sensitivity** slider takes the panel: **0.3** of full travel
+  unless it is moved (the same as XSOverlay), from **0.75** at the slider's firmest to **0.1** at its
+  lightest;
+- it is let go **0.1 below** that, never below **0.05**;
 - and the grip button still counts on its own, whatever the number says.
 
-**Why those two.** A quarter of travel is a deliberate hold and is clear of what a controller reads
-while it is merely sitting in a hand, which is near zero; it is also well under any threshold
-SteamVR would have used for the button, so nothing that used to grab has stopped grabbing. The gap
-below it — a tenth of full travel — is what stops a hand resting on the line taking and dropping
-the panel thirty times a second. Without the gap a single threshold flickers, and a flickering
-panel is worse than a stiff one.
+**Why those two.** Three tenths of travel on the force sensor is a deliberate hold and is clear of
+what a controller reads while it is merely sitting in a hand, which is near zero. The gap below it
+— a tenth of full travel — is what stops a hand resting on the line taking and dropping the panel
+thirty times a second. Without the gap a single threshold flickers, and a flickering panel is
+worse than a stiff one. The floor of five hundredths keeps the lightest setting from letting go
+only at exactly zero.
 
 The button still counting is not a fallback for tidiness. A Vive wand's grip is a switch with
 nothing analogue behind it and reads zero however hard it is held; on those controllers the button
 is the only answer there is. On the controllers that do have a number, the button only ever turns
 on above this threshold anyway, so keeping it costs nothing.
 
-**It is not a setting.** A number between nought and one for how hard to squeeze is not something a
-moderator can judge from a settings page, and putting it there would mean explaining the grip force
-sensor on a screen. The fallback to the button covers the controllers with nothing to read, and the
-gap covers a wavering hand; what is left is one constant, in one place, that a later report can
-move.
+**It is a setting, since 2026-10-17.** This section first said it should not be one: a number
+between nought and one is not something a moderator can judge. Moderators did ask to move it, as
+XSOverlay lets them, so it is the **Grip sensitivity** slider on the window's SteamVR page and on the
+dashboard tab, 1 to 14 with the right end the lightest squeeze (`overlayGripSensitivity`, default
+10, which is 0.3), a whole number so there is no 0.3 on the screen to explain. Moving it takes
+effect at once, on the next read of the controllers. The slider reads right = more sensitive, so
+it needs no inversion.
+
+**The OpenXR path is not covered by the slider.** OpenXR's `/input/squeeze/value` is thresholded by
+the runtime itself (§4.1), so the setting does not reach it and its threshold is left as it was.
 
 **OpenXR's Index binding was the same mistake, and has moved.** §4.1's bindings put the Index's
 grab on `/input/squeeze/force`, reasoning that `/input/squeeze/value` reads as held whenever the

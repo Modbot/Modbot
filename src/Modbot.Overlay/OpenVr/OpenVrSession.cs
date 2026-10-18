@@ -217,7 +217,21 @@ public sealed class OpenVrSession
         lock (_gate)
             system = _table == 0 ? null : _system;
 
-        return system?.Read() ?? OverlayTracking.None;
+        return system?.Read(GripTake) ?? OverlayTracking.None;
+    }
+
+    private float _gripTake = GripHold.DefaultTake;
+
+    /// <summary>
+    /// How far the grip has to be squeezed, of its full travel, to take hold of a panel
+    /// (<see cref="GripHold.Take"/>). Kept here, not on the attachment, so the setting survives
+    /// SteamVR closing and starting again, and applies from the next read. Set from the Grip
+    /// sensitivity slider; any thread.
+    /// </summary>
+    public float GripTake
+    {
+        get => Volatile.Read(ref _gripTake);
+        set => Volatile.Write(ref _gripTake, value);
     }
 
     /// <summary>
