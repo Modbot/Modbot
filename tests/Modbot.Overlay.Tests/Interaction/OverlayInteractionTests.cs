@@ -341,6 +341,36 @@ public class OverlayInteractionTests
     }
 
     [Fact]
+    public void AGripFromTheOtherHandDuringAListPressTakesThePanelAndTheTriggerLetGoTapsNothing()
+    {
+        var interaction = new OverlayInteraction(OverlayPlacement.Default) { IsScrollableAt = (_, _) => true };
+        var pressing = Hands.Hand(PointerRight, click: true);
+
+        interaction.Update(Hands.Both(Hands.Hand(BehindLeft), pressing), At(0));
+        var taken = interaction.Update(Hands.Both(Hands.Hand(BehindLeft, grab: true), pressing), At(33));
+        var letGo = interaction.Update(Hands.Both(Hands.Hand(BehindLeft, grab: true), Hands.Hand(PointerRight)), At(66));
+
+        Assert.Equal(Hand.Left, taken.Holding);
+        Assert.Empty(taken.Clicks);
+        Assert.Empty(letGo.Clicks);
+        Assert.Null(letGo.Drag);
+    }
+
+    [Fact]
+    public void AHandBusyWithAnotherPanelDoesNotGripThisOne()
+    {
+        var interaction = new OverlayInteraction(OverlayPlacement.Default);
+
+        var result = interaction.Update(
+            Hands.Both(Hands.Hand(BehindLeft, grab: true), Hands.Hand(PointerRight)),
+            At(0),
+            elsewhere: Hand.Left);
+
+        Assert.Null(result.Holding);
+        Assert.Equal(Hand.Right, result.Pointer!.Value.Hand);
+    }
+
+    [Fact]
     public void WhenBothHandsGripOnTheSameFrameThePointerHandTakesIt()
     {
         var interaction = new OverlayInteraction(OverlayPlacement.Default);

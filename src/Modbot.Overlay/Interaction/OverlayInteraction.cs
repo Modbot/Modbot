@@ -367,6 +367,7 @@ public sealed class OverlayInteraction
                 else if (canMove && GripOnPanel(tracking, elsewhere, pointing.Hand) is { } gripping)
                 {
                     // Either hand whose ray is on the panel can grip it; the cursor stays with the pointer.
+                    // A click by the pointer on this same frame is dropped: the grip wins.
                     if (_lastGrip.TryGetValue(gripping, out var previous) && now - previous <= DoubleTap)
                     {
                         GoHome();
@@ -551,9 +552,10 @@ public sealed class OverlayInteraction
     }
 
     /// <remarks>
-    /// Everything a hand can do to the panel — point, tap, scroll, grab, the double grip that
-    /// sends it home — is reached through being the pointer, so leaving the worn hand out here
-    /// leaves it out of all of them, and there is no second place for the rule to be got wrong.
+    /// Pointing, tapping and scrolling are reached through being the pointer. Grabbing and the
+    /// double grip are not: either hand on the panel can do them (<see cref="GripOnPanel"/>). The
+    /// rule that leaves out the worn hand and the <c>elsewhere</c> hand lives in <see cref="Aimed"/>,
+    /// which both this and <see cref="GripOnPanel"/> go through, so there is still one place for it.
     /// </remarks>
     private Pointer? Point(OverlayTracking tracking, Hand? elsewhere)
     {

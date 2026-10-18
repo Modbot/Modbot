@@ -168,7 +168,8 @@ placement, and decides:
   point, converted to panel pixels. A pointed-at panel shows a **cursor** drawn into the
   frame (a small ring); the companion draws its own, because SteamVR draws lasers only for
   dashboard overlays and OpenXR draws none.
-- **Grab.** Grip held while pointing takes the panel: it becomes anchored to that hand at its
+- **Grab.** A fresh grip from either hand whose ray is on the panel takes it (not only the
+  pointing hand; see the 2026-10-18 note below): it becomes anchored to that hand at its
   current offset, and follows the hand. Releasing grip leaves it where it is, anchored to
   the **world** (if it was head- or world-anchored before) or to the **hand** (if the grab
   ended within 10 cm of the wrist). A quick grip while pointing at nothing is nothing.
@@ -189,6 +190,16 @@ Every change goes through `Place` and is saved. Nothing here needs a text box (M
 > stays and picks the spot it starts from. Its default corner also moved further down and to the
 > left (0.48 and 0.34 of the view, from the pop-ups' 0.40 and 0.26). The rule is in `CLAUDE.md`:
 > every VR panel can be locked, made click-through and moved.
+
+> **Note, 2026-10-18: either hand on the panel can grip it, not only the pointer.** The owner
+> pointed with the left hand and aimed the right at the panel to get ready to resize; the right,
+> being nearer, became the pointer, and the left hand's grip was ignored until the right ray left
+> the panel. Pointing is still one hand, the nearer (cursor, clicks, list drags and scrolling follow
+> it alone), but a fresh grip from either hand whose ray is on the panel now takes it, with the same
+> rules as before: not the worn hand, not a click-through or locked panel, not while the corner is
+> being resized, and the double grip from either hand sends it home. When both hands grip on the
+> same frame the pointer wins. A grip that lands on the same frame as the pointer's click drops that
+> click, and a grip during a list press drops the press without a tap.
 
 ### 4.4 Tapping inside the panel
 
@@ -352,11 +363,12 @@ It is read off the **anchor**, which is a setting, and not off any live gesture,
 the same hand is ignored for as long as the panel is on it, rather than coming and going with how
 the hands happen to be held.
 
-**One place, not five.** Pointing, tapping, scrolling, grabbing and the double grip that sends the
-panel home are all reached through *being the pointer* — none of them is read from a hand that is
-not pointing at the panel. So the rule lives in `Point`, which is the single gate, and there is no
-second copy to get wrong later. `OverlayInteraction.Ignoring` says which hand, and is the whole of
-it.
+**One place, not five.** Pointing, tapping and scrolling are reached through *being the pointer*.
+Grabbing and the double grip that sends the panel home are not (since 2026-10-18 either hand whose
+ray is on the panel can do them), but every one of them goes through `Aimed`, which is the single
+gate: it leaves out the worn hand and the hand busy with another panel, and says where the ray
+lands. `Point` and `GripOnPanel` both ask it, so there is still no second copy to get wrong later.
+`OverlayInteraction.Ignoring` says which hand, and is the whole of it.
 
 **Except while it is being carried.** Taking hold of the panel anchors it to the hand carrying it,
 so for the length of a carry the anchor names the very hand that would otherwise be ignored. That
