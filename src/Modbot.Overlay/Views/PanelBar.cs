@@ -20,14 +20,22 @@ namespace Modbot.Overlay.Views;
 /// The controller hints, or null for none. The main panel draws them beside the bar; the
 /// notification panel, which has no room beside its bar, draws them over the foot of its box.
 /// </param>
-public readonly record struct PanelBar(bool Showing, bool Locked, bool ClickThrough, ControlHints? Hints = null)
+/// <param name="WidthInMetres">
+/// How wide the panel is in the room, so the hints can be drawn the same physical size on every
+/// panel. Zero (not known, and always while there are no hints) draws them at the pop-up panel's
+/// pixel size. Part of the bar so that stretching the panel draws the hints again.
+/// </param>
+public readonly record struct PanelBar(bool Showing, bool Locked, bool ClickThrough, ControlHints? Hints = null, double WidthInMetres = 0)
 {
     /// <summary>
     /// The bar for a placement, up or not. A locked panel cannot be moved and one letting rays
     /// through is not pointed at, so neither gets hints.
     /// </summary>
     public static PanelBar For(OverlayPlacement placement, bool showing, ControlHints? hints = null)
-        => new(showing, placement.Locked, placement.ClickThrough, placement.Locked || placement.ClickThrough ? null : hints);
+    {
+        var shown = placement.Locked || placement.ClickThrough ? null : hints;
+        return new(showing, placement.Locked, placement.ClickThrough, shown, shown is null ? 0 : placement.Width);
+    }
 }
 
 /// <summary>
@@ -69,7 +77,23 @@ public static class PanelFrame
     {
         /// <summary>The whole row the bar takes, from the bottom of the contents down.</summary>
         public double Row => Above + Button + (Padding * 2) + (T.Density.Hairline * 2);
+
+        /// <summary>The bar's own width: two buttons, the gap and the padding.</summary>
+        public double Width => (Button * 2) + Gap + (Padding * 2) + (T.Density.Hairline * 2);
     }
+
+    /// <summary>
+    /// How much to stretch a hint pill, drawn as the pop-up panel draws it (text <c>TextTiny</c>,
+    /// padding 8 by 3), so it comes out the same physical size on a panel of any width and texture.
+    /// The pop-up panel at its default width is 1: the box's 256 pixels are
+    /// <see cref="NotifyOverlaySettings.DefaultWidth"/> metres. This is the one place that size is
+    /// set; every panel that shows hints draws them through it.
+    /// </summary>
+    /// <param name="side">The panel's texture size in pixels.</param>
+    public static double HintScale(PanelBar bar, double side)
+        => bar.WidthInMetres > 0
+            ? side / bar.WidthInMetres * (NotifyOverlaySettings.DefaultWidth / NotifyOverlaySettings.BoxPixels)
+            : 1;
 
     /// <summary>
     /// The main panel: its cards from the top, and the bar straight under the last of them.
@@ -94,7 +118,7 @@ public static class PanelFrame
         var column = new StackPanel
         {
             VerticalAlignment = VerticalAlignment.Top,
-            Children = { above, BarRow(bar, size) },
+            Children = { above, BarRow(bar, size, height) },
         };
 
         return WithCursor(column, cursor);
@@ -105,7 +129,7 @@ public static class PanelFrame
     /// middle and the hints fill the row's two sides, so the row is as tall as it was and nothing
     /// above it moves.
     /// </summary>
-    private static Control BarRow(PanelBar bar, BarSize size)
+    private static Control BarRow(PanelBar bar, BarSize size, double side)
     {
         var strip = Bar(bar, size);
         if (bar.Hints is not { } hints)
@@ -115,58 +139,68 @@ public static class PanelFrame
         Grid.SetColumn(strip, 1);
         row.Children.Add(strip);
 
-        var left = HintColumn([hints.Move, hints.Resize], HorizontalAlignment.Right, size);
+        var scale = HintScale(bar, side);
+        var room = ((side - size.Width) / 2) - (size.Padding * 2);
+
+        var left = HintColumn([hints.Move, hints.Resize], HorizontalAlignment.Right, size, scale, room);
         Grid.SetColumn(left, 0);
         row.Children.Add(left);
 
-        var right = HintColumn([hints.Distance], HorizontalAlignment.Left, size);
+        var right = HintColumn([hints.Distance], HorizontalAlignment.Left, size, scale, room);
         Grid.SetColumn(right, 2);
         row.Children.Add(right);
 
         return row;
     }
 
-    /// <summary>Hints stacked beside the bar, against it; clipped to their side so they never run under the bar.</summary>
-    private static Control HintColumn(ControlHint?[] hints, HorizontalAlignment against, BarSize size)
+    /// <summary>
+    /// Hints stacked beside the bar, against it, level with its middle. At the size the pop-up's
+    /// pills are, a long one wraps onto more lines than the row is tall; the stack then grows
+    /// upward over the foot of the cards, so nothing moves and the bar's row stays as it was.
+    /// </summary>
+    /// <param name="room">The widest a pill may be: what the row has on this side of the bar.</param>
+    private static Control HintColumn(ControlHint?[] hints, HorizontalAlignment against, BarSize size, double scale, double room)
     {
-        var stack = new StackPanel
-        {
-            Spacing = 4,
-            HorizontalAlignment = against,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(
-                against == HorizontalAlignment.Left ? size.Padding * 2 : 0,
-                size.Above,
-                against == HorizontalAlignment.Right ? size.Padding * 2 : 0,
-                0),
-        };
+        var stack = new StackPanel { Spacing = 4 * scale };
 
         foreach (var hint in hints.OfType<ControlHint>())
-            stack.Children.Add(Hint(hint, T.Density.TextSmall, new Thickness(12, 4)));
+            stack.Children.Add(Hint(hint, scale, room));
 
-        return new Panel { ClipToBounds = true, Children = { stack } };
+        // A Canvas, because a Grid cell would cut the stack to the row's height. Measured here so it
+        // can be centred on the bar, and kept off the texture's foot when it is taller than the row.
+        stack.Measure(new Size(room, double.PositiveInfinity));
+        var top = Math.Min(((size.Above + size.Row) / 2) - (stack.DesiredSize.Height / 2), size.Row - stack.DesiredSize.Height);
+        Canvas.SetTop(stack, top);
+
+        if (against == HorizontalAlignment.Right)
+            Canvas.SetRight(stack, size.Padding * 2);
+        else
+            Canvas.SetLeft(stack, size.Padding * 2);
+
+        return new Canvas { Children = { stack } };
     }
 
     /// <summary>
     /// One hint as a pill: the control in the text colour, what it does beside it in the dim one.
     /// Lit, with the accent colours, while the control it names is held down.
     /// </summary>
+    /// <param name="scale">How much to stretch it from the pop-up's own size: <see cref="HintScale"/>.</param>
     /// <param name="maxWidth">
     /// The widest the pill may be; its words wrap onto a second line rather than run past it.
     /// Unlimited keeps them on one line.
     /// </param>
-    private static Control Hint(ControlHint hint, double fontSize, Thickness padding, double maxWidth = double.PositiveInfinity) => new Border
+    private static Control Hint(ControlHint hint, double scale, double maxWidth = double.PositiveInfinity) => new Border
     {
         Background = hint.Lit ? T.AccentDimBrush : T.SurfaceBrush,
         BorderBrush = hint.Lit ? T.AccentBrush : T.Border2Brush,
-        BorderThickness = new Thickness(T.Density.Hairline),
-        CornerRadius = new CornerRadius(T.Density.Radius * 2),
-        Padding = padding,
+        BorderThickness = new Thickness(T.Density.Hairline * scale),
+        CornerRadius = new CornerRadius(T.Density.Radius * 2 * scale),
+        Padding = new Thickness(8 * scale, 3 * scale),
         MaxWidth = maxWidth,
         HorizontalAlignment = HorizontalAlignment.Left,
         Child = new TextBlock
         {
-            FontSize = fontSize,
+            FontSize = T.Density.TextTiny * scale,
             FontFamily = new FontFamily(DesignTokens.FontFamily),
             TextWrapping = double.IsFinite(maxWidth) ? TextWrapping.Wrap : TextWrapping.NoWrap,
             Inlines = new InlineCollection
@@ -227,7 +261,7 @@ public static class PanelFrame
         });
 
         if (bar.Hints is { } hints)
-            box.Children.Add(BoxHints(hints, boxSide));
+            box.Children.Add(BoxHints(hints, boxSide, HintScale(bar, side)));
 
         var column = new StackPanel
         {
@@ -270,22 +304,22 @@ public static class PanelFrame
     /// <summary>
     /// The hints over the foot of the notification box, one pill under another. The bar's row has
     /// no room for them: it is about two thirds the width of the box, and the longest hint is not
-    /// much narrower than the box. Smaller type than the main panel's, and a pill that would run
-    /// past the box wraps instead.
+    /// much narrower than the box. A pill that would run past the box wraps instead. These are the
+    /// pills every panel's hints are sized after (<see cref="HintScale"/>).
     /// </summary>
-    private static Control BoxHints(ControlHints hints, double boxSide)
+    private static Control BoxHints(ControlHints hints, double boxSide, double scale)
     {
         var stack = new StackPanel
         {
-            Spacing = 4,
+            Spacing = 4 * scale,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Bottom,
-            Margin = new Thickness(0, 0, 0, 8),
+            Margin = new Thickness(0, 0, 0, 8 * scale),
         };
 
         foreach (var hint in new[] { hints.Move, hints.Resize, hints.Distance }.OfType<ControlHint>())
         {
-            var pill = Hint(hint, T.Density.TextTiny, new Thickness(8, 3), boxSide - 16);
+            var pill = Hint(hint, scale, boxSide - 16);
             pill.HorizontalAlignment = HorizontalAlignment.Center;
             stack.Children.Add(pill);
         }

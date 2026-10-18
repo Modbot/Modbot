@@ -206,6 +206,46 @@ public class PanelFrameTests
     }
 
     [Fact]
+    public void HintPillsAreTheSamePhysicalSizeOnEveryPanel()
+    {
+        var hints = ControlHints.For(null, holding: true);
+        var popUps = PanelBar.For(OverlayPlacement.Default with { Width = NotifyOverlaySettings.DefaultWidth * NotifyOverlaySettings.PanelPerBox }, true, hints);
+        var main = PanelBar.For(OverlayPlacement.Default with { Width = 0.45f }, true, hints);
+        var button = PanelBar.For(OverlayPlacement.Default with { Width = 0.16f }, true, hints);
+
+        // The pop-up panel at its default width is the reference: its pills are not stretched at all.
+        Assert.Equal(1, PanelFrame.HintScale(popUps, PopUps), 3);
+
+        // Text height in metres: the scaled text over the panel's pixels per metre.
+        double Metres(PanelBar bar, double side) => PanelFrame.HintScale(bar, side) / (side / bar.WidthInMetres);
+
+        Assert.Equal(Metres(popUps, PopUps), Metres(main, Main), 6);
+        Assert.Equal(Metres(popUps, PopUps), Metres(button, 256), 6);
+    }
+
+    [Fact]
+    public void TheMainPanelsHintsAtTheirRealSizeMoveNothing()
+    {
+        var hints = ControlHints.For(null, holding: true);
+        var bare = PanelBar.For(OverlayPlacement.Default, true);
+        var withHints = PanelBar.For(OverlayPlacement.Default, true, hints);
+        Assert.True(withHints.WidthInMetres > 0);
+
+        var (plain, without) = Draw(() => PanelFrame.Main(OverlayView.Build(Roster(3)), bare, null, Main), Main);
+        var (drawn, with) = Draw(() => PanelFrame.Main(OverlayView.Build(Roster(3)), withHints, null, Main), Main);
+
+        Assert.Equal(Bounds<OverlayTarget.Roster>(without), Bounds<OverlayTarget.Roster>(with));
+        Assert.Equal(Bounds<OverlayTarget.Bar>(without), Bounds<OverlayTarget.Bar>(with));
+        Assert.Equal(without.Count, with.Count);
+
+        // Level with the bar's middle, on both sides of it, there is a pill where there was nothing.
+        var bar = Bounds<OverlayTarget.Bar>(with);
+        Assert.Equal(0, Alpha(plain, Main, new Point(bar.Left - 40, bar.Center.Y)));
+        Assert.Equal(255, Alpha(drawn, Main, new Point(bar.Left - 40, bar.Center.Y)));
+        Assert.Equal(255, Alpha(drawn, Main, new Point(bar.Right + 40, bar.Center.Y)));
+    }
+
+    [Fact]
     public void ThePopUpBarSitsUnderTheBoxWithThreePopUpsUp()
     {
         PopUp Card(string id) => new(id, "Flagged user joined · Cat Lounge", "Somebody", "kicked before", PopUpTone.Flagged);
