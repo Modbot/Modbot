@@ -923,18 +923,36 @@ upload.
   upgraded. A refusal that names the gallery tag shows VRChat's words and the same link under the
   picture field. Off, the endpoint answers 409 "Picture
   uploads are off." before it reads the body, VRChat is never asked, the calendar read says
-  `pictureUploads: false` (what the calendar read says whenever it is not on), and the form shows the old typed *VRChat image id* box instead of
-  *Choose picture*, so an event's existing id can still be seen and changed. Changing it writes a
-  settings-changed fact.
+  `pictureUploads: false` (what the calendar read says whenever it is not on), and the form shows
+  *Choose picture* turned off with "Uploads off" on it (changed 2026-10-17, see the note below; until
+  then it showed a typed *VRChat image id* box). Changing it writes a settings-changed fact.
+- **The typed id box is removed** (user, 2026-10-17). The live audit log shows VRChat refusing every
+  typed id ("Couldn't find the image you wanted to use for your calendar entry.", 4 times from
+  2026-10-12 to 2026-10-17): a picture belongs to the VRChat account that uploaded it, and Modbot
+  publishes as its own account, so an id taken from a person's own account can never work. The
+  VRChat picture field now reads:
+
+  | Case | Field |
+  |---|---|
+  | The event already has a picture id | "Picture set" (or the thumbnail) and Remove, in every case below |
+  | Uploads on | Choose picture |
+  | VRChat+ known false | Choose picture turned off, "Needs VRChat+" on it, and the *Get VRChat+* link |
+  | VRChat+ yes or not known, uploads off | Choose picture turned off, "Uploads off" on it |
+
+  A saved id is kept and sent as it is; nothing rewrites it. The server still checks an id an API
+  caller sends (`VRChatFileIds`, §15.1, §17.2): that check is kept, only the form no longer reaches it.
+  The Marketing composer never had a typed box (it uploads a picture and sends its id,
+  `POST /api/posts/vrchat-picture`), so it is unchanged.
 - **VRChat+ is read, not guessed** (added 2026-10-12). Whether Modbot's own VRChat account has
   VRChat+ is `system_supporter` among its tags. It is read from the tags the sign-in already
   returns (`GET /auth/user`, no request of its own) and kept on `settings.vr_chat_has_plus`
   (nullable: null is not read yet, and everything behaves as before). It is not re-read on a timer;
   Settings → Pictures shows it as *VRChat+: Yes / No / Not checked* with a *Check again* button, one
   `GET /users/{ownId}` on `users.read` at interactive priority, never retried. Known false (`No`):
-  the *Upload VRChat pictures* switch is greyed out, the event form's VRChat picture box (the typed
-  id as well as the upload) is turned off, the composer sends no picture to VRChat, and each says
-  "Modbot's VRChat account needs VRChat+ to use pictures." with the *Get VRChat+* link. The upload
+  the *Upload VRChat pictures* switch is greyed out, the event form's *Choose picture* is turned off
+  with "Needs VRChat+" on it and the *Get VRChat+* link beside it (until 2026-10-17 the typed id box was
+  turned off too, with "Modbot's VRChat account needs VRChat+ to use pictures."), the composer sends
+  no picture to VRChat, and says that sentence with the *Get VRChat+* link. The upload
   endpoints (`POST /api/calendar/vrchat-picture`, `POST /api/posts/vrchat-picture`) answer 409 with
   that sentence before reading the body. An event or post that already has a VRChat picture id keeps
   it and still sends it: nothing here rewrites a saved id.
@@ -957,7 +975,8 @@ upload.
 - **The thumbnail** in the form is drawn from the file on the person's own computer, so it shows only
   for a picture chosen on that page, or (since 2026-10-02) from the picture link when the VRChat
   picture came from it (§15.1). A saved id, or one an event made on VRChat brought with it, reads
-  "VRChat picture set": Modbot has no address for it without asking VRChat.
+  "Picture set" (from 2026-10-17; before that "VRChat picture set"): Modbot has no address for it
+  without asking VRChat.
 - **Fact:** `modbot.calendar.picture.upload` with the person as actor. Its subject is the event's id
   when the form sends `eventId` (an event already saved); for a new event there is no id yet, so the
   subject is the file id, and the event's `create` fact names the same file as `vrchatImageId`. No
@@ -986,8 +1005,12 @@ the end of, and had refused by VRChat at publish time with no word on what was w
   example: "Use a VRChat file link or id, like file_1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d." An id the
   event already holds is kept as it is, whatever it looks like, so an id read back from VRChat
   (§12) never stops an edit.
-- With uploads off the field is still the typed box; a link pasted there becomes the id inside it as
-  it is pasted, and text with no id says so once the field is left.
+- With uploads off the field was still the typed box; a link pasted there became the id inside it as
+  it was pasted, and text with no id said so once the field was left. **Removed 2026-10-17** (§15, note
+  on the typed id box): the form no longer has a place to paste an id. The way in for a VRChat link is
+  the picture link field above, which is a separate field and works as before, uploads on or off:
+  `pictureFollowingLink` still fills the VRChat picture from a link on VRChat's hosts. The server's
+  `VRChatFileIds.Find` still reads whatever an API caller sends.
 
 ### 15.2 Fetching a picture link (added 2026-10-02)
 

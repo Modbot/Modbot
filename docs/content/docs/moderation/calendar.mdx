@@ -605,14 +605,25 @@ has to have it is the VRChat account Modbot signs in as for your group. Without 
 the upload with *You don't have permission to use tag: gallery.* Modbot shows that sentence under the
 field with a **Get VRChat+** link, and nothing is uploaded.
 
+There is no box to type or paste a VRChat picture id. A picture belongs to the VRChat account that
+uploaded it, and Modbot publishes as its own account, so VRChat refuses an id taken from your own
+account. The **VRChat picture** field shows one of these:
+
+| What you see | When |
+|---|---|
+| **Choose picture** | Uploads are on. |
+| **Choose picture** turned off, with **Needs VRChat+** on it | Modbot's VRChat account has no VRChat+. A **Get VRChat+** link sits beside it. |
+| **Choose picture** turned off, with **Uploads off** on it | The upload switch is off. |
+| **Picture set** and **Remove** | The event already has a picture, whatever the switches say. |
+
 Modbot also checks for itself. It reads whether its VRChat account has VRChat+ from the account's
 own tags each time it signs in to VRChat, and **Settings**, **Modbot's VRChat login**, **Pictures**
 shows the answer as **VRChat+: Yes**, **No** or **Not checked**. **Check again** reads it again
 right away, with one request to VRChat; use it after you buy VRChat+ for that account. While the
-answer is **No**, the **Upload VRChat pictures** switch can be turned off but not on, the VRChat
-picture box in the form is turned off, and the form says *Modbot's VRChat account needs VRChat+ to use
-pictures.* with a **Get VRChat+** link. The server answers the same sentence to anyone who asks it
-to upload, and refuses to turn the switch on. The moment Modbot learns the account has no VRChat+
+answer is **No**, the **Upload VRChat pictures** switch can be turned off but not on, and
+**Choose picture** in the form is turned off, with **Needs VRChat+** on it and a **Get VRChat+**
+link beside it. The server answers *Modbot's VRChat account needs VRChat+ to use pictures.* to
+anyone who asks it to upload, and refuses to turn the switch on. The moment Modbot learns the account has no VRChat+
 (when it signs in, or when you press **Check again**), it turns **Upload VRChat pictures** off by
 itself and writes a **Settings changed** entry in the audit log with nobody named and marked
 automatic. An event that already has a VRChat picture keeps it and still sends it. **Not checked**
@@ -620,11 +631,9 @@ automatic. An event that already has a VRChat picture keeps it and still sends i
 for) is treated as before: nothing is turned off.
 
 To turn it on, go to **Settings**, **Modbot's VRChat login**, **Pictures**, and turn on **Upload
-VRChat pictures**. A **Get VRChat+** link sits beside the switch. While it is off the form has a
-box for a VRChat image id instead: the id of a picture already on VRChat. Paste the whole VRChat
-link if you like (`https://api.vrchat.cloud/api/1/file/file_…/1/file`, with `_blob` or anything else
-on the end): Modbot keeps only the `file_…` id inside it. Text with no VRChat file id in it is
-refused with an example of one.
+VRChat pictures**. A **Get VRChat+** link sits beside the switch. While it is off, **Choose picture** in the form is turned
+off with **Uploads off** on it. A VRChat file link in **Picture link** still fills the **VRChat
+picture** in (see [Picture links](#picture-links)).
 
 With it on:
 
@@ -643,13 +652,13 @@ With it on:
   It is a file on that account from then on, like a picture uploaded on vrchat.com. Modbot does not
   keep a copy; it keeps only the id VRChat gives the picture, and sends that id with the event.
 - **Remove** takes the picture off the event. The file stays on VRChat.
-- An event saved with a picture, opened again later, shows **VRChat picture set** instead of the
+- An event saved with a picture, opened again later, shows **Picture set** instead of the
   small copy, because Modbot keeps only the id. So does an event made on VRChat with a picture.
 - Modbot uploads **one picture a minute at most**, the same pace as its VRChat calendar changes. A
   second picture chosen within the minute waits for its turn.
 - **To turn the upload off again**, turn off **Upload VRChat pictures**. Modbot then never sends a
-  picture to VRChat: the form has no **Choose picture** button (an event that already has a
-  picture keeps it, and the box for a VRChat image id is back), and the server answers **Picture
+  picture to VRChat: **Choose picture** in the form is turned off (an event that already has a
+  picture keeps it, and still shows **Picture set** and **Remove**), and the server answers **Picture
   uploads are off.** to anyone who asks it to upload. Turning it on or off is in the audit log as a
   settings change.
 

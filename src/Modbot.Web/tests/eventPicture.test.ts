@@ -10,8 +10,6 @@ import {
   moveCrop,
   pictureFollowingLink,
   sizeCrop,
-  VRCHAT_FILE_EXAMPLE,
-  VRCHAT_FILE_NOT_FOUND,
   VRCHAT_PICTURE_ASPECT,
   vrchatFileIdIn,
   vrchatFileIdInLink,
@@ -64,11 +62,6 @@ test('with no VRChat file id there is none', () => {
   ]) {
     assert.equal(vrchatFileIdIn(pasted), null, String(pasted))
   }
-})
-
-test('the refusal shows an example that is itself an id', () => {
-  assert.ok(VRCHAT_FILE_NOT_FOUND.includes(VRCHAT_FILE_EXAMPLE))
-  assert.equal(vrchatFileIdIn(VRCHAT_FILE_EXAMPLE), VRCHAT_FILE_EXAMPLE)
 })
 
 test('only a link on VRChat has an id as a picture link', () => {

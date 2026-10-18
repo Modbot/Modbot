@@ -1371,7 +1371,6 @@ export function CalendarEventForm({
                       picture={vrchatPicture}
                       thumbnails={pictureThumbnails}
                       value={input.vrChatImageId}
-                      saved={event?.vrChatImageId ?? null}
                       link={input.imageUrl}
                       onChange={(id) => set('vrChatImageId', id)}
                       onFile={chooseEverywhere}

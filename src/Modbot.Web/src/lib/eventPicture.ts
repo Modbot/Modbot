@@ -2,12 +2,6 @@
 // link, the VRChat picture that follows a picture link from VRChat, and the crop box's arithmetic.
 // Nothing here talks to the server or the page, so the Node test runner can load this file as it is.
 
-/** The shape the refusal shows, the same as the server's `VRChatFileIds.Example`. */
-export const VRCHAT_FILE_EXAMPLE = 'file_1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d'
-
-/** The sentence for text with no file id in it, the same as the server's `VRChatFileIds.NotFound`. */
-export const VRCHAT_FILE_NOT_FOUND = `Use a VRChat file link or id, like ${VRCHAT_FILE_EXAMPLE}.`
-
 /**
  * VRChat's event pictures are 16:9: an event with no picture of its own shows VRChat's 1024 × 576 one.
  * Discord's event cover is 2.5:1, the 800 × 320 Discord asks for.

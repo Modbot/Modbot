@@ -1,10 +1,6 @@
-import { useState } from 'react'
-import { Outcome } from '@/components/settings/fields'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { VRChatPlusWarning } from '@/components/VRChatPlusWarning'
 import { coverAddress, isGalleryRefusal, VRCHAT_PLUS_URL } from '@/lib/calendar'
-import { isVRChatFileHost, VRCHAT_FILE_NOT_FOUND, vrchatFileIdIn, vrchatFileIdInLink } from '@/lib/eventPicture'
+import { isVRChatFileHost, vrchatFileIdInLink } from '@/lib/eventPicture'
 import { CropField } from './CropField'
 import { useOpenGivenLink, type CroppedPicture } from './useCroppedPicture'
 import type { PictureThumbnails } from './usePictureThumbnails'
@@ -14,8 +10,10 @@ import { vrchatPictureAddress } from './useVRChatPicture'
  * The picture for VRChat's calendar (calendar design §2, §15). With uploads on, a picture chosen on
  * this computer, or the one behind the picture link, opens in a 16:9 crop box, VRChat's shape; Upload
  * turns the crop into a PNG or JPEG and sends it, and the file id VRChat answers with is what the
- * event saves. With uploads off it is the id typed or pasted, and any VRChat link pasted here is
- * cut down to the id inside it.
+ * event saves. With uploads off, or no VRChat+ on Modbot's account, Choose picture is shown turned
+ * off with the reason on it. No id is typed (§15, 2026-10-17): the picture belongs to the VRChat
+ * account Modbot publishes as, so an id from a person's own account is refused. A picture the event
+ * already has is shown as set, with Remove, whatever the switches say, and is still sent.
  *
  * A picture link from VRChat fills this field on its own (the form does that, §15.1), and the
  * picture shows from the link.
@@ -26,7 +24,6 @@ export function VRChatPictureField({
   picture,
   thumbnails,
   value,
-  saved,
   link,
   onChange,
   onFile,
@@ -40,58 +37,20 @@ export function VRChatPictureField({
   /** The form's thumbnails, so one outlives this field being drawn again. */
   thumbnails: PictureThumbnails
   value: string | null
-  /** The id the event was saved with, which is never refused whatever it looks like. */
-  saved: string | null
   /** The event's picture link. */
   link: string | null
   onChange: (fileId: string | null) => void
   /** A picture file chosen here, which the form opens in every crop box that is shown. */
   onFile: (file: Blob) => void
 }) {
-  if (plus === false) return <NoPlus value={value} />
-
-  if (!uploads) return <TypedId value={value} saved={saved} onChange={onChange} />
-
-  return <Upload picture={picture} thumbnails={thumbnails} value={value} link={link} onChange={onChange} onFile={onFile} />
-}
-
-/**
- * The field while the account Modbot signs in as has no VRChat+: nothing can be typed or uploaded,
- * and a picture the event already has stays in it and is still sent.
- */
-function NoPlus({ value }: { value: string | null }) {
-  return (
-    <div className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
-      <label className="flex flex-col gap-1">
-        <span className="text-muted-foreground">VRChat picture</span>
-        <Input value={value ?? ''} placeholder="file_…" disabled />
-      </label>
-      <VRChatPlusWarning />
-    </div>
-  )
-}
-
-function Upload({
-  picture,
-  thumbnails,
-  value,
-  link,
-  onChange,
-  onFile,
-}: {
-  picture: CroppedPicture
-  thumbnails: PictureThumbnails
-  value: string | null
-  link: string | null
-  onChange: (fileId: string | null) => void
-  onFile: (file: Blob) => void
-}) {
+  // Why Choose picture is turned off, if it is. No VRChat+ comes first: it is why the switch is off.
+  const off = plus === false ? 'Needs VRChat+' : !uploads ? 'Uploads off' : null
   const shown = vrchatPictureAddress(value, link, thumbnails)
   const fromLink = link !== null && value !== null && vrchatFileIdInLink(link) === value
 
   // A picture link that is not VRChat's opens in the crop box on its own; one that is fills the
   // field instead (§15.1).
-  useOpenGivenLink(picture, link, !value && !vrchatFileIdInLink(link))
+  useOpenGivenLink(picture, link, off === null && !value && !vrchatFileIdInLink(link))
 
   const remove = () => {
     if (value) thumbnails.drop(value)
@@ -119,9 +78,9 @@ function Upload({
             {shown ? (
               <img src={shown} alt="" className="aspect-video h-16 rounded-sm border border-(length:--hairline) object-cover" />
             ) : (
-              <span>VRChat picture set</span>
+              <span>Picture set</span>
             )}
-            {fromLink && link && isVRChatFileHost(new URL(link).hostname) && (
+            {off === null && fromLink && link && isVRChatFileHost(new URL(link).hostname) && (
               <Button size="sm" variant="outline" disabled={picture.opening} onClick={() => picture.openLink(link)}>
                 {picture.opening ? 'Opening…' : 'Crop'}
               </Button>
@@ -129,6 +88,17 @@ function Upload({
             <Button size="sm" variant="outline" onClick={remove}>
               Remove
             </Button>
+          </>
+        ) : off ? (
+          <>
+            <Button size="sm" variant="outline" disabled>
+              Choose picture · {off}
+            </Button>
+            {plus === false && (
+              <a className="underline" href={VRCHAT_PLUS_URL} target="_blank" rel="noreferrer noopener">
+                Get VRChat+
+              </a>
+            )}
           </>
         ) : null
       }
@@ -194,41 +164,5 @@ export function DiscordPictureField({
         ) : null
       }
     />
-  )
-}
-
-/**
- * The id typed or pasted, with uploads off. A VRChat link becomes the id inside it as it is pasted;
- * text with no id in it is kept as typed, so it can still be typed, and says so once the field is
- * left.
- */
-function TypedId({
-  value,
-  saved,
-  onChange,
-}: {
-  value: string | null
-  saved: string | null
-  onChange: (fileId: string | null) => void
-}) {
-  const [left, setLeft] = useState(false)
-  const text = value ?? ''
-  const missing = text.trim() !== '' && text.trim() !== saved && vrchatFileIdIn(text) === null
-
-  return (
-    <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
-      <span className="text-muted-foreground">VRChat image id</span>
-      <Input
-        value={text}
-        placeholder="file_…"
-        aria-invalid={left && missing}
-        onChange={(e) => {
-          const typed = e.target.value
-          onChange(vrchatFileIdIn(typed) ?? (typed.trim() || null))
-        }}
-        onBlur={() => setLeft(true)}
-      />
-      {left && missing && <Outcome tone="problem">{VRCHAT_FILE_NOT_FOUND}</Outcome>}
-    </label>
   )
 }
