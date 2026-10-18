@@ -108,9 +108,11 @@ public class TwoHandResizeTests
     public void AGripThatWasAlreadyClosedDoesNotStretch()
     {
         // The left hand was squeezing before the right picked the panel up: that squeeze is about
-        // something else, not a second hold.
+        // something else, not a second hold. It started with the left ray off the panel, since a
+        // squeeze with the ray on the panel takes it.
         var interaction = new OverlayInteraction(OverlayPlacement.Default);
-        interaction.Update(Hands.Both(Hands.Hand(LeftAt(-0.2f), grab: true), Hands.Hand(Right)), At(0));
+        var off = Hands.AimingAt(new Vector3(-0.2f, 0, 0), new Vector3(-5f, 2f, -1f));
+        interaction.Update(Hands.Both(Hands.Hand(off, grab: true), Hands.Hand(Right)), At(0));
         interaction.Update(Hands.Both(Hands.Hand(LeftAt(-0.2f), grab: true), Hands.Hand(Right, grab: true)), At(33));
 
         var moved = interaction.Update(Hands.Both(Hands.Hand(LeftAt(-0.4f), grab: true), Hands.Hand(Right, grab: true)), At(66));

@@ -243,4 +243,145 @@ public class OverlayInteractionTests
 
         Assert.Equal(Hand.Right, result.Pointer!.Value.Hand);
     }
+
+    // The right hand is nearer to the panel, so it is the pointer; the left is a little farther back.
+    private static readonly Pose PointerRight = Hands.AimingAt(Vector3.Zero, Centre);
+
+    private static readonly Pose BehindLeft = Hands.AimingAt(new Vector3(-0.2f, 0, 0.3f), Centre);
+
+    private static readonly Pose LeftOffPanel = Hands.AimingAt(new Vector3(-0.2f, 0, 0.3f), new Vector3(-5f, 2f, -1f));
+
+    [Fact]
+    public void ThePointerIsRightWhileTheLeftHandAlsoAimsAtThePanel()
+    {
+        var interaction = new OverlayInteraction(OverlayPlacement.Default);
+
+        var result = interaction.Update(Hands.Both(Hands.Hand(BehindLeft), Hands.Hand(PointerRight)), At(0));
+
+        Assert.Equal(Hand.Right, result.Pointer!.Value.Hand);
+    }
+
+    [Fact]
+    public void ALeftGripTakesThePanelWhileTheRightHandIsThePointer()
+    {
+        var interaction = new OverlayInteraction(OverlayPlacement.Default);
+
+        var result = interaction.Update(Hands.Both(Hands.Hand(BehindLeft, grab: true), Hands.Hand(PointerRight)), At(0));
+
+        Assert.Equal(Hand.Left, result.Holding);
+        Assert.Equal(OverlayAnchor.LeftHand, result.Placement.Anchor);
+        Assert.Equal(Hand.Right, result.Pointer!.Value.Hand);
+    }
+
+    [Fact]
+    public void AGripFromAHandOffThePanelTakesNothing()
+    {
+        var interaction = new OverlayInteraction(OverlayPlacement.Default);
+
+        var result = interaction.Update(Hands.Both(Hands.Hand(LeftOffPanel, grab: true), Hands.Hand(PointerRight)), At(0));
+
+        Assert.Null(result.Holding);
+        Assert.False(result.PlacementChanged);
+    }
+
+    [Fact]
+    public void AGripThatWasAlreadyHeldBeforeTheHandReachedThePanelTakesNothing()
+    {
+        var interaction = new OverlayInteraction(OverlayPlacement.Default);
+
+        interaction.Update(Hands.Both(Hands.Hand(LeftOffPanel, grab: true), Hands.Hand(PointerRight)), At(0));
+        var result = interaction.Update(Hands.Both(Hands.Hand(BehindLeft, grab: true), Hands.Hand(PointerRight)), At(33));
+
+        Assert.Null(result.Holding);
+    }
+
+    [Fact]
+    public void AGripFromTheHandWearingThePanelTakesNothing()
+    {
+        var worn = OverlayPlacement.Default with
+        {
+            Anchor = OverlayAnchor.LeftHand,
+            Offset = OverlayPlacement.WristOffset,
+            Width = OverlayPlacement.WristWidth,
+        };
+        var interaction = new OverlayInteraction(worn);
+        var wrist = new Pose(new Vector3(-0.25f, 1.1f, -0.4f), Quaternion.Identity);
+        var resting = Hands.Both(Hands.Hand(wrist), Hands.Hand(wrist with { Position = wrist.Position with { X = 0.25f } }));
+        var panel = PanelGeometry.PanelPose(worn, resting)!.Value;
+        var eye = panel.Position + (Vector3.Transform(Vector3.UnitZ, panel.Rotation) * 0.4f);
+
+        // The left hand, wearing it, aims at its own panel and squeezes; the right hand is the pointer.
+        var left = Hands.Hand(new Pose(wrist.Position, Hands.Facing(panel.Position - wrist.Position)), grab: true, device: wrist);
+        var right = Hands.Hand(Hands.AimingAt(eye, panel.Position), device: resting[Hand.Right].Device);
+
+        var result = interaction.Update(Hands.Both(left, right), At(0));
+
+        Assert.Equal(Hand.Right, result.Pointer!.Value.Hand);
+        Assert.Null(result.Holding);
+    }
+
+    [Fact]
+    public void AClickThroughPanelIsNotGrippedByEitherHand()
+    {
+        var interaction = new OverlayInteraction(OverlayPlacement.Default with { ClickThrough = true });
+
+        var result = interaction.Update(Hands.Both(Hands.Hand(BehindLeft, grab: true), Hands.Hand(PointerRight)), At(0));
+
+        Assert.Null(result.Holding);
+    }
+
+    [Fact]
+    public void ALockedPanelIsNotTakenByTheHandThatIsNotPointing()
+    {
+        var interaction = new OverlayInteraction(OverlayPlacement.Default with { Locked = true });
+
+        var result = interaction.Update(Hands.Both(Hands.Hand(BehindLeft, grab: true), Hands.Hand(PointerRight)), At(0));
+
+        Assert.Null(result.Holding);
+    }
+
+    [Fact]
+    public void WhenBothHandsGripOnTheSameFrameThePointerHandTakesIt()
+    {
+        var interaction = new OverlayInteraction(OverlayPlacement.Default);
+
+        var result = interaction.Update(
+            Hands.Both(Hands.Hand(BehindLeft, grab: true), Hands.Hand(PointerRight, grab: true)),
+            At(0));
+
+        Assert.Equal(Hand.Right, result.Holding);
+    }
+
+    [Fact]
+    public void ASecondHandsGripWhileOneCarriesStillStretches()
+    {
+        var interaction = new OverlayInteraction(OverlayPlacement.Default);
+        interaction.Update(Hands.Both(Hands.Hand(BehindLeft, grab: true), Hands.Hand(PointerRight)), At(0));
+
+        // The right hand squeezes: the left still carries, and the pair is now stretching.
+        var apart = PointerRight with { Position = new Vector3(0.6f, 0, 0) };
+        interaction.Update(Hands.Both(Hands.Hand(BehindLeft, grab: true), Hands.Hand(PointerRight, grab: true)), At(33));
+        var result = interaction.Update(Hands.Both(Hands.Hand(BehindLeft, grab: true), Hands.Hand(apart, grab: true, device: apart)), At(66));
+
+        Assert.Equal(Hand.Left, result.Holding);
+        Assert.True(result.Placement.Width > OverlayPlacement.Default.Width);
+    }
+
+    [Fact]
+    public void TwoQuickGripsFromTheHandThatIsNotPointingBringThePanelHome()
+    {
+        var far = OverlayPlacement.Default with { Offset = new OverlayPose(0, 0, -3), Width = 0.8f };
+        var interaction = new OverlayInteraction(far);
+        var panelAt = new Vector3(0, 0, -3);
+        var right = Hands.AimingAt(new Vector3(0.1f, 0, -1f), panelAt);
+        var left = Hands.AimingAt(new Vector3(-0.2f, 0, 0f), panelAt);
+
+        interaction.Update(Hands.Both(Hands.Hand(left, grab: true), Hands.Hand(right)), At(0));
+        interaction.Update(Hands.Both(Hands.Hand(left), Hands.Hand(right)), At(100));
+        var reset = interaction.Update(Hands.Both(Hands.Hand(left, grab: true), Hands.Hand(right)), At(300));
+
+        Assert.Equal(OverlayAnchor.Head, reset.Placement.Anchor);
+        Assert.Equal(OverlayPlacement.Default.Offset, reset.Placement.Offset);
+        Assert.Null(reset.Holding);
+    }
 }

@@ -53,8 +53,11 @@ public sealed record InteractionResult(
 /// apply an <see cref="OverlayPlacement"/>, and everything between is here, tested with hands
 /// made up in code (overlay OpenXR and interaction design §4.3).</para>
 /// <list type="bullet">
-/// <item><strong>Pointing.</strong> The nearer hand whose ray lands on the panel is the pointer.</item>
-/// <item><strong>Grab.</strong> Grip pressed while pointing takes the panel; it follows that hand,
+/// <item><strong>Pointing.</strong> The nearer hand whose ray lands on the panel is the pointer. The
+/// cursor, clicks, list drags and scrolling follow it alone.</item>
+/// <item><strong>Grab.</strong> A fresh grip from either hand whose ray is on the panel takes it, the
+/// pointer or not, so a hand lining up to resize does not stop the other from gripping (the pointer
+/// wins when both squeeze on the same frame); it follows that hand,
 /// keeping the offset it was taken at. Letting go leaves it anchored to the world, or, if it was
 /// let go within <see cref="WristReach"/> of the hand, puts it on that wrist — at the wrist
 /// position and the wrist size, because a panel on a wrist is a thing you glance at and not a
@@ -361,18 +364,19 @@ public sealed class OverlayInteraction
                     if (pointing.Hand != _resizing.Hand)
                         pointer = null;
                 }
-                else if (hand.Grab && !was.Grab && canMove)
+                else if (canMove && GripOnPanel(tracking, elsewhere, pointing.Hand) is { } gripping)
                 {
-                    if (_lastGrip.TryGetValue(pointing.Hand, out var previous) && now - previous <= DoubleTap)
+                    // Either hand whose ray is on the panel can grip it; the cursor stays with the pointer.
+                    if (_lastGrip.TryGetValue(gripping, out var previous) && now - previous <= DoubleTap)
                     {
                         GoHome();
-                        _lastGrip.Remove(pointing.Hand);
+                        _lastGrip.Remove(gripping);
                         pointer = null;
                     }
                     else
                     {
-                        _lastGrip[pointing.Hand] = now;
-                        Take(pointing.Hand, hand, tracking);
+                        _lastGrip[gripping] = now;
+                        Take(gripping, tracking[gripping], tracking);
                         _press = null;
                     }
                 }
@@ -556,22 +560,13 @@ public sealed class OverlayInteraction
         if (PanelGeometry.PanelPose(_placement, tracking) is not { } panel)
             return null;
 
-        var ignoring = Ignoring;
         Pointer? best = null;
         var nearest = float.MaxValue;
 
         foreach (var side in new[] { Hand.Left, Hand.Right })
         {
-            if (side == ignoring || side == elsewhere)
-                continue;
-
-            var hand = tracking[side];
-            if (!hand.Tracked)
-                continue;
-
             // The hand dragging a list or the corner keeps the pointer, even with the other hand nearer.
-            if (PanelGeometry.Hit(panel, _placement.Side, hand.Aim) is { IsOnPanel: true } hit
-                && (IsDrawnAt?.Invoke(hit.Across, hit.Down) ?? true))
+            if (Aimed(panel, side, tracking, elsewhere) is { } hit)
             {
                 var distance = side == _press?.Hand || side == _resizing?.Hand ? -1f : hit.Distance;
                 if (distance < nearest)
@@ -583,6 +578,38 @@ public sealed class OverlayInteraction
         }
 
         return best;
+    }
+
+    /// <summary>Where a hand's ray lands on the panel, or null when that hand cannot be pointing at it.</summary>
+    private PanelHit? Aimed(Pose panel, Hand side, OverlayTracking tracking, Hand? elsewhere)
+    {
+        var hand = tracking[side];
+        if (side == Ignoring || side == elsewhere || !hand.Tracked)
+            return null;
+
+        return PanelGeometry.Hit(panel, _placement.Side, hand.Aim) is { IsOnPanel: true } hit
+            && (IsDrawnAt?.Invoke(hit.Across, hit.Down) ?? true)
+            ? hit
+            : null;
+    }
+
+    /// <summary>
+    /// The hand that just squeezed its grip on the panel. The pointer hand wins when both do on the
+    /// same frame; otherwise the other hand counts too, as long as its own ray is on the panel — a
+    /// hand getting ready to resize must not take the grip away from the one already pointing.
+    /// </summary>
+    private Hand? GripOnPanel(OverlayTracking tracking, Hand? elsewhere, Hand pointing)
+    {
+        if (tracking[pointing].Grab && !_last[pointing].Grab)
+            return pointing;
+
+        var other = pointing == Hand.Left ? Hand.Right : Hand.Left;
+
+        return tracking[other].Grab && !_last[other].Grab
+            && PanelGeometry.PanelPose(_placement, tracking) is { } panel
+            && Aimed(panel, other, tracking, elsewhere) is not null
+            ? other
+            : null;
     }
 
     private void Take(Hand side, HandState hand, OverlayTracking tracking)
