@@ -69,8 +69,9 @@ public class CalendarBlueskyVideosInUseTests(PostgresFixture db)
         Assert.DoesNotContain(picture, inUse);
     }
 
+    // The fields column is json, so Postgres refuses text that is not json at all; these are the
+    // unreadable shapes that can still be saved.
     [Theory]
-    [InlineData("not json")]
     [InlineData("[]")]
     [InlineData("""{"blueskyVideo":"nope"}""")]
     [InlineData("""{"blueskyVideo":{"videoId":"not an id"}}""")]

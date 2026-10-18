@@ -584,8 +584,8 @@ public class WorldListEndpointTests(PostgresFixture db)
             // Named by a search, not read yet: not junk. Refused by VRChat and an id nothing confirmed: junk.
             context.VRChatWorlds.AddRange(
                 new VRChatWorld { WorldId = "wrld_seen_searched", Name = "Searched", FirstSeenAt = now, LastSeenAt = now },
-                new VRChatWorld { WorldId = "wrld_seen_refused", FirstSeenAt = now, LastSeenAt = now, RefreshError = "VRChat returned 404" },
-                new VRChatWorld { WorldId = "wrld_seen_unnamed", FirstSeenAt = now, LastSeenAt = now });
+                new VRChatWorld { WorldId = "wrld_seenlist_refused", FirstSeenAt = now, LastSeenAt = now, RefreshError = "VRChat returned 404" },
+                new VRChatWorld { WorldId = "wrld_seenlist_unnamed", FirstSeenAt = now, LastSeenAt = now });
             await context.SaveChangesAsync(Ct);
         }
 
@@ -598,8 +598,8 @@ public class WorldListEndpointTests(PostgresFixture db)
         var worldIds = first.GetProperty("worlds").EnumerateArray().Select(w => w.GetProperty("worldId").GetString()).ToArray();
         Assert.Contains("wrld_seen_read", worldIds);
         Assert.Contains("wrld_seen_searched", worldIds);
-        Assert.DoesNotContain("wrld_seen_refused", worldIds);
-        Assert.DoesNotContain("wrld_seen_unnamed", worldIds);
+        Assert.DoesNotContain("wrld_seenlist_refused", worldIds);
+        Assert.DoesNotContain("wrld_seenlist_unnamed", worldIds);
 
         // Any number of players fits a seen world.
         Assert.All(first.GetProperty("worlds").EnumerateArray(), w => Assert.Equal(System.Text.Json.JsonValueKind.Null, w.GetProperty("minPlayers").ValueKind));

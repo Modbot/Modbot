@@ -52,6 +52,7 @@ public sealed class PostBlueskySenderTests
         settings.BlueskyServer = FakeBluesky.Server;
         settings.BlueskyAppPasswordEncrypted = FakeBluesky.AppPassword;
         settings.BlueskySessionEncrypted = null;
+        settings.BlueskyOAuthSignedIn = false;
         settings.BlueskyCheckedAt = _clock.UtcNow.AddHours(-1);
         settings.BlueskyProblem = null;
         settings.BlueskyPostingOn = true;
@@ -984,7 +985,10 @@ public sealed class PostBlueskySenderTests
 
         Assert.Equal(1, pass.Sent);
         Assert.Empty(_bluesky.Blobs);
-        Assert.Null(Assert.Single(PutRecords())["record"]!["embed"]);
+
+        // A sign-in with Bluesky: the first put is answered with the server's nonce and made once more,
+        // so the last one is the post that landed.
+        Assert.Null(PutRecords()[^1]["record"]!["embed"]);
 
         var destination = await DestinationAsync(destinationId);
         Assert.Equal(PostDestinationStates.Posted, destination.State);

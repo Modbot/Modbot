@@ -28,13 +28,14 @@ public static class TalkKeys
     /// </remarks>
     public static ShortcutKeys? Read(string? key)
     {
-        if (string.IsNullOrWhiteSpace(key) || key.Contains(' ', StringComparison.Ordinal))
+        key = key?.Trim();
+        if (string.IsNullOrEmpty(key) || key.Contains(' ', StringComparison.Ordinal))
             return null;
 
         var modifiers = 0;
         int? code = null;
 
-        foreach (var part in key.Trim().ToLowerInvariant().Split('+', StringSplitOptions.RemoveEmptyEntries))
+        foreach (var part in key.ToLowerInvariant().Split('+', StringSplitOptions.RemoveEmptyEntries))
         {
             switch (part)
             {
