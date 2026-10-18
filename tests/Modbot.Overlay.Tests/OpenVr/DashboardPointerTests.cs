@@ -9,12 +9,12 @@ namespace Modbot.Overlay.Tests.OpenVr;
 /// </summary>
 public class DashboardPointerTests
 {
-    private const int Height = 1100;
+    private const int Height = DashboardHost.PageHeight;
 
     [Fact]
     public void APressIsReadFromTheTopTheWayThePageIsLaidOut()
     {
-        var pressed = VrEvent.MouseEvent(301, 400, 1000, 1);
+        var pressed = VrEvent.MouseEvent(301, 400, Height - 100, 1);
 
         var read = OpenVrDashboardRuntime.Read(pressed, Height);
 
