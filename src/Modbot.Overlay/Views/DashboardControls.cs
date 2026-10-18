@@ -41,6 +41,7 @@ public static class DashboardControls
     {
         DashboardTarget.Toggle { Which: DashboardSwitch.Overlay } => "Overlay on",
         DashboardTarget.Toggle { Which: DashboardSwitch.Button } => "Show VR button",
+        DashboardTarget.Toggle { Which: DashboardSwitch.EditMode } => "Edit mode",
         DashboardTarget.Toggle => "Notification overlay on",
         DashboardTarget.FixTo fix => fix.Anchor switch
         {
@@ -128,6 +129,7 @@ public static class DashboardControls
         {
             DashboardTarget.Toggle { Which: DashboardSwitch.Overlay } => new(label, "switch", screen.OverlayOn, null, placed.Bounds, target),
             DashboardTarget.Toggle { Which: DashboardSwitch.Button } => new(label, "switch", screen.ButtonOn, null, placed.Bounds, target),
+            DashboardTarget.Toggle { Which: DashboardSwitch.EditMode } => new(label, "switch", screen.EditMode, null, placed.Bounds, target),
             DashboardTarget.Toggle => new(label, "switch", notify.On, null, placed.Bounds, target),
             DashboardTarget.FixTo fix => new(label, "choice", fix.Anchor == screen.Anchor, null, placed.Bounds, target),
             DashboardTarget.Spot spot => new(label, "choice", spot.Where == notify.Spot && notify.Placed is null, null, placed.Bounds, target),

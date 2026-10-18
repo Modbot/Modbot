@@ -3001,6 +3001,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         if (_desktopOverlay is not null)
             _desktopOverlay.EditMode = on;
 
+        ShowOnDashboard();
         Render();
     }
 
@@ -3470,6 +3471,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         _dashboard.Mark = Brand.MarkBitmap;
         _dashboard.OverlayOnChanged += SetOverlayOn;
         _dashboard.ButtonOnChanged += SetOverlayButtonOn;
+        _dashboard.EditModeChanged += SetOverlayEditMode;
         _dashboard.AnchorChosen += AnchorOverlay;
         _dashboard.PutBackPressed += PutOverlayBack;
         _dashboard.NotifyOverlayChanged += SetNotifyOverlay;
@@ -3499,7 +3501,8 @@ internal sealed partial class CompanionHost : IOverlayListener
                 _state.Settings.NotifyOverlay,
                 _state.Settings.NotificationFilters,
                 _state.Settings.OverlayButtonOn,
-                _state.Settings.OverlayGripSensitivity);
+                _state.Settings.OverlayGripSensitivity,
+                _state.Settings.OverlayEditMode);
 
     private void DashboardTick()
     {

@@ -63,7 +63,11 @@ public static class DashboardView
             Children =
             {
                 Card("Placement", PlacementLines(screen)),
-                Card("Button", [Switch(DashboardSwitch.Button, "Show VR button", screen.ButtonOn)]),
+                Card("Button",
+                [
+                    Switch(DashboardSwitch.Button, "Show VR button", screen.ButtonOn),
+                    Switch(DashboardSwitch.EditMode, "Edit mode", screen.EditMode),
+                ]),
             },
         };
 

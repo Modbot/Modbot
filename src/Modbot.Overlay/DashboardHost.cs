@@ -129,6 +129,9 @@ public sealed class DashboardHost : IDisposable
     /// <summary>The <strong>Show VR button</strong> switch was pressed: the show and hide button, on or off.</summary>
     public event Action<bool>? ButtonOnChanged;
 
+    /// <summary>The <strong>Edit mode</strong> switch was pressed: the lock and the hand under the headset panels, on or off.</summary>
+    public event Action<bool>? EditModeChanged;
+
     /// <summary>One of <strong>Fixed to</strong>'s choices was pressed.</summary>
     public event Action<OverlayAnchor>? AnchorChosen;
 
@@ -259,6 +262,9 @@ public sealed class DashboardHost : IDisposable
                 break;
             case DashboardTarget.Toggle { Which: DashboardSwitch.Button }:
                 ButtonOnChanged?.Invoke(!_screen.ButtonOn);
+                break;
+            case DashboardTarget.Toggle { Which: DashboardSwitch.EditMode }:
+                EditModeChanged?.Invoke(!_screen.EditMode);
                 break;
             case DashboardTarget.Toggle { Which: DashboardSwitch.Notifications }:
                 NotifyOverlayChanged?.Invoke(notify with { On = !notify.On });

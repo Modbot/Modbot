@@ -137,6 +137,35 @@ public class DashboardHostTests
     }
 
     [Fact]
+    public void TheEditModeSwitchIsDrawnShowsItsStateAndAsksForTheOtherWayInBothDirections()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            using var host = Host(new FakeRuntime());
+            host.Update(DashboardScreen.Default);
+
+            var asked = new List<bool>();
+            host.EditModeChanged += asked.Add;
+
+            // Drawn with its label, inside the page, and off to begin with.
+            var edit = DashboardControls.Find(DashboardControls.Of(host), "Edit mode");
+            Assert.NotNull(edit);
+            Assert.Equal("switch", edit.Kind);
+            Assert.False(edit.On);
+            Assert.True(edit.Bounds.Bottom <= DashboardHost.PageHeight);
+
+            Press(host, Middle(host, new DashboardTarget.Toggle(DashboardSwitch.EditMode)));
+            host.Update(DashboardScreen.Default with { EditMode = true });
+
+            Assert.True(DashboardControls.Find(DashboardControls.Of(host), "Edit mode")?.On);
+
+            Press(host, Middle(host, new DashboardTarget.Toggle(DashboardSwitch.EditMode)));
+
+            Assert.Equal([true, false], asked);
+        });
+    }
+
+    [Fact]
     public void ChoosingAnAnchorAsksForIt()
     {
         AvaloniaTestHost.Run(() =>

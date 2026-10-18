@@ -22,13 +22,15 @@ namespace Modbot.Overlay.Views;
 /// <param name="Filters">Which kinds of event pop up (<c>notificationFilters.popUp</c>), with the other two ways as they are.</param>
 /// <param name="ButtonOn">Whether the show and hide button is in the headset (<c>overlayButtonOn</c>).</param>
 /// <param name="GripSensitivity">How lightly a squeeze takes hold of a panel, 1 to 14 (<c>overlayGripSensitivity</c>).</param>
+/// <param name="EditMode">Whether the lock and the hand show under the headset panels (<c>overlayEditMode</c>).</param>
 public sealed record DashboardScreen(
     bool OverlayOn,
     OverlayAnchor Anchor,
     NotifyOverlaySettings Notify,
     NotificationFilters Filters,
     bool ButtonOn = true,
-    int GripSensitivity = CompanionSettings.DefaultGripSensitivity)
+    int GripSensitivity = CompanionSettings.DefaultGripSensitivity,
+    bool EditMode = false)
 {
     /// <summary>Everything at its default, for a tab drawn before the settings have been read.</summary>
     public static DashboardScreen Default { get; } = new(
@@ -38,7 +40,7 @@ public sealed record DashboardScreen(
         NotificationFilters.Default);
 }
 
-/// <summary>The three switches on the tab.</summary>
+/// <summary>The four switches on the tab.</summary>
 public enum DashboardSwitch
 {
     /// <summary>The main panel, on or off.</summary>
@@ -49,6 +51,9 @@ public enum DashboardSwitch
 
     /// <summary>The show and hide button, on or off.</summary>
     Button,
+
+    /// <summary>Edit mode, on or off: the lock and the hand under the headset panels.</summary>
+    EditMode,
 }
 
 /// <summary>The notification overlay's numbers, and the grip's, each a slider on the tab.</summary>
