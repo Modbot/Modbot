@@ -70,6 +70,9 @@ are listed here.
 | Linux sound output | `Silk.NET.OpenAL` 2.23.0, `Silk.NET.OpenAL.Extensions.Enumeration` 2.23.0 | MIT | The binding. |
 | Linux sound output | `Silk.NET.OpenAL.Soft.Native` 1.23.1 | **LGPL-2.0-or-later** | OpenAL Soft (`libopenal.so`), shipped beside the companion and loaded as a shared library, which is the use the LGPL permits without conditions on Modbot's own code. Its source is at <https://github.com/kcat/openal-soft>. |
 | Unpacking the voice | `SharpZipLib` 1.4.2 | MIT | Reads the bzip2 layer of the downloaded archive. |
+| Telling VRChat where to send its microphone state | `VRChat.OSCQuery` 0.0.6 | MIT | VRChat's own library for OSCQuery. Used from `Talk/VRChatOsc.cs` only, and only while Talk in Discord or VRChat is switched on: it announces a service named Modbot on the local network and answers VRChat's questions about it on this PC's loopback address. |
+| The same: finding other programs on the local network | `MeaMod.DNS` 1.0.70 | MIT | Pulled in by `VRChat.OSCQuery`; sends and reads the multicast DNS notices that announcement is made of. |
+| The same: reading what VRChat answers | `Newtonsoft.Json` 13.0.1 | MIT | Pulled in by `VRChat.OSCQuery`; reads and writes its small JSON answers. 13.0.1 is the first version without the known security advisory against earlier ones. |
 
 **The voice itself is not shipped.** It is downloaded once, when a moderator first turns the voice
 on, from one pinned address — the sherpa-onnx project's `tts-models` release on GitHub — and

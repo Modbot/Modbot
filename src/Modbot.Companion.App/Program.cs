@@ -655,6 +655,7 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         // Only in a test copy started in debug mode; anywhere else nothing listens.
         StartTestRemote();
+        StartTalk();
 
         InstallTray();
         ListenForLinks();
@@ -3760,6 +3761,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         // that has quit must never be the reason a moderator's microphone is busy.
         _listener?.Dispose();
         _listener = null;
+        StopTalk();
     }
 
     /// <summary>
@@ -3980,6 +3982,7 @@ internal sealed partial class CompanionHost : IOverlayListener
                 SetClips = SetClips,
                 SaveClip = SaveClip,
                 SetListening = SetListening,
+                SetTalk = SetTalk,
 
                 // Made on this PC at the press, from VRChat's log and the companion's own memory of
                 // the instance, in this PC's own timezone offset. Copied, never sent.

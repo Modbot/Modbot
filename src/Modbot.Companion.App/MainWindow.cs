@@ -12,6 +12,7 @@ using Modbot.Companion.Overlay;
 using Modbot.Companion.Pipeline;
 using Modbot.Companion.Presentation;
 using Modbot.Companion.Sounds;
+using Modbot.Companion.Talk;
 using Modbot.Companion.Voice;
 using Modbot.Overlay;
 using Modbot.Overlay.OpenVr;
@@ -1379,6 +1380,8 @@ public sealed partial class MainWindow : Window
 
         _body.Children.Add(Ui.Card(ListeningCard(), "Listening"));
 
+        _body.Children.Add(Ui.Card(TalkCard(), "Talk in Discord or VRChat"));
+
         _body.Children.Add(Ui.Card(LogFolderSettings(), "VRChat log folder"));
 
         _body.Children.Add(Ui.Card(RestartCard(), "Restart"));
@@ -1408,6 +1411,7 @@ public sealed partial class MainWindow : Window
         RefreshNotificationFilterControls(_snapshot.NotificationFiltersOrDefault);
         RefreshClipControls(_snapshot.ClipsOrNone);
         RefreshListeningControls(_snapshot.ListeningOrNone);
+        RefreshTalkControls();
         RefreshLogFolderControls();
     });
 
@@ -2100,6 +2104,9 @@ public sealed record MainWindowActions(
     /// others were.
     /// </summary>
     public Action<ListeningSettings> SetListening { get; init; } = _ => { };
+
+    /// <summary>The Talk in Discord or VRChat card changed: its switch or one of its keys.</summary>
+    public Action<TalkSettings> SetTalk { get; init; } = _ => { };
 
     /// <summary>
     /// The text <strong>Copy crash details</strong> puts on the clipboard, made at the moment of

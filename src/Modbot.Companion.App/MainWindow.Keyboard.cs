@@ -159,6 +159,13 @@ public sealed partial class MainWindow
             return;
         }
 
+        // The same for the two keys recorded for Discord.
+        if (_capturingTalkKey is not null)
+        {
+            CaptureTalkKey(e);
+            return;
+        }
+
         if (TokenFor(e) is not { } token)
             return;
 
