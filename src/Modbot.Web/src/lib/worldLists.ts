@@ -7,6 +7,8 @@ export type WorldListWorld = {
   /** Null until Modbot has read the world. */
   name: string | null
   thumbnailUrl: string | null
+  /** The world's full-size picture. Null until Modbot has read it. */
+  imageUrl: string | null
   minPlayers: number | null
   maxPlayers: number | null
   /** The platforms the world has a build for, in VRChat's words. Null until Modbot has read them. */

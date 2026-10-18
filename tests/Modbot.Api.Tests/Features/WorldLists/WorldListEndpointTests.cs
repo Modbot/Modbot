@@ -180,7 +180,10 @@ public class WorldListEndpointTests(PostgresFixture db)
         await using (var context = db.NewContext())
         {
             await context.VRChatWorlds.Where(w => w.WorldId == "wrld_builds")
-                .ExecuteUpdateAsync(s => s.SetProperty(w => w.Platforms, "[\"android\",\"standalonewindows\"]"), Ct);
+                .ExecuteUpdateAsync(
+                    s => s.SetProperty(w => w.Platforms, "[\"android\",\"standalonewindows\"]")
+                        .SetProperty(w => w.ImageUrl, "https://api.vrchat.cloud/api/1/file/file_full/1/file"),
+                    Ct);
         }
 
         await CreateListAsync(host, manager, ListBody("Builds", ("wrld_builds", null, null), ("wrld_unread", null, null)));
@@ -190,6 +193,8 @@ public class WorldListEndpointTests(PostgresFixture db)
 
         var read = Assert.Single(worlds, w => w.GetProperty("worldId").GetString() == "wrld_builds");
         Assert.Equal(["android", "standalonewindows"], read.GetProperty("platforms").EnumerateArray().Select(p => p.GetString()).ToArray());
+
+        Assert.Equal("https://api.vrchat.cloud/api/1/file/file_full/1/file", read.GetProperty("imageUrl").GetString());
 
         var unread = Assert.Single(worlds, w => w.GetProperty("worldId").GetString() == "wrld_unread");
         Assert.Equal(JsonValueKind.Null, unread.GetProperty("platforms").ValueKind);

@@ -46375,6 +46375,7 @@
           "worldId",
           "worldName",
           "worldThumbnailUrl",
+          "worldImageUrl",
           "worldPlatforms",
           "accessType",
           "region",
@@ -46460,6 +46461,12 @@
             ]
           },
           "worldThumbnailUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "worldImageUrl": {
             "type": [
               "null",
               "string"
@@ -72878,6 +72885,7 @@
           "worldId",
           "name",
           "thumbnailUrl",
+          "imageUrl",
           "minPlayers",
           "maxPlayers",
           "platforms"
@@ -72894,6 +72902,12 @@
             ]
           },
           "thumbnailUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "imageUrl": {
             "type": [
               "null",
               "string"

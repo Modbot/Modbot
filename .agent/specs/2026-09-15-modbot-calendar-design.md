@@ -1156,11 +1156,16 @@ the icons were drawn only over the preview, never into the uploaded file (user, 
   ticked. A saved event keeps its own boxes until another world is picked.
 - **No picture and a world: the world's picture goes up.** Save or Schedule, for an event on VRChat that
   is not a draft or a template, with no VRChat picture id, no crop open, no picture link, a picked world
-  with a thumbnail, uploads on and no `Needs VRChat+`, fetches the world's thumbnail with the picture-link
-  fetch (§15.2, so only while VRChat pictures go through Modbot), crops it 16:9 in the middle, draws the
-  icons and uploads it as a chosen picture would be (user, 2026-10-17: "Yes, use world picture"). A
-  failure at any step leaves the event with no picture, as before; nothing is shown. An existing id is
-  never replaced.
+  with a picture, uploads on and no `Needs VRChat+`, fetches the world's full-size picture
+  (`worldImageUrl` on the event, `imageUrl` on a world in a list) with the picture-link fetch (§15.2, so
+  only while VRChat pictures go through Modbot), or its thumbnail when the full-size one cannot be
+  fetched (nothing about the size is assumed here: the fetch's own limit decides), crops it 16:9 in the
+  middle, draws the icons and uploads it as a chosen picture would be (user, 2026-10-17: "Yes, use world
+  picture"). A failure at any step leaves the event with no picture, as before; nothing is shown. An
+  existing id is never replaced.
+- **Remove means no picture.** Remove on the VRChat picture stops the world's picture for the world
+  picked at that moment, for the rest of that form session (the preview stops showing it too).
+  Choosing a picture, or picking another world, turns it back on.
 
 ## 16. Copies of an event in Discord (added 2026-10-02)
 

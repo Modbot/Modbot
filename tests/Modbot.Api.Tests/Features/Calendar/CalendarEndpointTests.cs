@@ -69,6 +69,40 @@ public class CalendarEndpointTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task AnEventCarriesItsWorldsBuildsAndBothPictures_ForTheFormsIconsAndWorldPicture()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
+
+        var now = host.Clock.UtcNow;
+        await using (var context = db.NewContext())
+        {
+            await context.VRChatWorlds.Where(w => w.WorldId == "wrld_calendar").ExecuteDeleteAsync(Ct);
+            context.VRChatWorlds.Add(new VRChatWorld
+            {
+                WorldId = "wrld_calendar",
+                Name = "Calendar world",
+                ImageUrl = "https://api.vrchat.cloud/api/1/file/file_full/1/file",
+                ThumbnailImageUrl = "https://api.vrchat.cloud/api/1/image/file_full/1/256",
+                Platforms = "[\"android\",\"standalonewindows\"]",
+                FirstSeenAt = now,
+                LastSeenAt = now,
+                LastRefreshedAt = now,
+            });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        await CreateAsync(host, manager, Body(host));
+
+        var view = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, "/api/calendar", null, manager, Ct), Ct);
+        var e = Assert.Single(view.GetProperty("events").EnumerateArray());
+
+        Assert.Equal("https://api.vrchat.cloud/api/1/file/file_full/1/file", e.GetProperty("worldImageUrl").GetString());
+        Assert.Equal("https://api.vrchat.cloud/api/1/image/file_full/1/256", e.GetProperty("worldThumbnailUrl").GetString());
+        Assert.Equal(["android", "standalonewindows"], e.GetProperty("worldPlatforms").EnumerateArray().Select(p => p.GetString()).ToArray());
+    }
+
+    [Fact]
     public async Task SeeingTheCalendarNeedsSeeCalendar()
     {
         await using var host = await StartAsync();

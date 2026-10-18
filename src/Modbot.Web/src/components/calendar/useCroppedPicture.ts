@@ -22,9 +22,10 @@ export type CroppedPicture = {
   upload: () => Promise<string | null>
   /**
    * Fetches the picture behind a link, crops it in the middle and uploads it without a crop box in
-   * between; answers with its id, or null when any step failed (the reason is not shown).
+   * between; answers with its id, or null when any step failed (the reason is not shown). When the
+   * picture behind `link` cannot be fetched, the one behind `fallback` is used instead.
    */
-  uploadLink: (link: string) => Promise<string | null>
+  uploadLink: (link: string, fallback?: string | null) => Promise<string | null>
   /** Closes the crop box without uploading. */
   cancel: () => void
   opening: boolean
@@ -185,12 +186,15 @@ export function useCroppedPicture({
   }, [uploadDraft, setDraft])
 
   const uploadLink = useCallback(
-    async (link: string): Promise<string | null> => {
+    async (link: string, fallback?: string | null): Promise<string | null> => {
       setUploading(true)
       let picture: OpenPicture | null = null
 
       try {
-        const source = await fetchLink(link)
+        const source = await fetchLink(link).catch((e: unknown) => {
+          if (!fallback) throw e
+          return fetchLink(fallback)
+        })
         picture = await openPicture(source)
         const box = centredCrop(picture.width, picture.height, shapeOf(picture))
         return await uploadDraft({ picture, box, from: 'link', source })

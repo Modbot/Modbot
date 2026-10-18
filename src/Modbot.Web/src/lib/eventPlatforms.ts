@@ -1,5 +1,5 @@
 // The PC, Android and iOS boxes of the VRChat tab and the event picture they are drawn into (calendar
-// design §15.3, 2026-10-17). Nothing here talks to the server or the page, so the Node test runner can
+// design §15.5, 2026-10-17). Nothing here talks to the server or the page, so the Node test runner can
 // load this file as it is.
 
 /**
@@ -23,16 +23,40 @@ export function platformsKey(platforms: readonly string[]): string {
 }
 
 /**
+ * Where the picked world's own picture is fetched from: its full-size picture, and its small one to
+ * fall back on when the full-size one cannot be fetched. Null when the world has neither.
+ */
+export function worldPictureLinks(
+  world: { imageUrl?: string | null; thumbnailUrl?: string | null } | undefined,
+): { link: string; fallback: string | null } | null {
+  const full = world?.imageUrl || null
+  const small = world?.thumbnailUrl || null
+
+  if (full) return { link: full, fallback: small && small !== full ? small : null }
+  return small ? { link: small, fallback: null } : null
+}
+
+/** Whether the world picked now is the one whose own picture was taken off with Remove. */
+export function worldPictureRemoved(removedFor: string | null, worldId: string | null): boolean {
+  return removedFor !== null && removedFor === worldId
+}
+
+/**
  * Whether Save uses the picked world's own picture as the VRChat picture: the event goes to VRChat,
  * has no picture, no crop waiting and no picture link (a link was a picture chosen, even if its crop
  * was cancelled), the world has a picture, and a picture may be uploaded. A draft and a template go
- * nowhere, so they upload nothing on their own.
+ * nowhere, so they upload nothing on their own. Remove on the picture stops it for that world, until
+ * a picture is chosen or another world is picked.
  */
 export function usesWorldPicture(state: {
   vrChatImageId: string | null
   cropWaiting: boolean
   pictureLink: string | null
   worldPictureUrl: string | null | undefined
+  /** The world picked now. */
+  worldId: string | null
+  /** The world whose picture was removed in this form, or null. */
+  removedFor: string | null
   uploads: boolean
   /** Whether Modbot's VRChat account has VRChat+; null is not known. */
   plus: boolean | null
@@ -45,6 +69,7 @@ export function usesWorldPicture(state: {
     !state.cropWaiting &&
     !state.pictureLink &&
     !!state.worldPictureUrl &&
+    !worldPictureRemoved(state.removedFor, state.worldId) &&
     state.uploads &&
     state.plus !== false &&
     state.publishToVRChat &&

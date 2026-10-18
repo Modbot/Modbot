@@ -354,6 +354,7 @@ public sealed record CalendarPictureLinkRequest(string? Url);
 /// <param name="MadeOnVRChat">Made on VRChat (on vrchat.com or in the game) and read in by Modbot.</param>
 /// <param name="CancelledAt">When it was cancelled; its times after that never ran. Null when it was not.</param>
 /// <param name="WorldId">The world; for an event that picks from a list, the one picked for the current date.</param>
+/// <param name="WorldImageUrl">The world's full-size picture, which the form draws the platform icons into when the event has none of its own; null until Modbot has read it.</param>
 /// <param name="WorldPlatforms">The platforms the world has a build for, in VRChat's words; null until Modbot has read them.</param>
 /// <param name="WorldListId">The world list the world is picked from, or null.</param>
 /// <param name="WorldListName">That list's name.</param>
@@ -395,6 +396,7 @@ public sealed record CalendarEventView(
     string? WorldId,
     string? WorldName,
     string? WorldThumbnailUrl,
+    string? WorldImageUrl,
     IReadOnlyList<string>? WorldPlatforms,
     string AccessType,
     string Region,

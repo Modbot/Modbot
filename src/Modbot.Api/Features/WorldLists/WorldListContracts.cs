@@ -10,11 +10,13 @@ public sealed record WorldListRequest(string Name, IReadOnlyList<WorldListWorldR
 
 /// <summary>One world in a list, with what Modbot knows of it.</summary>
 /// <param name="Name">The world's name; null until Modbot has read it.</param>
+/// <param name="ImageUrl">The world's full-size picture; null until Modbot has read it.</param>
 /// <param name="Platforms">The platforms the world has a build for, in VRChat's words; null until Modbot has read them.</param>
 public sealed record WorldListWorldView(
     string WorldId,
     string? Name,
     string? ThumbnailUrl,
+    string? ImageUrl,
     int? MinPlayers,
     int? MaxPlayers,
     IReadOnlyList<string>? Platforms);

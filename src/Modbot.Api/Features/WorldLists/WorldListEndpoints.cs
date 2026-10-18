@@ -618,7 +618,7 @@ public static class WorldListEndpoints
                 .Select(i =>
                 {
                     var world = worlds.GetValueOrDefault(i.WorldId);
-                    return new WorldListWorldView(i.WorldId, world?.Name, world?.ThumbnailImageUrl, i.MinPlayers, i.MaxPlayers, Places.InstanceRows.PlatformsOf(world?.Platforms));
+                    return new WorldListWorldView(i.WorldId, world?.Name, world?.ThumbnailImageUrl, world?.ImageUrl, i.MinPlayers, i.MaxPlayers, Places.InstanceRows.PlatformsOf(world?.Platforms));
                 })],
             [.. uses.Where(u => u.ListId == l.Id).Select(u => new WorldListUseView(u.Id, u.Title, u.State))],
             l.CreatedAt,

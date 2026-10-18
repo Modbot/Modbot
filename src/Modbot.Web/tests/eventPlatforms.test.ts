@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { iconLayout, platformsFromWorld, platformsKey, usesWorldPicture } from '../src/lib/eventPlatforms.ts'
+import { iconLayout, platformsFromWorld, platformsKey, usesWorldPicture, worldPictureLinks, worldPictureRemoved } from '../src/lib/eventPlatforms.ts'
 
 const OFFERED = ['standalonewindows', 'android', 'ios']
 
@@ -34,6 +34,8 @@ const ready = {
   cropWaiting: false,
   pictureLink: null,
   worldPictureUrl: 'https://api.vrchat.cloud/api/1/image/file_1/1/256',
+  worldId: 'wrld_1',
+  removedFor: null,
   uploads: true,
   plus: true,
   publishToVRChat: true,
@@ -66,6 +68,33 @@ test('no world picture, uploads off, not on VRChat, a draft or a template uses n
   assert.equal(usesWorldPicture({ ...ready, publishToVRChat: false }), false)
   assert.equal(usesWorldPicture({ ...ready, draft: true }), false)
   assert.equal(usesWorldPicture({ ...ready, template: true }), false)
+})
+
+test('Remove on the picture stops the world picture for that world only', () => {
+  assert.equal(usesWorldPicture({ ...ready, removedFor: 'wrld_1' }), false)
+  assert.equal(usesWorldPicture({ ...ready, removedFor: 'wrld_1', worldId: 'wrld_2' }), true)
+  assert.equal(usesWorldPicture({ ...ready, removedFor: null }), true)
+  assert.equal(worldPictureRemoved('wrld_1', 'wrld_1'), true)
+  assert.equal(worldPictureRemoved('wrld_1', 'wrld_2'), false)
+  assert.equal(worldPictureRemoved(null, null), false)
+})
+
+test('the world picture is the full-size one, with the small one to fall back on', () => {
+  assert.deepEqual(worldPictureLinks({ imageUrl: 'https://a/full', thumbnailUrl: 'https://a/small' }), {
+    link: 'https://a/full',
+    fallback: 'https://a/small',
+  })
+  assert.deepEqual(worldPictureLinks({ imageUrl: 'https://a/full', thumbnailUrl: null }), { link: 'https://a/full', fallback: null })
+  assert.deepEqual(worldPictureLinks({ imageUrl: 'https://a/same', thumbnailUrl: 'https://a/same' }), {
+    link: 'https://a/same',
+    fallback: null,
+  })
+})
+
+test('a world with only a small picture uses that; with none, there is no world picture', () => {
+  assert.deepEqual(worldPictureLinks({ imageUrl: null, thumbnailUrl: 'https://a/small' }), { link: 'https://a/small', fallback: null })
+  assert.equal(worldPictureLinks({ imageUrl: null, thumbnailUrl: null }), null)
+  assert.equal(worldPictureLinks(undefined), null)
 })
 
 test('the icons sit in the top right corner with the last one at the margin', () => {

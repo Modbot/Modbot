@@ -20,7 +20,7 @@ import { vrchatPictureAddress } from './useVRChatPicture'
  * picture shows from the link.
  *
  * The PC, Android and iOS boxes are beside Choose picture, because the icons are drawn into the
- * picture (§15.3, 2026-10-17). They are turned off with the picture, for the same reason.
+ * picture (§15.5, 2026-10-17). They are turned off with the picture, for the same reason.
  */
 export function VRChatPictureField({
   uploads,

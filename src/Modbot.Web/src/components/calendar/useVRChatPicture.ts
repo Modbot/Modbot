@@ -21,7 +21,7 @@ export function vrchatPictureAddress(
 }
 
 /**
- * VRChat's picture being chosen (calendar design §15.3): a 16:9 crop with the event's platform icons
+ * VRChat's picture being chosen (calendar design §15.3, §15.5): a 16:9 crop with the event's platform icons
  * drawn in its corner, uploaded to VRChat, and the file id VRChat answers with saved on the event.
  *
  * The icons are part of the file, so the file has to match the ticks. A picture uploaded here, from

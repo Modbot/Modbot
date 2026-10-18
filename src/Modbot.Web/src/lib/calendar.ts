@@ -131,6 +131,8 @@ export type CalendarEvent = {
   worldId: string | null
   worldName: string | null
   worldThumbnailUrl: string | null
+  /** The world's full-size picture. Null until Modbot has read it. */
+  worldImageUrl: string | null
   /** The platforms the world has a build for, in VRChat's words. Null until Modbot has read them. */
   worldPlatforms: string[] | null
   accessType: string

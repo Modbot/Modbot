@@ -635,10 +635,15 @@ boxes until you pick another world.
 
 **Without a picture, the world's picture is used.** When an event goes to VRChat with a world picked
 and no VRChat picture, no crop open and no **Picture link**, **Save** or **Schedule** uploads the
-world's own picture, cropped to 16:9 and with the icons, as the event's picture. It needs the same
+world's own picture, cropped to 16:9 and with the icons, as the event's picture. It uses the world's
+full-size picture, and its small one if the full-size one cannot be fetched. It needs the same
 things as **Choose picture**: uploads on and VRChat+, and Modbot has to be able to fetch the world's
-picture (**Settings**, **VRChat proxy**, **Proxy VRChat images through Modbot** on). If any step fails the event is saved with no picture, as before. A draft and a
-template upload nothing. An event that already has a picture keeps it.
+picture (**Settings**, **VRChat proxy**, **Proxy VRChat images through Modbot** on). If any step
+fails the event is saved with no picture, as before. A draft and a template upload nothing. An event
+that already has a picture keeps it.
+
+**Remove means no picture.** If you **Remove** the picture, no world picture is used in its place
+while the form is open. Choosing a picture, or picking another world, turns it back on.
 
 Modbot also checks for itself. It reads whether its VRChat account has VRChat+ from the account's
 own tags each time it signs in to VRChat, and **Settings**, **Modbot's VRChat login**, **Pictures**

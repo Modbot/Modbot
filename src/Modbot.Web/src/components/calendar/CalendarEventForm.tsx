@@ -71,7 +71,7 @@ import { BLUESKY_PICTURES_MAX, shownPictures, withoutPicture, withPictureChanged
 import { gifFromKlipy, gifWithAlt, hasGif, NO_GIF } from '@/lib/blueskyGif'
 import { hasVideo, NO_VIDEO, videoFileProblem, videoFromFile, videoFromLink, videoLinkProblem, videoWithAlt } from '@/lib/blueskyVideo'
 import { smallJpeg } from '@/lib/pictureFiles'
-import { platformsFromWorld, usesWorldPicture } from '@/lib/eventPlatforms'
+import { platformsFromWorld, usesWorldPicture, worldPictureLinks, worldPictureRemoved } from '@/lib/eventPlatforms'
 import { useDiscordCover, useVRChatPicture, vrchatPictureAddress } from './useVRChatPicture'
 import { DiscordPictureField, VRChatPictureField } from './VRChatPictureField'
 import { FROM_LIST, listMissing, NO_WORLD, OTHER_WORLD, worldChoice } from '@/lib/calendarWorld'
@@ -195,6 +195,8 @@ export function CalendarEventForm({
   // Where a link goes: the description last clicked into. A title never holds a link.
   const [putLink, setPutLink] = useState<{ insert: (name: string) => boolean } | null>(null)
   const pictureThumbnails = usePictureThumbnails()
+  // The world whose own picture was taken off with Remove: Save does not put it back (§15.5).
+  const [worldPictureRemovedFor, setWorldPictureRemovedFor] = useState<string | null>(null)
   // The VRChat picture being cropped or uploaded (§15.3). A crop not uploaded yet is uploaded by
   // Save or Schedule first; one on its way up holds the buttons, or the event would save without it.
   const vrchatPicture = useVRChatPicture({
@@ -336,7 +338,7 @@ export function CalendarEventForm({
   // loaded), then the lists' worlds and Seen's once loaded.
   const pickedWorld = [
     ...(event?.worldId
-      ? [{ worldId: event.worldId, name: event.worldName, thumbnailUrl: event.worldThumbnailUrl, platforms: event.worldPlatforms }]
+      ? [{ worldId: event.worldId, name: event.worldName, thumbnailUrl: event.worldThumbnailUrl, imageUrl: event.worldImageUrl, platforms: event.worldPlatforms }]
       : []),
     ...lists.flatMap((l) => l.worlds),
     ...(seenWorlds ?? []),
@@ -438,13 +440,17 @@ export function CalendarEventForm({
 
     // No picture of its own: the picked world's picture goes up in its place, with the icons. A world
     // picture that cannot be fetched or uploaded leaves the event with no picture, as it was.
+    const worldPicture = worldPictureLinks(pickedWorld)
+
     if (
-      pickedWorld?.thumbnailUrl &&
+      worldPicture &&
       usesWorldPicture({
         vrChatImageId: saving.vrChatImageId,
         cropWaiting: vrchatPicture.draft !== null,
         pictureLink: saving.imageUrl,
-        worldPictureUrl: pickedWorld.thumbnailUrl,
+        worldPictureUrl: worldPicture.link,
+        worldId: input.worldId,
+        removedFor: worldPictureRemovedFor,
         uploads: pictureUploads,
         plus: vrchatPlus,
         publishToVRChat: saving.publishToVRChat,
@@ -452,7 +458,7 @@ export function CalendarEventForm({
         template: !!template,
       })
     ) {
-      const fileId = await vrchatPicture.uploadLink(pickedWorld.thumbnailUrl)
+      const fileId = await vrchatPicture.uploadLink(worldPicture.link, worldPicture.fallback)
       if (fileId) saving = { ...saving, vrChatImageId: fileId }
     }
 
@@ -511,6 +517,7 @@ export function CalendarEventForm({
   // A picture chosen on this computer opens in every crop box shown, so one choice serves both
   // places; each is cropped to its own shape.
   const chooseEverywhere = (file: Blob) => {
+    setWorldPictureRemovedFor(null)
     if (pictureUploads && vrchatPlus !== false && input.publishToVRChat) vrchatPicture.openFile(file)
     if (discordOn) discordCover.openFile(file)
   }
@@ -1080,7 +1087,7 @@ export function CalendarEventForm({
                 <VRChatPreviews
                   title={input.vrChatTitle || sharedNow().title}
                   description={input.vrChatDescription || sharedNow().description}
-                  picture={vrchatAddress ?? pickedWorld?.thumbnailUrl ?? null}
+                  picture={vrchatAddress ?? (worldPictureRemoved(worldPictureRemovedFor, input.worldId) ? null : (pickedWorld?.thumbnailUrl ?? null))}
                   platforms={input.platforms}
                   aboutCount={editingFor('vrchat', shown ?? input).description.count}
                   titleBox={(() => {
@@ -1415,7 +1422,11 @@ export function CalendarEventForm({
                       thumbnails={pictureThumbnails}
                       value={input.vrChatImageId}
                       link={input.imageUrl}
-                      onChange={(id) => set('vrChatImageId', id)}
+                      onChange={(id) => {
+                        set('vrChatImageId', id)
+                        // Removed, the world's picture is not put back on Save; a new picture lets it be again.
+                        setWorldPictureRemovedFor(id === null ? input.worldId : null)
+                      }}
                       onFile={chooseEverywhere}
                       platforms={platforms}
                       ticked={input.platforms}
