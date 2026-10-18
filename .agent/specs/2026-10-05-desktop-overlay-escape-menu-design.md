@@ -5,7 +5,7 @@
 the recorder (§2.2), the one size rule that replaces "two known sizes" (§3.3.1), and the desktop
 overlay's own placement beside VRChat's Esc menu (§3.6), and the bubble in VRChat's row, shown by
 default with the overlay (§3.4). Not built: the VRChat-only shortcut poll and the settings fields
-(including any switch for the bubble). Nobody has seen any of it on a live VRChat window.
+(the switch for the bubble was added 2026-10-17, see §4). Nobody has seen any of it on a live VRChat window.
 **Touches (when built):** `src/Modbot.Companion/Presentation/DesktopOverlaySettings.cs`,
 `src/Modbot.Companion.App/DesktopOverlayShortcut.cs`, `src/Modbot.Companion.App/ScreenRecording.cs`
 (or a file split out of it), a new bubble window, `MainWindow.DesktopOverlay.cs`,
@@ -230,7 +230,8 @@ All of it is a named constant in `VRChatHudLayout` (the menu, strip, column, ban
 
 ### 3.4 When it shows
 
-Built 2026-10-05 and **on by default with the desktop overlay: there is no switch for it yet.**
+Built 2026-10-05 and **on by default with the desktop overlay.** The switch for it came later
+(2026-10-17, `desktopOverlay.showButton`, see §4).
 The bubble is shown while all of these are true: the desktop overlay setting is on, VRChat's
 window is found, it is not minimised, and its client area gives sizes (any size, §3.3.1). Otherwise
 it is hidden and its window closed, so nothing is left behind. VRChat does **not** have to be the
@@ -319,9 +320,9 @@ and scales with VRChat's window (`VRChatHudLayout`, `DesktopOverlayWindow`).
 
 `onlyInVRChat` is **off by default**: it is a claim on the moderator's keyboard that is asked for,
 not assumed. **`bubble` was meant to be off by default too, and that is reversed (2026-10-05, at the
-owner's request): the bubble is shown whenever the desktop overlay is on, and neither `bubble` nor
-`bubbleOffset` exists yet.** They are the switch and the nudge to add if a moderator wants the
-bubble off or moved; until then the row above is the design, not the code. Reading an old
+owner's request): the bubble is shown whenever the desktop overlay is on. The switch was added
+2026-10-17 as `showButton` (note below); `bubbleOffset`, the nudge, still does not exist, so the
+row above is the design, not the code, apart from the switch. Reading an old
 `settings.json` without the fields gives the defaults.
 
 A shortcut that cannot be read, or has no modifier while `onlyInVRChat` is off, still falls back to
