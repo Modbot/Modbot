@@ -56,6 +56,9 @@ public static class PanelFrame
     /// <summary>The notification panel's bar: sized for its 300-pixel texture about 40 cm across.</summary>
     public static readonly BarSize NotificationSize = new(Button: 28, Icon: 18, Gap: 5, Padding: 3, Above: 3);
 
+    /// <summary>The show and hide button's bar: sized for a 256-pixel texture about 16 cm across.</summary>
+    public static readonly BarSize ButtonSize = new(Button: 36, Icon: 22, Gap: 6, Padding: 4, Above: 3);
+
     /// <summary>How big the bar is drawn, in panel pixels.</summary>
     /// <param name="Button">One button, square.</param>
     /// <param name="Icon">The picture inside a button.</param>
@@ -233,6 +236,35 @@ public static class PanelFrame
         };
 
         return WithCursor(column, cursor);
+    }
+
+    /// <summary>
+    /// The show and hide button: its card, and the bar in a row of its own under it while the bar is
+    /// there at all (edit mode). Without a bar the card is the whole picture, as it always was.
+    /// </summary>
+    /// <remarks>
+    /// The card gives up the bar's row rather than the bar being drawn over it, so the bar never
+    /// covers the eye or the words. The button is small, so the bar is the only thing beside the
+    /// card, and it has no room for hints.
+    /// </remarks>
+    /// <param name="card">What <see cref="ButtonView.Build"/> made, without a cursor.</param>
+    /// <param name="bar">The bar, or null while edit mode is off.</param>
+    public static Control Button(Control card, PanelBar? bar, PanelCursor? cursor)
+    {
+        ArgumentNullException.ThrowIfNull(card);
+
+        if (bar is not { } shown)
+            return WithCursor(card, cursor);
+
+        var frame = new Grid { RowDefinitions = new RowDefinitions("*,Auto") };
+        Grid.SetRow(card, 0);
+        frame.Children.Add(card);
+
+        var strip = Bar(shown, ButtonSize);
+        Grid.SetRow(strip, 1);
+        frame.Children.Add(strip);
+
+        return WithCursor(frame, cursor);
     }
 
     /// <summary>

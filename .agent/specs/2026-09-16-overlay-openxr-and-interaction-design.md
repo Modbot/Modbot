@@ -173,6 +173,16 @@ placement, and decides:
 
 Every change goes through `Place` and is saved. Nothing here needs a text box (M3 §6.3).
 
+> **Note, 2026-10-17: the show and hide button is no longer a fixture.** When the headset
+> panel's show and hide button (`ButtonHost`) was added it was kept always locked, "a fixture, not
+> a workspace": a grip could not pick it up, and its only setting was where it started (corner or
+> wrist). The owner asked for it to move like the other panels, so it now has the bar with Lock and
+> the hand in edit mode, a grip picks it up, two quick grips send it back to its place's own spot,
+> and where it is left is saved for each place (`overlayButtonSpots`). The corner or wrist setting
+> stays and picks the spot it starts from. Its default corner also moved further down and to the
+> left (0.48 and 0.34 of the view, from the pop-ups' 0.40 and 0.26). The rule is in `CLAUDE.md`:
+> every VR panel can be locked, made click-through and moved.
+
 ### 4.4 Tapping inside the panel
 
 The frame is an Avalonia tree, so the cursor is a pointer over that tree. `OverlayView`

@@ -10,7 +10,8 @@ namespace Modbot.Overlay.Tests;
 
 /// <summary>
 /// The show and hide button's host: a click on its face is a press, a click on the clear ground
-/// around it is not, it cannot be picked up, and the place setting moves it.
+/// around it is not, it is picked up, locked and let through like the other panels, and the place
+/// setting moves it.
 /// </summary>
 public class ButtonHostTests
 {
@@ -130,20 +131,251 @@ public class ButtonHostTests
     }
 
     [Fact]
-    public void AGripOnTheButtonDoesNotPickItUp()
+    public void AGripOnTheButtonPicksItUpAndItGoesBackOnTheHeadWhereItWasLeft()
     {
         AvaloniaTestHost.Run(() =>
         {
             var (host, runtime) = Build();
             using var button = host;
-            var before = host.Placement;
+            var saved = new List<OverlayPlacement>();
+            host.PlacementChanged += saved.Add;
+            var start = host.Placement;
+
+            Assert.False(start.Locked);
 
             runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host), grab: true));
-            host.PollInput(TimeSpan.Zero);
+            host.PollInput(At(0));
+            Assert.Equal(Hand.Right, host.Holding);
+            Assert.Equal(Hand.Right, host.Busy);
+
+            // Carried a little lower, then let go: still on the head, a little lower.
+            var lower = Hands.AimingAt(new Vector3(0f, -0.1f, 0f), new Vector3(start.Offset.X, start.Offset.Y - 0.1f, start.Offset.Z));
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(lower, grab: true));
+            host.PollInput(At(0.033));
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(lower));
+            host.PollInput(At(0.066));
+
+            Assert.Null(host.Holding);
+            Assert.Equal(OverlayAnchor.Head, host.Placement.Anchor);
+            Assert.NotEqual(start.Offset, host.Placement.Offset);
+            Assert.Equal(host.Placement, saved[^1]);
+        });
+    }
+
+    [Fact]
+    public void TheBarIsThereInEditModeOnlyAndTheFaceKeepsItsPlaceAboveIt()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, _) = Build();
+            using var button = host;
+
+            Assert.Null(Find(host, t => t is OverlayTarget.Lock));
+            Assert.Null(Find(host, t => t is OverlayTarget.ClickThrough));
+
+            host.EditMode = true;
+
+            var padlock = Find(host, t => t is OverlayTarget.Lock);
+            var hand = Find(host, t => t is OverlayTarget.ClickThrough);
+            var face = Find(host, t => t is OverlayTarget.PanelButton);
+
+            Assert.NotNull(padlock);
+            Assert.NotNull(hand);
+            Assert.NotNull(face);
+            Assert.True(padlock.Value.Down > face.Value.Down, "The bar is under the face.");
+            Assert.True(padlock.Value.Across < hand.Value.Across, "Lock, then the hand.");
+        });
+    }
+
+    [Fact]
+    public void ThePadlockOnTheBarLocksTheButtonAndSavesItAndALockedButtonIsNotPickedUp()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+            using var button = host;
+            host.EditMode = true;
+            var saved = new List<OverlayPlacement>();
+            host.PlacementChanged += saved.Add;
+
+            Press(host, runtime, Find(host, t => t is OverlayTarget.Lock)!.Value, at: 0);
 
             Assert.True(host.Placement.Locked);
-            Assert.Equal(before, host.Placement);
+            Assert.True(saved[^1].Locked);
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host), grab: true));
+            host.PollInput(At(1));
+            Assert.Null(host.Holding);
+            Assert.Equal(OverlayAnchor.Head, host.Placement.Anchor);
+
+            // Locked, a click on the face still presses.
+            var presses = 0;
+            host.Pressed += () => presses++;
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host)));
+            host.PollInput(At(2));
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host), click: true));
+            host.PollInput(At(3));
+            Assert.Equal(1, presses);
         });
+    }
+
+    [Fact]
+    public void WithTheHandOnTheFaceIsLookedThroughAndOnlyTheBarAnswersUntilItIsTurnedOff()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+            using var button = host;
+            host.EditMode = true;
+            var presses = 0;
+            host.Pressed += () => presses++;
+
+            Press(host, runtime, Find(host, t => t is OverlayTarget.ClickThrough)!.Value, at: 0);
+            Assert.True(host.Placement.ClickThrough);
+
+            // A click on the face, and a grip on it, do nothing.
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host)));
+            host.PollInput(At(1));
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host), click: true));
+            host.PollInput(At(2));
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host)));
+            host.PollInput(At(3));
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host), grab: true));
+            host.PollInput(At(4));
+            Assert.Equal(0, presses);
+            Assert.Null(host.Holding);
+
+            // The bar still answers, so the hand can be turned off again, and the face presses again.
+            Press(host, runtime, Find(host, t => t is OverlayTarget.ClickThrough)!.Value, at: 5);
+            Assert.False(host.Placement.ClickThrough);
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host)));
+            host.PollInput(At(7));
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host), click: true));
+            host.PollInput(At(8));
+            Assert.Equal(1, presses);
+        });
+    }
+
+    [Fact]
+    public void ThePadlockDoesNothingWhileEditModeIsOff()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+            using var button = host;
+            host.EditMode = true;
+            var padlock = Find(host, t => t is OverlayTarget.Lock)!.Value;
+            host.EditMode = false;
+
+            Press(host, runtime, padlock, at: 0);
+
+            Assert.False(host.Placement.Locked);
+        });
+    }
+
+    [Fact]
+    public void TwoQuickGripsSendTheButtonBackToItsPlacesOwnSpot()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var moved = OverlayButton.ToPlacement(ButtonPlace.Corner) with { Offset = new OverlayPose(-0.1f, 0.1f, -0.6f), Width = 0.3f };
+            var runtime = new AttachedRuntime();
+            using var host = new ButtonHost(runtime, new FakeSurface(), new AvaloniaFrameRenderer(Size, Size), ButtonPlace.Corner, moved);
+            runtime.Start();
+            host.Start();
+            host.Update(ButtonScreen.Shown);
+
+            Assert.Equal(moved, host.Placement);
+
+            // Grip, let go, grip again inside half a second.
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host), grab: true));
+            host.PollInput(At(0));
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host)));
+            host.PollInput(At(0.1));
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host), grab: true));
+            host.PollInput(At(0.2));
+
+            var own = OverlayButton.ToPlacement(ButtonPlace.Corner);
+            Assert.Equal(own.Anchor, host.Placement.Anchor);
+            Assert.Equal(own.Offset, host.Placement.Offset);
+        });
+    }
+
+    [Fact]
+    public void ThePlaceSettingStartsFromWhereTheButtonWasLeftInThatPlace()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+            using var button = host;
+            var left = OverlayButton.ToPlacement(ButtonPlace.Wrist) with { Locked = true, ClickThrough = true };
+
+            host.Place(ButtonPlace.Wrist, left);
+
+            Assert.Equal(left, host.Placement);
+            Assert.Equal(left, runtime.Placed[^1]);
+
+            host.Place(ButtonPlace.Corner);
+
+            Assert.Equal(OverlayButton.ToPlacement(ButtonPlace.Corner), host.Placement);
+        });
+    }
+
+    [Fact]
+    public void AStickOnTheHandCarryingTheButtonIsLeftOutOfTheShortcut()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+            using var button = host;
+            var held = 0;
+            host.ShortcutHeld += () => held++;
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host), grab: true));
+            host.PollInput(At(0));
+            Assert.Equal(Hand.Right, host.Holding);
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host), grab: true, scroll: PulledBack));
+            host.PollInput(At(1));
+            host.PollInput(At(7));
+
+            Assert.Equal(0, held);
+            Assert.Null(host.Counting);
+        });
+    }
+
+    /// <summary>The middle of what is drawn at a target, as fractions across and down, or null when nothing is.</summary>
+    private static (float Across, float Down)? Find(ButtonHost host, Func<OverlayTarget?, bool> wanted)
+    {
+        var hits = new List<(float Across, float Down)>();
+        for (var y = 0; y < 128; y++)
+        {
+            for (var x = 0; x < 128; x++)
+            {
+                var (across, down) = ((x + 0.5f) / 128f, (y + 0.5f) / 128f);
+                if (wanted(host.TargetAt(across, down)))
+                    hits.Add((across, down));
+            }
+        }
+
+        return hits.Count == 0 ? null : (hits.Average(h => h.Across), hits.Average(h => h.Down));
+    }
+
+    /// <summary>Points at a spot on the button, then clicks it.</summary>
+    private static void Press(ButtonHost host, AttachedRuntime runtime, (float Across, float Down) spot, double at)
+    {
+        var centre = host.Placement.Offset;
+        var target = new Vector3(
+            centre.X + ((spot.Across - 0.5f) * host.Placement.Width),
+            centre.Y - ((spot.Down - 0.5f) * host.Placement.Width),
+            centre.Z);
+        var aim = Hands.AimingAt(Vector3.Zero, target);
+
+        runtime.Tracking = Hands.RightOnly(Hands.Hand(aim));
+        host.PollInput(At(at));
+        runtime.Tracking = Hands.RightOnly(Hands.Hand(aim, click: true));
+        host.PollInput(At(at + 0.5));
     }
 
     [Fact]
@@ -160,7 +392,7 @@ public class ButtonHostTests
 
             Assert.Equal(OverlayAnchor.LeftHand, host.Placement.Anchor);
             Assert.Equal(host.Placement, runtime.Placed[^1]);
-            Assert.True(host.Placement.Locked);
+            Assert.False(host.Placement.Locked);
         });
     }
 

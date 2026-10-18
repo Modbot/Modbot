@@ -18,11 +18,14 @@ public enum ButtonPlace
 /// <para><strong>Its own overlay.</strong> Hiding the panel takes down only the panel; the button
 /// stays, and so does Modbot's connection to SteamVR, which is what lets the button bring the panel
 /// back.</para>
-/// <para><strong>It is a fixture, not a workspace.</strong> It is always locked, so a grip cannot
-/// pick it up, and its place is one setting, <see cref="ButtonPlace"/>; the stick shortcut that does
-/// the same as a click is the other (<see cref="ButtonShortcut"/>). It is the button's own
-/// spot rather than the panel's, so the two cannot be set to cover each other by accident: the panel
-/// sits low and to the right by default, the button low and to the left.</para>
+/// <para><strong>It moves like every other panel</strong> (user, 2026-10-17; it used to be a locked
+/// fixture). In edit mode it has the same bar, Lock and the hand, and a grip picks it up. Its place
+/// setting, <see cref="ButtonPlace"/>, picks the spot it starts from, and wherever it is left is kept
+/// for that place (<see cref="ButtonSpots"/>). Two quick grips send it back to that place's own
+/// spot. The stick shortcut that does the same as a click is the other setting
+/// (<see cref="ButtonShortcut"/>). The spot is the button's own rather than the panel's, so the two
+/// cannot be set to cover each other by accident: the panel sits low and to the right by default, the
+/// button low and to the left.</para>
 /// </remarks>
 public static class OverlayButton
 {
@@ -58,17 +61,31 @@ public static class OverlayButton
             : ButtonPlace.Corner;
 
     /// <summary>
-    /// Where the button goes, as the runtime understands it: locked, and solid. The corner is the
-    /// lower left at the same angles the pop-ups use for theirs; the wrist is the left one.
+    /// How far left of the middle of the view the corner button starts, in the same measure the
+    /// pop-ups use (<see cref="NotifyOverlaySettings.AcrossFraction"/>, 0.40). The button's own
+    /// number rather than theirs, so moving one does not move the other. A first guess, 2026-10-17,
+    /// to be tried in the headset.
+    /// </summary>
+    public const float CornerAcrossFraction = 0.48f;
+
+    /// <summary>
+    /// How far below the middle of the view the corner button starts; see
+    /// <see cref="CornerAcrossFraction"/> (the pop-ups' own is 0.26).
+    /// </summary>
+    public const float CornerDownFraction = 0.34f;
+
+    /// <summary>
+    /// The spot a place starts from, and the one two quick grips send the button back to: solid,
+    /// not locked and not click-through, as the other panels start. The corner is the lower left of
+    /// the view; the wrist is the left one.
     /// </summary>
     public static OverlayPlacement ToPlacement(ButtonPlace place) => place is ButtonPlace.Wrist
-        ? new OverlayPlacement(OverlayAnchor.LeftHand, OverlayPlacement.WristOffset, WristWidth, Locked: true)
+        ? new OverlayPlacement(OverlayAnchor.LeftHand, OverlayPlacement.WristOffset, WristWidth)
         : new OverlayPlacement(
             OverlayAnchor.Head,
             new OverlayPose(
-                -NotifyOverlaySettings.AcrossFraction * CornerDistance,
-                -NotifyOverlaySettings.DownFraction * CornerDistance,
+                -CornerAcrossFraction * CornerDistance,
+                -CornerDownFraction * CornerDistance,
                 -CornerDistance),
-            CornerWidth,
-            Locked: true);
+            CornerWidth);
 }

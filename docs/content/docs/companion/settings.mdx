@@ -224,6 +224,7 @@ the file:
 | `vrchatLogFolder` | blank | The [VRChat log folder](#vrchat-log-folder). |
 | `overlayOn` | `true` | The **Overlay on** switch on the **SteamVR** page. `false` stops the main headset panel entirely. See [Turning it off](/companion/overlay#turning-it-off). |
 | `overlayButtonPlace` | `corner` | Where the [show and hide button](/companion/overlay#the-show-and-hide-button) sits, the **Button place** choice on the **SteamVR** page: `corner` or `wrist`. Anything else is the corner. Whether the panel is hidden is not saved. |
+| `overlayButtonSpots` | none | Where you left the button in each place, written when you move it or press **Lock** or the hand on its bar: a `corner` and a `wrist` object, each shaped like the `overlay` object. A place missing from it, and a file with no such field, start from that place's own spot. |
 | `overlayButtonStick` | `right` | Which thumbstick the button's [stick shortcut](/companion/overlay#the-stick-shortcut) listens to, the **Shortcut** choice on the **SteamVR** page: `right`, `left` or `off`. Anything else is the right one. |
 | `overlayButtonDirection` | `back` | Which way that stick is held: `back`, `forward`, `left` or `right`. Anything else is back. It is kept while the stick is `off`. |
 | `overlayButtonHold` | `5` | How many seconds the stick is held, the **Hold time** choice on the **SteamVR** page. The page offers 2, 3, 5 and 8; the file may say any whole number from 1 to 30, and anything outside is moved to the nearest. |
@@ -381,7 +382,8 @@ which is kept.
 The [show and hide button](/companion/overlay#the-show-and-hide-button) is placed by its own field,
 `overlayButtonPlace`, not by the `overlay` object, so moving the panel never moves the button.
 **Button place** on the **SteamVR** page, next to **Look**, chooses **Corner** (low and to the left
-of your view) or **Wrist** (your left wrist). **Shortcut** and **Hold time** beside it choose the
+of your view) or **Wrist** (your left wrist), the spot the button starts from. Moving the button
+yourself is saved per place in `overlayButtonSpots`. **Shortcut** and **Hold time** beside it choose the
 [stick shortcut](/companion/overlay#the-stick-shortcut): `overlayButtonStick`, `overlayButtonDirection`
 and `overlayButtonHold`.
 

@@ -138,6 +138,13 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public ButtonPlace OverlayButtonPlace { get; init; } = ButtonPlace.Corner;
 
     /// <summary>
+    /// Where the button was last left in each place, saved as the <c>overlayButtonSpots</c> object
+    /// whenever a controller moves it or presses a switch on its bar. A place nobody has moved it
+    /// in, and a file with no such object, start from that place's default spot.
+    /// </summary>
+    public ButtonSpots OverlayButtonSpots { get; init; } = ButtonSpots.None;
+
+    /// <summary>
     /// The stick shortcut for the show and hide button, from the SteamVR page's <strong>Shortcut</strong>
     /// and <strong>Hold time</strong> choices, written as <c>"overlayButtonStick"</c> (<c>"right"</c>,
     /// <c>"left"</c> or <c>"off"</c>), <c>"overlayButtonDirection"</c> (<c>"back"</c>, <c>"forward"</c>,
@@ -244,6 +251,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
 
     public const string OverlayButtonPlaceField = "overlayButtonPlace";
 
+    public const string OverlayButtonSpotsField = "overlayButtonSpots";
+
     public const string OverlayButtonStickField = "overlayButtonStick";
 
     public const string OverlayButtonDirectionField = "overlayButtonDirection";
@@ -315,6 +324,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             OverlayPushSpeed = ClampPushSpeed(shape?.OverlayPushSpeed ?? DefaultPushSpeed),
             OverlayVRChatLook = shape?.OverlayVRChatLook ?? true,
             OverlayButtonPlace = OverlayButton.Parse(shape?.OverlayButtonPlace),
+            OverlayButtonSpots = ButtonSpots.FromJson(shape?.OverlayButtonSpots),
             OverlayButtonShortcut = new ButtonShortcut(
                 ButtonShortcut.ParseStick(shape?.OverlayButtonStick),
                 ButtonShortcut.ParseDirection(shape?.OverlayButtonDirection),
@@ -431,6 +441,13 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     {
         ArgumentNullException.ThrowIfNull(placement);
         return SaveField(path, OverlayField, placement.Clamped().ToJson());
+    }
+
+    /// <summary>Writes where the button was left in each place as the <c>overlayButtonSpots</c> object, keeping every other field.</summary>
+    public static bool SaveOverlayButtonSpots(string path, ButtonSpots spots)
+    {
+        ArgumentNullException.ThrowIfNull(spots);
+        return SaveField(path, OverlayButtonSpotsField, spots.ToJson());
     }
 
     /// <summary>
@@ -657,6 +674,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("overlayPushSpeed")] int? OverlayPushSpeed = null,
         [property: JsonPropertyName("overlayVRChatLook")] bool? OverlayVRChatLook = null,
         [property: JsonPropertyName("overlayButtonPlace")] string? OverlayButtonPlace = null,
+        [property: JsonPropertyName("overlayButtonSpots")] JsonObject? OverlayButtonSpots = null,
         [property: JsonPropertyName("overlayButtonStick")] string? OverlayButtonStick = null,
         [property: JsonPropertyName("overlayButtonDirection")] string? OverlayButtonDirection = null,
         [property: JsonPropertyName("overlayButtonHold")] int? OverlayButtonHold = null,

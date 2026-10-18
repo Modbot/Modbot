@@ -14,11 +14,12 @@ namespace Modbot.Overlay;
 /// headset runtime.
 /// </summary>
 /// <remarks>
-/// <para><strong>A fixture, pointed at and clicked.</strong> It is always locked
-/// (<see cref="OverlayButton.ToPlacement"/>), so a grip cannot pick it up; pointing and the trigger
-/// work as on any panel. A click on its face raises <see cref="Pressed"/> and nothing else: what a
-/// press means, showing or hiding the headset panel, is the companion's to decide, because the panel
-/// belongs to another host.</para>
+/// <para><strong>Pointed at, clicked, and moved like any other panel</strong> (user, 2026-10-17; it
+/// was a locked fixture). In edit mode it has the bar with Lock and the hand, a grip picks it up,
+/// and two quick grips send it back to its place's own spot (<see cref="OverlayButton.ToPlacement"/>).
+/// A click on its face raises <see cref="Pressed"/> and nothing else: what a press means, showing or
+/// hiding the headset panel, is the companion's to decide, because the panel belongs to another
+/// host. With the hand on, a ray passes through the face, so only the bar answers.</para>
 /// <para><strong>It stays when the panel is hidden.</strong> It is an overlay of its own with a
 /// handle of its own, so hiding the headset panel takes down only that panel and Modbot's connection
 /// to the VR runtime stays up.</para>
@@ -48,10 +49,15 @@ public sealed class ButtonHost : IDisposable
     private ButtonCountdown? _counting;
     private ButtonCountdown? _drawnCounting;
 
+    // The controllers' side, as on the pop-up panel: the rules for holding it, the tree that drew
+    // the current frame (for finding the bar under a ray), the cursor and whether the bar is up.
     private readonly OverlayInteraction _interaction;
     private Control? _root;
     private PanelCursor? _cursor;
     private PanelCursor? _drawnCursor;
+    private bool _rayOnPanel;
+    private bool _editMode;
+    private PanelBar? _drawnBar;
 
     /// <summary>The cursor is placed to this fraction, so a trembling hand does not redraw every poll.</summary>
     private const float CursorStep = 1f / 128f;
@@ -61,7 +67,8 @@ public sealed class ButtonHost : IDisposable
         IOverlayRuntime runtime,
         IOverlaySurface surface,
         IFrameRenderer renderer,
-        ButtonPlace place = ButtonPlace.Corner)
+        ButtonPlace place = ButtonPlace.Corner,
+        OverlayPlacement? placement = null)
     {
         ArgumentNullException.ThrowIfNull(runtime);
         ArgumentNullException.ThrowIfNull(surface);
@@ -71,7 +78,7 @@ public sealed class ButtonHost : IDisposable
         _compositor = new OverlayCompositor(renderer, surface);
         Width = surface.Width;
         Height = surface.Height;
-        _interaction = Interaction(place);
+        _interaction = Interaction(place, placement);
         _runtime.Place(_interaction.Placement);
     }
 
@@ -84,7 +91,8 @@ public sealed class ButtonHost : IDisposable
         Func<IFrameRenderer> renderer,
         Func<IOverlaySurface> surface,
         ButtonPlace place = ButtonPlace.Corner,
-        int resolution = OverlayButton.PanelPixels)
+        int resolution = OverlayButton.PanelPixels,
+        OverlayPlacement? placement = null)
     {
         ArgumentNullException.ThrowIfNull(runtime);
         ArgumentNullException.ThrowIfNull(renderer);
@@ -109,15 +117,26 @@ public sealed class ButtonHost : IDisposable
 
         Width = resolution;
         Height = resolution;
-        _interaction = Interaction(place);
+        _interaction = Interaction(place, placement);
         _runtime.Place(_interaction.Placement);
     }
 
-    private OverlayInteraction Interaction(ButtonPlace place) => new(OverlayButton.ToPlacement(place), keepOnHead: true)
+    /// <param name="place">The place setting, whose own spot is where two quick grips send the button.</param>
+    /// <param name="placement">Where it was left in that place, or null for the place's own spot.</param>
+    private OverlayInteraction Interaction(ButtonPlace place, OverlayPlacement? placement) => new(
+        placement ?? OverlayButton.ToPlacement(place),
+        home: OverlayButton.ToPlacement(place),
+        keepOnHead: true)
     {
-        // A ray on the clear ground around the card is looking past it.
-        IsDrawnAt = (across, down) => _root is { } root && OverlayTargets.Drawn(root, new Point(across * Width, down * Height)),
+        IsOnBar = (across, down) => EditMode && IsBar(TargetAt(across, down)),
+
+        // A ray on the clear ground around the card is looking past it; the bar counts while it can be used.
+        IsDrawnAt = (across, down) =>
+            (EditMode && IsBar(TargetAt(across, down)))
+            || (_root is { } root && OverlayTargets.Drawn(root, new Point(across * Width, down * Height))),
     };
+
+    private static bool IsBar(OverlayTarget? target) => target is OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough;
 
     /// <summary>The ordinary construction, at the button's own small texture.</summary>
     /// <remarks>
@@ -127,7 +146,8 @@ public sealed class ButtonHost : IDisposable
     public static ButtonHost Create(
         ButtonPlace place = ButtonPlace.Corner,
         int resolution = OverlayButton.PanelPixels,
-        IOverlayRuntime? runtime = null)
+        IOverlayRuntime? runtime = null,
+        OverlayPlacement? placement = null)
         => new(
             runtime ?? FallbackOverlayRuntime.CreateFor(OverlayKind.Button, buttonResolution: resolution),
             () => new AvaloniaFrameRenderer(resolution, resolution),
@@ -135,7 +155,8 @@ public sealed class ButtonHost : IDisposable
                 ? D3D11OverlaySurface.Create(resolution, resolution)
                 : new MemoryOverlaySurface(resolution, resolution),
             place,
-            resolution);
+            resolution,
+            placement);
 
     public OverlayRuntimeStatus Status => _runtime.Status;
 
@@ -148,8 +169,35 @@ public sealed class ButtonHost : IDisposable
 
     public int Height { get; }
 
-    /// <summary>Where the button is, as the settings last put it.</summary>
+    /// <summary>Where the button is, as a controller or the settings last put it.</summary>
     public OverlayPlacement Placement => _interaction.Placement;
+
+    /// <summary>
+    /// Whether the bar under the button, the lock and the hand, comes up at all. Off by default,
+    /// set from the window's Edit mode switch, as for the panels.
+    /// </summary>
+    public bool EditMode
+    {
+        get => _editMode;
+        set
+        {
+            if (_editMode == value)
+                return;
+
+            _editMode = value;
+            Redraw();
+        }
+    }
+
+    /// <summary>
+    /// How fast the thumbstick pushes and pulls the button while it is carried, in metres per poll
+    /// at full push. Set from the window's Push speed slider.
+    /// </summary>
+    public float PushStep
+    {
+        get => _interaction.PushStep;
+        set => _interaction.PushStep = value;
+    }
 
     /// <summary>What the button shows right now.</summary>
     public ButtonScreen Showing => _drawn;
@@ -174,8 +222,17 @@ public sealed class ButtonHost : IDisposable
 
     private OverlayLook _look = OverlayLook.Headset;
 
-    /// <summary>The hand pointing at the button right now, or null.</summary>
+    /// <summary>The hand carrying the button right now, or null.</summary>
+    public Hand? Holding { get; private set; }
+
+    /// <summary>The hand this button is using right now, pointing at it or carrying it, or null.</summary>
     public Hand? Busy { get; private set; }
+
+    /// <summary>
+    /// Raised whenever a controller moves the button or presses a switch on its bar, so it can be
+    /// saved. Not raised by <see cref="Place"/>, whose caller already has what it placed.
+    /// </summary>
+    public event Action<OverlayPlacement>? PlacementChanged;
 
     /// <summary>Raised when a controller's trigger clicks the button's face. UI thread.</summary>
     public event Action? Pressed;
@@ -208,10 +265,15 @@ public sealed class ButtonHost : IDisposable
     /// <summary>The count on the button's face right now, or null while no stick is held.</summary>
     public ButtonCountdown? Counting => _counting;
 
-    /// <summary>Puts the button where the settings say. UI thread only.</summary>
-    public void Place(ButtonPlace place)
+    /// <summary>
+    /// Puts the button where the settings say: the place chosen, and where it was left there, or
+    /// that place's own spot. Two quick grips go back to the place's own spot. UI thread only.
+    /// </summary>
+    public void Place(ButtonPlace place, OverlayPlacement? placement = null)
     {
-        _interaction.Place(OverlayButton.ToPlacement(place));
+        _interaction.Home = OverlayButton.ToPlacement(place);
+        _interaction.Place(placement ?? OverlayButton.ToPlacement(place));
+        Holding = null;
         _runtime.Place(_interaction.Placement);
         Draw();
     }
@@ -230,6 +292,8 @@ public sealed class ButtonHost : IDisposable
         if (_runtime.Status.State is not OverlayRuntimeState.Running)
         {
             Busy = null;
+            Holding = null;
+            _rayOnPanel = false;
             _hold.Reset();
             _counting = null;
             _cursor = null;
@@ -240,13 +304,37 @@ public sealed class ButtonHost : IDisposable
         var tracking = _runtime.ReadTracking();
         var result = _interaction.Update(tracking, now, elsewhere);
 
-        Busy = result.Pointer?.Hand;
+        Holding = result.Holding;
+        Busy = result.Holding ?? result.Pointer?.Hand;
+        _rayOnPanel = result.RayOnPanel;
         _cursor = result.Pointer is { } p
             ? new PanelCursor(MathF.Round(p.Across / CursorStep) * CursorStep, MathF.Round(p.Down / CursorStep) * CursorStep)
             : null;
 
-        // Looked up before the redraw: a press lands on the face that was drawn when it was made.
-        var pressed = result.Clicks.Any(click => TargetAt(click.Across, click.Down) is OverlayTarget.PanelButton);
+        if (result.PlacementChanged)
+        {
+            _runtime.Place(result.Placement);
+            PlacementChanged?.Invoke(result.Placement);
+        }
+
+        // Looked up before the redraw: a press lands on what was drawn when it was made. The face
+        // is a press, the bar's switches are the lock and the hand (edit mode only).
+        var pressed = false;
+        foreach (var click in result.Clicks)
+        {
+            switch (TargetAt(click.Across, click.Down))
+            {
+                case OverlayTarget.PanelButton:
+                    pressed = true;
+                    break;
+                case OverlayTarget.Lock when EditMode:
+                    Switch(Placement with { Locked = !Placement.Locked });
+                    break;
+                case OverlayTarget.ClickThrough when EditMode:
+                    Switch(Placement with { ClickThrough = !Placement.ClickThrough });
+                    break;
+            }
+        }
 
         var held = ReadShortcut(tracking, now, stickInUse);
 
@@ -277,7 +365,7 @@ public sealed class ButtonHost : IDisposable
         // stick pushed while pointing at the button is on its way to scrolling, not to a hold.
         var hand = shortcut.Stick is ShortcutStick.Left ? Hand.Left : Hand.Right;
         var state = tracking[hand];
-        var free = state.Tracked && Busy != hand && stickInUse?.Invoke(hand) != true;
+        var free = state.Tracked && Busy != hand && Holding is null && stickInUse?.Invoke(hand) != true;
 
         var counted = _hold.Update(state.Scroll, shortcut.Direction, shortcut.Hold, free, now);
 
@@ -288,6 +376,13 @@ public sealed class ButtonHost : IDisposable
     /// <summary>What is drawn under a point on the button, from the tree that drew the current frame.</summary>
     public OverlayTarget? TargetAt(float across, float down)
         => _root is null ? null : OverlayTargets.At(_root, new Point(across * Width, down * Height));
+
+    private void Switch(OverlayPlacement placement)
+    {
+        _interaction.Place(placement);
+        _runtime.Place(_interaction.Placement);
+        PlacementChanged?.Invoke(_interaction.Placement);
+    }
 
     public OverlayRuntimeStatus Start()
     {
@@ -365,12 +460,15 @@ public sealed class ButtonHost : IDisposable
         return Draw();
     }
 
-    /// <summary>Draws again if the cursor would change what is on the button.</summary>
+    /// <summary>Draws again if the cursor, the count or the bar would change what is on the button.</summary>
     private void Redraw()
     {
-        if (_cursor != _drawnCursor || _counting != _drawnCounting)
+        if (_cursor != _drawnCursor || _counting != _drawnCounting || Bar() != _drawnBar)
             Draw();
     }
+
+    /// <summary>The bar, or null while edit mode is off and the button is the whole picture.</summary>
+    private PanelBar? Bar() => EditMode ? PanelBar.For(_interaction.Placement, _rayOnPanel) : null;
 
     private bool Draw()
     {
@@ -379,7 +477,12 @@ public sealed class ButtonHost : IDisposable
 
         _compositor.Invalidate();
 
-        var root = ButtonView.Build(_counting is null ? _drawn : _drawn with { Countdown = _counting }, _look, _cursor);
+        var bar = Bar();
+        var root = PanelFrame.Button(
+            ButtonView.Build(_counting is null ? _drawn : _drawn with { Countdown = _counting }, _look),
+            bar,
+            _cursor);
+        _drawnBar = bar;
         _drawnCursor = _cursor;
         _drawnCounting = _counting;
         _everDrawn = true;

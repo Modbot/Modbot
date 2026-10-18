@@ -4,7 +4,7 @@ namespace Modbot.Companion.Tests.Overlay;
 
 /// <summary>
 /// The show and hide button's place: how a settings file names it, and where each place puts the
-/// button. It is a fixture, so both places are locked.
+/// button. It starts unlocked and solid, like the other panels (it was a locked fixture until 2026-10-17).
 /// </summary>
 public class OverlayButtonTests
 {
@@ -40,13 +40,29 @@ public class OverlayButtonTests
     [Theory]
     [InlineData(ButtonPlace.Corner)]
     [InlineData(ButtonPlace.Wrist)]
-    public void TheButtonIsAlwaysLockedAndSolid(ButtonPlace place)
+    public void TheButtonStartsUnlockedAndSolidAsTheOtherPanelsDo(ButtonPlace place)
     {
         var placement = OverlayButton.ToPlacement(place);
 
-        Assert.True(placement.Locked);
+        Assert.False(placement.Locked);
         Assert.False(placement.ClickThrough);
         Assert.Equal(1f, placement.Opacity);
+        Assert.Equal(OverlayPlacement.Default.Locked, placement.Locked);
+        Assert.Equal(NotifyOverlaySettings.Default.ToPlacement().Locked, placement.Locked);
+    }
+
+    [Fact]
+    public void TheCornerIsAtTheButtonsOwnFractionsAndLeavesThePopUpsAlone()
+    {
+        var button = OverlayButton.ToPlacement(ButtonPlace.Corner).Offset;
+
+        Assert.Equal(-0.48f * OverlayButton.CornerDistance, button.X, 4);
+        Assert.Equal(-0.34f * OverlayButton.CornerDistance, button.Y, 4);
+        Assert.Equal(-OverlayButton.CornerDistance, button.Z, 4);
+
+        // The pop-ups' own fractions are not moved by this.
+        Assert.Equal(0.40f, NotifyOverlaySettings.AcrossFraction);
+        Assert.Equal(0.26f, NotifyOverlaySettings.DownFraction);
     }
 
     [Fact]

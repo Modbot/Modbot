@@ -304,6 +304,9 @@ internal sealed partial class CompanionHost : IOverlayListener
     /// <summary>The same for the notification panel, which a controller can now move too.</summary>
     private readonly DispatcherTimer _notifyPlacementSave = new() { Interval = TimeSpan.FromMilliseconds(500) };
 
+    /// <summary>The same for the show and hide button, which a controller can move too.</summary>
+    private readonly DispatcherTimer _buttonSpotSave = new() { Interval = TimeSpan.FromMilliseconds(500) };
+
     /// <summary>
     /// How often the reading half is given a turn.
     /// </summary>
@@ -2121,7 +2124,11 @@ internal sealed partial class CompanionHost : IOverlayListener
 
             // The show and hide button comes up with the panel and goes with it; it draws nothing
             // and touches no graphics card until a headset is running.
-            _buttonHost = ButtonHost.Create(_state?.Settings.OverlayButtonPlace ?? ButtonPlace.Corner);
+            var buttonPlace = _state?.Settings.OverlayButtonPlace ?? ButtonPlace.Corner;
+            _buttonHost = ButtonHost.Create(buttonPlace, placement: (_state?.Settings.OverlayButtonSpots ?? ButtonSpots.None).For(buttonPlace));
+            _buttonHost.EditMode = _state?.Settings.OverlayEditMode is true;
+            _buttonHost.PushStep = PushStep(_state?.Settings.OverlayPushSpeed);
+            _buttonHost.PlacementChanged += ButtonPlacementChanged;
             _buttonHost.Shortcut = ButtonShortcutNow();
             _buttonHost.Pressed += TogglePanel;
             _buttonHost.ShortcutHeld += TogglePanel;
@@ -2493,6 +2500,15 @@ internal sealed partial class CompanionHost : IOverlayListener
             if (!CompanionSettings.SaveOverlay(_settingsPath, _state.Settings.Overlay))
                 Log.Warning("The panel's placement could not be saved to {Path}", _settingsPath);
         };
+        _buttonSpotSave.Tick += (_, _) =>
+        {
+            _buttonSpotSave.Stop();
+            if (_state is null)
+                return;
+
+            if (!CompanionSettings.SaveOverlayButtonSpots(_settingsPath, _state.Settings.OverlayButtonSpots))
+                Log.Warning("The show and hide button's spot could not be saved to {Path}", _settingsPath);
+        };
         _notifyPlacementSave.Tick += (_, _) =>
         {
             _notifyPlacementSave.Stop();
@@ -2542,6 +2558,9 @@ internal sealed partial class CompanionHost : IOverlayListener
         if (_notifyHost is not null)
             _notifyHost.PushStep = PushStep(speed);
 
+        if (_buttonHost is not null)
+            _buttonHost.PushStep = PushStep(speed);
+
         Render();
     }
 
@@ -2581,8 +2600,27 @@ internal sealed partial class CompanionHost : IOverlayListener
         if (!CompanionSettings.SaveText(_settingsPath, CompanionSettings.OverlayButtonPlaceField, OverlayButton.Written(place)))
             Log.Warning("Could not save the button place to {Path}", _settingsPath);
 
-        _buttonHost?.Place(place);
+        _buttonHost?.Place(place, _state.Settings.OverlayButtonSpots.For(place));
         Render();
+    }
+
+    /// <summary>
+    /// A controller moved the show and hide button or pressed a switch on its bar: kept as the spot
+    /// of the place it is in, and saved once it settles. The host already has the placement, so it
+    /// is not placed again from here, which would drop the button out of the hand.
+    /// </summary>
+    private void ButtonPlacementChanged(OverlayPlacement placement)
+    {
+        if (_state is null)
+            return;
+
+        var next = _state.Settings.OverlayButtonSpots.With(_state.Settings.OverlayButtonPlace, placement);
+        if (next == _state.Settings.OverlayButtonSpots)
+            return;
+
+        _state.Settings = _state.Settings with { OverlayButtonSpots = next };
+        _buttonSpotSave.Stop();
+        _buttonSpotSave.Start();
     }
 
     /// <summary>
@@ -2666,6 +2704,14 @@ internal sealed partial class CompanionHost : IOverlayListener
     /// <summary>Takes the show and hide button down; it goes with the panel it belongs to.</summary>
     private void DisposeButton()
     {
+        // A move not yet written is written now, so switching the panel off does not lose it.
+        if (_buttonSpotSave.IsEnabled)
+        {
+            _buttonSpotSave.Stop();
+            if (_state is not null && !CompanionSettings.SaveOverlayButtonSpots(_settingsPath, _state.Settings.OverlayButtonSpots))
+                Log.Warning("The show and hide button's spot could not be saved to {Path}", _settingsPath);
+        }
+
         _buttonHost?.Dispose();
         _buttonHost = null;
         _buttonAttachTriedAt = DateTimeOffset.MinValue;
@@ -2839,6 +2885,9 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         if (_notifyHost is not null)
             _notifyHost.EditMode = on;
+
+        if (_buttonHost is not null)
+            _buttonHost.EditMode = on;
 
         if (_desktopOverlay is not null)
             _desktopOverlay.EditMode = on;
