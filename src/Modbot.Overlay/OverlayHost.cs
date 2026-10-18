@@ -72,6 +72,11 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     private Control? _root;
     private PanelCursor? _cursor;
     private float _scroll;
+
+    /// <summary>A drag is under way, whether it began on a list, and how tall a row of it was when it began.</summary>
+    private bool _dragging;
+    private bool _dragOnList;
+    private double? _dragRowHeight;
     private OverlayTracking _lastTracking = OverlayTracking.None;
 
     // Whether a ray is on the panel, which is what puts the bar up under it.
@@ -379,6 +384,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         if (Hidden || _runtime.Status.State is not OverlayRuntimeState.Running)
         {
             Busy = null;
+            _dragging = false;
             var barWasShowing = _rayOnPanel || _hints is not null;
             _rayOnPanel = false;
             _hints = null;
@@ -456,14 +462,26 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         // same, and either stick will do.
         float? moved = null;
 
-        if (result.Drag is { } drag && IsListAt(drag.From.Across, drag.From.Down))
+        if (result.Drag is { } drag)
         {
-            var rowHeight = _root is null ? null : OverlayTargets.RowHeight(_root, new Point(drag.From.Across * Width, drag.From.Down * Height));
-            moved = -drag.Down * Height / (float)(rowHeight ?? Height / DefaultRowsPerPanel);
+            // Settled once, when the drag starts: as rows scroll away the list shrinks and the
+            // press point may no longer be inside it, and the drag goes on until the trigger is up.
+            if (!_dragging)
+            {
+                _dragging = true;
+                _dragOnList = IsListAt(drag.From.Across, drag.From.Down);
+                _dragRowHeight = _root is null ? null : OverlayTargets.RowHeight(_root, new Point(drag.From.Across * Width, drag.From.Down * Height));
+            }
+
+            if (_dragOnList)
+                moved = -drag.Down * Height / (float)(_dragRowHeight ?? Height / DefaultRowsPerPanel);
         }
-        else if (result.Pointer is { } pointer && result.Scroll.Y != 0f && IsListAt(pointer.Across, pointer.Down))
+        else
         {
-            moved = -result.Scroll.Y / ScrollPerRow;
+            _dragging = false;
+
+            if (result.Pointer is { } pointer && result.Scroll.Y != 0f && IsListAt(pointer.Across, pointer.Down))
+                moved = -result.Scroll.Y / ScrollPerRow;
         }
 
         if (moved is { } rows)

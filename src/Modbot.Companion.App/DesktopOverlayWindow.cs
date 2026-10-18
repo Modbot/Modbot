@@ -262,12 +262,13 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         Content = _scaler;
 
         _panel.PointerPressed += OnPanelPressed;
-        // The wheel moves the roster, which is the list the panel itself pages through. On the
-        // other two screens it is left to the window's own scrolling, because taking it there
-        // would be a wheel that does nothing over a card that is taller than the window.
+        // The wheel moves the roster or the Audit Log, the two lists the panel itself pages through,
+        // the same way the J and K keys do. On the person card it is left to the window's own
+        // scrolling, because taking it there would be a wheel that does nothing over a card that is
+        // taller than the window.
         _panel.PointerWheelChanged += (_, e) =>
         {
-            if (_drawn is not { Page: OverlayPage.Instance })
+            if (_drawn is not { Page: OverlayPage.Instance or OverlayPage.Events })
                 return;
 
             RosterScrolled?.Invoke(e.Delta.Y > 0 ? -1 : 1);
