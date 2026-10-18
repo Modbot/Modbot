@@ -99,13 +99,21 @@ public sealed partial class OverlayView
             },
         };
 
-        var head = new DockPanel { LastChildFill = false, Margin = new Thickness(2, 2, 2, 0) };
+        // The counts get the room the freshness and the chevron leave; a heading too long for it is cut
+        // off at the end instead of running under them.
+        var head = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+            Margin = new Thickness(2, 2, 2, 0),
+        };
 
-        DockPanel.SetDock(left, Avalonia.Controls.Dock.Left);
+        left.ClipToBounds = true;
+        left.HorizontalAlignment = HorizontalAlignment.Left;
+        Grid.SetColumn(left, 0);
         head.Children.Add(left);
 
         // The freshness, if there is any, then the chevron at the very far end.
-        var end = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        var end = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(8, 0, 0, 0) };
         if (state is not null)
         {
             var age = Text(state, T.Density.TextSmall, stateBrush, FontWeight.Bold);
@@ -114,7 +122,7 @@ public sealed partial class OverlayView
         }
 
         end.Children.Add(chevron);
-        DockPanel.SetDock(end, Avalonia.Controls.Dock.Right);
+        Grid.SetColumn(end, 1);
         head.Children.Add(end);
 
         return head;

@@ -81,12 +81,12 @@ public class VRChatPeopleRowsTests
             Subtext: c(0xB0, 0xA8, 0xC8)));
     }
 
-    private static T Draw<T>(OverlayScreen screen, Func<Control, T> read, Func<string?, IImage?>? picture = null, OverlayLook? look = null)
+    private static T Draw<T>(OverlayScreen screen, Func<Control, T> read, Func<string?, IImage?>? picture = null, OverlayLook? look = null, double width = PanelWidth)
         => AvaloniaTestHost.Run(() =>
         {
             var root = OverlayView.Build(screen, picture, look ?? VRChatLook());
-            root.Measure(new Size(PanelWidth, PanelHeight));
-            root.Arrange(new Rect(0, 0, PanelWidth, PanelHeight));
+            root.Measure(new Size(width, PanelHeight));
+            root.Arrange(new Rect(0, 0, width, PanelHeight));
             return read(root);
         });
 
@@ -180,31 +180,94 @@ public class VRChatPeopleRowsTests
         Assert.Contains("· Group (3) · 18+ (3) · Staff (1)", texts);
     }
 
-    [Fact]
-    public void TheHeadingStaysOnOneLineWithTheFreshnessAtTheDefaultWidth()
-    {
-        var many = Enumerable.Range(0, 120)
-            .Select(i => new RosterMember("usr_" + i, "P" + i, RosterStanding.Member, 0, [], EighteenPlus: true))
-            .ToList();
+    private static IReadOnlyList<RosterMember> OneHundredTwenty()
+        => [.. Enumerable.Range(0, 120).Select(i => new RosterMember("usr_" + i, "P" + i, RosterStanding.Member, 0, [], EighteenPlus: true))];
 
-        var (tallyRight, freshnessLeft, tallyHeight, headingHeight) = Draw(
-            Screen(many, filters: new ListFilters(Name: "P1")),
+    [Fact]
+    public void TheHeadingFitsBesideTheFreshnessWhenThePanelIsWideEnough()
+    {
+        var (staffRight, freshnessLeft, staffHeight, headingHeight, _) = Draw(
+            Screen(OneHundredTwenty(), filters: new ListFilters(Name: "P1")),
+            root => HeadingEdges(root),
+            width: 700);
+
+        Assert.True(staffRight <= freshnessLeft, $"Counts end at {staffRight}, freshness starts at {freshnessLeft}.");
+        Assert.True(staffHeight <= headingHeight, "The counts wrapped onto a second line.");
+    }
+
+    [Theory]
+    [InlineData(300)]
+    [InlineData(PanelWidth)]
+    public void ANarrowPanelCutsTheCountsOffInsteadOfRunningThemUnderTheFreshness(double width)
+    {
+        var (staffRight, freshnessLeft, staffHeight, headingHeight, clipRight) = Draw(
+            Screen(OneHundredTwenty(), filters: new ListFilters(Name: "P1")),
+            root => HeadingEdges(root),
+            width: width);
+
+        // The text is longer than the room, so it runs past the cut; the cut itself stops at the freshness.
+        Assert.True(staffRight > freshnessLeft, $"Expected the counts to be too long, they end at {staffRight}.");
+        Assert.True(clipRight <= freshnessLeft, $"The cut is at {clipRight}, freshness starts at {freshnessLeft}.");
+        Assert.True(staffHeight <= headingHeight, "The counts wrapped onto a second line.");
+    }
+
+    [Fact]
+    public void TheChevronIsAtTheFarRightAfterTheFreshness()
+    {
+        var (freshnessRight, chevronLeft, chevronRight, headRight) = Draw(
+            Screen([Kai, Jo]),
             root =>
             {
-                var blocks = root.GetLogicalDescendants().OfType<TextBlock>().ToList();
-                var tally = blocks.First(t => t.Text is not null && t.Text.StartsWith("Staff (", StringComparison.Ordinal));
-                var freshness = blocks.First(t => t.Text == "up to date");
-                var heading = blocks.First(t => t.Text is not null && t.Text.StartsWith("Users (", StringComparison.Ordinal));
+                var freshness = root.GetLogicalDescendants().OfType<TextBlock>().First(t => t.Text == "up to date");
+                var end = (Control)freshness.GetLogicalParent()!;
+                var chevron = end.GetLogicalChildren().OfType<Viewbox>().Single();
+                var head = (Control)end.GetLogicalParent()!;
 
                 return (
-                    tally.TranslatePoint(new Point(tally.Bounds.Width, 0), root)!.Value.X,
-                    freshness.TranslatePoint(new Point(0, 0), root)!.Value.X,
-                    tally.Bounds.Height,
-                    heading.Bounds.Height);
+                    freshness.TranslatePoint(new Point(freshness.Bounds.Width, 0), root)!.Value.X,
+                    chevron.TranslatePoint(new Point(0, 0), root)!.Value.X,
+                    chevron.TranslatePoint(new Point(chevron.Bounds.Width, 0), root)!.Value.X,
+                    head.TranslatePoint(new Point(head.Bounds.Width, 0), root)!.Value.X);
             });
 
-        Assert.True(tallyRight <= freshnessLeft, $"Counts end at {tallyRight}, freshness starts at {freshnessLeft}.");
-        Assert.True(tallyHeight <= headingHeight, "The counts wrapped onto a second line.");
+        Assert.True(chevronLeft >= freshnessRight, $"Freshness ends at {freshnessRight}, chevron starts at {chevronLeft}.");
+        Assert.True(chevronRight >= headRight - 0.5, $"The chevron ends at {chevronRight}, the heading at {headRight}.");
+    }
+
+    [Fact]
+    public void WithNoFreshnessTheChevronIsStillAtTheFarRight()
+    {
+        var (chevronRight, headRight) = Draw(
+            Screen([Kai, Jo]) with { NotSynced = true },
+            root =>
+            {
+                var heading = root.GetLogicalDescendants().OfType<TextBlock>().First(t => t.Text == "Users (2)");
+                var head = (Control)((Control)heading.GetLogicalParent()!).GetLogicalParent()!;
+                var chevron = head.GetLogicalDescendants().OfType<Viewbox>().First();
+
+                return (
+                    chevron.TranslatePoint(new Point(chevron.Bounds.Width, 0), root)!.Value.X,
+                    head.TranslatePoint(new Point(head.Bounds.Width, 0), root)!.Value.X);
+            });
+
+        Assert.True(chevronRight >= headRight - 0.5, $"The chevron ends at {chevronRight}, the heading at {headRight}.");
+    }
+
+    /// <summary>Where the Staff part and the freshness sit, the heights of the Staff part and the Users part, and where the counts are cut off.</summary>
+    private static (double StaffRight, double FreshnessLeft, double StaffHeight, double HeadingHeight, double ClipRight) HeadingEdges(Control root)
+    {
+        var blocks = root.GetLogicalDescendants().OfType<TextBlock>().ToList();
+        var staff = blocks.First(t => t.Text is not null && t.Text.StartsWith("Staff (", StringComparison.Ordinal));
+        var freshness = blocks.First(t => t.Text == "up to date");
+        var heading = blocks.First(t => t.Text is not null && t.Text.StartsWith("Users (", StringComparison.Ordinal));
+        var counts = (Control)heading.GetLogicalParent()!;
+
+        return (
+            staff.TranslatePoint(new Point(staff.Bounds.Width, 0), root)!.Value.X,
+            freshness.TranslatePoint(new Point(0, 0), root)!.Value.X,
+            staff.Bounds.Height,
+            heading.Bounds.Height,
+            counts.TranslatePoint(new Point(counts.Bounds.Width, 0), root)!.Value.X);
     }
 
     [Fact]
