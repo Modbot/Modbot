@@ -96,6 +96,20 @@ public class PopUpsTests
     }
 
     [Fact]
+    public void ACardThatAsksIsKeptOnASmallerSurfaceAndPushesOutOnlyTheOthers()
+    {
+        var clock = new FakeClock();
+        var popUps = new PopUps(clock) { MostAtOnce = 6 };
+
+        popUps.Show(Made("ask") with { Ask = new PopUpAsk("Update", "Later") });
+        for (var i = 1; i <= 4; i++)
+            popUps.Show(Made("a" + i));
+
+        // Oldest on the stack, but the question stays among the three the smaller surface has room for.
+        Assert.Equal(["a4", "a3", "ask"], popUps.Current(popUps.Dwell, 3).Select(p => p.Id));
+    }
+
+    [Fact]
     public void OneCanBeTakenAwayEarly()
     {
         var clock = new FakeClock();
