@@ -102,6 +102,22 @@ public class PanelBarInputTests
         return (hits.Average(h => h.Item1), hits.Average(h => h.Item2));
     }
 
+    /// <summary>The first sample of a target, reading across the drawn frame from the top left: for the resize corner, its clear top left.</summary>
+    private static (float Across, float Down) FirstOf(Func<float, float, OverlayTarget?> at, Func<OverlayTarget?, bool> wanted)
+    {
+        for (var y = 0; y < 128; y++)
+        {
+            for (var x = 0; x < 128; x++)
+            {
+                var (across, down) = ((x + 0.5f) / 128f, (y + 0.5f) / 128f);
+                if (wanted(at(across, down)))
+                    return (across, down);
+            }
+        }
+
+        throw new InvalidOperationException("No such target on the panel.");
+    }
+
     private static HandState Pointing(Vector3 at, bool click = false, bool grab = false)
         => Hands.Hand(Hands.AimingAt(Vector3.Zero, at), grab: grab, click: click);
 
@@ -220,6 +236,67 @@ public class PanelBarInputTests
             Assert.Equal(OverlayAnchor.Head, host.Placement.Anchor);
             Assert.Equal(start.Offset.Y - 0.1f, host.Placement.Offset.Y, 2);
             Assert.Equal(OverlayAnchor.Head, saved[^1].Anchor);
+        });
+    }
+
+    [Fact]
+    public void ATriggerPressOnTheClearPartOfTheMainPanelsCornerStartsAResize()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var runtime = new AttachedRuntime();
+            using var host = new OverlayHost(runtime, new FakeSurface(MainSize), new AvaloniaFrameRenderer(MainSize, MainSize));
+            runtime.Start();
+            host.Start();
+            host.EditMode = true;
+            host.Update(Roster());
+
+            var (across, down) = FirstOf(host.TargetAt, t => t is OverlayTarget.ResizeCorner);
+            var start = host.Placement;
+            var spot = PointOn(start, across, down);
+
+            runtime.Tracking = Hands.RightOnly(Pointing(spot));
+            host.PollInput(TimeSpan.FromMilliseconds(0));
+            runtime.Tracking = Hands.RightOnly(Pointing(spot, click: true));
+            host.PollInput(TimeSpan.FromMilliseconds(33));
+
+            var dragged = PointOn(start, across + 0.1f, down + 0.1f);
+            runtime.Tracking = Hands.RightOnly(Pointing(dragged, click: true));
+            host.PollInput(TimeSpan.FromMilliseconds(66));
+
+            Assert.True(host.Placement.Wide > start.Wide, "The panel grew wider.");
+            Assert.True(host.Placement.Tall > start.Tall, "The panel grew taller.");
+        });
+    }
+
+    [Fact]
+    public void ATriggerPressOnTheClearPartOfThePopUpPanelsCornerStartsAResize()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var runtime = new AttachedRuntime();
+            using var host = new NotificationHost(
+                runtime, new FakeSurface(PopUpSize), new AvaloniaFrameRenderer(PopUpSize, PopUpSize), NotifyOverlaySettings.Default.ToPlacement());
+            runtime.Start();
+            host.Start();
+            host.EditMode = true;
+            host.Update(NotificationScreen.Empty);
+
+            var (across, down) = FirstOf(host.TargetAt, t => t is OverlayTarget.ResizeCorner);
+            var start = host.Placement;
+            var spot = PointOn(start, across, down);
+
+            runtime.Tracking = Hands.RightOnly(Pointing(spot));
+            host.PollInput(TimeSpan.FromMilliseconds(0));
+            runtime.Tracking = Hands.RightOnly(Pointing(spot, click: true));
+            host.PollInput(TimeSpan.FromMilliseconds(33));
+
+            var dragged = PointOn(start, across + 0.1f, down + 0.1f);
+            runtime.Tracking = Hands.RightOnly(Pointing(dragged, click: true));
+            host.PollInput(TimeSpan.FromMilliseconds(66));
+
+            Assert.True(host.Placement.Wide > start.Wide, "The panel grew wider.");
+            Assert.True(host.Placement.Tall > start.Tall, "The panel grew taller.");
         });
     }
 

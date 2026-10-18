@@ -165,7 +165,7 @@ public static class PanelFrame
         var column = new StackPanel
         {
             VerticalAlignment = VerticalAlignment.Top,
-            Children = { above, BarRow(bar, size, across, Math.Max(across, height), bar.Corner ? MainGrip : 0) },
+            Children = { above, BarRow(bar, size, across, Math.Max(across, height), bar.Corner ? MainGrip + size.Padding : 0) },
         };
 
         // Narrower than the square it sits in: the column is the rectangle, from the left.

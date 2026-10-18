@@ -167,9 +167,10 @@ public sealed class NotificationHost : IDisposable
         ShapeShare = NotifyOverlaySettings.BoxPixels / (float)NotifyOverlaySettings.PanelPixels,
 
         // A ray on the clear ground around the box is looking past the panel; the box counts whole
-        // while it can be moved, and the bar while it can be used.
+        // while it can be moved, and the bar and the clear resize corner while they can be used.
         IsDrawnAt = (across, down) =>
             (EditMode && TargetAt(across, down) is OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough)
+            || (EditMode && TargetAt(across, down) is OverlayTarget.ResizeCorner)
             || TargetAt(across, down) is OverlayTarget.PopUpBox
             || (_root is { } root && OverlayTargets.Drawn(root, new Point(across * Width, down * Height))),
     };
