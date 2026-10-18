@@ -286,7 +286,7 @@ public class VRChatPeopleRowsTests
     }
 
     /// <summary>Where the name ends, where the labels start and end and where the last one ends, and where the line ends.</summary>
-    private static (double NameRight, double NameWidth, double StripLeft, double StripRight, double LastLabelRight, double LineRight) NameLineEdges(Control root, string name)
+    private static (double NameRight, double NameWidth, double NaturalNameWidth, double StripLeft, double StripRight, double LastLabelRight, double LineRight) NameLineEdges(Control root, string name)
     {
         var words = root.GetLogicalDescendants().OfType<TextBlock>().First(t => t.Text == name);
         var line = (Control)words.GetLogicalParent()!;
@@ -295,10 +295,15 @@ public class VRChatPeopleRowsTests
 
         double X(Control c, double inside) => c.TranslatePoint(new Point(inside, 0), root)!.Value.X;
 
-        return (X(words, words.Bounds.Width), words.Bounds.Width, X(strip, 0), X(strip, strip.Bounds.Width), X(last, last.Bounds.Width), X(line, line.Bounds.Width));
+        // The same words on one line with all the room they want: what the name is when nothing trims it.
+        var untrimmed = new TextBlock { Text = name, FontSize = words.FontSize, FontFamily = words.FontFamily, FontWeight = words.FontWeight, TextWrapping = TextWrapping.NoWrap };
+        untrimmed.Measure(Size.Infinity);
+
+        return (X(words, words.Bounds.Width), words.Bounds.Width, untrimmed.DesiredSize.Width, X(strip, 0), X(strip, strip.Bounds.Width), X(last, last.Bounds.Width), X(line, line.Bounds.Width));
     }
 
     [Theory]
+    [InlineData(PanelWidth)]
     [InlineData(OverlayView.HeadsetDesignWidth)]
     [InlineData(800)]
     [InlineData(1000)]
@@ -320,7 +325,7 @@ public class VRChatPeopleRowsTests
 
         Assert.True(e.LastLabelRight <= e.StripRight + 0.5, $"The last label ends at {e.LastLabelRight}, the cut is at {e.StripRight}.");
         Assert.True(e.NameRight <= e.StripLeft + 0.5, $"The name ends at {e.NameRight}, the labels start at {e.StripLeft}.");
-        Assert.True(e.NameWidth < 80 * 10, $"The name is {e.NameWidth} wide: it was not trimmed.");
+        Assert.True(e.NameWidth < e.NaturalNameWidth - 1, $"The name is {e.NameWidth} wide of {e.NaturalNameWidth}: it was not trimmed.");
         Assert.True(e.NameWidth > 0);
     }
 
