@@ -14,7 +14,7 @@ namespace Modbot.Overlay.Tests.Interaction;
 /// </summary>
 public class PanelBarInputTests
 {
-    private const int MainSize = 256;
+    private const int MainSize = OverlayHost.DefaultResolution;
 
     private const int PopUpSize = NotifyOverlaySettings.PanelPixels;
 

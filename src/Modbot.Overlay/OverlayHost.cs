@@ -739,9 +739,13 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     public OverlayTarget? TargetAt(float across, float down)
         => _root is null ? null : OverlayTargets.At(_root, new Point(across * Width, down * Height));
 
-    /// <summary>Whether a ray at this point is on the panel: on something drawn, or on the bar while it can be used.</summary>
+    /// <summary>
+    /// Whether a ray at this point is on the panel: on something drawn, or on the bar or the resize
+    /// corner while they can be used (the corner is clear, so it is not drawn into the count).
+    /// </summary>
     private bool IsDrawnAt(float across, float down)
         => IsOnBar(across, down)
+            || IsOnCorner(across, down)
             || (_root is { } root && OverlayTargets.Drawn(root, new Point(across * Width, down * Height)));
 
     private bool IsOnBar(float across, float down)

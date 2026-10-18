@@ -195,36 +195,34 @@ public static class PanelFrame
             cursor);
     }
 
-    /// <summary>The resize corner on the main panel, in panel pixels: a little smaller than a bar button.</summary>
-    private const double MainGrip = 64;
+    /// <summary>The resize corner on the main panel, in panel pixels: bigger than a bar button.</summary>
+    private const double MainGrip = 128;
 
     /// <summary>The resize corner on the notification panel, in panel pixels.</summary>
-    private const double NotificationGrip = 26;
+    private const double NotificationGrip = 52;
 
     /// <summary>
-    /// The resize corner: a small round-cornered tile with two slanted strokes in it, the mark a
-    /// window's corner wears. Tagged so a trigger held on it can be told from a press anywhere else.
+    /// The resize corner: two thick, see-through slanted strokes, the mark a window's corner wears,
+    /// on nothing. The square around them is clear but still takes a press (a transparent brush, not
+    /// none, so the press finds it). Tagged so a trigger held on it can be told from a press anywhere else.
     /// </summary>
     private static Border Grip(double side) => new()
     {
         Tag = new OverlayTarget.ResizeCorner(),
         Width = side,
         Height = side,
-        Background = T.SurfaceBrush,
-        BorderBrush = T.Border2Brush,
-        BorderThickness = new Thickness(T.Density.Hairline),
-        CornerRadius = new CornerRadius(side / 4),
+        Background = Brushes.Transparent,
         Child = new Viewbox
         {
-            Width = side * 0.6,
-            Height = side * 0.6,
+            Width = side * 0.85,
+            Height = side * 0.85,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             Child = new Path
             {
-                Data = Geometry.Parse("M20,6 L6,20 M20,13 L13,20"),
-                Stroke = T.TextBrush,
-                StrokeThickness = 2.4,
+                Data = Geometry.Parse("M21,3 L3,21 M21,12 L12,21"),
+                Stroke = new SolidColorBrush(T.Palette.Text, 0.55),
+                StrokeThickness = 3.2,
                 StrokeLineCap = PenLineCap.Round,
                 Width = 24,
                 Height = 24,

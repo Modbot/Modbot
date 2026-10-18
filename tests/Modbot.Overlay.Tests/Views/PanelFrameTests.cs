@@ -278,6 +278,55 @@ public class PanelFrameTests
     }
 
     [Fact]
+    public void TheMainPanelsResizeCornerIsBigAndItsClearPartsAreStillTheCorner()
+    {
+        var (pixels, at, targets) = AvaloniaTestHost.Run(() =>
+        {
+            using var renderer = new AvaloniaFrameRenderer(Main, Main);
+            var root = PanelFrame.Main(OverlayView.Build(Roster(3)), new PanelBar(true, false, false, Corner: true), null, Main);
+            var drawn = renderer.Render(root).ToArray();
+            var found = OverlayTargets.Find(root);
+            var corner = found.Single(t => t.Target is OverlayTarget.ResizeCorner).Bounds;
+            var clear = new Point(corner.Left + 4, corner.Top + 4);
+            return (drawn, (Clear: clear, Target: OverlayTargets.At(root, clear), Seen: OverlayTargets.Drawn(root, clear)), found);
+        });
+
+        var corner = Bounds<OverlayTarget.ResizeCorner>(targets);
+        Assert.Equal(128, corner.Width, 1);
+        Assert.Equal(128, corner.Height, 1);
+        Assert.IsType<OverlayTarget.ResizeCorner>(at.Target);
+        Assert.Equal(0, Alpha(pixels, Main, at.Clear));
+        Assert.False(at.Seen, "The clear part is not drawn, so the host has to count the corner itself.");
+
+        var stroke = Alpha(pixels, Main, corner.Center);
+        Assert.InRange((int)stroke, 40, 220);
+    }
+
+    [Fact]
+    public void ThePopUpPanelsResizeCornerIsBigAndItsClearPartsAreStillTheCorner()
+    {
+        var (pixels, at, targets) = AvaloniaTestHost.Run(() =>
+        {
+            using var renderer = new AvaloniaFrameRenderer(PopUps, PopUps);
+            var root = PanelFrame.Notification(NotificationView.Build(NotificationScreen.Empty), new PanelBar(true, false, false, Corner: true), null, PopUps);
+            var drawn = renderer.Render(root).ToArray();
+            var found = OverlayTargets.Find(root);
+            var corner = found.Single(t => t.Target is OverlayTarget.ResizeCorner).Bounds;
+            var clear = new Point(corner.Left + 2, corner.Top + 2);
+            return (drawn, (Clear: clear, Target: OverlayTargets.At(root, clear)), found);
+        });
+
+        var corner = Bounds<OverlayTarget.ResizeCorner>(targets);
+        var box = Bounds<OverlayTarget.PopUpBox>(targets);
+        Assert.Equal(52, corner.Width, 1);
+        Assert.Equal(52, corner.Height, 1);
+        Assert.True(box.Contains(corner.TopLeft) && box.Contains(corner.BottomRight), "The corner fits the box.");
+        Assert.IsType<OverlayTarget.ResizeCorner>(at.Target);
+        Assert.Equal(0, Alpha(pixels, PopUps, at.Clear));
+        Assert.InRange((int)Alpha(pixels, PopUps, corner.Center), 40, 220);
+    }
+
+    [Fact]
     public void TheResizeCornerMovesNoCardsAndNoBar()
     {
         var (_, without) = Draw(() => PanelFrame.Main(OverlayView.Build(Roster(3)), new PanelBar(true, false, false), null, Main), Main);
