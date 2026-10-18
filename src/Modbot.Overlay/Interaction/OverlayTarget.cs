@@ -18,7 +18,7 @@ public abstract record OverlayTarget
     /// <summary>A roster row. Tapping it opens that person's card.</summary>
     public sealed record Person(string SubjectId) : OverlayTarget;
 
-    /// <summary>The open person card. Tapping it closes it.</summary>
+    /// <summary>The open person card's Back. Tapping it returns to the screen the person was opened from; the person stays open as a tab.</summary>
     public sealed record ClosePerson : OverlayTarget;
 
     /// <summary>The roster list. Scrolling while pointing here moves the list.</summary>

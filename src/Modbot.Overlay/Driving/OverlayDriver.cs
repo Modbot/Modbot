@@ -149,6 +149,9 @@ public sealed class OverlayDriver : IDisposable
     private int _rosterSkip;
     private OverlayPage _page = OverlayPage.Instance;
 
+    // The screen the open person was opened from, which Back goes to. The roster or the events list.
+    private OverlayPage _personFrom = OverlayPage.Instance;
+
     // What each list is cut down to. Kept apart, so neither list looks empty for a reason set on
     // the other, and gone with the instance.
     private ListFilters _rosterFilters = ListFilters.None;
@@ -297,6 +300,7 @@ public sealed class OverlayDriver : IDisposable
         _personWanted = null;
         _rosterSkip = 0;
         _page = OverlayPage.Instance;
+        _personFrom = OverlayPage.Instance;
         _rosterFilters = ListFilters.None;
         _eventFilters = ListFilters.None;
         _events.Clear();
@@ -521,8 +525,9 @@ public sealed class OverlayDriver : IDisposable
 
     /// <summary>
     /// A tap on the panel. The alert card dismisses, a tab shows that screen, a roster or event
-    /// row opens that person, Back returns to the roster, Refresh reads that person again, and
-    /// Save a clip asks the companion to keep the last few minutes.
+    /// row opens that person, Back returns to the screen the person was opened from (the person
+    /// stays open as a tab), Refresh reads that person again, and Save a clip asks the companion
+    /// to keep the last few minutes.
     /// </summary>
     public void Tap(OverlayTarget? target)
     {
@@ -547,9 +552,7 @@ public sealed class OverlayDriver : IDisposable
                 _ = OpenPersonAsync(open.SubjectId);
                 break;
             case OverlayTarget.ClosePerson:
-                _person = null;
-                _personWanted = null;
-                _page = OverlayPage.Instance;
+                _page = _personFrom;
                 break;
             case OverlayTarget.Filter or OverlayTarget.Pick or OverlayTarget.ClearFilters:
                 // A filter's choices and a heads-up being written share the space under the tabs.
@@ -789,6 +792,12 @@ public sealed class OverlayDriver : IDisposable
             return;
 
         _personWanted = subjectId;
+
+        // Back goes to wherever the person was opened from. Refresh opens again from the card
+        // itself, which is not a place to go back to.
+        if (_page is not OverlayPage.Person)
+            _personFrom = _page is OverlayPage.Events ? OverlayPage.Events : OverlayPage.Instance;
+
         _page = OverlayPage.Person;
 
         // A row still on the list for somebody who just left opens too: their row is what is known.

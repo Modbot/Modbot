@@ -141,8 +141,10 @@ Three, moved between by a row of tabs across the top of the panel:
   **Back** control.
 
 `OverlayScreen` carries `Page`, and `OverlayTarget.GoTo` is what a tab press means. Tapping a
-roster row still opens a person, and now also moves to the Person page; **Back** returns to
-Instance.
+roster row still opens a person, and now also moves to the Person page; **Back** returns to the
+screen the person was opened from (Instance, or Events when the person was opened from an event
+row) and leaves the person open, so their tab stays and can be switched back to (2026-10-17).
+Opening another person replaces it, and leaving the instance clears it.
 
 Above the tabs, on every screen, the panel says **whose community it is**: the group's icon and the
 group's name, once. It used to say the group's label three times — in the window's own strip, in
