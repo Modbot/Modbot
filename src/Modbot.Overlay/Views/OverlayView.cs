@@ -173,8 +173,9 @@ public sealed partial class OverlayView
         // With no server to speak for, and nothing of this PC's own log to list, the panel says
         // nothing: a card reading "not in a group instance" is a card in the moderator's face for
         // most of their VRChat time. The debug page can still ask for it, to see where the panel
-        // sits. (With a server paired, a public or private instance is not idle: it lists the
-        // people from the log and says it is not synced.)
+        // sits. (With a server paired, a public or private instance, or an instance of a group no
+        // paired server manages, is not idle: it lists the people from the log and says it is not
+        // synced.)
         //
         // Save a clip still shows there. The recorder runs wherever VRChat
         // does, so a moment worth keeping can happen in a public instance as easily as a group

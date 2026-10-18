@@ -95,7 +95,8 @@ public sealed partial class OverlayView
         }
         else if (screen.NotSynced)
         {
-            // Outside a group's instance the body's own heading says "Not in a group instance", so the
+            // Outside a managed group's instance the body's own heading says "Not in a group instance"
+            // (or "Another group's instance" for a group no paired server manages), so the
             // strip carries only the small tag that says the lists are not from the group.
             title.Children.Add(new Border
             {

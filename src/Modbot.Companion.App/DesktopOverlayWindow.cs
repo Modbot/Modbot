@@ -538,7 +538,8 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     /// <summary>
     /// The strip's words. In VRChat's look, a centred bold title: the group's name inside a group's
     /// instance, and anywhere else a small tag that says the lists are not synced with the group, with
-    /// no title at all, because the panel's own heading says "Not in a group instance" once. Otherwise
+    /// no title at all, because the panel's own heading says "Not in a group instance" (or "Another
+    /// group's instance") once. Otherwise
     /// today's words: the group's name, or what stands in for it.
     /// </summary>
     private void PaintTitle()

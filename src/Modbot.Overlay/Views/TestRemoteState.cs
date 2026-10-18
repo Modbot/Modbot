@@ -99,6 +99,7 @@ public static class TestRemoteState
             ["idle"] = screen.IsIdle,
             ["idleCard"] = screen.ShowIdleCard,
             ["notSynced"] = screen.NotSynced,
+            ["otherGroup"] = screen.OtherGroup,
             ["group"] = screen.GroupLabel,
             ["roster"] = screen.HereCount,
             ["events"] = screen.EventsOrNone.Count,

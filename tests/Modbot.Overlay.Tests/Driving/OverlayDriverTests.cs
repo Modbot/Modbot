@@ -596,18 +596,6 @@ public class OverlayDriverTests
     }
 
     [Fact]
-    public async Task AnInstanceOwnedByAGroupNoPairedServerManagesIsAlsoIdle()
-    {
-        var (driver, presenter, reads, _) = Build();
-
-        driver.EnteredInstance(Location(group: "grp_somebody_else"));
-        await driver.TickAsync(Ct);
-
-        Assert.Equal(0, reads.ContextCalls);
-        Assert.Null(presenter.Last.GroupLabel);
-    }
-
-    [Fact]
     public async Task TheOverlayFollowsTheModeratorBetweenGroups()
     {
         var clock = new FakeClock();
