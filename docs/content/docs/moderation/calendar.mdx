@@ -364,7 +364,7 @@ a copy keeps the places it had. **Schedule** names the places once, as described
 | **VRChat** | Puts the event on your group's [VRChat calendar](#vrchats-group-calendar). | [VRChat calendar](#vrchat-calendar), and [Open the instance](#open-the-instance) |
 | **Discord**, the event | Makes a [Discord event](#the-discord-event) in your server. | The [Discord picture](#the-discord-picture) |
 | **Discord**, the post | Posts a [card](#the-channel-post) in a channel. | [Discord channel post](#discord-channel-post) |
-| **Google** | Puts the event on your group's [Google calendar](#google-calendar). | **Visible to**, under [Where](#where) |
+| **Google Calendar** | Puts the event on your group's [Google calendar](#google-calendar). | The [Google Calendar](#google-calendar-settings-on-the-form) colour and **Show as**, and **Visible to**, under [Where](#where) |
 | **Bluesky** | [Posts each date on Bluesky](#bluesky) a set time before it starts. | [Bluesky](#bluesky-settings-on-the-form) |
 
 The [calendar feed](#the-calendar-feed) always lists the event and has no tab. Opening the instance
@@ -384,7 +384,7 @@ tabs lists what is missing and links to **Settings**:
 
 The **Discord post** also says **Not set up** until you pick a channel on the **Discord** tab.
 
-**Members only.** The **Google** tab says **Members only** for an event only your members may see:
+**Members only.** The **Google Calendar** tab says **Members only** for an event only your members may see:
 **Visible to** is **Group**, or VRChat shows the event only to some of your group's roles. Set
 **Visible to** to **Everyone** to send it. An event that was on Google keeps its place, and goes to
 Google again once everyone may see it.
@@ -396,7 +396,7 @@ be, and so does [Health](#on-health).
 ### The tabs
 
 The form has a **Shared info** tab, then one tab for each place that is set up: **VRChat**,
-**Discord**, **Google** and **Bluesky**. The Discord event and the Discord post share the
+**Discord**, **Google Calendar** and **Bluesky**. The Discord event and the Discord post share the
 **Discord** tab, one above the other; clicking in one makes it the one you are working on. A tab with
 a dot is a place the event goes to. The calendar feed has no tab; it uses the event's words. On a
 phone the row of tabs scrolls sideways. Saving works from any tab. When a save is stopped by a field
@@ -408,7 +408,7 @@ that field.
 | **Shared info** | The fill-ins and links, **Categories**, **When**, **Where**, and **Name** in a template. No title or description: each place has its own. |
 | **VRChat** | The event as VRChat shows it, then the [VRChat calendar](#vrchat-calendar) settings and [Open the instance](#open-the-instance). |
 | **Discord** | The Discord event and the Discord post, each the way Discord shows it, with the [Discord picture](#the-discord-picture) and the [Discord channel post](#discord-channel-post) settings. |
-| **Google** | The event as Google shows it. |
+| **Google Calendar** | The event as Google's own event popup shows it, then the [Google Calendar](#google-calendar-settings-on-the-form) settings. |
 | **Bluesky** | The post, then [Bluesky](#bluesky-settings-on-the-form)'s **Post it**. |
 
 **Typing into the picture.** A place's tab draws the event the way that place shows it, and the
@@ -437,11 +437,12 @@ are under the card too, and go where you last clicked.
 - **VRChat**: what is sent to VRChat: the title, time, repeat, category, who can see
   it, languages, platforms, tags, picture id, whether members are notified, and the description.
   VRChat may change some characters after it gets them.
-- **Google**: what goes on your Google calendar: the title, the time in the event's own
-  time zone, the repeat in words, the location, the calendar's name and the description with the
-  world's name and page under it. Links typed in Google's own description show as plain words here. A padlock beside the title means only the people the calendar is
-  shared with will see it, because **Check** found the calendar is not public, or shows the public
-  only free or busy.
+- **Google Calendar**: what goes on your Google calendar, drawn like Google's own event popup, in
+  the event's colour: the title and the description are boxes you type in, with the time in the
+  event's own time zone, the repeat in words, the location, the calendar's name and the world's name
+  and page under the description. Links typed in Google's own description show as plain words here. A padlock
+  line means only the people the calendar is shared with will see it, because **Check** found the
+  calendar is not public, or shows the public only free or busy.
 - **Bluesky**: the post for the event's next date in Bluesky's **New post** box: the text, the post's
   pictures, the video or the GIF with their alt text (or the link card when it has none of them), who can reply and the language, and a ring that counts down Bluesky's 300 characters.
 
@@ -460,7 +461,7 @@ There is no title or description on the **Shared info** tab. Each place has its 
 
 **What each place is sent.** A place with a title of its own is sent that. A place with none is sent the
 event's title, which is the first title typed: the places the event goes to first, in the order of
-the tabs (**VRChat**, **Discord**, **Google**, **Bluesky**), then the others. The same goes for the
+the tabs (**VRChat**, **Discord**, **Google Calendar**, **Bluesky**), then the others. The same goes for the
 description. An empty box shows those words muted, so you can see what that place will say. An
 event made before the form changed keeps its title and description; they show muted in any box that
 has no words of its own.
@@ -1294,6 +1295,8 @@ calendar's own public links, are on the [Google Calendar](/moderation/google-cal
 - The start and end, in the event's own time zone.
 - The repeat and its last date, as one Google event that repeats.
 - The world's name as the location, or **VRChat** with no world.
+- The event's colour, when you picked one, and whether it shows as **Busy** or **Free**. See
+  [Google Calendar settings on the form](#google-calendar-settings-on-the-form).
 
 No picture, no join link, nothing about Discord and nothing about your members. Nobody is invited or
 emailed, and no reminders are set: each person's own Google settings decide those.
@@ -1301,11 +1304,26 @@ emailed, and no reminders are set: each person's own Google settings decide thos
 An edit reaches Google about twenty seconds after your last change, so several quick fixes are one
 change there.
 
+### Google Calendar settings on the form
+
+The **Google Calendar** tab draws the event like Google's own event popup. The title and the
+description are typed straight into it, as described under
+[Title and description](#title-and-description). Under it are the event's own Google settings:
+
+| Setting | What it does |
+|---|---|
+| **Calendar** | The Google calendar the event goes to. It links to **Settings**, **Google Calendar**, in a new browser tab, if you may change settings. |
+| **Colour** | **Calendar default**, or one of Google's eleven event colours. The colour shows on the preview. |
+| **Show as** | **Busy** or **Free**. **Free** is the default: it is what Modbot has always sent, so an event you do not change stays as it is. A **Busy** event blocks the time for the people who can see the calendar's free or busy times. |
+
+A change reaches Google at the next sync, like any other edit. Whether people who follow the
+calendar see the colour is up to their Google settings.
+
 ### Members only
 
 An event only your members may see never goes to Google, whether Google is on or not: **Visible to** is
 **Group**, or VRChat shows the event only to some of your group's roles. A public Google calendar
-would show it to anyone. The **Google** tab says **Members only**. Change an event that is on Google to
+would show it to anyone. The **Google Calendar** tab says **Members only**. Change an event that is on Google to
 **Group**, and Modbot takes it off Google.
 
 ### Cancel, delete and finished events

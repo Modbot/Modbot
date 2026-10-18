@@ -95,7 +95,7 @@
   - The calendar id goes into the path, so it is escaped with `Uri.EscapeDataString`, which stops `../` tricks.
   - Use a named `HttpClient` with no redirects and no proxy.
 - **Cover picture.** `CalendarCoverPicture` is served only behind See calendar (`/api/calendar/covers/{id}`), and Google event attachments take Drive files only (fact 15). **No picture goes to Google.**
-- **Featured** is VRChat's. Google has no equivalent; a colour is the only stand-in (decision 8).
+- **Featured** is VRChat's. Google has no equivalent; a colour is the only stand-in (decision 8). Note 2026-10-17: Featured still gets no automatic colour; colour is an optional per-event choice, and Busy or Free is per event with Free the default.
 - **Who sees it.** `CalendarEvent.Visibility` (`group`/`public`) is shown only in the VRChat section of `CalendarEventForm.tsx`. `AccessType` (Who can join) is in "Where".
 - **Loops.** VRChat's `CalendarService` (15 s) moves states and writes VRChat. `CalendarDiscordService` (20 s) runs only while the bot is connected. Google gets its own Api-side hosted service, like `WebhookDeliveryService` in `ApiSurface.cs`, so it doesn't depend on either.
 - **Facts.** `modbot.calendar.publish.done/fail/remove` carry `place`; adding `googleCalendar` is enough. `factSentence.tsx` needs the label.
@@ -189,11 +189,11 @@ One pure function, `CalendarGoogle.Wants(event, settings)`, is used by the loop,
 | `start`/`end` | `dateTime` with offset, plus `timeZone` = the event's IANA zone |
 | `recurrence` | `RRULE:` + `CalendarFeedWriter.Rule(...)`, plus one `EXDATE;TZID=…:…` per cancelled date (the feed's §6 choice: a cancelled date is part of the repeat itself) |
 | `visibility` | `default`, or `private` under decision 1 B |
-| `transparency` | `transparent`, so the owner's own free/busy isn't blocked by group events |
+| `transparency` | `transparent` by default, so the owner's own free/busy isn't blocked by group events (changed 2026-10-17: per event, `google_show_as`, **free** by default = `transparent`, **busy** = `opaque`; existing events stay free) |
 | `reminders` | `{useDefault: true}`. Reminders are per user (fact 12), so Modbot sets none. |
 | `source` | `{title: group name, url: world page}` when there is a world |
 | `extendedProperties.private` | `{modbotEvent: "<guid>"}`, so a read-back can prove the event is Modbot's own |
-| `colorId` | none (decision 8) |
+| `colorId` | none unless the event has a colour (decision 8; changed 2026-10-17: colour is now an optional per-event choice from Google's event palette, `google_colour`, and the key is left out when none is picked) |
 | query | `sendUpdates=none`. There are no attendees ever. |
 
 **The fingerprint** covers: calendar id, id, summary, description, location, start, end, zone, recurrence lines, visibility. It leaves out the event's Open/Scheduled state and the instance, so a date opening costs no write.
