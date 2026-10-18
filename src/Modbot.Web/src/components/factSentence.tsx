@@ -5,7 +5,8 @@ import { TrustRankBadge } from '@/components/TrustRankBadge'
 import type { AuditEntry } from '@/lib/api'
 import { followLink } from '@/lib/router'
 import { openPersonVersion } from '@/lib/subject'
-import { avatarWorn, timeInInstance } from '@/lib/factDetails'
+import { titleOf } from '@/lib/calendar'
+import { avatarWorn,timeInInstance } from '@/lib/factDetails'
 import { dateTimeWithWeekday, duration, lengthOfTime, timeOfDay } from '@/lib/format'
 import { countReadings, withPlainNames } from '@/lib/groupDetails'
 import { vrchatMedia } from '@/lib/vrchatMedia'
@@ -536,7 +537,12 @@ function Quoted({ value }: { value: string | null }) {
   return value ? <> “{value}”</> : null
 }
 
-/** Who wrote a Bluesky post: "Name (@handle)", or whichever of the two Bluesky gave. */
+/** An event's title in quotes; a draft may have none, and the app calls that "Untitled event". */
+function QuotedEvent({ value }: { value: string | null }) {
+  return <> “{titleOf(value)}”</>
+}
+
+/** Who wrote a Bluesky post:"Name (@handle)", or whichever of the two Bluesky gave. */
 function blueskyAuthor(p: Parts): string {
   const name = p.text('displayName')
   const handle = p.text('handle')
@@ -1401,7 +1407,7 @@ const SENTENCES: Record<string, Sentence> = {
     if (p.text('on') === 'vrchat')
       return (
         <>
-          Modbot added the event<Quoted value={p.text('title')} /> from VRChat's calendar
+          Modbot added the event<QuotedEvent value={p.text('title')} /> from VRChat's calendar
           {starts ? <>, for {starts}</> : null}
           {repeats(p.entry.data)}.
         </>
@@ -1409,7 +1415,7 @@ const SENTENCES: Record<string, Sentence> = {
 
     return (
       <>
-        {p.actor} planned the event<Quoted value={p.text('title')} />
+        {p.actor} planned the event<QuotedEvent value={p.text('title')} />
         {starts ? <> for {starts}</> : null}
         {repeats(p.entry.data)}
         {p.text('state') === 'draft' ? ' as a draft' : null}.
@@ -1433,7 +1439,7 @@ const SENTENCES: Record<string, Sentence> = {
     if (p.text('on') === 'vrchat')
       return (
         <>
-          The event<Quoted value={p.text('title')} /> was changed on VRChat
+          The event<QuotedEvent value={p.text('title')} /> was changed on VRChat
           {fields.length > 0 ? <>: {fields.join('; ')}</> : null}.
         </>
       )
@@ -1441,11 +1447,11 @@ const SENTENCES: Record<string, Sentence> = {
     if (retimed && fields.length === 1 && !published) {
       return retimed.moved ? (
         <>
-          {p.actor} moved the event<Quoted value={p.text('title')} /> from {retimed.from} to {retimed.to}.
+          {p.actor} moved the event<QuotedEvent value={p.text('title')} /> from {retimed.from} to {retimed.to}.
         </>
       ) : (
         <>
-          {p.actor} changed when the event<Quoted value={p.text('title')} /> ends, from {retimed.from} to {retimed.to}.
+          {p.actor} changed when the event<QuotedEvent value={p.text('title')} /> ends, from {retimed.from} to {retimed.to}.
         </>
       )
     }
@@ -1453,7 +1459,7 @@ const SENTENCES: Record<string, Sentence> = {
     return (
       <>
         {p.actor} {published ? 'published the draft event' : 'changed the event'}
-        <Quoted value={p.text('title')} />
+        <QuotedEvent value={p.text('title')} />
         {fields.length > 0 ? <>: {fields.join('; ')}</> : null}
         {unrecorded ? ', in a part Modbot did not record then' : null}.
       </>
@@ -1462,7 +1468,7 @@ const SENTENCES: Record<string, Sentence> = {
 
   'modbot.calendar.event.cancel': (p) => (
     <>
-      {p.actor} cancelled the event<Quoted value={p.text('title')} />.
+      {p.actor} cancelled the event<QuotedEvent value={p.text('title')} />.
     </>
   ),
 
@@ -1471,7 +1477,7 @@ const SENTENCES: Record<string, Sentence> = {
     const starts = when(p.text('startsAt') ?? p.text('date'))
     return (
       <>
-        {p.actor} cancelled the event<Quoted value={p.text('title')} />
+        {p.actor} cancelled the event<QuotedEvent value={p.text('title')} />
         {starts ? <> on {starts}</> : ' on one date'}, leaving its other dates.
       </>
     )
@@ -1486,7 +1492,7 @@ const SENTENCES: Record<string, Sentence> = {
 
     return (
       <>
-        {p.actor} changed one date of the event<Quoted value={p.text('title')} />
+        {p.actor} changed one date of the event<QuotedEvent value={p.text('title')} />
         {retimed ? (retimed.moved ? <>, moving it from {retimed.from} to {retimed.to}</> : <>, its end from {retimed.from} to {retimed.to}</>) : starts ? <>, {starts}</> : null}
         {typeof renamed === 'string' ? <>, calling it<Quoted value={renamed} /></> : null}.
       </>
@@ -1496,11 +1502,11 @@ const SENTENCES: Record<string, Sentence> = {
   'modbot.calendar.event.delete': (p) =>
     p.text('on') === 'vrchat' ? (
       <>
-        The event<Quoted value={p.text('title')} /> was deleted on VRChat.
+        The event<QuotedEvent value={p.text('title')} /> was deleted on VRChat.
       </>
     ) : (
       <>
-        {p.actor} deleted the event<Quoted value={p.text('title')} />.
+        {p.actor} deleted the event<QuotedEvent value={p.text('title')} />.
       </>
     ),
 
@@ -1508,14 +1514,14 @@ const SENTENCES: Record<string, Sentence> = {
     const starts = when(p.text('occurrenceStartsAt'))
     return (
       <>
-        The event<Quoted value={p.text('title')} /> started{starts ? <> ({starts})</> : null}.
+        The event<QuotedEvent value={p.text('title')} /> started{starts ? <> ({starts})</> : null}.
       </>
     )
   },
 
   'modbot.calendar.event.finish': (p) => (
     <>
-      The event<Quoted value={p.text('title')} /> is over.
+      The event<QuotedEvent value={p.text('title')} /> is over.
     </>
   ),
 
@@ -1523,18 +1529,18 @@ const SENTENCES: Record<string, Sentence> = {
   'modbot.calendar.instance.open': (p) =>
     p.entry.data?.['byHand'] === true ? (
       <>
-        {p.actor} opened {p.place ?? 'an instance'} for the event<Quoted value={p.text('title')} />.
+        {p.actor} opened {p.place ?? 'an instance'} for the event<QuotedEvent value={p.text('title')} />.
       </>
     ) : (
       <>
-        Modbot opened {p.place ?? 'an instance'} for the event<Quoted value={p.text('title')} />.
+        Modbot opened {p.place ?? 'an instance'} for the event<QuotedEvent value={p.text('title')} />.
       </>
     ),
 
   'modbot.calendar.instance.fail': (p) => (
     <>
       Modbot could not open an instance{p.world ? <> of {p.world}</> : null} for the event
-      <Quoted value={p.text('title')} />
+      <QuotedEvent value={p.text('title')} />
       {p.text('error') ? <>: {p.text('error')}</> : null}.
     </>
   ),
@@ -1542,11 +1548,11 @@ const SENTENCES: Record<string, Sentence> = {
   'modbot.calendar.invite.send': (p) =>
     p.text('via') === 'discord' ? (
       <>
-        Modbot sent {p.subject} a Discord message inviting them to the event<Quoted value={p.text('title')} />.
+        Modbot sent {p.subject} a Discord message inviting them to the event<QuotedEvent value={p.text('title')} />.
       </>
     ) : (
       <>
-        Modbot invited {p.subject} to the event<Quoted value={p.text('title')} /> in VRChat.
+        Modbot invited {p.subject} to the event<QuotedEvent value={p.text('title')} /> in VRChat.
       </>
     ),
 
@@ -1567,7 +1573,7 @@ const SENTENCES: Record<string, Sentence> = {
 
   'modbot.calendar.invite.fail': (p) => (
     <>
-      Modbot could not invite {p.subject} to the event<Quoted value={p.text('title')} />
+      Modbot could not invite {p.subject} to the event<QuotedEvent value={p.text('title')} />
       {p.text('problem') ? <>: {p.text('problem')}</> : null}.
     </>
   ),
@@ -1577,25 +1583,25 @@ const SENTENCES: Record<string, Sentence> = {
   'modbot.calendar.publish.fail': (p) =>
     p.text('action') === 'check' ? (
       <>
-        Modbot held off adding<Quoted value={p.text('title')} /> to VRChat's calendar again, because it could not
+        Modbot held off adding<QuotedEvent value={p.text('title')} /> to VRChat's calendar again, because it could not
         check whether the first try went through{p.text('error') ? <>: {p.text('error')}</> : null}.
       </>
     ) : (
       <>
-        {publishFailure(p.text('place'), p.text('action'), <Quoted value={p.text('title')} />)}
+        {publishFailure(p.text('place'), p.text('action'), <QuotedEvent value={p.text('title')} />)}
         {p.text('error') ? <>: {p.text('error')}</> : null}.
       </>
     ),
 
-  'modbot.calendar.publish.done': (p) => <>{published(p.text('place'), <Quoted value={p.text('title')} />)}.</>,
+  'modbot.calendar.publish.done': (p) => <>{published(p.text('place'), <QuotedEvent value={p.text('title')} />)}.</>,
 
   // `was`: the place's state before. Only one that was published had anything to take down.
   'modbot.calendar.publish.remove': (p) =>
     p.text('was') === 'published' ? (
-      <>{takenDown(p.text('place'), <Quoted value={p.text('title')} />)}.</>
+      <>{takenDown(p.text('place'), <QuotedEvent value={p.text('title')} />)}.</>
     ) : (
       <>
-        Modbot stopped publishing<Quoted value={p.text('title')} /> {placeName(p.text('place'))}.
+        Modbot stopped publishing<QuotedEvent value={p.text('title')} /> {placeName(p.text('place'))}.
       </>
     ),
 
@@ -1603,7 +1609,7 @@ const SENTENCES: Record<string, Sentence> = {
   'modbot.calendar.picture.upload': (p) =>
     p.text('title') ? (
       <>
-        {p.actor} uploaded a picture to VRChat for<Quoted value={p.text('title')} />.
+        {p.actor} uploaded a picture to VRChat for<QuotedEvent value={p.text('title')} />.
       </>
     ) : (
       <>{p.actor} uploaded a picture to VRChat for a new event.</>
@@ -1632,7 +1638,7 @@ const SENTENCES: Record<string, Sentence> = {
     ].filter((part): part is string => part !== null)
     return (
       <>
-        Modbot alerted members about<Quoted value={p.text('title')} />
+        Modbot alerted members about<QuotedEvent value={p.text('title')} />
         {date ? <> on {date}</> : null}
         {parts.length > 0 ? <>: {parts.join(', ')}</> : null}.
       </>
@@ -1651,7 +1657,7 @@ const SENTENCES: Record<string, Sentence> = {
     if (p.text('kind') === 'game')
       return (
         <>
-          {p.actor} picked{world} from{list} as the next game at<Quoted value={p.text('title')} />
+          {p.actor} picked{world} from{list} as the next game at<QuotedEvent value={p.text('title')} />
           {typeof people === 'number' ? <>, for {people} {people === 1 ? 'person' : 'people'}</> : null}
           {instead}.
         </>
@@ -1659,7 +1665,7 @@ const SENTENCES: Record<string, Sentence> = {
 
     return (
       <>
-        {p.hasActor ? p.actor : 'Modbot'} picked{world} from{list} for the event<Quoted value={p.text('title')} />
+        {p.hasActor ? p.actor : 'Modbot'} picked{world} from{list} for the event<QuotedEvent value={p.text('title')} />
         {date ? <> on {date}</> : null}
         {instead}.
       </>

@@ -12,7 +12,7 @@ namespace Modbot.Api.Features.Chat.Tools;
 internal static class CalendarRows
 {
     /// <summary>A draft may have no title; the app calls it this wherever its title is shown.</summary>
-    private static string Named(string title) => string.IsNullOrWhiteSpace(title) ? "Untitled event" : title;
+    internal static string Named(string title) => string.IsNullOrWhiteSpace(title) ? "Untitled event" : title;
 
     public static object Row(CalendarEventView e) => new
     {
@@ -145,7 +145,7 @@ internal sealed class GetCalendarEventTool : ReadTool
             new
             {
                 eventId = view.Id,
-                view.Title,
+                Title = CalendarRows.Named(view.Title),
                 view.Description,
                 view.State,
                 view.StartsAt,
@@ -179,7 +179,7 @@ internal sealed class GetCalendarEventTool : ReadTool
             [
                 .. CalendarRows.References([view]),
                 .. view.Opening?.InstanceId is { } instance
-                    ? new[] { new ChatReference(ChatReference.Instance, instance.ToString(), view.Title) }
+                    ? new[] { new ChatReference(ChatReference.Instance, instance.ToString(), CalendarRows.Named(view.Title)) }
                     : [],
             ]);
     }

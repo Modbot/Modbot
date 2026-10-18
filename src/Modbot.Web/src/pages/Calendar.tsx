@@ -576,7 +576,7 @@ export function Calendar({ me }: { me: CurrentUser }) {
                   })
                 }
               >
-                <span>{d.title}</span>
+                <span>{titleOf(d.title)}</span>
               </button>
             ))}
           </div>
