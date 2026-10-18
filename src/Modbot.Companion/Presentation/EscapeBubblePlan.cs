@@ -23,7 +23,7 @@ public sealed record EscapeBubblePlan(EscapeBubbleMetrics Metrics, int ScreenX, 
     /// <summary>
     /// The bubble for what is known now, or null when there should be none: the desktop overlay is
     /// off, VRChat's window is not there or is minimised, its picture is too small to place
-    /// anything in, the panel would start past the picture's right edge, or the panel would be
+    /// anything in, the button is switched off in the settings, the panel would start past the picture's right edge, or the panel would be
     /// under <see cref="MinPanelHeight"/> pixels tall. VRChat does not have to be the window in front.
     /// </summary>
     /// <param name="overlayOn">The desktop overlay setting.</param>
@@ -32,15 +32,17 @@ public sealed record EscapeBubblePlan(EscapeBubbleMetrics Metrics, int ScreenX, 
     /// <param name="clientLeft">Where VRChat's picture starts across the desktop.</param>
     /// <param name="clientTop">Where VRChat's picture starts down the desktop.</param>
     /// <param name="shortcut">The overlay's shortcut as saved, such as <c>mod+alt+m</c>.</param>
+    /// <param name="buttonShown">The setting for showing the button in VRChat; off means no bubble, whatever else is true.</param>
     public static EscapeBubblePlan? For(
         bool overlayOn,
         bool overlayVisible,
         GameWindow window,
         int clientLeft,
         int clientTop,
-        string? shortcut)
+        string? shortcut,
+        bool buttonShown = true)
     {
-        if (!overlayOn || !window.HasPicture)
+        if (!overlayOn || !buttonShown || !window.HasPicture)
             return null;
 
         if (EscapeBubbleLayout.For(window.Width, window.Height) is not { } metrics)

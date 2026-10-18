@@ -230,6 +230,7 @@ the file:
 | `desktopOverlay.opacity` | `90` | 20 to 100. |
 | `desktopOverlay.locked` | `false` | The lock in its strip: the window cannot be dragged. |
 | `desktopOverlay.clickThrough` | `false` | The hand in its strip: clicks on the panel go to VRChat. |
+| `desktopOverlay.showButton` | `true` | Whether Modbot's button shows in VRChat's row of key hints. |
 | `desktopNotifyOverlay.on` | `true` on a new install, `false` if you already had a settings file | Whether notifications appear in a corner of your screen. See [Notification overlay on a monitor](#notification-overlay-on-a-monitor). |
 | `desktopNotifyOverlay.spot` | `bottomright` | Which corner: `topleft`, `topmiddle`, `topright`, `bottomleft`, `bottommiddle` or `bottomright`. |
 | `desktopNotifyOverlay.seconds` | `6` | How long one notification stays, 2 to 30. |
@@ -422,7 +423,8 @@ written for a key that prints a character.
   "shortcut": "mod+alt+m",
   "opacity": 90,
   "locked": false,
-  "clickThrough": false
+  "clickThrough": false,
+  "showButton": true
 }
 ```
 
@@ -436,6 +438,8 @@ row of key hints (see [The desktop overlay and its bubble](/companion/overlay#th
 To do that the client asks Windows where VRChat's window is, how big it is and whether it is
 minimised. It reads no pixels, no keys and nothing from inside VRChat's window, and nothing about it
 is sent anywhere.
+
+Untick **Show Modbot button in VRChat** on the **Desktop overlay** card to hide that bubble, on a monitor and in VR; the shortcut and the overlay keep working.
 
 VRChat in exclusive fullscreen will hide the window. Run VRChat in borderless windowed mode if you
 want the overlay over it.

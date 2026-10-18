@@ -108,6 +108,23 @@ public class DesktopOverlayFileTests : IDisposable
     }
 
     [Fact]
+    public void AnOlderFileWithoutTheButtonSettingReadsAsShown()
+    {
+        Write("""{ "desktopOverlay": { "on": true, "shortcut": "mod+alt+m", "opacity": 90, "locked": true } }""");
+
+        Assert.True(CompanionSettings.Load(Path_, NoEnvironment).DesktopOverlay.ShowButton);
+    }
+
+    [Fact]
+    public void TheButtonBeingOffIsKept()
+    {
+        var saved = new DesktopOverlaySettings(true, "mod+alt+m", 90, ShowButton: false);
+
+        Assert.True(CompanionSettings.SaveDesktopOverlay(Path_, saved));
+        Assert.False(CompanionSettings.Load(Path_, NoEnvironment).DesktopOverlay.ShowButton);
+    }
+
+    [Fact]
     public void AShortcutNobodyCouldRegisterIsNotWrittenToTheFile()
     {
         Assert.True(CompanionSettings.SaveDesktopOverlay(Path_, new DesktopOverlaySettings(true, "wibble", 90)));

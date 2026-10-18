@@ -327,6 +327,14 @@ bubble off or moved; until then the row above is the design, not the code. Readi
 A shortcut that cannot be read, or has no modifier while `onlyInVRChat` is off, still falls back to
 `mod+alt+m`.
 
+**Note (2026-10-17): the switch for the bubble now exists, as `desktopOverlay.showButton`, not
+`bubble`.** The Settings card's tick box "Show Modbot button in VRChat" sets it, on by default, and
+an old `settings.json` without the field reads as on. Off means `EscapeBubblePlan.For` returns
+null, so there is no bubble in VRChat's row; the shortcut and the overlay are untouched. One
+setting covers a monitor and VR alike, because the bubble sits on VRChat's window either way and
+the client cannot tell which mode VRChat is in. It takes effect at once, with no restart.
+`bubbleOffset` is still not built.
+
 ---
 
 ## 5. The default shortcut

@@ -141,7 +141,8 @@ public static class DesktopOverlayKeys
 /// <param name="Opacity">How solid the panel's background is, from 20 to 100.</param>
 /// <param name="Locked">The window cannot be dragged by its strip.</param>
 /// <param name="ClickThrough">Clicks on the panel go through to the game; the strip still answers.</param>
-public sealed record DesktopOverlaySettings(bool On, string Shortcut, int Opacity, bool Locked = false, bool ClickThrough = false)
+/// <param name="ShowButton">Modbot's button in VRChat's Esc row is drawn. On unless switched off; the shortcut works either way.</param>
+public sealed record DesktopOverlaySettings(bool On, string Shortcut, int Opacity, bool Locked = false, bool ClickThrough = false, bool ShowButton = true)
 {
     /// <summary>
     /// Ctrl+Alt+M. VRChat's desktop keys are bare letters and function keys, Windows keeps the

@@ -25,6 +25,7 @@ public sealed partial class MainWindow
     // one-second render loses the click or the drag on it.
     private readonly CheckBox _desktopOverlayOn = new();
     private readonly Button _desktopOverlayShortcut = Ui.Button("");
+    private readonly CheckBox _desktopOverlayShowButton = new();
 
     /// <summary>The button's own caption, so setting it keeps the button's styling.</summary>
     private readonly TextBlock _desktopOverlayShortcutText = Ui.Text(
@@ -61,6 +62,7 @@ public sealed partial class MainWindow
         _desktopOverlayWired = true;
 
         _desktopOverlayOn.Content = Ui.Text("Desktop overlay", Ui.T.Density.TextSmall, Ui.T.TextBrush);
+        _desktopOverlayShowButton.Content = Ui.Text("Show Modbot button in VRChat", Ui.T.Density.TextSmall, Ui.T.TextBrush);
         _desktopOverlayShortcut.Content = _desktopOverlayShortcutText;
         _desktopOverlayShortcut.MinWidth = 140;
         _desktopOverlayOpacityValue.VerticalAlignment = VerticalAlignment.Center;
@@ -68,6 +70,9 @@ public sealed partial class MainWindow
 
         _desktopOverlayOn.IsCheckedChanged += (_, _) => DesktopOverlayChanged(
             s => s with { On = _desktopOverlayOn.IsChecked == true });
+
+        _desktopOverlayShowButton.IsCheckedChanged += (_, _) => DesktopOverlayChanged(
+            s => s with { ShowButton = _desktopOverlayShowButton.IsChecked == true });
 
         _desktopOverlayOpacity.ValueChanged += (_, _) =>
         {
@@ -133,6 +138,7 @@ public sealed partial class MainWindow
         var desktop = _snapshot.DesktopOverlayOrNone;
 
         _desktopOverlayOn.IsChecked = desktop.Settings.On;
+        _desktopOverlayShowButton.IsChecked = desktop.Settings.ShowButton;
 
         if (!_desktopOverlayOpacity.IsPointerOver && !_desktopOverlayOpacity.IsFocused)
             _desktopOverlayOpacity.Value = DesktopOverlaySettings.ClampOpacity(desktop.Settings.Opacity);
@@ -147,6 +153,7 @@ public sealed partial class MainWindow
 
         _desktopOverlayOpacity.IsEnabled = desktop.Settings.On;
         _desktopOverlayShortcut.IsEnabled = desktop.Settings.On;
+        _desktopOverlayShowButton.IsEnabled = desktop.Settings.On;
         _desktopOverlayOpen.IsEnabled = desktop.Settings is { On: true } && !desktop.Showing;
     }
 
@@ -159,6 +166,7 @@ public sealed partial class MainWindow
                  {
                      _desktopOverlayOn,
                      _desktopOverlayShortcut,
+                     _desktopOverlayShowButton,
                      _desktopOverlayOpacity,
                      _desktopOverlayOpacityValue,
                      _desktopOverlayLine,
@@ -175,6 +183,7 @@ public sealed partial class MainWindow
             {
                 _desktopOverlayOn,
                 Ui.Field("Shortcut", _desktopOverlayShortcut),
+                _desktopOverlayShowButton,
                 Ui.Field("Opacity", new StackPanel
                 {
                     Orientation = Orientation.Horizontal,

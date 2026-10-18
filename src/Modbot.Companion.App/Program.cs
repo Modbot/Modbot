@@ -2885,6 +2885,8 @@ internal sealed partial class CompanionHost : IOverlayListener
                 _desktopOverlayShortcut?.Ask(desktopOverlay.ShortcutOrDefault);
                 _escapeBubbleHost?.SetShortcut(desktopOverlay.ShortcutOrDefault);
             }
+
+            _escapeBubbleHost?.SetButtonShown(desktopOverlay.ShowButton);
         }
 
         Render();
@@ -2931,7 +2933,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             // is the shortcut's own action, not a second copy of it.
             _escapeBubbleHost = new EscapeBubbleHost(() => _desktopOverlay?.IsVisible is true, ToggleDesktopOverlay);
             _escapeBubbleHost.Appeared += () => _escapeBubble?.Close();
-            _escapeBubbleHost.Start(settings.ShortcutOrDefault);
+            _escapeBubbleHost.Start(settings.ShortcutOrDefault, settings.ShowButton);
         }
         catch (Exception ex) when (PanelRetries.IsPanelFailure(ex))
         {

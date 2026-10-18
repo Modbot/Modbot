@@ -31,6 +31,7 @@ internal sealed class EscapeBubbleHost
     private nint _vrchat;
     private string _shortcut = DesktopOverlaySettings.DefaultShortcut;
     private bool _on;
+    private bool _buttonShown = true;
 
     /// <param name="overlayVisible">Whether the desktop overlay's window is up now.</param>
     /// <param name="toggle">What the shortcut does: opens the overlay, or closes it.</param>
@@ -71,11 +72,22 @@ internal sealed class EscapeBubbleHost
     public event Action? Appeared;
 
     /// <summary>The desktop overlay is on: look for VRChat from now on.</summary>
-    public void Start(string shortcut)
+    public void Start(string shortcut, bool buttonShown)
     {
         _on = true;
         _shortcut = shortcut;
+        _buttonShown = buttonShown;
         _watch.Start();
+        Refresh();
+    }
+
+    /// <summary>The "Show Modbot button in VRChat" setting was changed: the bubble goes or comes back at once.</summary>
+    public void SetButtonShown(bool buttonShown)
+    {
+        if (_buttonShown == buttonShown)
+            return;
+
+        _buttonShown = buttonShown;
         Refresh();
     }
 
@@ -103,7 +115,7 @@ internal sealed class EscapeBubbleHost
         var look = _on ? VRChatWindow.Look(_vrchat) : default;
         _vrchat = look.Handle;
 
-        var plan = EscapeBubblePlan.For(_on, _overlayVisible(), look.Window, look.Left, look.Top, _shortcut);
+        var plan = EscapeBubblePlan.For(_on, _overlayVisible(), look.Window, look.Left, look.Top, _shortcut, _buttonShown);
 
         if (plan is null)
         {

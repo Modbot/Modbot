@@ -21,6 +21,14 @@ public sealed class EscapeBubblePlanTests
         => Assert.Null(EscapeBubblePlan.For(false, false, Window(1920, 1080), 0, 0, Shortcut));
 
     [Fact]
+    public void WithTheButtonSwitchedOffThereIsNoBubbleEvenWithTheOverlayOnAndVRChatThere()
+        => Assert.Null(EscapeBubblePlan.For(true, true, Window(1920, 1080), 0, 0, Shortcut, buttonShown: false));
+
+    [Fact]
+    public void WithTheButtonSwitchedOnThereIsABubble()
+        => Assert.NotNull(EscapeBubblePlan.For(true, false, Window(1920, 1080), 0, 0, Shortcut, buttonShown: true));
+
+    [Fact]
     public void WithNoVRChatWindowThereIsNoBubble()
         => Assert.Null(EscapeBubblePlan.For(true, false, GameWindow.Missing, 0, 0, Shortcut));
 
