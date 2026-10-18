@@ -569,7 +569,7 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             return;
         }
 
-        _groupName.Text = _drawn is null ? string.Empty : group ?? "Not in a group instance";
+        _groupName.Text = _drawn is null ? string.Empty : group ?? _drawn.NoGroupWords;
         _groupName.IsVisible = true;
         _groupName.FontSize = Ui.T.Density.TextBase;
         _groupName.FontWeight = FontWeight.SemiBold;

@@ -73,6 +73,19 @@ public class PanelFrameTests
     }
 
     [Fact]
+    public void WithNothingToShowTheBarSitsAtTheFootByTheResizeCorner()
+    {
+        var (_, targets) = Draw(() => PanelFrame.Main(OverlayView.Build(OverlayScreen.Idle), new PanelBar(true, false, false, Corner: true), null, Main), Main);
+
+        var bar = Bounds<OverlayTarget.Bar>(targets);
+        var corner = Bounds<OverlayTarget.ResizeCorner>(targets);
+
+        Assert.True(bar.Bottom <= Main, "The bar is inside the texture.");
+        Assert.True(bar.Top > Main * 0.8, "The bar is at the foot of the panel, not collapsed to the top.");
+        Assert.True(corner.Top <= bar.Bottom && corner.Bottom >= bar.Top, "The bar is level with the corner.");
+    }
+
+    [Fact]
     public void ALongRosterStopsAboveTheBarAndTheBarStaysOnThePanel()
     {
         var (pixels, targets) = Draw(() => PanelFrame.Main(OverlayView.Build(Roster(60)), new PanelBar(true, false, false), null, Main), Main);

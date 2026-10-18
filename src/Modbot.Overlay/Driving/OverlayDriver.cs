@@ -59,12 +59,12 @@ public interface IOverlayListener
 /// <para><strong>The overlay follows the instance.</strong> With several servers paired, exactly
 /// one of them manages the instance the moderator is standing in, and that is the only one this
 /// loop reads a roster from, follows live, or shows. A moderator in a public, friends-only or
-/// private instance, which is most of anybody's VRChat use, gets lists made from this PC's own copy
-/// of VRChat's log and marked as not synced with the group. No roster or live read is made for it
-/// and nothing about that instance (its number or its world) is sent: the one request that can go
-/// to a server there is the profile read for a person the moderator taps, which names that person
-/// and nothing else. A moderator in a group instance no paired server manages, or with no server
-/// paired at all, sees the idle screen, and nothing is contacted.</para>
+/// private instance, which is most of anybody's VRChat use, or in an instance of a group no paired
+/// server manages, gets lists made from this PC's own copy of VRChat's log and marked as not synced
+/// with the group. No roster or live read is made for it and nothing about that instance (its
+/// number or its world) is sent: the one request that can go to a server there is the profile read
+/// for a person the moderator taps, which names that person and nothing else. A moderator with no
+/// server paired at all sees the idle screen, and nothing is contacted.</para>
 /// <para><strong>Nothing here can be commanded.</strong> Every request is client-initiated, and
 /// what comes back is data to display. There is no endpoint that tells this loop to do anything.</para>
 /// </remarks>
@@ -127,7 +127,7 @@ public sealed class OverlayDriver : IDisposable
     // What the live link has heard for the instance the moderator is in, newest first.
     private readonly List<LiveEvent> _events = [];
 
-    // Who joined, left or was already here in an instance no group owns, as this PC's own log
+    // Who joined, left or was already here in an instance no paired server manages, as this PC's own log
     // said, newest first. It is the Audit Log there, where no server has anything to say. Each is
     // tagged with its instance, because the log is read a moment before the driver is told which
     // instance the moderator is in. Held in memory only, and never sent.
@@ -135,7 +135,7 @@ public sealed class OverlayDriver : IDisposable
     private int _localEventNumber;
 
     // The server that managed the last group instance the moderator stood in this run. Where a
-    // person's card is asked for in an instance no group owns, so the answer is that group's own
+    // person's card is asked for in an instance no paired server manages, so the answer is that group's own
     // view of them. With none, the first paired server is asked.
     private Server? _lastGroupServer;
 
@@ -423,8 +423,8 @@ public sealed class OverlayDriver : IDisposable
 
     /// <summary>
     /// Takes what the log completed this turn. Who joined, left or was already here in an
-    /// instance no group owns becomes a row on the Audit Log there; everything else is ignored,
-    /// because a group instance's Audit Log comes from its server.
+    /// instance no paired server manages becomes a row on the Audit Log there; everything else is
+    /// ignored, because the Audit Log of an instance a paired server manages comes from that server.
     /// </summary>
     /// <remarks>
     /// <para>Made from what the log said and nothing a server did, and not sent anywhere. A change
@@ -439,7 +439,7 @@ public sealed class OverlayDriver : IDisposable
 
         foreach (var seen in observed)
         {
-            if (seen.Instance.IsGroupInstance)
+            if (seen.Instance.GroupId is { } groupId && Manages(groupId))
                 continue;
 
             var kind = seen.Kind switch
@@ -846,7 +846,7 @@ public sealed class OverlayDriver : IDisposable
     /// <remarks>
     /// One GET to the current server, for the one person tapped, with the device token; the
     /// answer is shown and kept only while the card is open. Nothing is asked about anyone who
-    /// was not tapped. In an instance no group owns the server is the one that managed the last
+    /// was not tapped. In an instance no paired server manages the server is the one that managed the last
     /// group instance this run, or the first paired one (<see cref="SyncServer"/>); the request
     /// names the person only, never the instance the moderator is in.
     /// </remarks>
@@ -902,9 +902,8 @@ public sealed class OverlayDriver : IDisposable
     /// <remarks>
     /// Null when they are in a public, friends-only or private instance, which is most of anybody's
     /// VRChat use, and null when the group is one no paired server manages. Nothing is read from
-    /// any server for the instance in either case. In a public, friends-only or private one the
-    /// panel lists the people from this PC's log and says it is not synced; in a group no paired
-    /// server manages it is idle.
+    /// any server for the instance in either case. The panel lists the people from this PC's log
+    /// and says it is not synced.
     /// </remarks>
     public ServerPairing? CurrentServer => Current()?.Pairing;
 
@@ -958,8 +957,9 @@ public sealed class OverlayDriver : IDisposable
 
             ExpireAlert();
 
-            // A public, friends-only or private instance, with a server to look people up on: the
-            // lists come from this PC's own log, and the panel says it is not synced.
+            // A public, friends-only or private instance, or one of a group no paired server
+            // manages, with a server to look people up on: the lists come from this PC's own log,
+            // and the panel says it is not synced.
             if (NotSynced)
                 return new OverlayTick(Presenter.Update(BuildNotSynced()), false, false);
 
@@ -1014,15 +1014,21 @@ public sealed class OverlayDriver : IDisposable
             : null;
 
     /// <summary>
-    /// Whether the moderator is in an instance no group owns, with a paired server to look people
-    /// up on. The overlay then lists the people from this PC's log (<see cref="BuildNotSynced"/>).
+    /// Whether the moderator is in an instance no paired server manages (no group owns it, or its
+    /// group is one no paired server manages), with a paired server to look people up on. The
+    /// overlay then lists the people from this PC's log (<see cref="BuildNotSynced"/>).
     /// </summary>
     /// <remarks>
-    /// A group's instance that no paired server manages is not this: it is somebody else's group,
-    /// and the panel stays idle for it as it always has. With no server paired there is nothing to
-    /// look people up on, so that is idle too.
+    /// An instance of a group no paired server manages is treated exactly like one no group owns;
+    /// the panel used to stay idle for it, as somebody else's group, and that was dropped because
+    /// it left the panel blank. With no server paired there is nothing to look people up on, so
+    /// that is idle.
     /// </remarks>
-    private bool NotSynced => _instance is { GroupId: null } && SyncServer() is not null;
+    private bool NotSynced => _instance is not null && Current() is null && SyncServer() is not null;
+
+    /// <summary>Whether a paired server manages this group.</summary>
+    private bool Manages(string groupId)
+        => _servers.Any(s => string.Equals(s.Pairing.ManagedGroupId, groupId, StringComparison.Ordinal));
 
     /// <summary>
     /// The server a person's card is asked of when no group owns the instance: the one that managed
@@ -1430,6 +1436,7 @@ public sealed class OverlayDriver : IDisposable
             CanPlaceHeadsUps: false,
             Left: _leavers.Current(),
             NotSynced: true,
+            OtherGroup: _instance.IsGroupInstance,
             ModeratorArrived: ModeratorArrived(),
             ModeratorId: ModeratorId);
     }

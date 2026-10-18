@@ -20,10 +20,10 @@ not want it, [turn it off](#turning-it-off).
   it is started. Start them in either order.
 - **A paired server** for the group whose instance you are in.
 - **You in one of that group's instances** for the group's roster, flags and alerts. In a public,
-  friends-only or private instance the panel still lists the people from your own copy of VRChat's
-  log (see [Outside group instances](#outside-group-instances)). With no server paired, or in a
-  group instance none of your servers manages, the panel is blank (see [Idle screen](#idle-screen))
-  and no server is contacted.
+  friends-only or private instance, or in a group instance none of your servers manages, the panel
+  still lists the people from your own copy of VRChat's log (see
+  [Outside group instances](#outside-group-instances)). With no server paired, the panel is blank
+  (see [Idle screen](#idle-screen)) and no server is contacted.
 
 Without SteamVR, or without a headset, the client simply runs without an overlay and keeps
 reporting presence as normal. The overlay never stops the rest of the client from working: if it
@@ -244,10 +244,11 @@ there is no control at all.
 
 ### Outside group instances
 
-In a public, friends-only or private instance the group's server knows nothing about the room, so
-the panel works from your own copy of VRChat's log instead. It says **Not in a group instance**
-across the top and **Not synced with the group** under it, and there are no rank, flags or heads-up
-**+** on it, because those come from the group:
+In a public, friends-only or private instance, or in an instance of a group none of your servers
+manages, no server of yours knows anything about the room, so the panel works from your own copy of
+VRChat's log instead. It says **Not in a group instance** across the top (**Another group's
+instance** for a group none of your servers manages) and **Not synced with the group** under it, and
+there are no rank, flags or heads-up **+** on it, because those come from the group:
 
 - **Instance** lists the people the log says are here, with how long each has been here, and keeps
   the **Left** rows for a minute as above.
@@ -264,8 +265,8 @@ been in any.
 ### Idle screen
 
 When there is nothing to show, the panel shows nothing at all, and the client contacts no server
-for it. That is when you are not in any instance yet, when VRChat's log has stopped, when you are in
-a group instance none of your paired servers manages, and when no server is paired. The **idle**
+for it. That is when you are not in any instance yet, when VRChat's log has stopped, and when no
+server is paired. The **idle**
 sample on the [debug page](/companion/settings#debug-mode) draws a card reading **Not in a group
 instance** in the panel's place, so you can see where it sits. The panel draws the same card by
 itself for 5 seconds after you press

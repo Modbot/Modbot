@@ -66,6 +66,16 @@ public class NotSyncedViewTests
     }
 
     [Fact]
+    public void InAnotherGroupsInstanceTheHeadingSaysSo()
+    {
+        var texts = Texts(Screen(notSynced: true) with { OtherGroup = true });
+
+        Assert.Single(texts, "Not synced with the group");
+        Assert.Contains("Another group's instance", texts);
+        Assert.DoesNotContain("Not in a group instance", texts);
+    }
+
+    [Fact]
     public void InVRChatsLookTheNoteIsATagInTheTitleStripAndNotOnThePanel()
     {
         // The window's strip draws the tag (DesktopOverlayWindow); the panel keeps the one heading.

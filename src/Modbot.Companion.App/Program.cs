@@ -1934,7 +1934,7 @@ internal sealed partial class CompanionHost : IOverlayListener
                 _clock,
                 () => _overlay?.CurrentServer is not null));
 
-        // What the log completes also fills the overlay's Audit Log in an instance no group owns,
+        // What the log completes also fills the overlay's Audit Log in an instance no paired server manages,
         // where no server has anything to say. Read only; nothing here is sent.
         _engine.Observed += observed => _overlay?.NoteObserved(observed);
 
@@ -3654,7 +3654,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             _overlay.PinsModeratorRow = _desktopOverlay?.PinsModeratorRow is true;
 
             // And who they are, by the name the log gave them: the Instance list in an instance
-            // no group owns, where no server has a roster to give. Never sent.
+            // no paired server manages, where no server has a roster to give. Never sent.
             _overlay.PeopleHere = _engine?.PeopleHere;
             await _overlay.TickAsync();
 
@@ -4192,7 +4192,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             _overlayAttachedAt,
             _overlayHost.FramesDrawn,
             _overlayLastDrewAt,
-            screen.GroupLabel ?? "Not in a group instance",
+            screen.GroupLabel ?? screen.NoGroupWords,
             screen.HereCount,
             roster.Describe(),
             screen.Alert is { } alert ? alert.DisplayName ?? alert.SubjectId : null,

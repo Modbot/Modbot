@@ -108,7 +108,12 @@ public enum OverlayPage
 /// <param name="NotSynced">
 /// The moderator is in a public, friends-only or private instance, and the lists are made from this
 /// PC's own copy of VRChat's log rather than from a server. The panel says so, draws no rank, flags
-/// or heads-up "+", and keeps the heads-up controls off. False in a group instance.
+/// or heads-up "+", and keeps the heads-up controls off. False in an instance of a group a paired
+/// server manages.
+/// </param>
+/// <param name="OtherGroup">
+/// With <paramref name="NotSynced"/>: the instance is a group's, one no paired server manages, and not a
+/// public, friends-only or private instance. Only the heading's words change (<see cref="NoGroupWords"/>).
 /// </param>
 /// <param name="ModeratorArrived">
 /// When the moderator got into this instance, from this PC's own copy of VRChat's log, or null when it
@@ -149,9 +154,16 @@ public sealed record OverlayScreen(
     int RosterListId = 0,
     int EventListId = 0,
     double? ScrollOffset = null,
-    TalkRow Talk = default)
+    TalkRow Talk = default,
+    bool OtherGroup = false)
 {
     private static readonly IReadOnlyDictionary<string, DateTimeOffset?> NoArrivals = new Dictionary<string, DateTimeOffset?>();
+
+    /// <summary>
+    /// What the heading says where there is no group's name to put there: that the instance is another
+    /// group's, or that it is no group's.
+    /// </summary>
+    public string NoGroupWords => OtherGroup ? "Another group's instance" : "Not in a group instance";
 
     /// <summary>What the live link has heard, never null.</summary>
     public IReadOnlyList<LiveEvent> EventsOrNone => Events ?? [];
@@ -240,6 +252,7 @@ public sealed record OverlayScreen(
             && Talk == other.Talk
             && ShowIdleCard == other.ShowIdleCard
             && NotSynced == other.NotSynced
+            && OtherGroup == other.OtherGroup
             && ModeratorArrived == other.ModeratorArrived
             && ModeratorId == other.ModeratorId
             && RosterSkip == other.RosterSkip

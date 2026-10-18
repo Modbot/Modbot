@@ -501,7 +501,7 @@ public sealed partial class OverlayView
         }
 
         var name = Text(
-            screen.GroupLabel ?? "Not in a group instance",
+            screen.GroupLabel ?? screen.NoGroupWords,
             size ?? T.Density.TextBase,
             screen.GroupLabel is null ? T.TextDimBrush : T.TextBrush,
             FontWeight.SemiBold);
@@ -579,7 +579,7 @@ public sealed partial class OverlayView
     private Control Heading(OverlayScreen screen)
     {
         // In the look's heading colour, as VRChat's own "Here" is, and not the colour of the names under it.
-        var words = Text(screen.GroupLabel ?? "Not in a group instance", HeadingSize, V!.Heading, FontWeight.Bold);
+        var words = Text(screen.GroupLabel ?? screen.NoGroupWords, HeadingSize, V!.Heading, FontWeight.Bold);
         words.LetterSpacing = 0.2;
         return words;
     }

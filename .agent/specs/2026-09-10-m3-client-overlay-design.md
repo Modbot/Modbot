@@ -466,7 +466,14 @@ manages, used to get the idle screen, and **no server was contacted at all**.
 > neither the instance id nor the world id is sent. The one thing that can reach a server there is
 > the person's card the moderator taps, asked for by the person's id alone, from the server that
 > managed the last group instance this run, or the first paired one. A group instance no paired
-> server manages, and a PC with no server paired, are still idle with nothing contacted.
+> server manages, and a PC with no server paired, were still idle with nothing contacted.
+>
+> **Reversed 2026-10-18 for a group instance no paired server manages.** The idle screen was meant
+> as "somebody else's group, nothing to say", but in the headset it showed zeros and then a blank
+> panel, which read as broken. Such an instance now behaves exactly like one no group owns: lists
+> from this PC's log, **Not synced with the group**, the Audit Log filled from the log, and nothing
+> about the instance sent (only a tapped person's card is asked of a server). A PC with no server
+> paired is still idle with nothing contacted.
 
 ---
 

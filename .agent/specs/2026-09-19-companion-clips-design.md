@@ -639,8 +639,9 @@ group one. It is only ever there because somebody switched Clips on themselves.
 
 > **Narrowed 2026-10-05.** With a server paired, a public, friends-only or private instance now shows
 > the Instance list from the log and the line "Not synced with the group", and Save a clip sits
-> under the tabs there like anywhere else (M3 design §5.5.2). The panel is still blank in a group
-> instance no paired server manages and with no server paired.
+> under the tabs there like anywhere else (M3 design §5.5.2). The panel was still blank in a group
+> instance no paired server manages, and still is with no server paired. **Narrowed again
+> 2026-10-18:** a group instance no paired server manages now shows the same as a public one.
 
 ### 11.2 No second keyboard shortcut
 

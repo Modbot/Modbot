@@ -112,6 +112,7 @@ public class OverlayDriverNotSyncedTests
         Assert.True(presenter.Last.NotSynced);
         Assert.False(presenter.Last.IsIdle);
         Assert.Null(presenter.Last.GroupLabel);
+        Assert.Equal("Not in a group instance", presenter.Last.NoGroupWords);
     }
 
     [Fact]
@@ -188,9 +189,66 @@ public class OverlayDriverNotSyncedTests
     }
 
     [Fact]
-    public async Task AGroupInstanceNoPairedServerManagesIsStillIdle()
+    public async Task AGroupInstanceNoPairedServerManagesListsFromTheLogAndSaysItIsNotSynced()
+    {
+        // Reverses the earlier rule that left this idle ("somebody else's group"): idle left the
+        // panel blank for a moderator standing in such an instance.
+        var (driver, presenter, _, _) = Build();
+        driver.PeopleHere = [Here("Jo"), Here("Kai")];
+
+        driver.EnteredInstance(Location(group: "grp_somebody_else"));
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(presenter.Last.NotSynced);
+        Assert.False(presenter.Last.IsIdle);
+        Assert.Null(presenter.Last.GroupLabel);
+        Assert.Equal("Another group's instance", presenter.Last.NoGroupWords);
+        Assert.Equal(["Jo", "Kai"], presenter.Last.Roster.Value!.Members.Select(m => m.DisplayName));
+        Assert.Null(driver.CurrentServer);
+    }
+
+    [Fact]
+    public async Task AGroupInstanceNoPairedServerManagesSendsNothingAboutTheInstance()
+    {
+        var (driver, presenter, reads, clock) = Build();
+        driver.PeopleHere = [Here("Jo")];
+
+        driver.EnteredInstance(Location(group: "grp_somebody_else"));
+        for (var i = 0; i < 4; i++)
+        {
+            await driver.TickAsync(TestContext.Current.CancellationToken);
+            clock.Advance(OverlayDriver.ContextRefreshInterval + TimeSpan.FromSeconds(1));
+        }
+
+        Assert.Equal(0, reads.ContextCalls);
+        Assert.Equal(0, reads.LiveCalls);
+        Assert.Empty(reads.Users);
+        Assert.False(presenter.Last.CanPlaceHeadsUps);
+    }
+
+    [Fact]
+    public async Task AGroupInstanceNoPairedServerManagesHasTheLogsAuditLog()
     {
         var (driver, presenter, _, _) = Build();
+        var elsewhere = Location("44444", "grp_somebody_else");
+        driver.EnteredInstance(elsewhere);
+
+        driver.NoteObserved(
+        [
+            Seen(PresenceKind.PresenceObserved, "Jo", elsewhere, minute: 1),
+            Seen(PresenceKind.Joined, "Kai", elsewhere, minute: 2),
+        ]);
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            [LiveEventKinds.PersonJoined, LiveEventKinds.PersonHere],
+            presenter.Last.EventsOrNone.Select(e => e.Kind));
+    }
+
+    [Fact]
+    public async Task WithNoServerPairedAGroupInstanceStaysIdle()
+    {
+        var (driver, presenter, reads, _) = Build(paired: false);
         driver.PeopleHere = [Here("Jo")];
 
         driver.EnteredInstance(Location(group: "grp_somebody_else"));
@@ -198,6 +256,24 @@ public class OverlayDriverNotSyncedTests
 
         Assert.True(presenter.Last.IsIdle);
         Assert.False(presenter.Last.NotSynced);
+        Assert.Equal(0, reads.ContextCalls);
+    }
+
+    [Fact]
+    public async Task TappingAPersonInAnUnmanagedGroupInstanceAsksTheirProfileOnly()
+    {
+        var (driver, presenter, reads, _) = Build();
+        driver.PeopleHere = [Here("Jo")];
+        driver.EnteredInstance(Location(group: "grp_somebody_else"));
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        driver.Tap(new OverlayTarget.Person("usr_Jo"));
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal([("cats", "usr_Jo")], reads.Users);
+        Assert.Equal(0, reads.ContextCalls);
+        Assert.Equal(0, reads.LiveCalls);
+        Assert.Equal(OverlayPage.Person, presenter.Last.Page);
     }
 
     [Fact]

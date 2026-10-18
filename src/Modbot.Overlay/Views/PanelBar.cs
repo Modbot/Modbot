@@ -163,7 +163,8 @@ public static class PanelFrame
     private const double MostHintLines = 3;
 
     /// <summary>
-    /// The main panel: its cards from the top, and the bar straight under the last of them.
+    /// The main panel: its cards from the top, and the bar straight under the last of them; with no
+    /// cards at all, the bar at the panel's foot by the resize corner.
     /// </summary>
     /// <param name="content">What <see cref="OverlayView.Build"/> made, without a cursor.</param>
     /// <param name="height">The panel's height in pixels: the texture's, or the texture's times how tall the panel has been made.</param>
@@ -179,9 +180,16 @@ public static class PanelFrame
         var size = BarFor(bar, Math.Max(across, height), OverlayPlacement.Default.Width);
         content.VerticalAlignment = VerticalAlignment.Top;
 
+        // Nothing to show (the idle screen is 0 tall): the bar would sit at the top of the panel
+        // while the resize corner sits at its foot. With no cards to be under, it goes to the foot
+        // by the corner. Any content leaves the bar straight under it.
+        content.Measure(new Size(across, double.PositiveInfinity));
+        var empty = content.DesiredSize.Height <= 0;
+
         var above = new Border
         {
             Background = Brushes.Transparent,
+            MinHeight = empty ? Math.Max(0, height - size.Row) : 0,
             MaxHeight = Math.Max(0, height - size.Row),
             ClipToBounds = true,
             Child = content,
