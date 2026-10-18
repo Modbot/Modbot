@@ -1235,8 +1235,8 @@ checks every field and answers 400 with `problems` (one sentence each, in the fo
 calendar and the last read of the group says the permission is missing, that comes first. **On its
 own it never refuses a save**: the read may be minutes old, a save never waits on VRChat (§9), and
 the event is still worth saving for Discord; the loop reads the group again before it refuses to
-send. The image id rule above is a save problem too, while VRChat calendar is ticked (the box is
-hidden otherwise, and a problem in a hidden box could not be fixed): text with no file id in it is
+send. Since 2026-10-17 the form has no typed id box (it has a Choose picture button), so the
+rest of this paragraph about the image id applies to API callers only. For them, the image id rule above is a save problem too, while VRChat calendar is ticked: text with no file id in it is
 refused with an example (§15.1), and an id the event already holds is refused only for what the
 check above refuses. With VRChat calendar unticked, what was typed is kept as it is (the id in it,
 when it has one) and never blocks the save. A changed value is checked when

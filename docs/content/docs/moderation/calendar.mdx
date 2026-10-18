@@ -717,7 +717,8 @@ For example:
   [VRChat calendar place](#when-vrchat-says-no) waits for the permission.
 - **An event needs a title.**
 - **VRChat's calendar needs a description.**
-- **The VRChat image id is not a VRChat file id.** It has a space in it, or it is a link to
+- **The VRChat image id is not a VRChat file id.** Only a program using the API can get this one,
+  because the form has no box to type an id into. It has a space in it, or it is a link to
   somewhere other than VRChat. See [The VRChat picture](#the-vrchat-picture).
 - **The end must be after the start.**
 - **An event can last at most 7 days.**
@@ -832,7 +833,8 @@ fix them all at once:
    the permission is missing, Modbot looks once more before saying so, so a permission you just gave
    is not missed;
 2. a title and a description;
-3. that the VRChat image id could be one (see [The VRChat picture](#the-vrchat-picture)).
+3. that the VRChat image id could be one (see [The VRChat picture](#the-vrchat-picture)); only an
+   event saved through the API can fail this, since the form has no box to type an id into.
 
 When any of these is wrong, nothing is sent to VRChat, so none of its strict limit is spent.
 
