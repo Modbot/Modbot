@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 using Modbot.Companion.Clips;
 using Modbot.Companion.Overlay;
 using Modbot.Overlay.Interaction;
@@ -336,7 +337,8 @@ public sealed partial class OverlayView
     internal sealed class CursorLayer : Panel
     {
         private const double Radius = 14;
-        private readonly PanelCursor _cursor;
+        private PanelCursor _cursor;
+        private Size _size;
 
         public CursorLayer(PanelCursor cursor)
         {
@@ -352,13 +354,41 @@ public sealed partial class OverlayView
             });
         }
 
+        /// <summary>
+        /// Where the ring is: set again on a laid-out panel to move it without building the panel again. The
+        /// ring is moved as a render transform, as <see cref="ScrollingList"/> moves its rows, because a
+        /// laid-out tree with no window over it is not arranged again for a change.
+        /// </summary>
+        public PanelCursor At
+        {
+            get => _cursor;
+            set
+            {
+                _cursor = value;
+                Place();
+                InvalidateVisual();
+            }
+        }
+
+        /// <summary>The ring a frame was made with (<see cref="PanelFrame"/> puts it beside the panel), or null when it has none.</summary>
+        public static CursorLayer? In(Visual root)
+            => root.GetVisualChildren().OfType<CursorLayer>().FirstOrDefault();
+
+        private void Place()
+        {
+            var x = (_cursor.Across * _size.Width) - Radius;
+            var y = (_cursor.Down * _size.Height) - Radius;
+            foreach (var child in Children)
+                child.RenderTransform = new TranslateTransform(x, y);
+        }
+
         protected override Size ArrangeOverride(Size finalSize)
         {
-            var x = (_cursor.Across * finalSize.Width) - Radius;
-            var y = (_cursor.Down * finalSize.Height) - Radius;
+            _size = finalSize;
             foreach (var child in Children)
-                child.Arrange(new Rect(x, y, Radius * 2, Radius * 2));
+                child.Arrange(new Rect(0, 0, Radius * 2, Radius * 2));
 
+            Place();
             return finalSize;
         }
     }

@@ -462,10 +462,21 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         // Picking the panel up and putting it down change which screen is drawn without changing
         // the screen itself, and so does the bar coming up or going, so nothing else would redraw
         // it. One frame for all of it, however many changed at once.
-        if (result.PlacementChanged || wasHolding != Holding || barWasUp != _rayOnPanel || hintsWere != _hints || cursor != _cursor)
+        if (result.PlacementChanged || wasHolding != Holding || barWasUp != _rayOnPanel || hintsWere != _hints)
         {
             _cursor = cursor;
             Draw();
+        }
+        else if (cursor != _cursor)
+        {
+            _cursor = cursor;
+
+            // A drag moves the ray every poll, and a whole new panel for each would not keep up with the
+            // headset: while a list is moving, the ring is moved on the panel that is already drawn.
+            if (scrolled || (_dragging && _dragOnList))
+                DrawScrolled();
+            else
+                Draw();
         }
         else if (scrolled)
         {
@@ -563,21 +574,35 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     private const double MostScrollStep = 0.1;
 
     /// <summary>
-    /// Draws the list where it has been scrolled to. The tree that drew the last frame is already laid out in
-    /// full, so only the list's offset is changed and the same tree drawn again; a panel with no such list
-    /// is drawn again from the screen.
+    /// Draws the list where it has been scrolled to, and the ring where the ray now is. The tree that drew the
+    /// last frame is already laid out in full, so only the list's offset and the ring are changed and the same
+    /// tree drawn again; a panel with no such list, or a ring that is there now and was not (or the other way
+    /// round), is drawn again from the screen.
     /// </summary>
     private void DrawScrolled()
     {
         if (_compositor is not null
             && _root is { } root
             && _drawn is { ScrollOffset: not null } drawn
-            && ScrollingList.In(root) is { } list)
+            && ScrollingList.In(root) is { } list
+            && (drawn.Cursor is null) == (_cursor is null))
         {
             var offset = ShownScroll.Offset;
 
             list.Offset = offset;
-            _drawn = drawn with { ScrollOffset = offset };
+
+            if (_cursor is { } cursor && drawn.Cursor != cursor)
+            {
+                if (OverlayView.CursorLayer.In(root) is not { } ring)
+                {
+                    Draw();
+                    return;
+                }
+
+                ring.At = cursor;
+            }
+
+            _drawn = drawn with { ScrollOffset = offset, Cursor = _cursor };
             _compositor.Invalidate();
 
             if (_compositor.DrawIfChanged(root))

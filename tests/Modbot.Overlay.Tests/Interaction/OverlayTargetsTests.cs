@@ -108,6 +108,34 @@ public class OverlayTargetsTests
     }
 
     [Fact]
+    public void ARowScrolledOutOfAListByPixelsCatchesNoTapOverTheChipsAboveIt()
+    {
+        (List<PlacedTarget> Rows, double ChipsBottom) Laid(double offset) => AvaloniaTestHost.Run(() =>
+        {
+            var screen = Screen() with
+            {
+                Roster = new Cached<InstanceContext>(Roster(30), Freshness.Fresh, TimeSpan.Zero),
+                ScrollOffset = offset,
+            };
+            var root = OverlayView.BuildForHeadset(screen, null, OverlayLook.Headset, 1024);
+            root.Measure(new Size(1024, 1024));
+            root.Arrange(new Rect(0, 0, 1024, 1024));
+
+            var found = OverlayTargets.Find(root);
+            return (
+                found.Where(t => t.Target is OverlayTarget.Person).OrderBy(t => t.Bounds.Top).ToList(),
+                found.Where(t => t.Target is OverlayTarget.Filter).Max(t => t.Bounds.Bottom));
+        });
+
+        var (atTop, _) = Laid(0);
+        var (scrolled, chipsBottom) = Laid(400);
+
+        Assert.NotEmpty(scrolled);
+        Assert.DoesNotContain(scrolled, row => row.Target == atTop[0].Target);
+        Assert.All(scrolled, row => Assert.True(row.Bounds.Top >= chipsBottom));
+    }
+
+    [Fact]
     public void APersonCardIsATargetThatCloses()
     {
         // The person is a screen of its own now, reached by tapping a row; the card carries Back
