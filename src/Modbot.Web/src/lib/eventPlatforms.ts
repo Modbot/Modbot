@@ -41,6 +41,11 @@ export function worldPictureRemoved(removedFor: string | null, worldId: string |
   return removedFor !== null && removedFor === worldId
 }
 
+/** What the Remove flag holds once the world picked is `worldId`: kept for the same world, cleared for another. */
+export function removedAfterPick(removedFor: string | null, worldId: string | null): string | null {
+  return worldPictureRemoved(removedFor, worldId) ? removedFor : null
+}
+
 /**
  * Whether Save uses the picked world's own picture as the VRChat picture: the event goes to VRChat,
  * has no picture, no crop waiting and no picture link (a link was a picture chosen, even if its crop

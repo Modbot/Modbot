@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { iconLayout, platformsFromWorld, platformsKey, usesWorldPicture, worldPictureLinks, worldPictureRemoved } from '../src/lib/eventPlatforms.ts'
+import { iconLayout, platformsFromWorld, platformsKey, removedAfterPick, usesWorldPicture, worldPictureLinks, worldPictureRemoved } from '../src/lib/eventPlatforms.ts'
 
 const OFFERED = ['standalonewindows', 'android', 'ios']
 
@@ -77,6 +77,10 @@ test('Remove on the picture stops the world picture for that world only', () => 
   assert.equal(worldPictureRemoved('wrld_1', 'wrld_1'), true)
   assert.equal(worldPictureRemoved('wrld_1', 'wrld_2'), false)
   assert.equal(worldPictureRemoved(null, null), false)
+  // Remove on A, pick B, pick A again: the flag was cleared at B, so A's picture is back on.
+  assert.equal(removedAfterPick('wrld_1', 'wrld_1'), 'wrld_1')
+  assert.equal(removedAfterPick('wrld_1', 'wrld_2'), null)
+  assert.equal(removedAfterPick(removedAfterPick('wrld_1', 'wrld_2'), 'wrld_1'), null)
 })
 
 test('the world picture is the full-size one, with the small one to fall back on', () => {

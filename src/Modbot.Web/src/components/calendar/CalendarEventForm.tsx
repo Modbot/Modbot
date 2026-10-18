@@ -71,7 +71,7 @@ import { BLUESKY_PICTURES_MAX, shownPictures, withoutPicture, withPictureChanged
 import { gifFromKlipy, gifWithAlt, hasGif, NO_GIF } from '@/lib/blueskyGif'
 import { hasVideo, NO_VIDEO, videoFileProblem, videoFromFile, videoFromLink, videoLinkProblem, videoWithAlt } from '@/lib/blueskyVideo'
 import { smallJpeg } from '@/lib/pictureFiles'
-import { platformsFromWorld, usesWorldPicture, worldPictureLinks, worldPictureRemoved } from '@/lib/eventPlatforms'
+import { platformsFromWorld, removedAfterPick, usesWorldPicture, worldPictureLinks, worldPictureRemoved } from '@/lib/eventPlatforms'
 import { useDiscordCover, useVRChatPicture, vrchatPictureAddress } from './useVRChatPicture'
 import { DiscordPictureField, VRChatPictureField } from './VRChatPictureField'
 import { FROM_LIST, listMissing, NO_WORLD, OTHER_WORLD, worldChoice } from '@/lib/calendarWorld'
@@ -350,6 +350,10 @@ export function CalendarEventForm({
   // opened with keeps the event's own ticks, and a world whose builds are not known yet ticks them
   // once they are.
   const tickedFor = useRef(input.worldId)
+  // Picking another world turns the world's picture back on (§15.5): the flag holds one world only.
+  useEffect(() => {
+    setWorldPictureRemovedFor((current) => removedAfterPick(current, input.worldId))
+  }, [input.worldId])
   const pickedPlatforms = pickedWorld?.platforms
   useEffect(() => {
     if (input.worldId === tickedFor.current) return
