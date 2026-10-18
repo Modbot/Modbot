@@ -190,7 +190,7 @@ public sealed partial class OverlayView
         // there are none: the whole list, the moderator's own card and the label too, is what moves.
         var skip = Scrolled ? 0 : Math.Clamp(screen.RosterSkip, 0, Math.Max(0, others.Count - 1));
         if (skip > 0)
-            rows.Children.Add(Text(skip == 1 ? "1 more above" : skip + " more above", T.Density.TextSmall, V!.Subtext));
+            rows.Children.Add(MoreAbove(skip, OverlayPage.Instance, V!.Subtext));
 
         foreach (var member in others.Skip(skip))
             rows.Children.Add(RowFor(member, false));

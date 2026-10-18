@@ -517,6 +517,8 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
                 // The list's own arrow: this panel's business too, the list goes back to its top.
                 case OverlayTarget.BackToTop:
+                    // A press that stopped a moving list is spent on the arrow, not kept for the next tap on the list.
+                    _swallowTap = false;
                     ShownScroll.Reset();
                     DrawScrolled();
                     break;
@@ -598,7 +600,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
             _dragging = false;
 
-            if (result.Pointer is { } pointer && result.Scroll.Y != 0f && IsListAt(pointer.Across, pointer.Down))
+            if (result.Pointer is { } pointer && result.Scroll.Y != 0f && IsListOrArrowAt(pointer.Across, pointer.Down))
             {
                 _stickScrolling = true;
                 scroll.Push(-result.Scroll.Y, seconds, max);
@@ -659,6 +661,13 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// <summary>Whether a point on the panel is on a list that scrolls: the roster, a row of it, or the events.</summary>
     private bool IsListAt(float across, float down)
         => TargetAt(across, down) is OverlayTarget.Roster or OverlayTarget.Person or OverlayTarget.Events;
+
+    /// <summary>
+    /// Whether the stick scrolls the list under a point: on the list, or on its back-to-top arrow, which floats over
+    /// the list. Not for a drag, which the arrow does not start.
+    /// </summary>
+    private bool IsListOrArrowAt(float across, float down)
+        => IsListAt(across, down) || TargetAt(across, down) is OverlayTarget.BackToTop;
 
     /// <summary>
     /// The hints for what a hand is doing to the panel, or none: a hand pointing at it shows how to

@@ -112,29 +112,21 @@ public sealed partial class OverlayView
     }
 
     /// <summary>
-    /// Where the desktop window scrolls by whole rows: puts the arrow back to the top on the "more above"
-    /// line, once rows have been scrolled past. Done on the rows as built, so the VRChat look's own line
-    /// (made in OverlayView.VRChatRows.cs) gets it too.
+    /// The line the desktop window puts at the top of a list it has scrolled by whole rows, counting the rows
+    /// scrolled past, with the arrow back to the top beside it. Every such line is made here, so none is
+    /// without the arrow.
     /// </summary>
-    private void AddBackToTop(Panel rows, OverlayPage list)
+    private Control MoreAbove(int skip, OverlayPage list, IBrush brush)
     {
-        for (var i = 0; i < rows.Children.Count; i++)
+        var words = Text(skip == 1 ? "1 more above" : skip + " more above", T.Density.TextSmall, brush);
+        words.VerticalAlignment = VerticalAlignment.Center;
+
+        return new StackPanel
         {
-            if (rows.Children[i] is not TextBlock { Text: { } words } line || !words.EndsWith(" more above", StringComparison.Ordinal))
-                continue;
-
-            line.VerticalAlignment = VerticalAlignment.Center;
-
-            // The line has to leave the rows before it can go into the new row.
-            rows.Children.RemoveAt(i);
-            rows.Children.Insert(i, new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 12,
-                Children = { line, BackToTop(list) },
-            });
-            return;
-        }
+            Orientation = Orientation.Horizontal,
+            Spacing = 12,
+            Children = { words, BackToTop(list) },
+        };
     }
 
     /// <summary>The tokens this screen is drawn in: the headset's, unless the desktop window asked for another look.</summary>
@@ -1051,10 +1043,7 @@ public sealed partial class OverlayView
             // Scrolled-past rows are counted, not hidden without a word.
             var skip = Math.Clamp(screen.EventSkip, 0, Math.Max(0, events.Count - 1));
             if (skip > 0)
-            {
-                rows.Children.Add(Text(skip == 1 ? "1 more above" : skip + " more above", T.Density.TextSmall, V?.Subtext ?? T.TextDimBrush));
-                AddBackToTop(rows, OverlayPage.Events);
-            }
+                rows.Children.Add(MoreAbove(skip, OverlayPage.Events, V?.Subtext ?? T.TextDimBrush));
 
             foreach (var @event in events.Skip(skip).Take(MostEventRows))
                 rows.Children.Add(EventRow(@event, screen));
@@ -1370,10 +1359,7 @@ public sealed partial class OverlayView
             // Scrolled-past rows are counted, not hidden without a word.
             var skip = Scrolled ? 0 : Math.Clamp(screen.RosterSkip, 0, Math.Max(0, shown.Count - 1));
             if (skip > 0)
-            {
-                rows.Children.Add(Text(skip == 1 ? "1 more above" : skip + " more above", T.Density.TextSmall, T.TextDimBrush));
-                AddBackToTop(rows, OverlayPage.Instance);
-            }
+                rows.Children.Add(MoreAbove(skip, OverlayPage.Instance, T.TextDimBrush));
 
             // How long each person has been here, from this PC's own log. Nothing when the log
             // never mentioned them, rather than a guess.
@@ -1392,10 +1378,6 @@ public sealed partial class OverlayView
                 list.Children.Add(RosterRow(member, joined, HeadsUpOn(screen.HeadsUpsOrNone, member.SubjectId), screen.CanPlaceHeadsUps));
             }
         }
-
-        // The VRChat look's own "more above" line is made in AddVRChatRoster; the arrow goes on it from here.
-        if (!Scrolled && V is not null && nobody is null)
-            AddBackToTop(rows, OverlayPage.Instance);
 
         Control body = Scrolled && list.Children.Count > 0 ? Scrolling(rows, list, OverlayPage.Instance) : rows;
 

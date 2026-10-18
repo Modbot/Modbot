@@ -334,6 +334,11 @@ public class OverlayHostInputTests
         host.PollInput(TimeSpan.FromMilliseconds(300));
         Assert.True(host.ListOffset > 0);
 
+        return FindArrow(host);
+    }
+
+    private static (float Across, float Down) FindArrow(OverlayHost host)
+    {
         // Sweep the panel for the arrow, using the host's own hit testing.
         for (var down = 0.02f; down < 1f; down += 0.01f)
         {
@@ -389,6 +394,74 @@ public class OverlayHostInputTests
 
             Assert.Equal(0, host.ListOffset);
             Assert.Empty(taps);
+        });
+    }
+
+    [Fact]
+    public void TheRightStickStillScrollsTheListWhileTheRayRestsOnTheArrow()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build(30);
+            var arrow = ScrollDownAndFindArrow(host, runtime);
+            var before = host.ListOffset;
+
+            for (var i = 0; i < 5; i++)
+            {
+                runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(arrow.Across, arrow.Down), scroll: new Vector2(0, -1)));
+                host.PollInput(TimeSpan.FromMilliseconds(400 + (10 * i)));
+            }
+
+            Assert.True(host.ListOffset > before);
+            Assert.True(host.Scrolling);
+        });
+    }
+
+    [Fact]
+    public void PressingTheArrowOnAMovingListLeavesTheNextTapOnTheListAlone()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build(30);
+            var taps = new List<OverlayTarget?>();
+            host.Tapped += taps.Add;
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(Centre)));
+            host.PollInput(TimeSpan.Zero);
+            var row = FindRow(host, "usr_1");
+
+            // Drag the list and let go at speed, so it is flinging.
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down), click: true));
+            host.PollInput(TimeSpan.FromMilliseconds(10));
+
+            for (var i = 1; i <= 5; i++)
+            {
+                runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down - (0.04f * i)), click: true));
+                host.PollInput(TimeSpan.FromMilliseconds(10 + (10 * i)));
+            }
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down - 0.2f)));
+            host.PollInput(TimeSpan.FromMilliseconds(70));
+            host.PollInput(TimeSpan.FromMilliseconds(100));
+            Assert.True(host.Scrolling);
+
+            var arrow = FindArrow(host);
+
+            // The press stops the fling and the arrow takes the list to the top.
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(arrow.Across, arrow.Down), click: true));
+            host.PollInput(TimeSpan.FromMilliseconds(110));
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(arrow.Across, arrow.Down)));
+            host.PollInput(TimeSpan.FromMilliseconds(120));
+            Assert.Equal(0, host.ListOffset);
+            Assert.Empty(taps);
+
+            // The next tap on a row is a tap.
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down), click: true));
+            host.PollInput(TimeSpan.FromMilliseconds(200));
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down)));
+            host.PollInput(TimeSpan.FromMilliseconds(250));
+
+            Assert.Equal([new OverlayTarget.Person("usr_1")], taps);
         });
     }
 
