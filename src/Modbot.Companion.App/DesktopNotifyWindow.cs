@@ -68,6 +68,7 @@ internal sealed class DesktopNotifyWindow : Window
     // What the mouse is on and lights up, by the same rule the headset's laser lights things by.
     private readonly Lit _lit = new();
     private OverlayTarget? _litTarget;
+    private Point? _mouse;
     private bool _styled;
 
     // Whether a click lands on this window at all: only while a card with buttons is up.
@@ -96,7 +97,11 @@ internal sealed class DesktopNotifyWindow : Window
         Content = _cards;
         _cards.PointerPressed += OnCardsPressed;
         _cards.PointerMoved += OnCardsMoved;
-        _cards.PointerExited += (_, _) => Light(null);
+        _cards.PointerExited += (_, _) =>
+        {
+            _mouse = null;
+            Light(null);
+        };
 
         // While clicks land on it, the style bit alone is not the only guard: a click is also
         // answered "do not activate" when Windows asks, so it can never take VRChat's focus.
@@ -142,7 +147,7 @@ internal sealed class DesktopNotifyWindow : Window
             if (!_drawn.IsEmpty)
             {
                 _cards.Content = Cards(_drawn);
-                ShowLit();
+                Relight();
                 Place();
             }
         }
@@ -193,7 +198,7 @@ internal sealed class DesktopNotifyWindow : Window
         }
 
         _cards.Content = Cards(screen);
-        ShowLit();
+        Relight();
         SetClickable(screen.PopUps.Any(p => p.Ask is not null));
 
         if (!IsVisible)
@@ -320,8 +325,29 @@ internal sealed class DesktopNotifyWindow : Window
         if (_cards.Content is not Visual root)
             return;
 
+        _mouse = e.GetPosition(_cards);
         var under = OverlayTargets.At(root, e.GetPosition(root));
         Light(Lit.Lights(under, editMode: true) ? under : null);
+    }
+
+    /// <summary>
+    /// After the cards are drawn again: lights what is under the mouse's last spot on the new tree,
+    /// after it is laid out, or nothing when the mouse is off the cards.
+    /// </summary>
+    private void Relight()
+    {
+        OverlayTarget? under = null;
+
+        if (_mouse is { } at && _cards.Content is Visual root)
+        {
+            _cards.UpdateLayout();
+
+            if (_cards.TranslatePoint(at, root) is { } inRoot)
+                under = OverlayTargets.At(root, inRoot);
+        }
+
+        _litTarget = Lit.Lights(under, editMode: true) ? under : null;
+        ShowLit();
     }
 
     /// <summary>Lights the button the mouse is on, or none, and puts the one before it back.</summary>

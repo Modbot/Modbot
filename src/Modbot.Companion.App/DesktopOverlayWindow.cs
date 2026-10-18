@@ -83,6 +83,7 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     // What the mouse is on and lights up, by the same rule the headset's laser lights things by.
     private readonly Lit _lit = new();
     private OverlayTarget? _litTarget;
+    private Point? _mouse;
     private readonly Image _groupIcon = new() { Width = IconSize, Height = IconSize, Stretch = Stretch.UniformToFill };
     private readonly Border _groupIconFrame;
     private readonly TextBlock _groupName = Ui.Text(
@@ -267,7 +268,11 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 
         _panel.PointerPressed += OnPanelPressed;
         _panel.PointerMoved += OnPanelMoved;
-        _panel.PointerExited += (_, _) => Light(null);
+        _panel.PointerExited += (_, _) =>
+        {
+            _mouse = null;
+            Light(null);
+        };
         // The wheel moves the roster or the Audit Log, the two lists the panel itself pages through,
         // the same way the J and K keys do. On the person card it is left to the window's own
         // scrolling, because taking it there would be a wheel that does nothing over a card that is
@@ -714,9 +719,9 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             ? OverlayView.Build(screen with { ShowIdleCard = true }, GroupIcon, _look)
             : OverlayView.Build(screen, GroupIcon, _look);
 
-        // A new tree is drawn unlit; the control under the mouse is lit again on it.
-        if (_panel.Content is Visual built)
-            _lit.Show(built, _litTarget, _look.Tokens);
+        // A new tree is drawn unlit, and what was under the mouse may have moved away from it
+        // (a scroll, new events): light what is under the mouse now.
+        Relight();
     }
 
     /// <summary>
@@ -1290,8 +1295,32 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         if (_panel.Content is not Visual root)
             return;
 
+        _mouse = e.GetPosition(_panel);
         var under = OverlayTargets.At(root, e.GetPosition(root));
         Light(Lit.Lights(under, editMode: true) ? under : null);
+    }
+
+    /// <summary>
+    /// Lights what is under the mouse's last spot on the tree just drawn, after it is laid out, or
+    /// nothing when the mouse is off the panel.
+    /// </summary>
+    private void Relight()
+    {
+        if (_panel.Content is not Visual root)
+            return;
+
+        OverlayTarget? under = null;
+
+        if (_mouse is { } at)
+        {
+            _panel.UpdateLayout();
+
+            if (_panel.TranslatePoint(at, root) is { } inRoot)
+                under = OverlayTargets.At(root, inRoot);
+        }
+
+        _litTarget = Lit.Lights(under, editMode: true) ? under : null;
+        _lit.Show(root, _litTarget, _look.Tokens);
     }
 
     /// <summary>Lights the control the mouse is on, or none, and puts the one before it back.</summary>

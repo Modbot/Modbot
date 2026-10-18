@@ -331,6 +331,22 @@ public class LitMainPanelTests
     }
 
     [Fact]
+    public void SwitchingEditModeOffPutsOutALitBarControl()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+            using var panel = host;
+
+            Point(host, runtime, Middle(host, t => t is OverlayTarget.Lock), 0);
+            Assert.IsType<OverlayTarget.Lock>(host.LitUp);
+
+            host.EditMode = false;
+            Assert.Null(host.LitUp);
+        });
+    }
+
+    [Fact]
     public void ARayMovingWithinOneControlCostsOnlyTheCursorsFrameAndAnotherControlCostsOne()
     {
         AvaloniaTestHost.Run(() =>

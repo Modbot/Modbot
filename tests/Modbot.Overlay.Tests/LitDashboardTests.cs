@@ -141,4 +141,23 @@ public class LitDashboardTests
             Assert.Equal(frames + 2, host.FramesDrawn);
         });
     }
+
+    [Fact]
+    public void LettingGoAwayFromTheTrackPutsItOut()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            using var host = Host();
+            host.Update(DashboardScreen.Default);
+
+            var track = host.Targets.First(p => p.Target is DashboardTarget.Track).Target;
+            var at = Middle(host, track);
+            Move(host, at);
+            host.Handle(new DashboardPointer(DashboardPointerKind.Down, at.X, at.Y));
+            Assert.Equal(track, host.LitUp);
+
+            host.Handle(new DashboardPointer(DashboardPointerKind.Up, 1, 1));
+            Assert.Null(host.LitUp);
+        });
+    }
 }

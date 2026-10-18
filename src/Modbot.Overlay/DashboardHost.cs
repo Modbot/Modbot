@@ -249,6 +249,9 @@ public sealed class DashboardHost : IDisposable
                 break;
             case DashboardPointerKind.Up:
                 _dragging = null;
+
+                // The laser may have left the track while it was held.
+                Light(TargetAt(pointer.X, pointer.Y)?.Target);
                 break;
             case DashboardPointerKind.Gone:
                 _dragging = null;

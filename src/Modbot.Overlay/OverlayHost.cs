@@ -146,6 +146,11 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
                 return;
 
             _editMode = value;
+
+            // The bar's controls are gone with edit mode; one lit a moment ago must not stay lit.
+            if (!Lit.Lights(_lit, _editMode))
+                _lit = null;
+
             Draw();
         }
     }
