@@ -60147,6 +60147,18 @@
               }
             ]
           },
+          "sentence": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "origin": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "factId": {
             "type": "integer",
             "format": "int64"
