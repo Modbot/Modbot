@@ -9,6 +9,7 @@ using Modbot.Companion.Listening;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Pairing;
 using Modbot.Companion.Sounds;
+using Modbot.Companion.Talk;
 using Modbot.Companion.Voice;
 
 namespace Modbot.Companion.Presentation;
@@ -238,6 +239,12 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public ListeningSettings Listening { get; init; } = ListeningSettings.Default;
 
     /// <summary>
+    /// Talk in Discord / Talk in VRChat: on or off, and the two keys pressed for Discord. Saved as
+    /// the <c>talk</c> object. Off and no keys unless the file says otherwise.
+    /// </summary>
+    public TalkSettings Talk { get; init; } = TalkSettings.Default;
+
+    /// <summary>
     /// my.modbot.co's redirect route, pointed at <c>/pair</c>: it picks one of the moderator's saved
     /// servers and opens that server's own pairing page.
     /// </summary>
@@ -288,6 +295,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public const string DesktopNotifyOverlayField = "desktopNotifyOverlay";
 
     public const string ListeningField = "listenForPhrase";
+
+    public const string TalkField = "talk";
 
     public static CompanionSettings Default { get; } = new(new Uri(DefaultPairingPage));
 
@@ -357,7 +366,33 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
                 shape?.DesktopNotifyOverlay,
                 shape is null ? DesktopNotifySettings.Default : DesktopNotifySettings.NotAskedFor),
             Listening = FromShape(shape?.Listening),
+            Talk = FromShape(shape?.Talk),
         };
+    }
+
+    private static TalkSettings FromShape(TalkShape? talk) => talk is null
+        ? TalkSettings.Default
+        : new TalkSettings(talk.On ?? false, talk.DiscordMuteKey, talk.DiscordDeafenKey).Cleaned();
+
+    /// <summary>
+    /// Writes the whole <c>talk</c> object, keeping every other field in the file. The same rules as
+    /// <see cref="SaveListening"/>: a file that cannot be read as JSON is left alone, and a key that
+    /// is not recorded is left out of the file rather than written as empty.
+    /// </summary>
+    public static bool SaveTalk(string path, TalkSettings talk)
+    {
+        ArgumentNullException.ThrowIfNull(talk);
+
+        var cleaned = talk.Cleaned();
+        var shape = new JsonObject { ["on"] = cleaned.On };
+
+        if (cleaned.DiscordMuteKey is not null)
+            shape["discordMuteKey"] = cleaned.DiscordMuteKey;
+
+        if (cleaned.DiscordDeafenKey is not null)
+            shape["discordDeafenKey"] = cleaned.DiscordDeafenKey;
+
+        return SaveField(path, TalkField, shape);
     }
 
     private static ListeningSettings FromShape(ListeningShape? listening) => listening is null
@@ -690,7 +725,13 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("overlayButtonStick")] string? OverlayButtonStick = null,
         [property: JsonPropertyName("overlayButtonDirection")] string? OverlayButtonDirection = null,
         [property: JsonPropertyName("overlayButtonHold")] int? OverlayButtonHold = null,
-        [property: JsonPropertyName("closeToTray")] bool? CloseToTray = null);
+        [property: JsonPropertyName("closeToTray")] bool? CloseToTray = null,
+        [property: JsonPropertyName("talk")] TalkShape? Talk = null);
+
+    private sealed record TalkShape(
+        [property: JsonPropertyName("on")] bool? On,
+        [property: JsonPropertyName("discordMuteKey")] string? DiscordMuteKey,
+        [property: JsonPropertyName("discordDeafenKey")] string? DiscordDeafenKey);
 
     private sealed record CloudShape(
         [property: JsonPropertyName("endpoint")] string? Endpoint,

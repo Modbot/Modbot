@@ -103,7 +103,8 @@ public static class DesktopOverlayKeys
     /// <summary>Whether a shortcut is one the client could ask the operating system for.</summary>
     public static bool CanBeUsed(string? shortcut) => Read(shortcut) is not null;
 
-    private static int? CodeFor(string key)
+    /// <summary>One key's virtual-key code. Also used by the Talk feature's recorded keys (<c>Talk/TalkKeys.cs</c>).</summary>
+    internal static int? CodeFor(string key)
     {
         if (key.Length == 1)
         {

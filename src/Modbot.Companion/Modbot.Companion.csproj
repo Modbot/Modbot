@@ -8,6 +8,9 @@
     <PackageReference Include="System.Security.Cryptography.ProtectedData" />
     <!-- Reads the bzip2 layer of the voice download (Voice/VoiceDownload.cs) and nothing else. -->
     <PackageReference Include="SharpZipLib" />
+    <!-- VRChat's OSCQuery, for Talk/VRChatOsc.cs and nothing else. Its sample web page and icon are
+         not shipped. -->
+    <PackageReference Include="VRChat.OSCQuery" ExcludeAssets="contentFiles" />
   </ItemGroup>
 
   <PropertyGroup>

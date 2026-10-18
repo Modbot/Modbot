@@ -8,6 +8,7 @@ using Modbot.Companion.Pairing;
 using Modbot.Companion.Pipeline;
 using Modbot.Companion.Sounds;
 using Modbot.Companion.Startup;
+using Modbot.Companion.Talk;
 using Modbot.Companion.Voice;
 using Modbot.Core.Time;
 
@@ -259,6 +260,12 @@ public sealed record CompanionAppSnapshot(
 
     /// <summary>The Push speed slider's value, 1 to 10.</summary>
     public int OverlayPushSpeed { get; init; } = CompanionSettings.DefaultPushSpeed;
+
+    /// <summary>Talk in Discord / Talk in VRChat: its switch and the two recorded keys, for the Settings page.</summary>
+    public TalkSettings Talk { get; init; } = TalkSettings.Default;
+
+    /// <summary>What went wrong with the Talk feature last, in one sentence, or null. Shown on the Settings card.</summary>
+    public string? TalkProblem { get; init; }
 
     /// <summary>The desktop overlay row, never null: <see cref="DesktopOverlayStatus.None"/> until the host has said.</summary>
     public DesktopOverlayStatus DesktopOverlayOrNone => DesktopOverlay ?? DesktopOverlayStatus.None;
@@ -558,8 +565,13 @@ public sealed class CompanionAppState
             OverlayButtonPlace = Settings.OverlayButtonPlace,
             OverlayButtonOn = Settings.OverlayButtonOn,
             OverlayButtonShortcut = Settings.OverlayButtonShortcut,
+            Talk = Settings.Talk,
+            TalkProblem = TalkProblem,
         };
     }
+
+    /// <summary>What went wrong with the Talk feature last, or null. Set by the host from the controller's readout.</summary>
+    public string? TalkProblem { get; set; }
 
     private IEnumerable<CompanionWarning> Warnings(LogHealthStatus logStatus)
     {

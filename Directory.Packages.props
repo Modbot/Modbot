@@ -99,6 +99,10 @@
     <PackageVersion Include="Silk.NET.OpenAL.Soft.Native" Version="1.23.1" />
     <!-- The voice is published as one .tar.bz2; .NET reads tar itself and this (MIT) reads bzip2. -->
     <PackageVersion Include="SharpZipLib" Version="1.4.2" />
+    <!-- Talk in Discord / Talk in VRChat (design spec 2026-10-17): OSCQuery, so the companion can be
+         told VRChat's mute state without taking UDP 9001 from every other OSC program. VRChat's own
+         library (MIT); last released August 2023, which the spec says out loud. -->
+    <PackageVersion Include="VRChat.OSCQuery" Version="0.0.6" />
     <PackageVersion Include="Serilog.Sinks.Seq" Version="9.1.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.15.0" />
     <!-- A nightly, and the only prerelease pinned here. It is the regeneration against API
