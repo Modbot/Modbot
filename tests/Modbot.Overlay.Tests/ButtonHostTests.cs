@@ -53,13 +53,13 @@ public class ButtonHostTests
 
         public bool Submit(IOverlaySurface surface) => true;
 
-        public void Show()
-        {
-        }
+        public int Shows { get; private set; }
 
-        public void Hide()
-        {
-        }
+        public int Hides { get; private set; }
+
+        public void Show() => Shows++;
+
+        public void Hide() => Hides++;
 
         public OverlayTracking ReadTracking() => Tracking;
 
@@ -524,6 +524,67 @@ public class ButtonHostTests
     private static readonly Vector2 PulledBack = new(0f, -1f);
 
     private static TimeSpan At(double seconds) => TimeSpan.FromSeconds(seconds);
+
+    [Fact]
+    public void AButtonSwitchedOffIsNotThereForARayOrAGripButTheShortcutStillWorks()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+            using var button = host;
+            var held = 0;
+            var pressed = 0;
+            host.ShortcutHeld += () => held++;
+            host.Pressed += () => pressed++;
+            var spot = host.Placement;
+
+            host.Shown = false;
+
+            Assert.Equal(1, runtime.Hides);
+
+            // A grip and a click on the spot where it was: nothing takes hold, nothing is pressed.
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host), grab: true, click: true));
+            host.PollInput(At(0));
+            Assert.Null(host.Holding);
+            Assert.Null(host.Busy);
+            Assert.Equal(spot, host.Placement);
+            Assert.Equal(0, pressed);
+
+            // The shortcut, held for its time, still fires once.
+            runtime.Tracking = Sticks(Vector2.Zero, PulledBack);
+            host.PollInput(At(1));
+            host.PollInput(At(3));
+            Assert.Equal(0, held);
+            host.PollInput(At(6.5));
+            Assert.Equal(1, held);
+
+            // Switched on again: back, drawn, at the same spot.
+            host.Shown = true;
+            Assert.Equal(1, runtime.Shows);
+            Assert.Equal(spot, host.Placement);
+        });
+    }
+
+    [Fact]
+    public void AButtonStartedWhileSwitchedOffStaysDownAndMakesNoTexture()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var runtime = new AttachedRuntime();
+            using var host = new ButtonHost(runtime, () => new AvaloniaFrameRenderer(Size, Size), () => new FakeSurface());
+            host.Shown = false;
+
+            host.Start();
+
+            Assert.Equal(1, runtime.Hides);
+            Assert.False(host.IsDrawing);
+
+            host.Shown = true;
+
+            Assert.Equal(1, runtime.Shows);
+            Assert.True(host.IsDrawing);
+        });
+    }
 
     [Fact]
     public void TheRightStickHeldBackForFiveSecondsRaisesTheShortcutOnceAndCountsDownOnTheFace()

@@ -2169,13 +2169,14 @@ internal sealed partial class CompanionHost : IOverlayListener
     }
 
     /// <summary>
-    /// The show and hide button comes up with the panel and goes with it, unless the
-    /// <strong>Show VR button</strong> switch is off. It draws nothing and touches no graphics card
-    /// until a headset is running.
+    /// The show and hide button comes up with the panel and goes with it. It is always built, even
+    /// with the <strong>Show VR button</strong> switch off, which only keeps it out of the headset:
+    /// the stick shortcut is read through it. It draws nothing and touches no graphics card until a
+    /// headset is running, and not at all while it is switched off.
     /// </summary>
     private void MakeButtonHost()
     {
-        if (_buttonHost is not null || _state?.Settings.OverlayButtonOn is false)
+        if (_buttonHost is not null)
             return;
 
         var buttonPlace = _state?.Settings.OverlayButtonPlace ?? ButtonPlace.Corner;
@@ -2186,6 +2187,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         _buttonHost.Shortcut = ButtonShortcutNow();
         _buttonHost.Pressed += TogglePanel;
         _buttonHost.ShortcutHeld += TogglePanel;
+        _buttonHost.Shown = _state?.Settings.OverlayButtonOn is not false;
     }
 
     /// <summary>
@@ -2617,9 +2619,9 @@ internal sealed partial class CompanionHost : IOverlayListener
 
     /// <summary>
     /// The <strong>Show VR button</strong> switch, on the SteamVR page and on the dashboard tab.
-    /// Saved, then acted on at once: off takes the button down, on brings it back at its saved spot
-    /// while the headset panel is up. The stick shortcut belongs to the panel, not the button, so it
-    /// goes on working either way.
+    /// Saved, then acted on at once: off takes the button down, on brings it back at its saved spot.
+    /// The button is kept running either way, only shown or not, because the stick shortcut is read
+    /// through it and has to go on showing and hiding the panel.
     /// </summary>
     private void SetOverlayButtonOn(bool on)
     {
@@ -2631,21 +2633,18 @@ internal sealed partial class CompanionHost : IOverlayListener
         if (!CompanionSettings.SaveSwitch(_settingsPath, CompanionSettings.OverlayButtonOnField, on))
             Log.Warning("Could not save the Show VR button switch to {Path}", _settingsPath);
 
-        if (!on)
+        if (_buttonHost is not null)
         {
-            DisposeButton();
+            _buttonHost.Shown = on;
         }
-        else if (_overlayHost is not null)
+        else if (on && _overlayHost is not null)
         {
+            // The button had been put away after a failure to start: tried again from here.
             MakeButtonHost();
             UseHeadsetLook();
-
-            // At once, not on the next look: the headset is already running when the panel is.
-            if (_overlayHost.Status.State is OverlayRuntimeState.Running)
-                AttachButton();
-
-            ShowButton();
         }
+
+        ShowButton();
 
         ShowOnDashboard();
         Render();

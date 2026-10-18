@@ -223,6 +223,47 @@ public sealed class ButtonHost : IDisposable
 
     private OverlayLook _look = OverlayLook.Headset;
 
+    /// <summary>
+    /// Whether the button is in the headset at all, which is the Show VR button switch. Off, it is
+    /// taken down and gives its texture back, it takes no ray and no grip and is never
+    /// <see cref="Busy"/>, but it goes on reading the stick shortcut and raising
+    /// <see cref="ShortcutHeld"/>, because the shortcut is read through it. On, it comes back where
+    /// it was left. UI thread only.
+    /// </summary>
+    public bool Shown
+    {
+        get => _shown;
+        set
+        {
+            if (_shown == value)
+                return;
+
+            _shown = value;
+
+            if (!value)
+            {
+                // A button being carried is let go where it is, not left stuck to the hand.
+                _interaction.Place(_interaction.Placement);
+                Holding = null;
+                Busy = null;
+                _rayOnPanel = false;
+                _cursor = null;
+                if (_runtime.Status.State is OverlayRuntimeState.Running)
+                    _runtime.Hide();
+
+                LetGo();
+            }
+            else if (_runtime.Status.State is OverlayRuntimeState.Running)
+            {
+                Open();
+                Draw();
+                _runtime.Show();
+            }
+        }
+    }
+
+    private bool _shown = true;
+
     /// <summary>The hand carrying the button right now, or null.</summary>
     public Hand? Holding { get; private set; }
 
@@ -305,6 +346,21 @@ public sealed class ButtonHost : IDisposable
         }
 
         var tracking = _runtime.ReadTracking();
+
+        if (!_shown)
+        {
+            // Not there to be pointed at or gripped, but the stick shortcut still works.
+            Busy = null;
+            Holding = null;
+            _rayOnPanel = false;
+            _cursor = null;
+
+            if (ReadShortcut(tracking, now, stickInUse))
+                ShortcutHeld?.Invoke();
+
+            return;
+        }
+
         var result = _interaction.Update(tracking, now, elsewhere);
 
         Holding = result.Holding;
@@ -395,6 +451,14 @@ public sealed class ButtonHost : IDisposable
             return status;
 
         _runtime.Place(_interaction.Placement);
+
+        // Attaching shows the overlay; a button switched off stays down, with no texture made.
+        if (!_shown)
+        {
+            _runtime.Hide();
+            return status;
+        }
+
         var fresh = Open();
 
         // Freshly attached: whatever was drawn last is handed over again, so the button comes back
