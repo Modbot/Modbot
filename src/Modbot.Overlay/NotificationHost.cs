@@ -460,7 +460,7 @@ public sealed class NotificationHost : IDisposable
             Draw();
     }
 
-    private PanelBar Bar() => PanelBar.For(_interaction.Placement, _rayOnPanel && EditMode, _hints, corner: EditMode);
+    private PanelBar Bar() => PanelBar.For(_interaction.Placement, _rayOnPanel && EditMode, _hints, corner: EditMode && Holding is null);
 
     /// <summary>
     /// Draws the pop-ups as they stand and hands them over. Does nothing while there is no

@@ -1015,7 +1015,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
         // Up while a ray is on the panel, used or let through; drawn as nothing otherwise.
         var placement = _interaction.Placement;
-        var bar = PanelBar.For(placement, _rayOnPanel && EditMode, _hints, corner: EditMode && !OnWrist);
+        var bar = PanelBar.For(placement, _rayOnPanel && EditMode, _hints, corner: EditMode && !OnWrist && Holding is null);
 
         if (next is null || (_drawn is not null && _drawn.LooksTheSameAs(next) && _drawnBar == bar))
             return false;

@@ -40,6 +40,8 @@ public static class TestRemoteState
             ["curve"] = Round(placement.Curve),
             ["locked"] = placement.Locked,
             ["clickThrough"] = placement.ClickThrough,
+            ["wide"] = Round(placement.Wide),
+            ["tall"] = Round(placement.Tall),
         };
     }
 
