@@ -35,7 +35,7 @@ start (the real copy, or a test copy without debug mode) has no remote: nothing 
 | `tap-panel <x> <y>` | The main panel clicked at a pixel of its picture by a made-up controller |
 | `scroll-panel <rows> [x y]` | The thumbstick on the main panel's list (default: its middle), held for about that many rows' worth of polls; negative is up. Says how many pixels the list moved |
 | `put-back` | Put it back in front of me |
-| `event <kind> <name> [rank] [18+] [reason]` | Debug page's Send. Kinds: `joined`, `left`, `already-there`, `changed-avatar`, `flagged-join`, `problem`, `pin`, `keep-an-eye`, `message`, `ask-for-help`. Rank: `none` or a trust rank (`user`, `known-user`, ...). 18+: `18+` or `no` |
+| `event <kind> <name> [rank] [18+] [reason]` | Debug page's Send. Kinds: `joined`, `left`, `already-there`, `changed-avatar`, `flagged-join`, `problem`, `pin`, `keep-an-eye`, `message`, `ask-for-help`, `update-ready`. Rank: `none` or a trust rank (`user`, `known-user`, ...). 18+: `18+` or `no` |
 | `run [name] [rank] [18+]` | Debug page's Send a run |
 | `clear-cards` | Every pop-up down |
 | `grab-panel` / `move-panel <x> <y> <z>` / `release-panel` | The made-up controller takes hold of the main panel's middle, carries it to a place in front of the head (metres: right, up, back; in front is negative z), lets go. Let go, it stays in the room where it was left, as with a real controller |

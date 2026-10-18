@@ -30,6 +30,7 @@ public sealed partial class MainWindow
         (TestEventKind.KeepAnEye, "Keep an eye"),
         (TestEventKind.Message, "Message"),
         (TestEventKind.AskForHelp, "Ask for help"),
+        (TestEventKind.UpdateReady, "Update ready"),
     ];
 
     private readonly ComboBox _testKind = new();

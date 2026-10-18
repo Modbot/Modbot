@@ -174,6 +174,87 @@ public class UpdatePromptTests
     }
 
     [Fact]
+    public void ATestCardShowsTheMadeUpVersionWithUpdateAndLater()
+    {
+        var rig = new Rig();
+
+        rig.Prompt.ShowTest("9.9.9-test");
+
+        Assert.Equal("Update 9.9.9-test is ready", rig.Card!.Body);
+        Assert.Equal(new PopUpAsk("Update", "Later"), rig.Card.Ask);
+    }
+
+    [Fact]
+    public async Task RestartNowOnATestCardTakesItAwayAndRestartsNothing()
+    {
+        var rig = new Rig();
+        rig.Prompt.ShowTest("9.9.9-test");
+
+        await rig.Prompt.AnsweredAsync(UpdatePrompt.CardId, true);
+        Assert.Equal("Restart now", rig.Card!.Ask!.Yes);
+
+        await rig.Prompt.AnsweredAsync(UpdatePrompt.CardId, true);
+
+        Assert.Null(rig.Card);
+        Assert.Equal(0, rig.Restarts);
+    }
+
+    [Fact]
+    public async Task LaterOnATestCardTakesItAway()
+    {
+        var rig = new Rig();
+        rig.Prompt.ShowTest("9.9.9-test");
+
+        await rig.Prompt.AnsweredAsync(UpdatePrompt.CardId, false);
+
+        Assert.Null(rig.Card);
+        Assert.Equal(0, rig.Restarts);
+    }
+
+    [Fact]
+    public async Task ARealVersionAfterATestCardIsStillAskedAboutAndRestarts()
+    {
+        var rig = new Rig();
+        rig.Prompt.ShowTest("9.9.9-test");
+        await rig.Prompt.AnsweredAsync(UpdatePrompt.CardId, false);
+
+        rig.Prompt.Tick("2026.10.3");
+        Assert.Equal("Update 2026.10.3 is ready", rig.Card!.Body);
+
+        await rig.Prompt.AnsweredAsync(UpdatePrompt.CardId, true);
+        await rig.Prompt.AnsweredAsync(UpdatePrompt.CardId, true);
+
+        Assert.Equal(1, rig.Restarts);
+    }
+
+    [Fact]
+    public void ARealVersionArrivingWhileATestCardIsUpReplacesIt()
+    {
+        var rig = new Rig();
+        rig.Prompt.ShowTest("9.9.9-test");
+
+        rig.Prompt.Tick("2026.10.3");
+
+        Assert.Equal("Update 2026.10.3 is ready", rig.Card!.Body);
+    }
+
+    [Fact]
+    public async Task ATestCardDoesNotUseUpTheQuestionForARealVersionAlreadyWaiting()
+    {
+        var rig = new Rig();
+        rig.Prompt.ShowTest("9.9.9-test");
+        await rig.Prompt.AnsweredAsync(UpdatePrompt.CardId, false);
+
+        rig.Prompt.Tick("2026.10.3");
+        await rig.Prompt.AnsweredAsync(UpdatePrompt.CardId, false);
+        rig.Prompt.ShowTest("9.9.9-test");
+        await rig.Prompt.AnsweredAsync(UpdatePrompt.CardId, false);
+        rig.Prompt.Tick("2026.10.3");
+
+        Assert.Null(rig.Card);
+    }
+
+    [Fact]
     public async Task AnAnswerToSomeOtherCardIsIgnored()
     {
         var rig = new Rig();

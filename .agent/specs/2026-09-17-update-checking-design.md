@@ -340,6 +340,10 @@ words.
   it out, or when the moderator leaves an instance (`PopUps.ClearAll` leaves it).
 - **Nothing is sent and nothing is read** for any of this. The card is made out of the version
   the updater already holds (`UpdatePrompt`).
+- **A test card.** With `MODBOT_DEBUG_MODE=1`, the Debug page's Test events has an **Update ready**
+  kind that puts up this same card with a made-up version (`9.9.9-test`). It leaves the updater's
+  state and the version asked about alone, so a real update is still asked about as above. On it
+  **Restart now** only takes the card away; nothing restarts.
 
 This narrows two rules that said the pop-ups could not be pressed, and only for this card:
 

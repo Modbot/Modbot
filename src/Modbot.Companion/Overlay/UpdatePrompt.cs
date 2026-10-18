@@ -36,6 +36,7 @@ public sealed class UpdatePrompt
     private readonly Func<Task<bool>> _restart;
 
     private string? _asked;
+    private string? _testVersion;
     private DateTimeOffset? _armedAt;
     private bool _restarting;
 
@@ -63,6 +64,7 @@ public sealed class UpdatePrompt
         if (ready is { Length: > 0 } version && !string.Equals(version, _asked, StringComparison.Ordinal))
         {
             _asked = version;
+            _testVersion = null;
             _armedAt = null;
             Put(null);
             return;
@@ -75,16 +77,31 @@ public sealed class UpdatePrompt
         }
     }
 
+    /// <summary>
+    /// The Debug page's test card: the same card with a made-up version. It does not touch the
+    /// version asked about, so a real update is still put to the moderator as usual; on this card
+    /// the second press of Update only takes the card away, and nothing restarts.
+    /// </summary>
+    public void ShowTest(string version)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(version);
+
+        _testVersion = version;
+        _armedAt = null;
+        Put(null);
+    }
+
     /// <summary>One of the card's buttons was pressed.</summary>
     /// <param name="yes">True for Update (or Restart now), false for Later.</param>
     public async Task AnsweredAsync(string id, bool yes)
     {
-        if (!string.Equals(id, CardId, StringComparison.Ordinal) || _asked is null || _restarting)
+        if (!string.Equals(id, CardId, StringComparison.Ordinal) || (_testVersion ?? _asked) is null || _restarting)
             return;
 
         if (!yes)
         {
             _armedAt = null;
+            _testVersion = null;
             _popUps.Clear(CardId);
             return;
         }
@@ -97,6 +114,14 @@ public sealed class UpdatePrompt
         }
 
         _armedAt = null;
+
+        if (_testVersion is not null)
+        {
+            _testVersion = null;
+            _popUps.Clear(CardId);
+            return;
+        }
+
         _restarting = true;
         try
         {
@@ -116,7 +141,7 @@ public sealed class UpdatePrompt
         => _popUps.Show(new PopUp(
             CardId,
             "Modbot",
-            $"Update {_asked} is ready",
+            $"Update {_testVersion ?? _asked} is ready",
             problem,
             problem is null ? PopUpTone.Plain : PopUpTone.Problem,
             Ask: new PopUpAsk(_armedAt is null ? UpdateWords : RestartNowWords, LaterWords)));

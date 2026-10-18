@@ -20,6 +20,7 @@ public enum TestEventKind
     KeepAnEye,
     Message,
     AskForHelp,
+    UpdateReady,
 }
 
 /// <summary>One test event, as the Debug page's card reads.</summary>
@@ -68,6 +69,9 @@ public sealed class TestEvents
     /// <summary>Who a test heads-up says placed it.</summary>
     public const string TestPlacer = "Test";
 
+    /// <summary>The version a test update card names.</summary>
+    public const string TestUpdateVersion = "9.9.9-test";
+
     /// <summary>The time between the steps of <see cref="Run"/>.</summary>
     public static readonly TimeSpan RunGap = TimeSpan.FromSeconds(3);
 
@@ -78,6 +82,7 @@ public sealed class TestEvents
     private readonly Func<InstanceLocation?> _here;
     private readonly Func<LiveEvent, bool>? _live;
     private readonly Action<FlaggedJoinAlert>? _alertShown;
+    private readonly Action<string>? _updateReady;
     private readonly Dictionary<string, PersonInfo> _people = new(StringComparer.Ordinal);
     private readonly Lock _gate = new();
     private int _sent;
@@ -91,6 +96,7 @@ public sealed class TestEvents
     /// when no paired server covers the instance; then the card is put up here.
     /// </param>
     /// <param name="alertShown">The sound and voice for a flagged join, when the overlay's loop did not take it.</param>
+    /// <param name="updateReady">Puts up the update card with a made-up version, apart from the updater's own state.</param>
     public TestEvents(
         bool debugMode,
         IModbotClock clock,
@@ -98,7 +104,8 @@ public sealed class TestEvents
         PopUps? popUps,
         Func<InstanceLocation?> here,
         Func<LiveEvent, bool>? live = null,
-        Action<FlaggedJoinAlert>? alertShown = null)
+        Action<FlaggedJoinAlert>? alertShown = null,
+        Action<string>? updateReady = null)
     {
         ArgumentNullException.ThrowIfNull(clock);
         ArgumentNullException.ThrowIfNull(notices);
@@ -111,6 +118,7 @@ public sealed class TestEvents
         _here = here;
         _live = live;
         _alertShown = alertShown;
+        _updateReady = updateReady;
     }
 
     /// <summary>Whether sending does anything: only in debug mode.</summary>
@@ -198,6 +206,10 @@ public sealed class TestEvents
 
             case TestEventKind.KeepAnEye or TestEventKind.Message:
                 _popUps?.Show(PopUp.HeadsUp($"test-{number}", HeadsUpKindOf(test.Kind), TestPlacer, name, reason, info));
+                break;
+
+            case TestEventKind.UpdateReady:
+                _updateReady?.Invoke(TestUpdateVersion);
                 break;
         }
 

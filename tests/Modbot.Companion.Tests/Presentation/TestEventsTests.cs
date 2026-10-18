@@ -33,7 +33,7 @@ public class TestEventsTests
     }
 
     /// <summary>Wired the way the client wires it: the notifier asks the test events for a made-up person's info first.</summary>
-    private Wired Wire(bool debugMode = true, bool overlayTakesIt = false)
+    private Wired Wire(bool debugMode = true, bool overlayTakesIt = false, Action<string>? updateReady = null)
     {
         var wired = new Wired { PopUps = new PopUps(_clock) };
 
@@ -56,7 +56,8 @@ public class TestEventsTests
                 wired.Live.Add(e);
                 return overlayTakesIt;
             },
-            wired.Alerts.Add);
+            wired.Alerts.Add,
+            updateReady);
 
         return wired;
     }
@@ -75,6 +76,19 @@ public class TestEventsTests
         Assert.Empty(wired.Live);
         Assert.Empty(wired.Alerts);
         Assert.Null(wired.Tests.InfoOf(TestEvents.SubjectOf("Rin")));
+    }
+
+    [Fact]
+    public void AnUpdateReadyEventPutsUpTheTestVersionAndTouchesNothingElse()
+    {
+        var shown = new List<string>();
+        var wired = Wire(updateReady: shown.Add);
+
+        Assert.True(wired.Tests.Send(new TestEvent(TestEventKind.UpdateReady)));
+
+        Assert.Equal([TestEvents.TestUpdateVersion], shown);
+        Assert.Empty(wired.PopUps.Current());
+        Assert.Empty(wired.Live);
     }
 
     [Fact]

@@ -665,7 +665,8 @@ internal sealed partial class CompanionHost : IOverlayListener
                 _popUps,
                 () => CurrentInstance,
                 live => _overlay?.TakeTestEvent(live) == true,
-                alert => ((IOverlayListener)this).AlertShown(alert));
+                alert => ((IOverlayListener)this).AlertShown(alert),
+                version => _updatePrompt?.ShowTest(version));
         }
         _overlaySwitch = new OverlaySwitch(StartOverlay, StopOverlay, _state.Settings.OverlayOn);
         _notifySwitch = new OverlaySwitch(StartNotifyOverlay, StopNotifyOverlay, _state.Settings.NotifyOverlay.On);
