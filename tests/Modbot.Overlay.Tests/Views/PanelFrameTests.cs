@@ -109,8 +109,8 @@ public class PanelFrameTests
     public void TheHintsSitBesideTheBarAndMoveNothing()
     {
         var hints = ControlHints.For(null, holding: false);
-        var (plain, without) = Draw(() => PanelFrame.Main(OverlayView.Build(Roster(3)), new PanelBar(true, false, false), null, Main), Main);
-        var (drawn, with) = Draw(() => PanelFrame.Main(OverlayView.Build(Roster(3)), new PanelBar(true, false, false, hints), null, Main), Main);
+        var (plain, without) = Draw(() => PanelFrame.Main(OverlayView.Build(Roster(3)), PanelBar.For(OverlayPlacement.Default, true), null, Main), Main);
+        var (drawn, with) = Draw(() => PanelFrame.Main(OverlayView.Build(Roster(3)), PanelBar.For(OverlayPlacement.Default, true, hints), null, Main), Main);
 
         // The cards and the bar are exactly where they were, and the hints add no target.
         Assert.Equal(Bounds<OverlayTarget.Roster>(without), Bounds<OverlayTarget.Roster>(with));
@@ -129,7 +129,7 @@ public class PanelFrameTests
     public void HintsOnAHiddenBarStillDrawBecauseTheyAreNotTheBar()
     {
         var hints = ControlHints.For(null, holding: true);
-        var (pixels, targets) = Draw(() => PanelFrame.Main(OverlayView.Build(Roster(3)), new PanelBar(false, false, false, hints), null, Main), Main);
+        var (pixels, targets) = Draw(() => PanelFrame.Main(OverlayView.Build(Roster(3)), PanelBar.For(OverlayPlacement.Default, false, hints), null, Main), Main);
 
         var bar = Bounds<OverlayTarget.Bar>(targets);
         Assert.Equal(0, Alpha(pixels, Main, bar.Center));
@@ -176,6 +176,8 @@ public class PanelFrameTests
         var screen = new NotificationScreen([Card("a")]);
         var hints = ControlHints.For(null, holding: true);
 
+        // No width on these bars: scale 1, which is exactly what the pop-up panel draws at its default width.
+
         var (plain, without) = Draw(() => PanelFrame.Notification(NotificationView.Build(screen), new PanelBar(true, false, false), null, PopUps), PopUps);
         var (drawn, with) = Draw(() => PanelFrame.Notification(NotificationView.Build(screen), new PanelBar(true, false, false, hints), null, PopUps), PopUps);
 
@@ -211,7 +213,7 @@ public class PanelFrameTests
         var hints = ControlHints.For(null, holding: true);
         var popUps = PanelBar.For(OverlayPlacement.Default with { Width = NotifyOverlaySettings.DefaultWidth * NotifyOverlaySettings.PanelPerBox }, true, hints);
         var main = PanelBar.For(OverlayPlacement.Default with { Width = 0.45f }, true, hints);
-        var button = PanelBar.For(OverlayPlacement.Default with { Width = 0.16f }, true, hints);
+        var narrow = PanelBar.For(OverlayPlacement.Default with { Width = OverlayPlacement.MinWidth }, true, hints);
 
         // The pop-up panel at its default width is the reference: its pills are not stretched at all.
         Assert.Equal(1, PanelFrame.HintScale(popUps, PopUps), 3);
@@ -220,7 +222,10 @@ public class PanelFrameTests
         double Metres(PanelBar bar, double side) => PanelFrame.HintScale(bar, side) / (side / bar.WidthInMetres);
 
         Assert.Equal(Metres(popUps, PopUps), Metres(main, Main), 6);
-        Assert.Equal(Metres(popUps, PopUps), Metres(button, 256), 6);
+
+        // A very narrow panel keeps its pills from filling it: the scale is held back.
+        var same = Main / narrow.WidthInMetres * (NotifyOverlaySettings.DefaultWidth / NotifyOverlaySettings.BoxPixels);
+        Assert.True(PanelFrame.HintScale(narrow, Main) < same / 1.5, "The scale is capped, not left to grow with the pixels per metre.");
     }
 
     [Fact]

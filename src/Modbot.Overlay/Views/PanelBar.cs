@@ -89,11 +89,30 @@ public static class PanelFrame
     /// <see cref="NotifyOverlaySettings.DefaultWidth"/> metres. This is the one place that size is
     /// set; every panel that shows hints draws them through it.
     /// </summary>
+    /// <remarks>
+    /// Held to what a stack of <see cref="MostHintLines"/> lines may take of the panel's side
+    /// (<see cref="HintShare"/>): the narrower the panel, the more pixels a centimetre is, and a
+    /// pill kept to one physical size would grow until it filled the panel. At the widths the
+    /// panels start at, the cap is not reached.
+    /// </remarks>
     /// <param name="side">The panel's texture size in pixels.</param>
     public static double HintScale(PanelBar bar, double side)
-        => bar.WidthInMetres > 0
-            ? side / bar.WidthInMetres * (NotifyOverlaySettings.DefaultWidth / NotifyOverlaySettings.BoxPixels)
-            : 1;
+    {
+        if (bar.WidthInMetres <= 0)
+            return 1;
+
+        var same = side / bar.WidthInMetres * (NotifyOverlaySettings.DefaultWidth / NotifyOverlaySettings.BoxPixels);
+
+        // A pill at scale 1: its lines (about 1.25 times the text), the padding and the border.
+        var pill = (MostHintLines * T.Density.TextTiny * 1.25) + 6 + (T.Density.Hairline * 2);
+        return Math.Min(same, HintShare * side / pill);
+    }
+
+    /// <summary>The most of a panel's side that a stack of hint lines may take.</summary>
+    private const double HintShare = 0.4;
+
+    /// <summary>The most lines a hint wraps onto beside the main panel's bar.</summary>
+    private const double MostHintLines = 3;
 
     /// <summary>
     /// The main panel: its cards from the top, and the bar straight under the last of them.
