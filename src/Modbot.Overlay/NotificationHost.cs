@@ -128,7 +128,7 @@ public sealed class NotificationHost : IDisposable
         Func<IFrameRenderer> renderer,
         Func<IOverlaySurface> surface,
         OverlayPlacement? placement = null,
-        int resolution = OverlayHost.DefaultNotificationResolution)
+        int resolution = OverlayHost.NotificationTexture)
     {
         ArgumentNullException.ThrowIfNull(runtime);
         ArgumentNullException.ThrowIfNull(renderer);
@@ -163,6 +163,8 @@ public sealed class NotificationHost : IDisposable
         keepAnchor: OverlayAnchor.Head)
     {
         IsOnBar = (across, down) => EditMode && TargetAt(across, down) is OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough,
+        IsOnCorner = (across, down) => EditMode && TargetAt(across, down) is OverlayTarget.ResizeCorner,
+        ShapeShare = NotifyOverlaySettings.BoxPixels / (float)NotifyOverlaySettings.PanelPixels,
 
         // A ray on the clear ground around the box is looking past the panel; the box counts whole
         // while it can be moved, and the bar while it can be used.
@@ -178,7 +180,7 @@ public sealed class NotificationHost : IDisposable
     /// that says a headset is running.
     /// </remarks>
     public static NotificationHost Create(
-        int resolution = OverlayHost.DefaultNotificationResolution,
+        int resolution = OverlayHost.NotificationTexture,
         IOverlayRuntime? runtime = null,
         OverlayPlacement? placement = null)
         => new(
@@ -458,7 +460,7 @@ public sealed class NotificationHost : IDisposable
             Draw();
     }
 
-    private PanelBar Bar() => PanelBar.For(_interaction.Placement, _rayOnPanel && EditMode, _hints);
+    private PanelBar Bar() => PanelBar.For(_interaction.Placement, _rayOnPanel && EditMode, _hints, corner: EditMode);
 
     /// <summary>
     /// Draws the pop-ups as they stand and hands them over. Does nothing while there is no
@@ -473,7 +475,21 @@ public sealed class NotificationHost : IDisposable
         _compositor.Invalidate();
 
         var bar = Bar();
-        var root = PanelFrame.Notification(NotificationView.Build(_drawn, _look), bar, _cursor, Height);
+
+        // Laid out at the design size, 300 pixels square before the panel is made bigger, so the
+        // pop-ups are the size they always were; the frame is then drawn to fit the texture.
+        var placement = _interaction.Placement;
+        Control root = PanelFrame.Notification(
+            NotificationView.Build(_drawn, _look),
+            bar,
+            _cursor,
+            OverlayHost.DefaultNotificationResolution,
+            placement.Wide,
+            placement.Tall);
+        var fit = Height / (OverlayHost.DefaultNotificationResolution * placement.Longest);
+        if (Math.Abs(fit - 1) > 1e-6)
+            root = new Zoom(fit, root);
+
         _drawnBar = bar;
         _drawnCursor = _cursor;
         _everDrawn = true;

@@ -42,7 +42,8 @@ public sealed partial class OverlayView
     /// been; in VRChat's look it is the window's screen in a frame, drawn bigger.
     /// </summary>
     /// <param name="textureWidth">How wide the panel's picture is, in pixels.</param>
-    public static Control BuildForHeadset(OverlayScreen screen, Func<string?, IImage?>? icon, OverlayLook look, double textureWidth)
+    /// <param name="wide">How many times wider than ordinary the panel has been made: the frame is that much wider, and the words stay their size.</param>
+    public static Control BuildForHeadset(OverlayScreen screen, Func<string?, IImage?>? icon, OverlayLook look, double textureWidth, double wide = 1)
     {
         ArgumentNullException.ThrowIfNull(screen);
         ArgumentNullException.ThrowIfNull(look);
@@ -55,10 +56,10 @@ public sealed partial class OverlayView
         if (look.VRChat is null || screen.Page is OverlayPage.Wrist || (screen.IsIdle && !screen.ShowIdleCard))
             return content;
 
-        return new Zoom(textureWidth / HeadsetDesignWidth, view.HeadsetFrame(screen, content, icon));
+        return new Zoom(textureWidth / HeadsetDesignWidth, view.HeadsetFrame(screen, content, icon, wide));
     }
 
-    private Control HeadsetFrame(OverlayScreen screen, Control content, Func<string?, IImage?>? icon)
+    private Control HeadsetFrame(OverlayScreen screen, Control content, Func<string?, IImage?>? icon, double wide)
     {
         var v = V!;
         var inner = VRChatLook.FrameRadius - VRChatLook.EdgeWidth;
@@ -89,7 +90,7 @@ public sealed partial class OverlayView
 
             var name = Text(group, 20, v.Heading, FontWeight.ExtraBold);
             name.VerticalAlignment = VerticalAlignment.Center;
-            name.MaxWidth = HeadsetDesignWidth - 120;
+            name.MaxWidth = (HeadsetDesignWidth * wide) - 120;
             title.Children.Add(name);
         }
         else if (screen.NotSynced)
@@ -118,7 +119,7 @@ public sealed partial class OverlayView
 
         return new Border
         {
-            Width = HeadsetDesignWidth,
+            Width = HeadsetDesignWidth * wide,
             // Fills the room the panel has, like the window does, so a long list is cut at a rounded
             // bottom edge rather than running out of the frame.
             VerticalAlignment = VerticalAlignment.Stretch,

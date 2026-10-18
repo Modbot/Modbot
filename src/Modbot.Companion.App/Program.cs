@@ -4282,6 +4282,8 @@ internal sealed partial class CompanionHost : IOverlayListener
                     _ => OverlayPlacement.Default.Offset,
                 },
                 Width = OverlayPlacement.WidthFor(anchor, current.Width),
+                Wide = anchor is OverlayAnchor.LeftHand or OverlayAnchor.RightHand ? 1f : current.Wide,
+                Tall = anchor is OverlayAnchor.LeftHand or OverlayAnchor.RightHand ? 1f : current.Tall,
             });
         }
 

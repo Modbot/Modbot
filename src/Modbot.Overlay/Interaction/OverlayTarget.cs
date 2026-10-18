@@ -90,6 +90,10 @@ public abstract record OverlayTarget
     /// <remarks>Handled by the panel's own host, like <see cref="Lock"/>.</remarks>
     public sealed record ClickThrough : OverlayTarget;
 
+    /// <summary>The corner at a panel's bottom right, while it can be resized: a trigger held on it and dragged makes the panel taller and wider.</summary>
+    /// <remarks>Handled by the panel's own interaction, like <see cref="Lock"/>, and never a click.</remarks>
+    public sealed record ResizeCorner : OverlayTarget;
+
     /// <summary>
     /// One of a list's filters in the row above it. Tapping it shows its choices under the row, or
     /// hides them when they are showing.

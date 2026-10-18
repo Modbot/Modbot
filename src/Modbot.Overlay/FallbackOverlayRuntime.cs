@@ -65,7 +65,7 @@ public sealed class FallbackOverlayRuntime : IOverlayRuntime, IOverlayKeyboard, 
     public static FallbackOverlayRuntime CreateFor(
         OverlayKind kind,
         int resolution = OverlayHost.DefaultResolution,
-        int notificationResolution = OverlayHost.DefaultNotificationResolution,
+        int notificationResolution = OverlayHost.NotificationTexture,
         int buttonResolution = OverlayButton.PanelPixels)
     {
         var openXr = OpenXrOverlayRuntime.Shared(resolution, notificationResolution, buttonResolution);

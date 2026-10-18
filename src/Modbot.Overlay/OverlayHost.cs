@@ -47,6 +47,13 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// </summary>
     public const int DefaultNotificationResolution = NotifyOverlaySettings.PanelPixels;
 
+    /// <summary>
+    /// The notification panel's texture, in pixels: <see cref="DefaultNotificationResolution"/>
+    /// times the most the panel can be made taller or wider. The pop-ups are drawn at the design size
+    /// and scaled to fit it, so a panel made twice the size is no blurrier than one left alone.
+    /// </summary>
+    public const int NotificationTexture = DefaultNotificationResolution * (int)OverlayPlacement.MaxShape;
+
     private readonly IOverlayRuntime _runtime;
 
     // The renderer and the texture. Null on a machine with no headset attached, and made by
@@ -152,7 +159,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         Width = surface.Width;
         Height = surface.Height;
         _compositor = new OverlayCompositor(new FrameKeeper(renderer, this), surface);
-        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default) { IsOnBar = IsOnBar, IsDrawnAt = IsDrawnAt, IsScrollableAt = IsListAt };
+        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default) { IsOnBar = IsOnBar, IsOnCorner = IsOnCorner, IsDrawnAt = IsDrawnAt, IsScrollableAt = IsListAt };
         _runtime.Place(_interaction.Placement);
     }
 
@@ -196,7 +203,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             }
         };
 
-        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default) { IsOnBar = IsOnBar, IsDrawnAt = IsDrawnAt, IsScrollableAt = IsListAt };
+        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default) { IsOnBar = IsOnBar, IsOnCorner = IsOnCorner, IsDrawnAt = IsDrawnAt, IsScrollableAt = IsListAt };
         _runtime.Place(_interaction.Placement);
     }
 
@@ -377,6 +384,8 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             Anchor = anchor,
             Offset = offset,
             Width = OverlayPlacement.WidthFor(anchor, current.Width),
+            Wide = anchor is OverlayAnchor.LeftHand or OverlayAnchor.RightHand ? 1f : current.Wide,
+            Tall = anchor is OverlayAnchor.LeftHand or OverlayAnchor.RightHand ? 1f : current.Tall,
         });
     }
 
@@ -507,7 +516,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
                     break;
 
                 // Out of edit mode the bar is not there to press, laid out or not.
-                case OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough:
+                case OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough or OverlayTarget.ResizeCorner:
                     break;
                 default:
                     Tapped?.Invoke(target);
@@ -574,7 +583,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             }
 
             if (_dragOnList)
-                scroll.Drag(-drag.Down * Height / scale, max, now);
+                scroll.Drag(-drag.Down * Height * Placement.Longest / scale, max, now);
         }
         else
         {
@@ -737,6 +746,9 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
     private bool IsOnBar(float across, float down)
         => EditMode && TargetAt(across, down) is OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough;
+
+    private bool IsOnCorner(float across, float down)
+        => EditMode && TargetAt(across, down) is OverlayTarget.ResizeCorner;
 
     /// <summary>One of the bar's switches, pressed: applied, saved and drawn at once.</summary>
     private void Switch(OverlayPlacement placement)
@@ -1002,7 +1014,8 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             next = next with { Page = OverlayPage.Wrist };
 
         // Up while a ray is on the panel, used or let through; drawn as nothing otherwise.
-        var bar = PanelBar.For(_interaction.Placement, _rayOnPanel && EditMode, _hints);
+        var placement = _interaction.Placement;
+        var bar = PanelBar.For(placement, _rayOnPanel && EditMode, _hints, corner: EditMode && !OnWrist);
 
         if (next is null || (_drawn is not null && _drawn.LooksTheSameAs(next) && _drawnBar == bar))
             return false;
@@ -1013,7 +1026,20 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
         // The cursor is drawn over the bar as well as the cards, so the frame draws it rather
         // than the view.
-        var root = PanelFrame.Main(OverlayView.BuildForHeadset(next with { Cursor = null }, GroupIcon, _look, Width), bar, next.Cursor, Height);
+
+        // Laid out in the texture's own pixels, as wide and as tall as the panel has been made, so
+        // the words keep their size and there is more of the list; then drawn smaller by the longer
+        // side to fit the texture's square. The bar and the corner shrink with it, so they keep
+        // their size in the room as well.
+        Control root = PanelFrame.Main(
+            OverlayView.BuildForHeadset(next with { Cursor = null }, GroupIcon, _look, Width, placement.Wide),
+            bar,
+            next.Cursor,
+            Height * placement.Tall,
+            Width * placement.Wide);
+        if (placement.Longest > 1f)
+            root = new Zoom(1.0 / placement.Longest, root);
+
         if (!_compositor.DrawIfChanged(root))
             return false;
 

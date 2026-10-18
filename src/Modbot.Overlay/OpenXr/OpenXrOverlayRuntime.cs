@@ -151,7 +151,7 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
     /// </remarks>
     public static OpenXrOverlayRuntime Shared(
         int resolution = OverlayHost.DefaultResolution,
-        int notificationResolution = OverlayHost.DefaultNotificationResolution,
+        int notificationResolution = OverlayHost.NotificationTexture,
         int buttonResolution = OverlayButton.PanelPixels)
     {
         lock (SharedGate)
@@ -1023,7 +1023,7 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
             };
             var next = a.CanFade ? &fades[index] : null;
 
-            if (a.CanCurve && CurvedPanel.For(placement.Width, placement.Curve) is { } curved)
+            if (a.CanCurve && CurvedPanel.For(placement.Side, placement.Curve) is { } curved)
             {
                 cylinders[index] = new CompositionLayerCylinderKHR
                 {
@@ -1051,7 +1051,7 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
                     EyeVisibility = EyeVisibility.Both,
                     SubImage = subImage,
                     Pose = OpenXrCalls.ToPosef(panel),
-                    Size = new Extent2Df(placement.Width, placement.Width),
+                    Size = new Extent2Df(placement.Side, placement.Side),
                 };
                 layers[shown++] = (nint)(&quads[index]);
             }

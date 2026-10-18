@@ -45,6 +45,8 @@ public sealed record OverlayPose(float X, float Y, float Z, float QX = 0f, float
 /// </remarks>
 /// <param name="Locked">The panel cannot be picked up, moved or resized; taps still work.</param>
 /// <param name="ClickThrough">The panel lets controller rays through to VRChat; only its bar answers.</param>
+/// <param name="Wide">How many times wider than its ordinary shape the panel is drawn, 1 to 2. The text keeps its size; the panel shows more.</param>
+/// <param name="Tall">How many times taller than its ordinary shape the panel is drawn, 1 to 2.</param>
 public sealed record OverlayPlacement(
     OverlayAnchor Anchor,
     OverlayPose Offset,
@@ -52,7 +54,9 @@ public sealed record OverlayPlacement(
     float Opacity = 1f,
     float Curve = 0f,
     bool Locked = false,
-    bool ClickThrough = false)
+    bool ClickThrough = false,
+    float Wide = 1f,
+    float Tall = 1f)
 {
     /// <summary>
     /// Narrow enough for the wrist. It used to be 0.2 m, which is wider than a panel worn on the
@@ -61,11 +65,26 @@ public sealed record OverlayPlacement(
     public const float MinWidth = 0.12f;
 
     public const float MaxWidth = 1.5f;
+
+    /// <summary>The least <see cref="Wide"/> and <see cref="Tall"/> can be: the panel as it has always been.</summary>
+    public const float MinShape = 1f;
+
+    /// <summary>The most <see cref="Wide"/> and <see cref="Tall"/> can be: twice the ordinary size.</summary>
+    public const float MaxShape = 2f;
     public const float MinOpacity = 0.1f;
     public const float MinDistance = 0.3f;
     public const float MaxDistance = 3f;
 
     public static OverlayPlacement Default { get; } = new(OverlayAnchor.Head, new OverlayPose(0.35f, -0.28f, -1.0f), 0.45f);
+
+    /// <summary>The longer of <see cref="Wide"/> and <see cref="Tall"/>: how many times the square is stretched.</summary>
+    public float Longest => Math.Max(Wide, Tall);
+
+    /// <summary>
+    /// How long the panel's square canvas is on a side, in metres. The panel is drawn as a
+    /// rectangle inside it, so a taller or wider panel needs a bigger square and the text keeps its size.
+    /// </summary>
+    public float Side => Width * Longest;
 
     /// <summary>
     /// Where <strong>Put it back in front of me</strong> puts the panel: on the head, straight
@@ -145,7 +164,12 @@ public sealed record OverlayPlacement(
         Width = Math.Clamp(Width, MinWidth, MaxWidth),
         Opacity = Math.Clamp(Opacity, MinOpacity, 1f),
         Curve = Math.Clamp(Curve, 0f, 1f),
+        Wide = ClampShape(Wide),
+        Tall = ClampShape(Tall),
     };
+
+    private static float ClampShape(float value)
+        => float.IsFinite(value) ? Math.Clamp(value, MinShape, MaxShape) : MinShape;
 
     /// <summary>The <c>overlay</c> object as it is written to the file.</summary>
     public JsonObject ToJson() => new()
@@ -166,6 +190,8 @@ public sealed record OverlayPlacement(
         ["curve"] = Curve,
         ["locked"] = Locked,
         ["clickThrough"] = ClickThrough,
+        ["wide"] = Wide,
+        ["tall"] = Tall,
     };
 
     /// <summary>
@@ -190,6 +216,7 @@ public sealed record OverlayPlacement(
                 Number(o, "qw", 1f))
             : Default.Offset;
 
+        var onHand = anchor is OverlayAnchor.LeftHand or OverlayAnchor.RightHand;
         return new OverlayPlacement(
             anchor,
             offset,
@@ -197,7 +224,9 @@ public sealed record OverlayPlacement(
             Number(json, "opacity", Default.Opacity),
             Number(json, "curve", Default.Curve),
             Flag(json, "locked"),
-            Flag(json, "clickThrough")).Clamped();
+            Flag(json, "clickThrough"),
+            onHand ? 1f : Number(json, "wide", 1f),
+            onHand ? 1f : Number(json, "tall", 1f)).Clamped();
     }
 
     private static bool Flag(JsonObject json, string field)

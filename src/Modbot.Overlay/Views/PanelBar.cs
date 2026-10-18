@@ -21,20 +21,43 @@ namespace Modbot.Overlay.Views;
 /// notification panel, which has no room beside its bar, draws them over the foot of its box.
 /// </param>
 /// <param name="WidthInMetres">
-/// How wide the panel is in the room, so the hints can be drawn the same physical size on every
+/// How long the panel's square is on a side in the room, so the hints can be drawn the same physical size on every
 /// panel. Zero (not known, and always while there are no hints) draws them at the pop-up panel's
 /// pixel size. Part of the bar so that stretching the panel draws the hints again.
 /// </param>
-public readonly record struct PanelBar(bool Showing, bool Locked, bool ClickThrough, ControlHints? Hints = null, double WidthInMetres = 0)
+/// <param name="Corner">
+/// The resize corner is drawn at the panel's bottom right: edit mode, and the panel is unlocked,
+/// not click-through and not on a wrist.
+/// </param>
+/// <param name="Wide">How many times wider than ordinary the panel has been made. Part of the bar so that resizing the panel draws it again.</param>
+/// <param name="Tall">How many times taller than ordinary the panel has been made.</param>
+public readonly record struct PanelBar(
+    bool Showing,
+    bool Locked,
+    bool ClickThrough,
+    ControlHints? Hints = null,
+    double WidthInMetres = 0,
+    bool Corner = false,
+    double Wide = 1,
+    double Tall = 1)
 {
     /// <summary>
     /// The bar for a placement, up or not. A locked panel cannot be moved and one letting rays
-    /// through is not pointed at, so neither gets hints.
+    /// through is not pointed at, so neither gets hints, and neither gets the resize corner.
     /// </summary>
-    public static PanelBar For(OverlayPlacement placement, bool showing, ControlHints? hints = null)
+    /// <param name="corner">Whether this panel has a resize corner at all while it is edited: edit mode, and not on a wrist.</param>
+    public static PanelBar For(OverlayPlacement placement, bool showing, ControlHints? hints = null, bool corner = false)
     {
         var shown = placement.Locked || placement.ClickThrough ? null : hints;
-        return new(showing, placement.Locked, placement.ClickThrough, shown, shown is null ? 0 : placement.Width);
+        return new(
+            showing,
+            placement.Locked,
+            placement.ClickThrough,
+            shown,
+            shown is null ? 0 : placement.Side,
+            corner && !placement.Locked && !placement.ClickThrough,
+            placement.Wide,
+            placement.Tall);
     }
 }
 
@@ -118,12 +141,17 @@ public static class PanelFrame
     /// The main panel: its cards from the top, and the bar straight under the last of them.
     /// </summary>
     /// <param name="content">What <see cref="OverlayView.Build"/> made, without a cursor.</param>
-    /// <param name="height">The texture's height in pixels.</param>
-    public static Control Main(Control content, PanelBar bar, PanelCursor? cursor, double height)
+    /// <param name="height">The panel's height in pixels: the texture's, or the texture's times how tall the panel has been made.</param>
+    /// <param name="width">
+    /// The panel's width in pixels, when it has been made wider or taller than the texture's square;
+    /// null is as wide as it is tall. The rectangle sits at the top left of a square as long as its longer side.
+    /// </param>
+    public static Control Main(Control content, PanelBar bar, PanelCursor? cursor, double height, double? width = null)
     {
         ArgumentNullException.ThrowIfNull(content);
 
         var size = MainSize;
+        var across = width ?? height;
         content.VerticalAlignment = VerticalAlignment.Top;
 
         var above = new Border
@@ -137,18 +165,82 @@ public static class PanelFrame
         var column = new StackPanel
         {
             VerticalAlignment = VerticalAlignment.Top,
-            Children = { above, BarRow(bar, size, height) },
+            Children = { above, BarRow(bar, size, across, Math.Max(across, height), bar.Corner ? MainGrip : 0) },
         };
 
-        return WithCursor(column, cursor);
+        // Narrower than the square it sits in: the column is the rectangle, from the left.
+        if (across < height)
+        {
+            column.Width = across;
+            column.HorizontalAlignment = HorizontalAlignment.Left;
+        }
+
+        if (!bar.Corner)
+            return WithCursor(column, cursor);
+
+        var grip = Grip(MainGrip);
+        grip.HorizontalAlignment = HorizontalAlignment.Right;
+        grip.VerticalAlignment = VerticalAlignment.Bottom;
+        grip.Margin = new Thickness(0, 0, size.Padding, size.Padding);
+
+        return WithCursor(
+            new Panel
+            {
+                Width = across,
+                Height = height,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+                Children = { column, grip },
+            },
+            cursor);
     }
+
+    /// <summary>The resize corner on the main panel, in panel pixels: a little smaller than a bar button.</summary>
+    private const double MainGrip = 64;
+
+    /// <summary>The resize corner on the notification panel, in panel pixels.</summary>
+    private const double NotificationGrip = 26;
+
+    /// <summary>
+    /// The resize corner: a small round-cornered tile with two slanted strokes in it, the mark a
+    /// window's corner wears. Tagged so a trigger held on it can be told from a press anywhere else.
+    /// </summary>
+    private static Border Grip(double side) => new()
+    {
+        Tag = new OverlayTarget.ResizeCorner(),
+        Width = side,
+        Height = side,
+        Background = T.SurfaceBrush,
+        BorderBrush = T.Border2Brush,
+        BorderThickness = new Thickness(T.Density.Hairline),
+        CornerRadius = new CornerRadius(side / 4),
+        Child = new Viewbox
+        {
+            Width = side * 0.6,
+            Height = side * 0.6,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new Path
+            {
+                Data = Geometry.Parse("M20,6 L6,20 M20,13 L13,20"),
+                Stroke = T.TextBrush,
+                StrokeThickness = 2.4,
+                StrokeLineCap = PenLineCap.Round,
+                Width = 24,
+                Height = 24,
+            },
+        },
+    };
 
     /// <summary>
     /// The bar, and beside it the controller hints while there are any. The bar stays in the
     /// middle and the hints fill the row's two sides, so the row is as tall as it was and nothing
     /// above it moves.
     /// </summary>
-    private static Control BarRow(PanelBar bar, BarSize size, double side)
+    /// <param name="across">How wide the row is: the bar is in the middle of it.</param>
+    /// <param name="side">The square canvas's side, which the hints are sized by.</param>
+    /// <param name="corner">How much of the row's right end the resize corner takes.</param>
+    private static Control BarRow(PanelBar bar, BarSize size, double across, double side, double corner)
     {
         var strip = Bar(bar, size);
         if (bar.Hints is not { } hints)
@@ -159,13 +251,13 @@ public static class PanelFrame
         row.Children.Add(strip);
 
         var scale = HintScale(bar, side);
-        var room = ((side - size.Width) / 2) - (size.Padding * 2);
+        var room = ((across - size.Width) / 2) - (size.Padding * 2);
 
         var left = HintColumn([hints.Move, hints.Resize], HorizontalAlignment.Right, size, scale, room);
         Grid.SetColumn(left, 0);
         row.Children.Add(left);
 
-        var right = HintColumn([hints.Distance], HorizontalAlignment.Left, size, scale, room);
+        var right = HintColumn([hints.Distance], HorizontalAlignment.Left, size, scale, Math.Max(0, room - corner));
         Grid.SetColumn(right, 2);
         row.Children.Add(right);
 
@@ -242,8 +334,10 @@ public static class PanelFrame
     /// gaps between the cards and when there are none, and not only on a card or the bar.
     /// </remarks>
     /// <param name="cards">What <see cref="NotificationView.Build"/> made.</param>
-    /// <param name="side">The texture's size in pixels; the box is the same share of it at any size.</param>
-    public static Control Notification(Control cards, PanelBar bar, PanelCursor? cursor, double side)
+    /// <param name="side">The panel's design size in pixels before it is made wider or taller; the box is the same share of it at any size.</param>
+    /// <param name="wide">How many times wider than ordinary the box is.</param>
+    /// <param name="tall">How many times taller than ordinary the box is: room for more pop-ups.</param>
+    public static Control Notification(Control cards, PanelBar bar, PanelCursor? cursor, double side, double wide = 1, double tall = 1)
     {
         ArgumentNullException.ThrowIfNull(cards);
 
@@ -251,10 +345,11 @@ public static class PanelFrame
         cards.VerticalAlignment = VerticalAlignment.Top;
 
         var boxSide = side * NotifyOverlaySettings.BoxPixels / NotifyOverlaySettings.PanelPixels;
+        var boxWide = boxSide * wide;
         var box = new Panel
         {
-            Width = boxSide,
-            Height = boxSide,
+            Width = boxWide,
+            Height = boxSide * tall,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Top,
             ClipToBounds = true,
@@ -279,14 +374,32 @@ public static class PanelFrame
             Child = cards,
         });
 
+        var canvas = side * Math.Max(wide, tall);
         if (bar.Hints is { } hints)
-            box.Children.Add(BoxHints(hints, boxSide, HintScale(bar, side)));
+            box.Children.Add(BoxHints(hints, boxWide, HintScale(bar, canvas)));
+
+        if (bar.Corner)
+        {
+            var grip = Grip(NotificationGrip);
+            grip.HorizontalAlignment = HorizontalAlignment.Right;
+            grip.VerticalAlignment = VerticalAlignment.Bottom;
+            grip.Margin = new Thickness(0, 0, size.Padding, size.Padding);
+            box.Children.Add(grip);
+        }
 
         var column = new StackPanel
         {
             VerticalAlignment = VerticalAlignment.Top,
             Children = { box, Bar(bar, size) },
         };
+
+        // Narrower than the square it sits in: the box keeps its margin, and the column is the rectangle.
+        var across = boxWide + (side - boxSide);
+        if (across < canvas)
+        {
+            column.Width = across;
+            column.HorizontalAlignment = HorizontalAlignment.Left;
+        }
 
         return WithCursor(column, cursor);
     }

@@ -64,6 +64,11 @@ public sealed record InteractionResult(
 /// bounds.</item>
 /// <item><strong>Two-handed resize.</strong> While one hand carries it, the other gripping on the
 /// panel sizes it by how far apart the two hands are.</item>
+/// <item><strong>The resize corner.</strong> A trigger pressed on the corner at the panel's bottom right
+/// (<see cref="IsOnCorner"/>, only drawn in edit mode) and held while the ray is dragged makes the panel taller
+/// and wider, from 1 to 2 times its ordinary shape. The panel's top left stays where it is in the room and the
+/// bottom right follows the ray; the words keep their size and the panel shows more. A locked panel, a
+/// click-through one and one being carried cannot be resized.</item>
 /// <item><strong>Head lock.</strong> Two grips on the panel within <see cref="DoubleTap"/> put it
 /// back in front of the head at the default offset, so a lost panel can always be found.</item>
 /// <item><strong>Click.</strong> The trigger while pointing is a click at that spot. On a list
@@ -156,7 +161,12 @@ public sealed class OverlayInteraction
     /// <summary>A trigger that went down on a list and has not come up: a tap or a drag, not decided yet.</summary>
     private sealed record Press(Hand Hand, Pointer From, float LastDown, bool Dragging);
 
+    /// <summary>A trigger held on the resize corner: which hand, where it took hold, and the shape then.</summary>
+    /// <param name="Start">Where the ray was, in metres right of and below the panel's top left.</param>
+    private sealed record Resizing(Hand Hand, Vector2 Start, float Wide, float Tall);
+
     private Press? _press;
+    private Resizing? _resizing;
     private OverlayPlacement _placement;
     private OverlayTracking _last = OverlayTracking.None;
     private Hand? _holding;
@@ -222,6 +232,18 @@ public sealed class OverlayInteraction
     public Func<float, float, bool>? IsOnBar { get; set; }
 
     /// <summary>
+    /// Whether a point on the panel, as fractions across and down, is on its resize corner. Set by the
+    /// host, which has the drawn frame to look in; without it there is no corner to take hold of.
+    /// </summary>
+    public Func<float, float, bool>? IsOnCorner { get; set; }
+
+    /// <summary>
+    /// How much of the panel's width the shape it is resized by is measured against: 1 for a panel
+    /// whose whole width is what grows, and less for the pop-up panel, whose box is a share of it.
+    /// </summary>
+    public float ShapeShare { get; set; } = 1f;
+
+    /// <summary>
     /// Whether anything is drawn at a point across and down the panel, asked by the host that drew
     /// it. A ray on the clear ground of the square counts as missing the panel, so the cursor and
     /// the bar go the moment a hand moves off what can be seen. Null counts the whole square.
@@ -276,6 +298,7 @@ public sealed class OverlayInteraction
         _holding = null;
         _stretching = null;
         _press = null;
+        _resizing = null;
     }
 
     /// <param name="now">Any steadily rising clock; only differences are used.</param>
@@ -308,6 +331,9 @@ public sealed class OverlayInteraction
             }
         }
 
+        if (_resizing is not null)
+            FollowResize(tracking, elsewhere);
+
         if (_press is not null)
             drag = FollowPress(tracking, elsewhere, clicks);
 
@@ -328,7 +354,14 @@ public sealed class OverlayInteraction
                 var was = _last[pointing.Hand];
                 var canMove = !_placement.Locked && !_placement.ClickThrough;
 
-                if (hand.Grab && !was.Grab && canMove)
+                if (_resizing is not null)
+                {
+                    // The corner is being dragged: the hand on it is only pointing, and the other
+                    // hand has nothing to do to the panel until it is let go.
+                    if (pointing.Hand != _resizing.Hand)
+                        pointer = null;
+                }
+                else if (hand.Grab && !was.Grab && canMove)
                 {
                     if (_lastGrip.TryGetValue(pointing.Hand, out var previous) && now - previous <= DoubleTap)
                     {
@@ -345,7 +378,12 @@ public sealed class OverlayInteraction
                 }
                 else if (hand.Click && !was.Click)
                 {
-                    if (IsScrollableAt?.Invoke(pointing.Across, pointing.Down) ?? false)
+                    if (canMove && (IsOnCorner?.Invoke(pointing.Across, pointing.Down) ?? false))
+                    {
+                        var side = _placement.Side;
+                        _resizing = new Resizing(pointing.Hand, new Vector2(pointing.Across * side, pointing.Down * side), _placement.Wide, _placement.Tall);
+                    }
+                    else if (IsScrollableAt?.Invoke(pointing.Across, pointing.Down) ?? false)
                     {
                         // On a list the press is held back until it is known whether it is a tap.
                         _press ??= new Press(pointing.Hand, pointing, pointing.Down, false);
@@ -416,7 +454,7 @@ public sealed class OverlayInteraction
         // The ray may wander off the panel mid-drag and the list still follows it, so the plane is
         // measured and not the square.
         if (PanelGeometry.PanelPose(_placement, tracking) is not { } panel
-            || PanelGeometry.Hit(panel, _placement.Width, hand.Aim) is not { } hit)
+            || PanelGeometry.Hit(panel, _placement.Side, hand.Aim) is not { } hit)
         {
             // The press is still alive: a drag in progress goes on, standing still, so the host
             // does not take the ray missing the plane for the trigger coming up.
@@ -447,6 +485,64 @@ public sealed class OverlayInteraction
             Curve = _placement.Curve,
             Locked = _placement.Locked,
             ClickThrough = _placement.ClickThrough,
+
+            // The shape is kept like the other things the grips do not undo, except on a pop-up
+            // whose home is its size too.
+            Wide = KeepAnchor is not null && _homeResetsWidth ? home.Wide : _placement.Wide,
+            Tall = KeepAnchor is not null && _homeResetsWidth ? home.Tall : _placement.Tall,
+        };
+    }
+
+    /// <summary>
+    /// A trigger held on the resize corner: while it is down the panel is as wide and as tall as the
+    /// ray has dragged the corner from where it took hold, and its top left stays where it is in the room.
+    /// It ends with the trigger, and with anything that takes the hand away from the corner or the corner
+    /// away from the panel.
+    /// </summary>
+    private void FollowResize(OverlayTracking tracking, Hand? elsewhere)
+    {
+        var resizing = _resizing!;
+        var hand = tracking[resizing.Hand];
+
+        if (_holding is not null || !hand.Tracked || !hand.Click || resizing.Hand == elsewhere
+            || _placement.Locked || _placement.ClickThrough)
+        {
+            _resizing = null;
+            return;
+        }
+
+        // The ray may wander off the panel mid-drag and the corner still follows it, so the plane is
+        // measured and not the square. Off the plane altogether the panel stays as it is.
+        var side = _placement.Side;
+        if (PanelGeometry.PanelPose(_placement, tracking) is not { } panel
+            || PanelGeometry.Hit(panel, side, hand.Aim) is not { } hit)
+            return;
+
+        var share = Math.Max(_placement.Width * ShapeShare, 1e-4f);
+        var wide = Math.Clamp(resizing.Wide + (((hit.Across * side) - resizing.Start.X) / share), OverlayPlacement.MinShape, OverlayPlacement.MaxShape);
+        var tall = Math.Clamp(resizing.Tall + (((hit.Down * side) - resizing.Start.Y) / share), OverlayPlacement.MinShape, OverlayPlacement.MaxShape);
+
+        var grown = _placement with { Wide = wide, Tall = tall };
+
+        // The panel's middle is half a side from its top left, so when the side grows the middle moves
+        // by half of it, right and down along the panel's own axes, and the top left stays put.
+        var change = grown.Side - side;
+        if (change == 0f)
+        {
+            _placement = grown;
+            return;
+        }
+
+        var turn = new Quaternion(_placement.Offset.QX, _placement.Offset.QY, _placement.Offset.QZ, _placement.Offset.QW);
+        var shift = Vector3.Transform(new Vector3(change / 2f, -change / 2f, 0f), Quaternion.Normalize(turn));
+        _placement = grown with
+        {
+            Offset = _placement.Offset with
+            {
+                X = _placement.Offset.X + shift.X,
+                Y = _placement.Offset.Y + shift.Y,
+                Z = _placement.Offset.Z + shift.Z,
+            },
         };
     }
 
@@ -473,11 +569,11 @@ public sealed class OverlayInteraction
             if (!hand.Tracked)
                 continue;
 
-            // The hand dragging a list keeps the pointer, even with the other hand nearer.
-            if (PanelGeometry.Hit(panel, _placement.Width, hand.Aim) is { IsOnPanel: true } hit
+            // The hand dragging a list or the corner keeps the pointer, even with the other hand nearer.
+            if (PanelGeometry.Hit(panel, _placement.Side, hand.Aim) is { IsOnPanel: true } hit
                 && (IsDrawnAt?.Invoke(hit.Across, hit.Down) ?? true))
             {
-                var distance = side == _press?.Hand ? -1f : hit.Distance;
+                var distance = side == _press?.Hand || side == _resizing?.Hand ? -1f : hit.Distance;
                 if (distance < nearest)
                 {
                     nearest = distance;
@@ -497,6 +593,7 @@ public sealed class OverlayInteraction
         // Held against the controller itself rather than against where it points, because that is
         // what a hand anchor means to both runtimes: the panel has to end up where it was carried.
         _beforeTake = _placement;
+        _resizing = null;
         _holding = side;
         _heldOffset = panel.RelativeTo(hand.Device);
         _placement = _placement with
@@ -619,7 +716,7 @@ public sealed class OverlayInteraction
 
             _placement = hand.Tracked && from is { } origin
                 ? _placement with { Anchor = keep, Offset = hand.Device.Then(_heldOffset).RelativeTo(origin).ToOverlayPose() }
-                : _beforeTake with { Width = _placement.Width };
+                : _beforeTake with { Width = _placement.Width, Wide = _placement.Wide, Tall = _placement.Tall };
             return;
         }
 
@@ -640,6 +737,10 @@ public sealed class OverlayInteraction
                 Anchor = side == Hand.Left ? OverlayAnchor.LeftHand : OverlayAnchor.RightHand,
                 Offset = OverlayPlacement.WristOffset,
                 Width = OverlayPlacement.WristWidth,
+
+                // A wrist panel is a glance, not a workspace, and the corner is not drawn there.
+                Wide = 1f,
+                Tall = 1f,
             };
             return;
         }

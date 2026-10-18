@@ -381,7 +381,7 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime, IOverlayKeyboard
     /// </summary>
     private unsafe void Apply(OverlayPlacement placement)
     {
-        ((delegate* unmanaged[Stdcall]<ulong, float, int>)Slot(OverlaySlot.SetOverlayWidthInMeters))(_handle, placement.Width);
+        ((delegate* unmanaged[Stdcall]<ulong, float, int>)Slot(OverlaySlot.SetOverlayWidthInMeters))(_handle, placement.Side);
         ((delegate* unmanaged[Stdcall]<ulong, float, int>)Slot(OverlaySlot.SetOverlayAlpha))(_handle, placement.Opacity);
         ((delegate* unmanaged[Stdcall]<ulong, float, int>)Slot(OverlaySlot.SetOverlayCurvature))(_handle, placement.Curve);
 
@@ -405,7 +405,7 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime, IOverlayKeyboard
         _hungOn = hand ?? OpenVrInterop.TrackedDeviceIndexHmd;
 
         // The width can differ from the placement's while the panel waits on the head.
-        ((delegate* unmanaged[Stdcall]<ulong, float, int>)Slot(OverlaySlot.SetOverlayWidthInMeters))(_handle, drawn.Width);
+        ((delegate* unmanaged[Stdcall]<ulong, float, int>)Slot(OverlaySlot.SetOverlayWidthInMeters))(_handle, drawn.Side);
 
         var transform = HmdPoses.ToMatrix(Pose.From(drawn.Offset));
         ((delegate* unmanaged[Stdcall]<ulong, uint, HmdMatrix34*, int>)Slot(OverlaySlot.SetOverlayTransformTrackedDeviceRelative))(

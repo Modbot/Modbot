@@ -62,6 +62,8 @@ public enum ScreenSpot
 /// </param>
 /// <param name="Locked">The panel cannot be picked up, moved or resized.</param>
 /// <param name="ClickThrough">The panel lets controller rays through; only its bar answers.</param>
+/// <param name="Wide">How many times wider than ordinary the panel is drawn, 1 to 2; the pop-ups keep their size.</param>
+/// <param name="Tall">How many times taller than ordinary the panel is drawn, 1 to 2; it shows more pop-ups.</param>
 public sealed record NotifyOverlaySettings(
     bool On = true,
     ScreenSpot Spot = ScreenSpot.TopRight,
@@ -73,7 +75,9 @@ public sealed record NotifyOverlaySettings(
     float Seconds = NotifyOverlaySettings.DefaultSeconds,
     OverlayPose? Placed = null,
     bool Locked = false,
-    bool ClickThrough = false)
+    bool ClickThrough = false,
+    float Wide = 1f,
+    float Tall = 1f)
 {
     public const float DefaultDistance = 1.0f;
 
@@ -141,6 +145,8 @@ public sealed record NotifyOverlaySettings(
         Width = Clamp(Width, MinWidth, MaxWidth),
         Opacity = Clamp(Opacity, MinOpacity, 1f),
         Seconds = Clamp(Seconds, MinSeconds, MaxSeconds),
+        Wide = Clamp(Wide, OverlayPlacement.MinShape, OverlayPlacement.MaxShape),
+        Tall = Clamp(Tall, OverlayPlacement.MinShape, OverlayPlacement.MaxShape),
     };
 
     /// <summary>How long one pop-up stays.</summary>
@@ -196,7 +202,9 @@ public sealed record NotifyOverlaySettings(
                 settings.Width * PanelPerBox,
                 settings.Opacity,
                 Locked: settings.Locked,
-                ClickThrough: settings.ClickThrough);
+                ClickThrough: settings.ClickThrough,
+                Wide: settings.Wide,
+                Tall: settings.Tall);
         }
 
         var x = (AcrossOf(settings.Spot) * AcrossFraction * settings.Distance) + settings.Across;
@@ -208,7 +216,9 @@ public sealed record NotifyOverlaySettings(
             settings.Width * PanelPerBox,
             settings.Opacity,
             Locked: settings.Locked,
-            ClickThrough: settings.ClickThrough);
+            ClickThrough: settings.ClickThrough,
+            Wide: settings.Wide,
+            Tall: settings.Tall);
     }
 
     /// <summary>
@@ -231,7 +241,13 @@ public sealed record NotifyOverlaySettings(
     {
         ArgumentNullException.ThrowIfNull(placement);
 
-        var switched = this with { Locked = placement.Locked, ClickThrough = placement.ClickThrough };
+        var switched = this with
+        {
+            Locked = placement.Locked,
+            ClickThrough = placement.ClickThrough,
+            Wide = placement.Wide,
+            Tall = placement.Tall,
+        };
         if (placement.Anchor is not OverlayAnchor.Head)
             return switched;
 
@@ -266,6 +282,8 @@ public sealed record NotifyOverlaySettings(
             ["seconds"] = settings.Seconds,
             ["locked"] = settings.Locked,
             ["clickThrough"] = settings.ClickThrough,
+            ["wide"] = settings.Wide,
+            ["tall"] = settings.Tall,
         };
 
         if (settings.Placed is { } placed)
@@ -310,7 +328,9 @@ public sealed record NotifyOverlaySettings(
             Number(json, "seconds", Default.Seconds),
             PlacedFrom(json["placed"]),
             Flag(json, "locked", false),
-            Flag(json, "clickThrough", false)).Clamped();
+            Flag(json, "clickThrough", false),
+            Number(json, "wide", 1f),
+            Number(json, "tall", 1f)).Clamped();
     }
 
     /// <summary>The placed pose, or null when there is none or it is not a pose at all.</summary>

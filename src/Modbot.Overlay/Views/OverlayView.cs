@@ -388,7 +388,8 @@ public sealed partial class OverlayView
 
         /// <summary>The ring a frame was made with (<see cref="PanelFrame"/> puts it beside the panel), or null when it has none.</summary>
         public static CursorLayer? In(Visual root)
-            => root.GetVisualChildren().OfType<CursorLayer>().FirstOrDefault();
+            => (root is Zoom zoom ? zoom.GetVisualChildren().FirstOrDefault() ?? root : root)
+                .GetVisualChildren().OfType<CursorLayer>().FirstOrDefault();
 
         private void Place()
         {

@@ -166,7 +166,7 @@ public sealed class MadeUpHand
         if (PanelGeometry.PanelPose(placement, real) is not { } panel)
             return HandState.Missing;
 
-        var aim = Aim(panel, placement.Width, across, down);
+        var aim = Aim(panel, placement.Side, across, down);
         return new HandState(true, aim, aim, _grip.Squeeze(false, squeeze), click, new Vector2(0f, stickY));
     }
 
@@ -175,7 +175,7 @@ public sealed class MadeUpHand
         if (PanelGeometry.PanelPose(placement, real) is not { } panel)
             return HandState.Missing;
 
-        _device = Aim(panel, placement.Width, 0.5f, 0.5f);
+        _device = Aim(panel, placement.Side, 0.5f, 0.5f);
 
         // Where the panel sits from the hand, worked out the way the panel's own rules work it out
         // when they take hold, so carrying it later puts it where it was asked for.
