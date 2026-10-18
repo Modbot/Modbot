@@ -9,7 +9,9 @@ namespace Modbot.Api.Features.Companion.Devices;
 
 /// <param name="Device">Null unless the token resolved to a live device.</param>
 /// <param name="Failure">The response to return when it did not.</param>
-public readonly record struct DeviceAuthentication(CompanionDevice? Device, IResult? Failure)
+/// <param name="OwnerPermissions">What the device's owner holds at this request. None when it did not resolve.</param>
+public readonly record struct DeviceAuthentication(
+    CompanionDevice? Device, IResult? Failure, ModbotPermissions OwnerPermissions = ModbotPermissions.None)
 {
     public bool Succeeded => Device is not null;
 }
@@ -61,16 +63,18 @@ public sealed class DeviceAuthenticator
         // Refused the same way as an unknown token, whatever the reason. A companion that could
         // tell "your owner was disabled" from "no such token" would learn something about a
         // person from a credential that no longer speaks for them.
-        var device = await DeviceStanding.ResolveAsync(DeviceTokens.Hash(token), _devices, _accounts, now, ct);
-        if (device is null)
+        var standing = await DeviceStanding.ResolveWithOwnerAsync(DeviceTokens.Hash(token), _devices, _accounts, now, ct);
+        if (standing is not { } resolved)
             return new DeviceAuthentication(null, CompanionApiErrors.Unauthorised());
+
+        var device = resolved.Device;
 
         // Last-seen and the reported client version are surfaced in settings, so an operator can
         // see which moderators are actually reporting and how much of their coverage is running a
         // stale log parser. After the idle check, so a device refused for being idle stays idle.
         await _devices.TouchAsync(device.Id, now, ReadClientVersion(context) ?? device.CompanionVersion, ct);
 
-        return new DeviceAuthentication(device, null);
+        return new DeviceAuthentication(device, null, resolved.Permissions);
     }
 
     /// <summary>The bearer token on the request, or null. The live stream re-hashes it to check a device again.</summary>
@@ -154,6 +158,19 @@ public static class DeviceStanding
         UserAccountService accounts,
         DateTimeOffset now,
         CancellationToken ct)
+        => (await ResolveWithOwnerAsync(tokenHash, devices, accounts, now, ct))?.Device;
+
+    /// <summary>
+    /// <see cref="ResolveAsync"/>, with what the owner holds as they are read for this check. The
+    /// live stream's feed of moderation events is decided by these permissions, so it is the same
+    /// read that decides whether the device may be used at all.
+    /// </summary>
+    public static async Task<(CompanionDevice Device, ModbotPermissions Permissions)?> ResolveWithOwnerAsync(
+        string tokenHash,
+        ICompanionDeviceStore devices,
+        UserAccountService accounts,
+        DateTimeOffset now,
+        CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(devices);
         ArgumentNullException.ThrowIfNull(accounts);
@@ -163,7 +180,7 @@ public static class DeviceStanding
             return null;
 
         var owner = await accounts.StateAsync(device.IssuedToUserId, ct);
-        return OwnerMayUse(owner) ? device : null;
+        return owner is { } state && OwnerMayUse(state) ? (device, state.Permissions) : null;
     }
 }
 

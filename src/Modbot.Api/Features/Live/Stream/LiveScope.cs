@@ -1,4 +1,5 @@
 using Modbot.Api.Auth;
+using Modbot.Api.Features.Audit;
 using Modbot.Api.Features.Events;
 using Modbot.Core.Data.Entities;
 
@@ -27,20 +28,38 @@ namespace Modbot.Api.Features.Live.Stream;
 /// presence anywhere it is not standing -- the same boundary <c>DeviceLocations</c> draws for the
 /// old alert long poll.
 /// </para>
+/// <para>
+/// <strong>One widening, asked for and earned.</strong> A device that asks for moderation
+/// (<c>moderation=true</c>) and whose owner holds "See the audit log" (the owner's permissions as
+/// they are now, read again with every refresh) is also sent the audit log's facts about its own
+/// instance, and about the people seen in it (<see cref="InstanceAudit"/>), each one filtered by the
+/// audit log's own rules for the owner (<see cref="EventVisibility.CanSee"/>, evidence included).
+/// An owner without that permission, or a device that did not ask, is sent presence only, as before.
+/// </para>
 /// </remarks>
 public sealed class LiveScope
 {
-    private LiveScope(ModbotPermissions permissions, Guid? deviceId, string? instanceId, string? worldId)
+    private LiveScope(
+        ModbotPermissions permissions, Guid? deviceId, string? instanceId, string? worldId, Guid? ownerId = null, bool moderation = false)
     {
         Permissions = permissions;
         DeviceId = deviceId;
+        OwnerId = ownerId;
+        AsksForModeration = moderation;
         InstanceId = instanceId;
         WorldId = worldId is { Length: > 0 } ? worldId : null;
     }
 
+    /// <summary>For a person: what they hold. For a device: what its owner holds now, or none until that is known.</summary>
     public ModbotPermissions Permissions { get; }
 
     public Guid? DeviceId { get; }
+
+    /// <summary>For a device: the account it was issued to. Null for a person.</summary>
+    public Guid? OwnerId { get; }
+
+    /// <summary>For a device: whether its client said it can show moderation events (<c>moderation=true</c>).</summary>
+    public bool AsksForModeration { get; }
 
     /// <summary>For a device: the instance it is standing in. Null for a person.</summary>
     public string? InstanceId { get; }
@@ -56,11 +75,38 @@ public sealed class LiveScope
 
     public static LiveScope ForPerson(ModbotPermissions permissions) => new(permissions, null, null, null);
 
-    public static LiveScope ForDevice(Guid deviceId, string? instanceId, string? worldId = null)
-        => new(ModbotPermissions.None, deviceId, instanceId, worldId);
+    /// <param name="permissions">What the device's owner holds. Leave out for a device sent presence only.</param>
+    /// <param name="ownerId">The account the device was issued to.</param>
+    /// <param name="moderation">Whether the client asked for moderation events.</param>
+    public static LiveScope ForDevice(
+        Guid deviceId,
+        string? instanceId,
+        string? worldId = null,
+        ModbotPermissions permissions = ModbotPermissions.None,
+        Guid? ownerId = null,
+        bool moderation = false)
+        => new(permissions, deviceId, instanceId, worldId, ownerId, moderation);
 
     /// <summary>The same device, standing somewhere else now.</summary>
-    public LiveScope InInstance(string? instanceId, string? worldId = null) => new(Permissions, DeviceId, instanceId, worldId);
+    public LiveScope InInstance(string? instanceId, string? worldId = null)
+        => new(Permissions, DeviceId, instanceId, worldId, OwnerId, AsksForModeration);
+
+    /// <summary>The same device with what its owner holds now.</summary>
+    public LiveScope WithOwnerPermissions(ModbotPermissions permissions)
+        => new(permissions, DeviceId, InstanceId, WorldId, OwnerId, AsksForModeration);
+
+    /// <summary>
+    /// Whether this device is sent the audit log's events: it asked, and its owner may read the
+    /// moderation log.
+    /// </summary>
+    public bool CarriesModeration
+        => IsDevice && AsksForModeration && AuditVisibility.CanSee(Permissions, AuditCategory.Moderation);
+
+    /// <summary>Whether a fact placed in this instance (and world, when both sides know it) is the one this device stands in.</summary>
+    public bool IsHere(string? instanceId, string? worldId)
+        => InstanceId is { Length: > 0 }
+            && string.Equals(instanceId, InstanceId, StringComparison.Ordinal)
+            && (WorldId is null || string.Equals(worldId, WorldId, StringComparison.Ordinal));
 
     /// <summary>Whether this caller could be sent anything at all.</summary>
     public bool SeesAnything => IsDevice
@@ -87,8 +133,15 @@ public sealed class LiveScope
         ArgumentNullException.ThrowIfNull(kind);
         ArgumentNullException.ThrowIfNull(type);
 
+        // A device: presence always; the audit log's moderation facts only when it carries them,
+        // by the owner's permissions and the same narrowing a person gets (evidence, presence).
         if (IsDevice)
-            return LiveKinds.IsPresence(kind);
+        {
+            return LiveKinds.IsPresence(kind)
+                || (CarriesModeration
+                    && AuditVisibility.CategoryOf(type) == AuditCategory.Moderation
+                    && EventVisibility.CanSee(Permissions, type));
+        }
 
         if (EventVisibility.CanSee(Permissions, type))
             return true;
@@ -115,7 +168,12 @@ public sealed class LiveScope
         return false;
     }
 
-    public bool Wants(LiveEvent @event)
+    /// <param name="aboutSomeoneHere">
+    /// For a device: whether the fact is about a person seen in the instance it stands in
+    /// (<see cref="InstanceAudit.AboutPeopleHereAsync"/>), which is how a group join or a Discord
+    /// ban reaches a feed that has no instance of its own.
+    /// </param>
+    public bool Wants(LiveEvent @event, bool aboutSomeoneHere = false)
     {
         ArgumentNullException.ThrowIfNull(@event);
 
@@ -129,8 +187,11 @@ public sealed class LiveScope
 
         // The world counts when the device gave one: two instances in two worlds can share a
         // number, and a roster or a flagged card from the other one is somebody else's.
-        return InstanceId is { Length: > 0 }
-            && string.Equals(@event.InstanceId, InstanceId, StringComparison.Ordinal)
-            && (WorldId is null || string.Equals(@event.WorldId, WorldId, StringComparison.Ordinal));
+        if (IsHere(@event.InstanceId, @event.WorldId))
+            return true;
+
+        // Anything else a device is sent is about a person seen here, and presence never is: a
+        // join or leave in another instance is somebody else's roster.
+        return aboutSomeoneHere && CarriesModeration && !LiveKinds.IsPresence(@event.Kind);
     }
 }

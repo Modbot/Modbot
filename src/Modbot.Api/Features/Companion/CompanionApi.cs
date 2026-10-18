@@ -229,6 +229,8 @@ public static class CompanionApi
                 + "Authenticate with the device token in the Authorization header. `instanceId` names "
                 + "the instance the client is standing in and `worldId` its world (optional; without it the "
                 + "number alone is matched); `after` is the cursor to carry on from. "
+                + "`moderation=true` also asks for the audit log's events about the instance and the people seen in it "
+                + "(each with a `sentence` and an `origin`), sent only when the device's owner may read the audit log. "
                 + "Send `{\"op\":\"subscribe\",\"instanceId\":\"...\",\"worldId\":\"...\"}` on walking into another.")
             .Produces<CompanionError>(StatusCodes.Status400BadRequest)
             .Produces<CompanionError>(StatusCodes.Status401Unauthorized)

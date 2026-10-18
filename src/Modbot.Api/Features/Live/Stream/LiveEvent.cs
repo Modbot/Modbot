@@ -139,6 +139,12 @@ public sealed record LiveActor(string Platform, string Id, string? Name);
 /// raise a card for a join its own log just showed it. Always false on the web.
 /// </param>
 /// <param name="Data">The fact's payload. Null on companion connections.</param>
+/// <param name="Sentence">
+/// The audit log's sentence for the fact, such as "Mira kicked Ada out of The Black Cat #39047."
+/// Only on the moderation events a companion that asked for them is sent (<see cref="InstanceAudit"/>);
+/// null everywhere else.
+/// </param>
+/// <param name="Origin"><c>VRChat</c>, <c>Discord</c> or <c>Modbot</c>: where the fact comes from. Set with <paramref name="Sentence"/>.</param>
 public sealed record LiveEvent(
     string Id,
     string Cursor,
@@ -160,7 +166,9 @@ public sealed record LiveEvent(
     bool Flagged,
     string? Reason,
     bool ByThisDevice,
-    JsonNode? Data)
+    JsonNode? Data,
+    string? Sentence = null,
+    string? Origin = null)
 {
     /// <summary>The fact id, for the cursor arithmetic.</summary>
     public long FactId => long.Parse(Id, NumberStyles.None, CultureInfo.InvariantCulture);

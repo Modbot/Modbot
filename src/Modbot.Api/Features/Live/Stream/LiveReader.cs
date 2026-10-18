@@ -75,12 +75,19 @@ public sealed class LiveReader
         for (var pages = 0; pages < maxPages; pages++)
         {
             var page = await _feed.ReadAsync(cursor, pageSize, now, ct);
-            var built = await BuildAsync(page.Facts, scope, now, ct);
+            var aboutPeopleHere = await InstanceAudit.AboutPeopleHereAsync(_db, page.Facts, scope, now, ct);
+            var built = await BuildAsync(page.Facts, scope, aboutPeopleHere, now, ct);
+
+            if (scope.CarriesModeration)
+            {
+                await InstanceAudit.WriteSentencesAsync(
+                    _db, page.Facts, built, e => scope.Wants(e, aboutPeopleHere.Contains(e.FactId)), ct);
+            }
 
             foreach (var fact in page.Facts)
             {
                 if (built.TryGetValue(fact.Id, out var @event)
-                    && scope.Wants(@event)
+                    && scope.Wants(@event, aboutPeopleHere.Contains(fact.Id))
                     && !await MemberReportAccess.HidesAsync(_db, scope.Permissions, fact, now, ct))
                 {
                     if (events.Count == limit)
@@ -111,6 +118,7 @@ public sealed class LiveReader
     private async Task<Dictionary<long, LiveEvent>> BuildAsync(
         IReadOnlyList<ModbotEvent> facts,
         LiveScope scope,
+        HashSet<long> aboutPeopleHere,
         DateTimeOffset now,
         CancellationToken ct)
     {
@@ -119,10 +127,14 @@ public sealed class LiveReader
         if (facts.Count == 0)
             return result;
 
-        // A device is sent presence and nothing else, so nothing else is built for it.
+        // A device is sent presence, and the moderation facts of its instance and of the people
+        // seen in it when it carries those, so nothing else is built for it.
         var live = facts
             .Select(f => (Fact: f, Kind: LiveKinds.Of(f.Type) ?? LiveKinds.Fact))
-            .Where(x => !scope.IsDevice || LiveKinds.IsPresence(x.Kind))
+            .Where(x => !scope.IsDevice
+                || LiveKinds.IsPresence(x.Kind)
+                || (scope.CarriesModeration
+                    && (scope.IsHere(x.Fact.InstanceId, x.Fact.WorldId) || aboutPeopleHere.Contains(x.Fact.Id))))
             .ToList();
 
         if (live.Count == 0)

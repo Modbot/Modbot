@@ -19,9 +19,12 @@ namespace Modbot.Api.Features.Companion.Live;
 /// <para>
 /// <strong>A device token in the header, and only that.</strong> The companion sets headers on
 /// its WebSocket, so there are no tickets here and nothing in the address but the instance and
-/// the cursor. The same resolver every other companion endpoint uses answers who is calling, and
-/// a device sees exactly what <see cref="LiveScope.ForDevice"/> says: presence in the instance it
-/// named, nothing else.
+/// the cursor, and <c>moderation=true</c> from a client that can show moderation events. The same
+/// resolver every other companion endpoint uses answers who is calling, and a device sees exactly
+/// what <see cref="LiveScope.ForDevice"/> says: presence in the instance it named, and, when it
+/// asked and its owner may read the audit log, the audit log's facts about that instance and the
+/// people seen in it (<see cref="InstanceAudit"/>). A client built before that never asks, so it
+/// is never sent a kind it would show as a raw row.
 /// </para>
 /// <para>
 /// <strong>Naming the instance is the same signal the roster read gives.</strong> A device that
@@ -37,6 +40,7 @@ public static class CompanionLiveEndpoints
         string? instanceId,
         string? worldId,
         string? after,
+        bool? moderation,
         HttpContext context,
         DeviceAuthenticator authenticator,
         DeviceLocations locations,
@@ -76,7 +80,8 @@ public static class CompanionLiveEndpoints
         await LiveStreams.RunSocketAsync(
             context,
             socket,
-            LiveScope.ForDevice(device.Id, instanceId, worldId),
+            LiveScope.ForDevice(
+                device.Id, instanceId, worldId, authentication.OwnerPermissions, device.IssuedToUserId, moderation == true),
             DeviceRefresh(tokenHash),
             cursor,
             $"live:device:{device.Id}",
@@ -96,6 +101,7 @@ public static class CompanionLiveEndpoints
         string? worldId,
         string? after,
         int? wait,
+        bool? moderation,
         HttpContext context,
         DeviceAuthenticator authenticator,
         DeviceLocations locations,
@@ -119,7 +125,8 @@ public static class CompanionLiveEndpoints
         return await LiveStreams.PollAsync(
             context,
             database,
-            LiveScope.ForDevice(device.Id, instanceId, worldId),
+            LiveScope.ForDevice(
+                device.Id, instanceId, worldId, authentication.OwnerPermissions, device.IssuedToUserId, moderation == true),
             DeviceRefresh(tokenHash),
             $"live:device:{device.Id}",
             after,
@@ -134,13 +141,15 @@ public static class CompanionLiveEndpoints
     /// </summary>
     private static LiveScopeRefresh DeviceRefresh(string tokenHash) => async (services, current, ct) =>
     {
-        var device = await DeviceStanding.ResolveAsync(
+        var standing = await DeviceStanding.ResolveWithOwnerAsync(
             tokenHash,
             services.GetRequiredService<ICompanionDeviceStore>(),
             services.GetRequiredService<UserAccountService>(),
             services.GetRequiredService<IModbotClock>().UtcNow,
             ct);
 
-        return device is null ? null : current;
+        // The owner's permissions as they are now, so a removed "See the audit log" ends the
+        // moderation events at the next check, and a disabled account ends the stream.
+        return standing is null ? null : current.WithOwnerPermissions(standing.Value.Permissions);
     };
 }

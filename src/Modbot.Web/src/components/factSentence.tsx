@@ -34,6 +34,13 @@ import { VRCHAT_PERMISSIONS } from '@/lib/vrchatPermissions'
  * job to run, no rows rewritten, nothing to schedule. Adding a sentence below improves the whole
  * of recorded history the next time somebody opens the page.
  *
+ * ## A second copy for the VR companion
+ *
+ * The companion's live feed sends moderation events with the sentence already written, as plain
+ * text, by `src/Modbot.Api/Features/Audit/AuditSentence.cs`. That copy covers the types in
+ * `InstanceAudit.PeopleTypes` and uses these same words. Change one of those sentences here and
+ * change it there too, and the other way round.
+ *
  * Two limits worth stating rather than papering over:
  *
  * - A sentence can only say what the payload captured. Where a field was never kept, the sentence
