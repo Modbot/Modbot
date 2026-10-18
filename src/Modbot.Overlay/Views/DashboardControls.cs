@@ -39,6 +39,7 @@ public static class DashboardControls
     public static string LabelOf(DashboardTarget target) => target switch
     {
         DashboardTarget.Toggle { Which: DashboardSwitch.Overlay } => "Overlay on",
+        DashboardTarget.Toggle { Which: DashboardSwitch.Button } => "Show VR button",
         DashboardTarget.Toggle => "Notification overlay on",
         DashboardTarget.FixTo fix => fix.Anchor switch
         {
@@ -125,6 +126,7 @@ public static class DashboardControls
         return target switch
         {
             DashboardTarget.Toggle { Which: DashboardSwitch.Overlay } => new(label, "switch", screen.OverlayOn, null, placed.Bounds, target),
+            DashboardTarget.Toggle { Which: DashboardSwitch.Button } => new(label, "switch", screen.ButtonOn, null, placed.Bounds, target),
             DashboardTarget.Toggle => new(label, "switch", notify.On, null, placed.Bounds, target),
             DashboardTarget.FixTo fix => new(label, "choice", fix.Anchor == screen.Anchor, null, placed.Bounds, target),
             DashboardTarget.Spot spot => new(label, "choice", spot.Where == notify.Spot && notify.Placed is null, null, placed.Bounds, target),

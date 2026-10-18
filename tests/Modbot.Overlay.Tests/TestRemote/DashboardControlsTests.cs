@@ -70,6 +70,7 @@ public class DashboardControlsTests
             Assert.NotEmpty(controls);
             Assert.Equal(controls.Count, controls.Select(c => c.Label.ToLowerInvariant()).Distinct().Count());
             Assert.Contains(controls, c => c is { Label: "Overlay on", Kind: "switch", On: true });
+            Assert.Contains(controls, c => c is { Label: "Show VR button", Kind: "switch", On: true });
             Assert.Contains(controls, c => c is { Label: "Head", Kind: "choice", On: true });
             Assert.Contains(controls, c => c is { Label: "Put it back in front of me", Kind: "button" });
             Assert.Contains(controls, c => c is { Label: "Width", Kind: "slider", Value: not null });

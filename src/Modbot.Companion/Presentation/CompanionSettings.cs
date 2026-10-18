@@ -138,6 +138,14 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public ButtonPlace OverlayButtonPlace { get; init; } = ButtonPlace.Corner;
 
     /// <summary>
+    /// Whether the show and hide button is in the headset at all, which is what the SteamVR page's
+    /// <strong>Show VR button</strong> switch writes as <c>"overlayButtonOn"</c>. On unless the file says
+    /// <c>false</c>, so a settings file from before the switch reads as on. Off, the stick shortcut
+    /// still shows and hides the panel.
+    /// </summary>
+    public bool OverlayButtonOn { get; init; } = true;
+
+    /// <summary>
     /// Where the button was last left in each place, saved as the <c>overlayButtonSpots</c> object
     /// whenever a controller moves it or presses a switch on its bar. A place nobody has moved it
     /// in, and a file with no such object, start from that place's default spot.
@@ -251,6 +259,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
 
     public const string OverlayButtonPlaceField = "overlayButtonPlace";
 
+    public const string OverlayButtonOnField = "overlayButtonOn";
+
     public const string OverlayButtonSpotsField = "overlayButtonSpots";
 
     public const string OverlayButtonStickField = "overlayButtonStick";
@@ -324,6 +334,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             OverlayPushSpeed = ClampPushSpeed(shape?.OverlayPushSpeed ?? DefaultPushSpeed),
             OverlayVRChatLook = shape?.OverlayVRChatLook ?? true,
             OverlayButtonPlace = OverlayButton.Parse(shape?.OverlayButtonPlace),
+            OverlayButtonOn = shape?.OverlayButtonOn ?? true,
             OverlayButtonSpots = ButtonSpots.FromJson(shape?.OverlayButtonSpots),
             OverlayButtonShortcut = new ButtonShortcut(
                 ButtonShortcut.ParseStick(shape?.OverlayButtonStick),
@@ -674,6 +685,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("overlayPushSpeed")] int? OverlayPushSpeed = null,
         [property: JsonPropertyName("overlayVRChatLook")] bool? OverlayVRChatLook = null,
         [property: JsonPropertyName("overlayButtonPlace")] string? OverlayButtonPlace = null,
+        [property: JsonPropertyName("overlayButtonOn")] bool? OverlayButtonOn = null,
         [property: JsonPropertyName("overlayButtonSpots")] JsonObject? OverlayButtonSpots = null,
         [property: JsonPropertyName("overlayButtonStick")] string? OverlayButtonStick = null,
         [property: JsonPropertyName("overlayButtonDirection")] string? OverlayButtonDirection = null,

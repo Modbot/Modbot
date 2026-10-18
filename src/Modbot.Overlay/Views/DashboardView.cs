@@ -56,7 +56,16 @@ public static class DashboardView
             },
         };
 
-        var right = Card("Placement", PlacementLines(screen.Notify));
+        // The button's switch is on the right: the left column is full to the bottom of the page.
+        var right = new StackPanel
+        {
+            Spacing = Gutter,
+            Children =
+            {
+                Card("Placement", PlacementLines(screen.Notify)),
+                Card("Button", [Switch(DashboardSwitch.Button, "Show VR button", screen.ButtonOn)]),
+            },
+        };
 
         var columns = new Grid
         {

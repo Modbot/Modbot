@@ -118,6 +118,25 @@ public class DashboardHostTests
     }
 
     [Fact]
+    public void TheShowVrButtonSwitchAsksForTheOtherWayInBothDirections()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            using var host = Host(new FakeRuntime());
+            host.Update(DashboardScreen.Default);
+
+            var asked = new List<bool>();
+            host.ButtonOnChanged += asked.Add;
+
+            Press(host, Middle(host, new DashboardTarget.Toggle(DashboardSwitch.Button)));
+            host.Update(DashboardScreen.Default with { ButtonOn = false });
+            Press(host, Middle(host, new DashboardTarget.Toggle(DashboardSwitch.Button)));
+
+            Assert.Equal([false, true], asked);
+        });
+    }
+
+    [Fact]
     public void ChoosingAnAnchorAsksForIt()
     {
         AvaloniaTestHost.Run(() =>

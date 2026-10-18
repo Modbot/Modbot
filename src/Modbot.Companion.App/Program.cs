@@ -2122,16 +2122,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             _overlayHost.EditMode = _state?.Settings.OverlayEditMode is true;
             _overlayHost.PushStep = PushStep(_state?.Settings.OverlayPushSpeed);
 
-            // The show and hide button comes up with the panel and goes with it; it draws nothing
-            // and touches no graphics card until a headset is running.
-            var buttonPlace = _state?.Settings.OverlayButtonPlace ?? ButtonPlace.Corner;
-            _buttonHost = ButtonHost.Create(buttonPlace, placement: (_state?.Settings.OverlayButtonSpots ?? ButtonSpots.None).For(buttonPlace));
-            _buttonHost.EditMode = _state?.Settings.OverlayEditMode is true;
-            _buttonHost.PushStep = PushStep(_state?.Settings.OverlayPushSpeed);
-            _buttonHost.PlacementChanged += ButtonPlacementChanged;
-            _buttonHost.Shortcut = ButtonShortcutNow();
-            _buttonHost.Pressed += TogglePanel;
-            _buttonHost.ShortcutHeld += TogglePanel;
+            MakeButtonHost();
 
             StartHeadsetPaletteWatch();
             AttachOverlay();
@@ -2175,6 +2166,26 @@ internal sealed partial class CompanionHost : IOverlayListener
                 _placementSave.Start();
             };
         }
+    }
+
+    /// <summary>
+    /// The show and hide button comes up with the panel and goes with it, unless the
+    /// <strong>Show VR button</strong> switch is off. It draws nothing and touches no graphics card
+    /// until a headset is running.
+    /// </summary>
+    private void MakeButtonHost()
+    {
+        if (_buttonHost is not null || _state?.Settings.OverlayButtonOn is false)
+            return;
+
+        var buttonPlace = _state?.Settings.OverlayButtonPlace ?? ButtonPlace.Corner;
+        _buttonHost = ButtonHost.Create(buttonPlace, placement: (_state?.Settings.OverlayButtonSpots ?? ButtonSpots.None).For(buttonPlace));
+        _buttonHost.EditMode = _state?.Settings.OverlayEditMode is true;
+        _buttonHost.PushStep = PushStep(_state?.Settings.OverlayPushSpeed);
+        _buttonHost.PlacementChanged += ButtonPlacementChanged;
+        _buttonHost.Shortcut = ButtonShortcutNow();
+        _buttonHost.Pressed += TogglePanel;
+        _buttonHost.ShortcutHeld += TogglePanel;
     }
 
     /// <summary>
@@ -2601,6 +2612,42 @@ internal sealed partial class CompanionHost : IOverlayListener
             Log.Warning("Could not save the button place to {Path}", _settingsPath);
 
         _buttonHost?.Place(place, _state.Settings.OverlayButtonSpots.For(place));
+        Render();
+    }
+
+    /// <summary>
+    /// The <strong>Show VR button</strong> switch, on the SteamVR page and on the dashboard tab.
+    /// Saved, then acted on at once: off takes the button down, on brings it back at its saved spot
+    /// while the headset panel is up. The stick shortcut belongs to the panel, not the button, so it
+    /// goes on working either way.
+    /// </summary>
+    private void SetOverlayButtonOn(bool on)
+    {
+        if (_state is null || _state.Settings.OverlayButtonOn == on)
+            return;
+
+        _state.Settings = _state.Settings with { OverlayButtonOn = on };
+
+        if (!CompanionSettings.SaveSwitch(_settingsPath, CompanionSettings.OverlayButtonOnField, on))
+            Log.Warning("Could not save the Show VR button switch to {Path}", _settingsPath);
+
+        if (!on)
+        {
+            DisposeButton();
+        }
+        else if (_overlayHost is not null)
+        {
+            MakeButtonHost();
+            UseHeadsetLook();
+
+            // At once, not on the next look: the headset is already running when the panel is.
+            if (_overlayHost.Status.State is OverlayRuntimeState.Running)
+                AttachButton();
+
+            ShowButton();
+        }
+
+        ShowOnDashboard();
         Render();
     }
 
@@ -3359,6 +3406,7 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         _dashboard.Mark = Brand.MarkBitmap;
         _dashboard.OverlayOnChanged += SetOverlayOn;
+        _dashboard.ButtonOnChanged += SetOverlayButtonOn;
         _dashboard.AnchorChosen += AnchorOverlay;
         _dashboard.PutBackPressed += PutOverlayBack;
         _dashboard.NotifyOverlayChanged += SetNotifyOverlay;
@@ -3385,7 +3433,8 @@ internal sealed partial class CompanionHost : IOverlayListener
                 _state.Settings.OverlayOn,
                 _state.Settings.Overlay.Anchor,
                 _state.Settings.NotifyOverlay,
-                _state.Settings.NotificationFilters);
+                _state.Settings.NotificationFilters,
+                _state.Settings.OverlayButtonOn);
 
     private void DashboardTick()
     {
@@ -3909,6 +3958,7 @@ internal sealed partial class CompanionHost : IOverlayListener
                 SetOverlayEditMode = SetOverlayEditMode,
                 SetOverlayVRChatLook = SetOverlayVRChatLook,
                 SetOverlayButtonPlace = SetOverlayButtonPlace,
+                SetOverlayButtonOn = SetOverlayButtonOn,
                 SetOverlayButtonShortcut = SetOverlayButtonShortcut,
                 PutOverlayBack = PutOverlayBack,
                 SetOverlayPushSpeed = SetOverlayPushSpeed,

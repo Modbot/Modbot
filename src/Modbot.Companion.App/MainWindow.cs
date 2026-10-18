@@ -132,6 +132,7 @@ public sealed partial class MainWindow : Window
 
     /// <summary>Whether the lock and the hand show on the panels. Kept, like the Overlay on switch.</summary>
     private readonly CheckBox _editModeBox = new();
+    private readonly CheckBox _buttonOnBox = new();
 
     /// <summary>How fast the thumbstick pushes and pulls a carried panel, 1 to 10. Kept, like the sliders under it.</summary>
     private readonly Slider _pushSpeed = new()
@@ -233,6 +234,14 @@ public sealed partial class MainWindow : Window
         {
             if (!Quiet)
                 _actions.SetOverlayEditMode(_editModeBox.IsChecked == true);
+        };
+
+        _buttonOnBox.Content = Ui.Text("Show VR button", Ui.T.Density.TextSmall, Ui.T.TextBrush);
+        _buttonOnBox.VerticalAlignment = VerticalAlignment.Center;
+        _buttonOnBox.IsCheckedChanged += (_, _) =>
+        {
+            if (!Quiet)
+                _actions.SetOverlayButtonOn(_buttonOnBox.IsChecked == true);
         };
 
         _logFolderBox = Ui.Input();
@@ -1577,6 +1586,7 @@ public sealed partial class MainWindow : Window
         {
             _overlayOnBox.IsChecked = overlay.On;
             _editModeBox.IsChecked = _snapshot.OverlayEditMode;
+            _buttonOnBox.IsChecked = _snapshot.OverlayButtonOn;
 
             // Not refilled under the pointer: a slider being dragged is not pulled back by a tick.
             if (!_pushSpeed.IsPointerOver && !_pushSpeed.IsFocused)
@@ -1587,6 +1597,7 @@ public sealed partial class MainWindow : Window
 
         DetachFromParent(_overlayOnBox);
         DetachFromParent(_editModeBox);
+        DetachFromParent(_buttonOnBox);
         DetachFromParent(_pushSpeed);
         DetachFromParent(_pushSpeedLabel);
 
@@ -1608,7 +1619,7 @@ public sealed partial class MainWindow : Window
         var top = new StackPanel
         {
             Spacing = 12,
-            Children = { _overlayOnBox, _editModeBox, Ui.Field("Look", LookChoices(_snapshot.OverlayVRChatLook)), Ui.Field("Button place", ButtonPlaceChoices(_snapshot.OverlayButtonPlace)), Ui.Field("Shortcut", ShortcutChoices(_snapshot.OverlayButtonShortcut)), Ui.Field("Hold time", HoldChoices(_snapshot.OverlayButtonShortcut)), Ui.Field(_pushSpeedLabel, _pushSpeed) },
+            Children = { _overlayOnBox, _editModeBox, Ui.Field("Look", LookChoices(_snapshot.OverlayVRChatLook)), _buttonOnBox, Ui.Field("Button place", ButtonPlaceChoices(_snapshot.OverlayButtonPlace)), Ui.Field("Shortcut", ShortcutChoices(_snapshot.OverlayButtonShortcut)), Ui.Field("Hold time", HoldChoices(_snapshot.OverlayButtonShortcut)), Ui.Field(_pushSpeedLabel, _pushSpeed) },
         };
         Control header = pill;
 
@@ -2009,6 +2020,9 @@ public sealed record MainWindowActions(
     public Action<bool> SetOverlayVRChatLook { get; init; } = _ => { };
 
     public Action<ButtonPlace> SetOverlayButtonPlace { get; init; } = _ => { };
+
+    /// <summary>The SteamVR page's Show VR button switch: whether the show and hide button is in the headset.</summary>
+    public Action<bool> SetOverlayButtonOn { get; init; } = _ => { };
 
     /// <summary>The SteamVR page's Shortcut and Hold time choices: the whole shortcut with the one thing that changed.</summary>
     public Action<ButtonShortcut> SetOverlayButtonShortcut { get; init; } = _ => { };

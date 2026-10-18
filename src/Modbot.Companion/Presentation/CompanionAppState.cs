@@ -251,6 +251,9 @@ public sealed record CompanionAppSnapshot(
     /// <summary>Where the show and hide button sits, for the SteamVR page's Button place choice.</summary>
     public ButtonPlace OverlayButtonPlace { get; init; }
 
+    /// <summary>Whether the show and hide button is in the headset, for the SteamVR page's Show VR button switch.</summary>
+    public bool OverlayButtonOn { get; init; } = true;
+
     /// <summary>The button's stick shortcut, for the SteamVR page's Shortcut and Hold time choices.</summary>
     public ButtonShortcut OverlayButtonShortcut { get; init; } = ButtonShortcut.Default;
 
@@ -553,6 +556,7 @@ public sealed class CompanionAppState
             OverlayPushSpeed = Settings.OverlayPushSpeed,
             OverlayVRChatLook = Settings.OverlayVRChatLook,
             OverlayButtonPlace = Settings.OverlayButtonPlace,
+            OverlayButtonOn = Settings.OverlayButtonOn,
             OverlayButtonShortcut = Settings.OverlayButtonShortcut,
         };
     }

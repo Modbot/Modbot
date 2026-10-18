@@ -126,6 +126,9 @@ public sealed class DashboardHost : IDisposable
     /// <summary>The <strong>Overlay on</strong> switch was pressed: the main panel, on or off.</summary>
     public event Action<bool>? OverlayOnChanged;
 
+    /// <summary>The <strong>Show VR button</strong> switch was pressed: the show and hide button, on or off.</summary>
+    public event Action<bool>? ButtonOnChanged;
+
     /// <summary>One of <strong>Fixed to</strong>'s choices was pressed.</summary>
     public event Action<OverlayAnchor>? AnchorChosen;
 
@@ -250,6 +253,9 @@ public sealed class DashboardHost : IDisposable
         {
             case DashboardTarget.Toggle { Which: DashboardSwitch.Overlay }:
                 OverlayOnChanged?.Invoke(!_screen.OverlayOn);
+                break;
+            case DashboardTarget.Toggle { Which: DashboardSwitch.Button }:
+                ButtonOnChanged?.Invoke(!_screen.ButtonOn);
                 break;
             case DashboardTarget.Toggle { Which: DashboardSwitch.Notifications }:
                 NotifyOverlayChanged?.Invoke(notify with { On = !notify.On });

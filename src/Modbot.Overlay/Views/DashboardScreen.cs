@@ -20,11 +20,13 @@ namespace Modbot.Overlay.Views;
 /// <param name="Anchor">What the main panel is fixed to (<c>overlay.anchor</c>).</param>
 /// <param name="Notify">The notification overlay (<c>notifyOverlay</c>).</param>
 /// <param name="Filters">Which kinds of event pop up (<c>notificationFilters.popUp</c>), with the other two ways as they are.</param>
+/// <param name="ButtonOn">Whether the show and hide button is in the headset (<c>overlayButtonOn</c>).</param>
 public sealed record DashboardScreen(
     bool OverlayOn,
     OverlayAnchor Anchor,
     NotifyOverlaySettings Notify,
-    NotificationFilters Filters)
+    NotificationFilters Filters,
+    bool ButtonOn = true)
 {
     /// <summary>Everything at its default, for a tab drawn before the settings have been read.</summary>
     public static DashboardScreen Default { get; } = new(
@@ -34,7 +36,7 @@ public sealed record DashboardScreen(
         NotificationFilters.Default);
 }
 
-/// <summary>The two switches on the tab.</summary>
+/// <summary>The three switches on the tab.</summary>
 public enum DashboardSwitch
 {
     /// <summary>The main panel, on or off.</summary>
@@ -42,6 +44,9 @@ public enum DashboardSwitch
 
     /// <summary>The notification overlay, on or off.</summary>
     Notifications,
+
+    /// <summary>The show and hide button, on or off.</summary>
+    Button,
 }
 
 /// <summary>The notification overlay's numbers, each a slider on the tab.</summary>
