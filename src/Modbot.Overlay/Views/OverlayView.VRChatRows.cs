@@ -160,8 +160,9 @@ public sealed partial class OverlayView
                 rows.Children.Add(SectionLabel($"Other users ({others.Count(member => !justLeft(member))})"));
         }
 
-        // Scrolled-past rows are counted, not hidden without a word.
-        var skip = Math.Clamp(screen.RosterSkip, 0, Math.Max(0, others.Count - 1));
+        // Scrolled-past rows are counted, not hidden without a word. Where the headset scrolls by pixels
+        // there are none: the whole list, the moderator's own card and the label too, is what moves.
+        var skip = Scrolled ? 0 : Math.Clamp(screen.RosterSkip, 0, Math.Max(0, others.Count - 1));
         if (skip > 0)
             rows.Children.Add(Text(skip == 1 ? "1 more above" : skip + " more above", T.Density.TextSmall, V!.Subtext));
 

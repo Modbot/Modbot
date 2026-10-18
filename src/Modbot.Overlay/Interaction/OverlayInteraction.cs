@@ -29,6 +29,7 @@ public readonly record struct PanelDrag(Pointer From, float Down);
 /// the bar is shown so it can be switched back. Null otherwise.
 /// </param>
 /// <param name="Drag">The trigger held down and dragged on a list this poll, or null.</param>
+/// <param name="Touched">The trigger went down on a list this poll, before it is known whether it is a tap or a drag.</param>
 public sealed record InteractionResult(
     Pointer? Pointer,
     OverlayPlacement Placement,
@@ -37,7 +38,8 @@ public sealed record InteractionResult(
     Vector2 Scroll,
     Hand? Holding,
     Pointer? Passing = null,
-    PanelDrag? Drag = null)
+    PanelDrag? Drag = null,
+    bool Touched = false)
 {
     /// <summary>Whether any ray is on the panel, used or let through: while one is, the bar is up.</summary>
     public bool RayOnPanel => Pointer is not null || Passing is not null;
@@ -288,6 +290,7 @@ public sealed class OverlayInteraction
         Pointer? pointer = null;
         Pointer? passing = null;
         PanelDrag? drag = null;
+        var touched = false;
 
         if (_holding is { } holding)
         {
@@ -345,6 +348,7 @@ public sealed class OverlayInteraction
                     {
                         // On a list the press is held back until it is known whether it is a tap.
                         _press ??= new Press(pointing.Hand, pointing, pointing.Down, false);
+                        touched = true;
                     }
                     else
                     {
@@ -366,7 +370,7 @@ public sealed class OverlayInteraction
         _last = tracking;
         _placement = _placement.Clamped();
 
-        return new InteractionResult(pointer, _placement, _placement != before, clicks, scroll, _holding, passing, drag);
+        return new InteractionResult(pointer, _placement, _placement != before, clicks, scroll, _holding, passing, drag, touched);
     }
 
     /// <summary>

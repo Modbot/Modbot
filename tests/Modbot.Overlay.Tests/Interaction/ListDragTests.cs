@@ -221,34 +221,4 @@ public class ListDragTests
         Assert.Equal(new Vector2(0f, 1f), OverlayInteraction.EitherStick(pushed, other));
         Assert.Equal(Vector2.Zero, OverlayInteraction.EitherStick(rest, HandState.Missing));
     }
-
-    [Fact]
-    public void TheListsRowHeightIsMeasuredFromWhatIsDrawn()
-    {
-        var screen = new OverlayScreen(
-            "Cat Lounge",
-            new Cached<InstanceContext>(
-                new InstanceContext("39911", [.. Enumerable.Range(0, 6).Select(i => new RosterMember($"usr_{i}", $"Person {i}", RosterStanding.Member, 0, []))]),
-                Freshness.Fresh,
-                TimeSpan.Zero),
-            Freshness.Fresh);
-
-        var (height, rows, onGround) = AvaloniaTestHost.Run(() =>
-        {
-            var root = OverlayView.Build(screen);
-            root.Measure(new Size(480, 640));
-            root.Arrange(new Rect(0, 0, 480, 640));
-
-            var list = OverlayTargets.Find(root).First(t => t.Target is OverlayTarget.Roster);
-            var person = OverlayTargets.Find(root).First(t => t.Target is OverlayTarget.Person);
-
-            return (OverlayTargets.RowHeight(root, person.Bounds.Center), person.Bounds.Height, OverlayTargets.RowHeight(root, new Point(2, 636)));
-        });
-
-        Assert.NotNull(height);
-
-        // A row and the gap after it: a little more than the row alone.
-        Assert.InRange(height!.Value, rows, rows * 2);
-        Assert.Null(onGround);
-    }
 }

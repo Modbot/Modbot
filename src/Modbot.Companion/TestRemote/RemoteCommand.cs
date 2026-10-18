@@ -21,7 +21,7 @@ public abstract record RemoteCommand
     /// <summary>A trigger press on the main panel, at a point of its picture in pixels.</summary>
     public sealed record TapPanel(double X, double Y) : RemoteCommand;
 
-    /// <summary>The thumbstick on the main panel's list, in whole rows; negative is up.</summary>
+    /// <summary>The thumbstick on the main panel's list for about this many rows' worth of polls; negative is up.</summary>
     public sealed record ScrollPanel(int Rows, double X, double Y) : RemoteCommand;
 
     /// <summary><strong>Put it back in front of me</strong>.</summary>

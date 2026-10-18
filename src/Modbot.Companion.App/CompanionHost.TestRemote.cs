@@ -289,24 +289,16 @@ internal sealed partial class CompanionHost
         if (x >= host.Width || y >= host.Height)
             throw new RemoteRefusal($"The panel's picture is {host.Width} by {host.Height}.");
 
-        var rows = 0;
-        void Heard(int by) => rows += by;
+        // The list moves by pixels, so what is reported is how far it went, in pixels of the panel's layout.
+        var before = host.ListOffset;
 
-        host.RosterScrolled += Heard;
-        try
-        {
-            hand.Scroll((float)(x / host.Width), (float)(y / host.Height), scroll.Rows);
-            await DoneAsync(hand);
-        }
-        finally
-        {
-            host.RosterScrolled -= Heard;
-        }
+        hand.Scroll((float)(x / host.Width), (float)(y / host.Height), scroll.Rows);
+        await DoneAsync(hand);
 
         return new JsonObject
         {
             ["under"] = Name(host.TargetAt((float)(x / host.Width), (float)(y / host.Height))),
-            ["scrolled"] = rows,
+            ["scrolled"] = Math.Round(host.ListOffset - before),
         };
     }
 

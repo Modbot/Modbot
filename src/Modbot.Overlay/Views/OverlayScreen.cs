@@ -57,6 +57,13 @@ public enum OverlayPage
 /// <param name="Page">Which of the three screens the panel is on.</param>
 /// <param name="Events">What the live link has heard for this instance, newest first.</param>
 /// <param name="EventSkip">How many rows the Audit Log has been scrolled past.</param>
+/// <param name="RosterListId">Which Instance list this is: changes when it goes back to its top.</param>
+/// <param name="EventListId">Which Audit Log this is: changes when it goes back to its top.</param>
+/// <param name="ScrollOffset">
+/// How far the headset's list is scrolled, in pixels of the panel's layout. Null for a panel that scrolls
+/// by whole rows (<c>RosterSkip</c>, <c>EventSkip</c>), which is the desktop window; set, the whole list is
+/// drawn and moved by this much and the skips are ignored.
+/// </param>
 /// <param name="Clips">
 /// What the Save a clip control says, and whether it can be pressed. Nothing is drawn for it while
 /// Clips is switched off, which is what a fresh install has.
@@ -132,7 +139,10 @@ public sealed record OverlayScreen(
     bool NotSynced = false,
     DateTimeOffset? ModeratorArrived = null,
     string? ModeratorId = null,
-    int EventSkip = 0)
+    int EventSkip = 0,
+    int RosterListId = 0,
+    int EventListId = 0,
+    double? ScrollOffset = null)
 {
     private static readonly IReadOnlyDictionary<string, DateTimeOffset?> NoArrivals = new Dictionary<string, DateTimeOffset?>();
 
@@ -226,6 +236,9 @@ public sealed record OverlayScreen(
             && ModeratorId == other.ModeratorId
             && RosterSkip == other.RosterSkip
             && EventSkip == other.EventSkip
+            && RosterListId == other.RosterListId
+            && EventListId == other.EventListId
+            && ScrollOffset == other.ScrollOffset
             && Cursor == other.Cursor
             && Page == other.Page
             && NoKeyboard == other.NoKeyboard

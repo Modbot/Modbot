@@ -294,9 +294,26 @@ internal sealed partial class CompanionHost : IOverlayListener
 
     /// <summary>
     /// The controllers, looked at thirty times a second while a VR runtime is attached, so the
-    /// cursor and a held panel move smoothly; a look costs nothing when none is attached.
+    /// cursor and a held panel move smoothly; a look costs nothing when none is attached. While a
+    /// list on the main panel is moving (a drag, a stick, a fling) it is looked at about ninety times
+    /// a second, the rate of a headset, and goes back when the list stops.
     /// </summary>
-    private readonly DispatcherTimer _inputLoop = new() { Interval = TimeSpan.FromMilliseconds(33) };
+    private readonly DispatcherTimer _inputLoop = new() { Interval = InputSlow };
+
+    private static readonly TimeSpan InputSlow = TimeSpan.FromMilliseconds(33);
+    private static readonly TimeSpan InputFast = TimeSpan.FromMilliseconds(11);
+
+    /// <summary>Counts the controller reads' time on a clock that ticks every millisecond, not every fifteen.</summary>
+    private readonly long _inputClock = System.Diagnostics.Stopwatch.GetTimestamp();
+
+    private readonly TimerResolution _timerResolution = new();
+
+    /// <summary>Stops reading the controllers, and gives back the finer clock tick a moving list asked for.</summary>
+    private void StopInputLoop()
+    {
+        _inputLoop.Stop();
+        _timerResolution.Set(false);
+    }
 
     /// <summary>Writes the panel's placement half a second after it last changed.</summary>
     private readonly DispatcherTimer _placementSave = new() { Interval = TimeSpan.FromMilliseconds(500) };
@@ -2145,10 +2162,9 @@ internal sealed partial class CompanionHost : IOverlayListener
             // nothing.
             _overlayHost.GroupIcon = url => Window.Pictures?.For(url);
 
-            // A controller's doing goes to the drive loop (taps, scrolling) and to settings (where
+            // A controller's doing goes to the drive loop (taps) and to settings (where
             // the panel was left), so it is where it was left next time.
             _overlayHost.Tapped += target => _overlay?.Tap(target);
-            _overlayHost.RosterScrolled += rows => _overlay?.ScrollRoster(rows);
             _overlayHost.NameTyped += (list, name) => _overlay?.SetName(list, name);
             _overlayHost.HeadsUpTyped += words => _overlay?.SetHeadsUpText(words);
             // Saved once a change has settled rather than on every tick of a drag or a held grip: a
@@ -2275,7 +2291,7 @@ internal sealed partial class CompanionHost : IOverlayListener
     {
         // The notification panel is held with the same controllers, so the loop stays while it is up.
         if (_notifyHost is null)
-            _inputLoop.Stop();
+            StopInputLoop();
 
         _placementSave.Stop();
 
@@ -2407,7 +2423,7 @@ internal sealed partial class CompanionHost : IOverlayListener
     private void StopNotifyOverlay()
     {
         if (_overlayHost is null)
-            _inputLoop.Stop();
+            StopInputLoop();
 
         // A move not yet written is written now, so switching the panel off does not lose it.
         if (_notifyPlacementSave.IsEnabled)
@@ -2545,10 +2561,17 @@ internal sealed partial class CompanionHost : IOverlayListener
             "reading the controllers",
             () =>
             {
-                var now = TimeSpan.FromMilliseconds(Environment.TickCount64);
+                var now = System.Diagnostics.Stopwatch.GetElapsedTime(_inputClock);
                 _notifyHost?.PollInput(now);
                 _buttonHost?.PollInput(now, _notifyHost?.Busy, StickInUse);
                 _overlayHost?.PollInput(now, _buttonHost?.Busy ?? _notifyHost?.Busy);
+
+                // Faster while a list is moving, slow again once it stops.
+                var scrolling = _overlayHost?.Scrolling is true;
+                _timerResolution.Set(scrolling);
+                var every = scrolling ? InputFast : InputSlow;
+                if (_inputLoop.Interval != every)
+                    _inputLoop.Interval = every;
             });
     }
 
@@ -3742,7 +3765,7 @@ internal sealed partial class CompanionHost : IOverlayListener
     {
         _engineLoop.Stop();
         _overlayLoop.Stop();
-        _inputLoop.Stop();
+        StopInputLoop();
         _voiceLoop.Stop();
         _updates?.Stop();
         _inboxStop.Cancel();

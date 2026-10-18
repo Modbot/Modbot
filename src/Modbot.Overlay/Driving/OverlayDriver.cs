@@ -148,6 +148,11 @@ public sealed class OverlayDriver : IDisposable
     private string? _personWanted;
     private int _rosterSkip;
     private int _eventSkip;
+
+    // Which list each is: counted up whenever the list goes back to its top (another instance, other
+    // filters), so a panel that scrolls by pixels knows to go back to the top as well.
+    private int _rosterListId;
+    private int _eventListId;
     private OverlayPage _page = OverlayPage.Instance;
 
     // The screen the open person was opened from, which Back goes to. The roster or the events list.
@@ -301,6 +306,8 @@ public sealed class OverlayDriver : IDisposable
         _personWanted = null;
         _rosterSkip = 0;
         _eventSkip = 0;
+        _rosterListId++;
+        _eventListId++;
         _page = OverlayPage.Instance;
         _personFrom = OverlayPage.Instance;
         _rosterFilters = ListFilters.None;
@@ -476,7 +483,10 @@ public sealed class OverlayDriver : IDisposable
             _eventFilters = change(_eventFilters);
 
             if (before with { Open = null } != _eventFilters with { Open = null })
+            {
                 _eventSkip = 0;
+                _eventListId++;
+            }
         }
         else
         {
@@ -484,7 +494,10 @@ public sealed class OverlayDriver : IDisposable
             _rosterFilters = change(_rosterFilters);
 
             if (before with { Open = null } != _rosterFilters with { Open = null })
+            {
                 _rosterSkip = 0;
+                _rosterListId++;
+            }
         }
     }
 
@@ -1386,6 +1399,8 @@ public sealed class OverlayDriver : IDisposable
             RosterFilters: _rosterFilters,
             EventFilters: _eventFilters,
             EventSkip: _eventSkip,
+            RosterListId: _rosterListId,
+            EventListId: _eventListId,
             Arrivals: Arrivals(context),
             Now: _clock.UtcNow,
             CanPlaceHeadsUps: false,
@@ -1432,6 +1447,8 @@ public sealed class OverlayDriver : IDisposable
             RosterFilters: _rosterFilters,
             EventFilters: _eventFilters,
             EventSkip: _eventSkip,
+            RosterListId: _rosterListId,
+            EventListId: _eventListId,
             Arrivals: roster.Value is { } context ? Arrivals(context) : null,
             Now: _clock.UtcNow,
             HeadsUps: roster.Value?.HeadsUpsOrNone,

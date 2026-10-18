@@ -33,7 +33,7 @@ start (the real copy, or a test copy without debug mode) has no remote: nothing 
 | `press <label>` | A dashboard tab control by label (`"Overlay on"`, `Head`, `"Left wrist"`, `"Top right"`, `Joined`, `"Width +"`, `"Width -"`) through the tab's pointer path: move, down, up at its middle |
 | `slide <label> <0..1>` | A dashboard slider (`Across`, `Down`, `Distance`, `Width`, `Opacity`, `"Pop-up stays"`) pressed that far along its track |
 | `tap-panel <x> <y>` | The main panel clicked at a pixel of its picture by a made-up controller |
-| `scroll-panel <rows> [x y]` | The thumbstick on the main panel's list (default: its middle); negative is up |
+| `scroll-panel <rows> [x y]` | The thumbstick on the main panel's list (default: its middle), held for about that many rows' worth of polls; negative is up. Says how many pixels the list moved |
 | `put-back` | Put it back in front of me |
 | `event <kind> <name> [rank] [18+] [reason]` | Debug page's Send. Kinds: `joined`, `left`, `already-there`, `changed-avatar`, `flagged-join`, `problem`, `pin`, `keep-an-eye`, `message`, `ask-for-help`. Rank: `none` or a trust rank (`user`, `known-user`, ...). 18+: `18+` or `no` |
 | `run [name] [rank] [18+]` | Debug page's Send a run |

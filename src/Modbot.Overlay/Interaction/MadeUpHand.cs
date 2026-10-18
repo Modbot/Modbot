@@ -63,6 +63,9 @@ public sealed class MadeUpHand
     /// <summary>Which hand it stands in for while it acts.</summary>
     public Hand Side => _side;
 
+    /// <summary>How many polls of a fully pushed stick <see cref="Scroll"/> counts for one row.</summary>
+    public const int PollsPerRow = 2;
+
     /// <summary>A trigger press at a point of the panel: aim, press, release.</summary>
     /// <param name="across">0 at the panel's left edge, 1 at its right.</param>
     /// <param name="down">0 at the top, 1 at the bottom.</param>
@@ -74,8 +77,10 @@ public sealed class MadeUpHand
     }
 
     /// <summary>
-    /// The thumbstick pushed fully while pointing at a point, long enough for this many rows;
-    /// positive is down the list. One extra poll at rest after, so nothing is left part-way to a row.
+    /// The thumbstick pushed fully while pointing at a point, for about this many rows' worth of
+    /// polls; positive is down the list. The list moves by pixels at a speed that follows the stick, so
+    /// how far it goes depends on how long the polls are, and a row is a number of polls here
+    /// (<see cref="PollsPerRow"/>), not a distance. One poll at rest after.
     /// </summary>
     public void Scroll(float across, float down, int rows)
     {
@@ -84,7 +89,7 @@ public sealed class MadeUpHand
 
         // Thumbstick down is a negative axis, and it scrolls towards the rows below.
         var stick = rows > 0 ? -1f : 1f;
-        var polls = ((int)OverlayHost.ScrollPerRow * Math.Abs(rows)) + 1;
+        var polls = (PollsPerRow * Math.Abs(rows)) + 1;
 
         _steps.Enqueue(new PointAt(across, down, false, 0f));
         for (var i = 0; i < polls; i++)

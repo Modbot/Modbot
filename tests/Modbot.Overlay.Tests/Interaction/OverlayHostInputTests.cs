@@ -10,7 +10,7 @@ namespace Modbot.Overlay.Tests.Interaction;
 /// <summary>
 /// The host with controllers: the cursor lands in the frame, a tap says what it hit, a grab
 /// moves the placement through the runtime and out to be saved, and scrolling over the roster
-/// comes out in rows.
+/// moves it by pixels.
 /// </summary>
 public class OverlayHostInputTests
 {
@@ -75,21 +75,21 @@ public class OverlayHostInputTests
         }
     }
 
-    private static OverlayScreen Roster() => new(
+    private static OverlayScreen Roster(int people) => new(
         "Cat Lounge",
         new Cached<InstanceContext>(
-            new InstanceContext("39911", [.. Enumerable.Range(0, 3).Select(i => new RosterMember($"usr_{i}", $"Person {i}", RosterStanding.Member, 0, []))]),
+            new InstanceContext("39911", [.. Enumerable.Range(0, people).Select(i => new RosterMember($"usr_{i}", $"Person {i}", RosterStanding.Member, 0, []))]),
             Freshness.Fresh,
             TimeSpan.Zero),
         Freshness.Fresh);
 
-    private static (OverlayHost Host, AttachedRuntime Runtime) Build()
+    private static (OverlayHost Host, AttachedRuntime Runtime) Build(int people = 3)
     {
         var runtime = new AttachedRuntime();
         var host = new OverlayHost(runtime, new FakeSurface(), new AvaloniaFrameRenderer(Size, Size));
         runtime.Start();
         host.Start();
-        host.Update(Roster());
+        host.Update(Roster(people));
         return (host, runtime);
     }
 
@@ -173,61 +173,73 @@ public class OverlayHostInputTests
     }
 
     [Fact]
-    public void ScrollingOverTheRosterComesOutInRows()
+    public void ScrollingOverTheRosterMovesItByPixelsAtASpeedThatFollowsTheStick()
     {
         AvaloniaTestHost.Run(() =>
         {
-            var (host, runtime) = Build();
-            var rows = new List<int>();
-            host.RosterScrolled += rows.Add;
+            var (host, runtime) = Build(30);
 
             runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(Centre)));
             host.PollInput(TimeSpan.Zero);
             var row = FindRow(host, "usr_1");
 
-            for (var i = 0; i < (int)OverlayHost.ScrollPerRow * 2; i++)
+            for (var i = 0; i < 10; i++)
             {
                 runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down), scroll: new Vector2(0, -1)));
                 host.PollInput(TimeSpan.FromMilliseconds(10 * i));
             }
 
-            Assert.Equal(2, rows.Sum());
-            Assert.All(rows, r => Assert.True(r > 0));
+            // Nine steps of ten milliseconds at the stick's full speed; the first poll has no step before it.
+            Assert.Equal(ListScroll.StickSpeed * 0.09, host.ListOffset, 1);
+            Assert.True(host.Scrolling);
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down)));
+            host.PollInput(TimeSpan.FromMilliseconds(100));
+
+            Assert.False(host.Scrolling);
         });
     }
 
     [Fact]
-    public void DraggingTheRosterWithTheTriggerComesOutInRowsAndDoesNotTap()
+    public void DraggingTheRosterWithTheTriggerMovesItGoesOnAfterLetGoAndDoesNotTap()
     {
         AvaloniaTestHost.Run(() =>
         {
-            var (host, runtime) = Build();
-            var rows = new List<int>();
+            var (host, runtime) = Build(30);
             var taps = new List<OverlayTarget?>();
-            host.RosterScrolled += rows.Add;
             host.Tapped += taps.Add;
 
             runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(Centre)));
             host.PollInput(TimeSpan.Zero);
-            var row = FindRow(host, "usr_1");
+            var row = FindRow(host, "usr_3");
 
             runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down), click: true));
             host.PollInput(TimeSpan.FromMilliseconds(10));
 
-            // The ray goes down the panel with the trigger held: the list goes down with it, which
-            // is towards the rows above, so the rows are negative.
+            // The ray goes up the panel with the trigger held: the list goes up with it, towards the
+            // rows below, so the offset grows.
             for (var i = 1; i <= 5; i++)
             {
-                runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down + (0.04f * i)), click: true));
+                runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down - (0.04f * i)), click: true));
                 host.PollInput(TimeSpan.FromMilliseconds(10 + (10 * i)));
             }
 
-            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down + 0.2f)));
-            host.PollInput(TimeSpan.FromMilliseconds(100));
+            Assert.True(host.ListOffset > 0);
+            Assert.True(host.Scrolling);
 
-            Assert.NotEmpty(rows);
-            Assert.All(rows, r => Assert.True(r < 0));
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down - 0.2f)));
+            host.PollInput(TimeSpan.FromMilliseconds(70));
+            var letGo = host.ListOffset;
+
+            // Let go at speed, it keeps going and slows to a stop.
+            host.PollInput(TimeSpan.FromMilliseconds(100));
+            Assert.True(host.ListOffset > letGo);
             Assert.Empty(taps);
+
+            for (var i = 0; i < 60 && host.Scrolling; i++)
+                host.PollInput(TimeSpan.FromMilliseconds(200 + (100 * i)));
+
+            Assert.False(host.Scrolling);
         });
     }
 

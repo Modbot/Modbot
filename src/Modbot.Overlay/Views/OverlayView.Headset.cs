@@ -27,6 +27,17 @@ public sealed partial class OverlayView
     private const double StripIconSize = 28;
 
     /// <summary>
+    /// How many times bigger than its layout the headset panel is drawn: the VRChat look is laid out at
+    /// <see cref="HeadsetDesignWidth"/> and drawn at the texture's width, and the Modbot look is not scaled.
+    /// A list's scroll is in layout pixels, so a distance on the texture is divided by this to be one.
+    /// </summary>
+    public static double HeadsetScale(OverlayLook look, double textureWidth)
+    {
+        ArgumentNullException.ThrowIfNull(look);
+        return look.VRChat is null ? 1 : textureWidth / HeadsetDesignWidth;
+    }
+
+    /// <summary>
     /// The screen as the headset panel draws it. In the Modbot look that is the screen as it has always
     /// been; in VRChat's look it is the window's screen in a frame, drawn bigger.
     /// </summary>
@@ -116,7 +127,10 @@ public sealed partial class OverlayView
             BorderBrush = v.Edge,
             BorderThickness = new Thickness(VRChatLook.EdgeWidth),
             CornerRadius = new CornerRadius(VRChatLook.FrameRadius),
-            Child = new StackPanel { Children = { strip, content } },
+            // With the list scrolled by pixels, the screen under the strip is given what the strip leaves.
+            Child = screen.ScrollOffset is null
+                ? new StackPanel { Children = { strip, content } }
+                : new FillStack { Children = { strip, content } },
         };
     }
 }

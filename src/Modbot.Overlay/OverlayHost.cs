@@ -67,16 +67,26 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     private byte[]? _lastFrame;
 
     // The controllers' side: the rules for holding the panel, the tree that drew the current
-    // frame (for finding what a tap landed on), the cursor, and scroll not yet worth a row.
+    // frame (for finding what a tap landed on) and the cursor.
     private readonly OverlayInteraction _interaction;
     private Control? _root;
     private PanelCursor? _cursor;
-    private float _scroll;
 
-    /// <summary>A drag is under way, whether it began on a list, and how tall a row of it was when it began.</summary>
+    // Where each list is scrolled to and how fast it is still going, in pixels of the panel's layout,
+    // and which list of each kind that is (the driver counts it up when a list goes back to its top).
+    private readonly ListScroll _rosterScroll = new();
+    private readonly ListScroll _eventScroll = new();
+    private int _rosterListId;
+    private int _eventListId;
+
+    // When the controllers were last read, for how long a scroll step took, and whether a stick was
+    // scrolling at the last read.
+    private TimeSpan _lastPoll;
+    private bool _stickScrolling;
+
+    /// <summary>A drag is under way, and whether it began on a list.</summary>
     private bool _dragging;
     private bool _dragOnList;
-    private double? _dragRowHeight;
     private OverlayTracking _lastTracking = OverlayTracking.None;
 
     // Whether a ray is on the panel, which is what puts the bar up under it.
@@ -123,9 +133,6 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             Draw();
         }
     }
-
-    /// <summary>Thumbstick travel, in full deflections per poll, that moves the roster one row.</summary>
-    public const float ScrollPerRow = 6f;
 
     /// <summary>The cursor is placed to this fraction, so a trembling hand does not redraw every poll.</summary>
     private const float CursorStep = 1f / 256f;
@@ -234,8 +241,19 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// <summary>A trigger press on the panel, with what it landed on (null for the empty ground).</summary>
     public event Action<OverlayTarget?>? Tapped;
 
-    /// <summary>Scrolling on the list the page is showing, in whole rows; negative is up.</summary>
-    public event Action<int>? RosterScrolled;
+    /// <summary>
+    /// How far the list the page is showing is scrolled, in pixels of the panel's layout (the texture's pixels
+    /// where the panel is not scaled).
+    /// </summary>
+    public double ListOffset => ShownScroll.Offset;
+
+    /// <summary>
+    /// Whether a list is moving now, by a drag, a stick or a fling that goes on after a drag was let go. While it is,
+    /// the caller reads the controllers and draws at the headset's rate instead of the slow one.
+    /// </summary>
+    public bool Scrolling => (_dragging && _dragOnList) || _stickScrolling || ShownScroll.Flinging;
+
+    private ListScroll ShownScroll => (_drawn ?? _live)?.Page is OverlayPage.Events ? _eventScroll : _rosterScroll;
 
     /// <summary>A name typed on the runtime's keyboard, with the list it searches.</summary>
     public event Action<OverlayPage, string>? NameTyped;
@@ -392,6 +410,11 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             Busy = null;
             OnList = false;
             _dragging = false;
+            _stickScrolling = false;
+
+            // A list that was going stops: nothing is there to see it, and nothing would stop it.
+            _rosterScroll.Touch();
+            _eventScroll.Touch();
             var barWasShowing = _rayOnPanel || _hints is not null;
             _rayOnPanel = false;
             _hints = null;
@@ -429,6 +452,9 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             PlacementChanged?.Invoke(result.Placement);
         }
 
+        // Before the frame is drawn, so a frame drawn for the cursor or the bar has the list where it now is.
+        var scrolled = ScrollLists(result, now);
+
         var cursor = result.Pointer is { } p
             ? new PanelCursor(MathF.Round(p.Across / CursorStep) * CursorStep, MathF.Round(p.Down / CursorStep) * CursorStep)
             : (PanelCursor?)null;
@@ -440,6 +466,10 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         {
             _cursor = cursor;
             Draw();
+        }
+        else if (scrolled)
+        {
+            DrawScrolled();
         }
 
         foreach (var click in result.Clicks)
@@ -465,51 +495,99 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             }
         }
 
-        // Rows to move, positive towards the rows below. A drag on a list moves it with the ray
-        // (the ray down is the list down, so towards the rows above); a stick pushed up does the
-        // same, and either stick will do.
-        float? moved = null;
+    }
+
+    /// <summary>
+    /// Moves the list the page shows by what the hands did to it this poll: a new touch stops it, a drag on it moves
+    /// it with the ray (the ray down is the list down, so towards the rows above), a stick moves it by how far it is
+    /// pushed, either stick will do, and a drag let go leaves it going. Returns whether the list moved, which is
+    /// when it is to be drawn again.
+    /// </summary>
+    private bool ScrollLists(InteractionResult result, TimeSpan now)
+    {
+        var seconds = Math.Clamp((now - _lastPoll).TotalSeconds, 0, MostScrollStep);
+        _lastPoll = now;
+
+        var scroll = ShownScroll;
+        var before = scroll.Offset;
+
+        // The other list, if it was going when the page changed, stays where it is.
+        (scroll == _rosterScroll ? _eventScroll : _rosterScroll).Touch();
+
+        var max = _root is null ? 0 : ScrollingList.In(_root)?.MaxOffset ?? 0;
+        var scale = OverlayView.HeadsetScale(_look, Width);
+
+        // The content may have got shorter since the list was last moved.
+        scroll.Clamp(max);
+
+        if (result.Touched)
+            scroll.Touch();
+
+        _stickScrolling = false;
 
         if (result.Drag is { } drag)
         {
-            // Settled once, when the drag starts: as rows scroll away the list shrinks and the
-            // press point may no longer be inside it, and the drag goes on until the trigger is up.
+            // Settled once, when the drag starts: the list moves under the ray and the press point may
+            // no longer be inside it, and the drag goes on until the trigger is up.
             if (!_dragging)
             {
                 _dragging = true;
                 _dragOnList = IsListAt(drag.From.Across, drag.From.Down);
-                _dragRowHeight = _root is null ? null : OverlayTargets.RowHeight(_root, new Point(drag.From.Across * Width, drag.From.Down * Height));
             }
 
             if (_dragOnList)
-                moved = -drag.Down * Height / (float)(_dragRowHeight ?? Height / DefaultRowsPerPanel);
+                scroll.Drag(-drag.Down * Height / scale, max, now);
         }
         else
         {
+            if (_dragging && _dragOnList)
+                scroll.Release(now);
+
             _dragging = false;
 
             if (result.Pointer is { } pointer && result.Scroll.Y != 0f && IsListAt(pointer.Across, pointer.Down))
-                moved = -result.Scroll.Y / ScrollPerRow;
-        }
-
-        if (moved is { } rows)
-        {
-            _scroll += rows;
-            var whole = (int)Math.Truncate(_scroll);
-            if (whole != 0)
             {
-                _scroll -= whole;
-                RosterScrolled?.Invoke(whole);
+                _stickScrolling = true;
+                scroll.Push(-result.Scroll.Y, seconds, max);
+            }
+            else
+            {
+                scroll.Step(seconds, max);
             }
         }
-        else
-        {
-            _scroll = 0f;
-        }
+
+        return scroll.Offset != before;
     }
 
-    /// <summary>Rows a panel is taken to hold when the list under a drag has none drawn to measure.</summary>
-    private const float DefaultRowsPerPanel = 16f;
+    /// <summary>The longest a step of scrolling may take, in seconds, so a pause in the polling does not throw a list.</summary>
+    private const double MostScrollStep = 0.1;
+
+    /// <summary>
+    /// Draws the list where it has been scrolled to. The tree that drew the last frame is already laid out in
+    /// full, so only the list's offset is changed and the same tree drawn again; a panel with no such list
+    /// is drawn again from the screen.
+    /// </summary>
+    private void DrawScrolled()
+    {
+        if (_compositor is not null
+            && _root is { } root
+            && _drawn is { ScrollOffset: not null } drawn
+            && ScrollingList.In(root) is { } list)
+        {
+            var offset = ShownScroll.Offset;
+
+            list.Offset = offset;
+            _drawn = drawn with { ScrollOffset = offset };
+            _compositor.Invalidate();
+
+            if (_compositor.DrawIfChanged(root))
+                _runtime.Submit(_compositor.Surface);
+
+            return;
+        }
+
+        Draw();
+    }
 
     /// <summary>Whether a point on the panel is on a list that scrolls: the roster, a row of it, or the events.</summary>
     private bool IsListAt(float across, float down)
@@ -847,6 +925,24 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         // A runtime with no keyboard: the Name filter has nothing to type with here.
         if (next is not null && !CanType)
             next = next with { NoKeyboard = true };
+
+        // The lists move by pixels here, from the top again when the driver says it is another list.
+        if (next is not null)
+        {
+            if (next.RosterListId != _rosterListId)
+            {
+                _rosterListId = next.RosterListId;
+                _rosterScroll.Reset();
+            }
+
+            if (next.EventListId != _eventListId)
+            {
+                _eventListId = next.EventListId;
+                _eventScroll.Reset();
+            }
+
+            next = next with { ScrollOffset = (next.Page is OverlayPage.Events ? _eventScroll : _rosterScroll).Offset };
+        }
 
         // Worn on a wrist, the panel is a sixth of the width it is in front of the head, and the
         // roster at that size is a grey smear. The wrist screen is what it shows there instead.

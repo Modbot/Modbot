@@ -43,10 +43,32 @@ public sealed partial class OverlayView
     /// <summary>Each person's picture address on the screen being drawn, by their id.</summary>
     private IReadOnlyDictionary<string, string> _pictureOf = new Dictionary<string, string>();
 
+    /// <summary>
+    /// How far the list is scrolled in pixels, when the screen being drawn is the headset's, whose lists move by
+    /// pixels (<see cref="OverlayScreen.ScrollOffset"/>); null for the desktop window's whole-row scrolling.
+    /// </summary>
+    private double? _scrollOffset;
+
     private OverlayView(OverlayLook look, Func<string?, IImage?>? picture)
     {
         _look = look;
         _picture = picture;
+    }
+
+    /// <summary>Whether the list is drawn whole and moved by pixels, with the whole of the list scrolling and a bar beside it.</summary>
+    private bool Scrolled => _scrollOffset is not null;
+
+    /// <summary>
+    /// A list's rows in a window of the room left, scrolled to where the screen says, under what stays
+    /// above it (the heading, which does not scroll).
+    /// </summary>
+    private Control Scrolling(StackPanel heading, StackPanel rows)
+    {
+        var window = new ScrollingList(rows, V?.Heading ?? T.TextDimBrush, _scrollOffset ?? 0);
+
+        return heading.Children.Count == 0
+            ? window
+            : new FillStack { Spacing = RowGap, Children = { heading, window } };
     }
 
     /// <summary>The tokens this screen is drawn in: the headset's, unless the desktop window asked for another look.</summary>
@@ -84,6 +106,8 @@ public sealed partial class OverlayView
     {
         ArgumentNullException.ThrowIfNull(screen);
 
+        _scrollOffset = screen.ScrollOffset;
+
         // The pictures the screen's own data carries, by person, for the rows of the desktop window's
         // look. The headset's rows never draw one, so nothing is asked of the cache there.
         _pictureOf = V is null ? _pictureOf : PicturesOn(screen);
@@ -116,7 +140,10 @@ public sealed partial class OverlayView
         if (screen.Page is OverlayPage.Wrist)
             return Framed(WristCard(screen, icon), screen.Cursor);
 
-        var stack = new StackPanel { Spacing = V is null ? 12 : 14 };
+        // The headset's list takes the room the cards above it leave, so it has a window to scroll in.
+        Panel stack = Scrolled
+            ? new FillStack { Spacing = V is null ? 12 : 14 }
+            : new StackPanel { Spacing = V is null ? 12 : 14 };
 
         // Whose community this is, said once at the top rather than repeated on every card below.
         // The name and the icon, because that is what a moderator knows their group by; the
@@ -868,6 +895,7 @@ public sealed partial class OverlayView
     private Control EventsPanel(OverlayScreen screen)
     {
         var rows = new StackPanel { Spacing = RowGap };
+        Control body = rows;
 
         var filters = screen.EventFiltersOrNone;
         var all = screen.EventsOrNone;
@@ -882,6 +910,16 @@ public sealed partial class OverlayView
             var nothing = all.Count > 0 ? "Nothing matches." : "Nothing yet.";
             rows.Children.Add(V is null ? Text(nothing, T.Density.TextBase, T.TextDimBrush) : InfoCard(nothing));
         }
+        else if (Scrolled)
+        {
+            // The whole of the list, in a window that scrolls it by pixels.
+            var list = new StackPanel { Spacing = RowGap };
+
+            foreach (var @event in events)
+                list.Children.Add(EventRow(@event, screen));
+
+            body = Scrolling(rows, list);
+        }
         else
         {
             // Scrolled-past rows are counted, not hidden without a word.
@@ -895,7 +933,7 @@ public sealed partial class OverlayView
 
         // In VRChat's look every row is a card of its own, so there is nothing to put them in.
         if (V is not null)
-            return new Border { Tag = new OverlayTarget.Events(), Background = Brushes.Transparent, Child = rows };
+            return new Border { Tag = new OverlayTarget.Events(), Background = Brushes.Transparent, Child = body };
 
         return new Border
         {
@@ -905,7 +943,7 @@ public sealed partial class OverlayView
             BorderThickness = new Thickness(T.Density.Hairline),
             CornerRadius = T.CornerRadius,
             Padding = new Thickness(18, 14),
-            Child = rows,
+            Child = body,
         };
     }
 
@@ -1117,6 +1155,9 @@ public sealed partial class OverlayView
     {
         var rows = new StackPanel { Spacing = RowGap };
 
+        // The people go in a list of their own, under the heading, when the headset scrolls it by pixels.
+        var list = Scrolled ? new StackPanel { Spacing = RowGap } : rows;
+
         // Who is here: only the people present. The rows of people who just left are drawn among
         // them, greyed, and are never part of the count.
         var present = screen.Roster.Value?.Members ?? [];
@@ -1178,7 +1219,7 @@ public sealed partial class OverlayView
 
         if (nobody is null && V is not null)
         {
-            AddVRChatRoster(rows, screen, shown, arrivals, JustLeft, secondsLeft);
+            AddVRChatRoster(list, screen, shown, arrivals, JustLeft, secondsLeft);
         }
         else if (nobody is null)
         {
@@ -1187,7 +1228,7 @@ public sealed partial class OverlayView
             // (ListFiltering.Roster).
 
             // Scrolled-past rows are counted, not hidden without a word.
-            var skip = Math.Clamp(screen.RosterSkip, 0, Math.Max(0, shown.Count - 1));
+            var skip = Scrolled ? 0 : Math.Clamp(screen.RosterSkip, 0, Math.Max(0, shown.Count - 1));
             if (skip > 0)
                 rows.Children.Add(Text(skip == 1 ? "1 more above" : skip + " more above", T.Density.TextSmall, T.TextDimBrush));
 
@@ -1201,16 +1242,18 @@ public sealed partial class OverlayView
                 // long they were here, and no "+", because a heads-up is placed on somebody present.
                 if (JustLeft(member))
                 {
-                    rows.Children.Add(RosterRow(member, null, HeadsUpOn(screen.HeadsUpsOrNone, member.SubjectId), false, secondsLeft[member.SubjectId]));
+                    list.Children.Add(RosterRow(member, null, HeadsUpOn(screen.HeadsUpsOrNone, member.SubjectId), false, secondsLeft[member.SubjectId]));
                     continue;
                 }
 
-                rows.Children.Add(RosterRow(member, joined, HeadsUpOn(screen.HeadsUpsOrNone, member.SubjectId), screen.CanPlaceHeadsUps));
+                list.Children.Add(RosterRow(member, joined, HeadsUpOn(screen.HeadsUpsOrNone, member.SubjectId), screen.CanPlaceHeadsUps));
             }
         }
 
+        Control body = Scrolled && list.Children.Count > 0 ? Scrolling(rows, list) : rows;
+
         if (V is not null)
-            return new Border { Tag = new OverlayTarget.Roster(), Background = Brushes.Transparent, Child = rows };
+            return new Border { Tag = new OverlayTarget.Roster(), Background = Brushes.Transparent, Child = body };
 
         return new Border
         {
@@ -1220,7 +1263,7 @@ public sealed partial class OverlayView
             BorderThickness = new Thickness(T.Density.Hairline),
             CornerRadius = T.CornerRadius,
             Padding = new Thickness(18, 14),
-            Child = rows,
+            Child = body,
         };
     }
 

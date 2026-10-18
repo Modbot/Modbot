@@ -153,9 +153,10 @@ public readonly record struct PlacedTarget(OverlayTarget Target, Rect Bounds);
 /// </summary>
 /// <remarks>
 /// Each control's <c>Bounds</c> is relative to its parent, so the walk keeps a running offset.
-/// The panel uses no render transforms except one: the headset's VRChat look is drawn bigger than it
-/// is laid out (<see cref="Views.Zoom"/>), and the walk multiplies by its scale on the way in. The
-/// deepest target under the point wins, which is how a row inside the roster beats the roster itself.
+/// The panel uses no render transforms except two: the headset's VRChat look is drawn bigger than it
+/// is laid out (<see cref="Views.Zoom"/>), and the walk multiplies by its scale on the way in; and a
+/// list is drawn scrolled (<see cref="Views.ScrollingList"/>), and the walk moves its rows by that
+/// and cuts them to the room the list has. The deepest target under the point wins, which is how a row inside the roster beats the roster itself.
 /// </remarks>
 public static class OverlayTargets
 {
@@ -165,7 +166,7 @@ public static class OverlayTargets
         ArgumentNullException.ThrowIfNull(root);
 
         var found = new List<PlacedTarget>();
-        Walk(root, new Point(0, 0), 1.0, found);
+        Walk(root, new Point(0, 0), 1.0, null, found);
         return found;
     }
 
@@ -200,39 +201,6 @@ public static class OverlayTargets
         return DrawnAt(root, new Point(0, 0), 1.0, 1.0, point);
     }
 
-    /// <summary>
-    /// How tall one row is, in panel pixels, of the list under a point: the roster or the events
-    /// list. Null when no list is there or it has no rows drawn. A drag turns the ray's travel into
-    /// rows with it, so the list follows the ray whatever size the rows are drawn at.
-    /// </summary>
-    public static double? RowHeight(Visual root, Point point)
-    {
-        ArgumentNullException.ThrowIfNull(root);
-
-        double? found = null;
-        RowHeightAt(root, new Point(0, 0), 1.0, point, ref found);
-        return found;
-    }
-
-    private static void RowHeightAt(Visual visual, Point offset, double scale, Point point, ref double? found)
-    {
-        var bounds = visual.Bounds;
-        var origin = new Point(offset.X + (bounds.X * scale), offset.Y + (bounds.Y * scale));
-
-        if (visual is Border { Tag: OverlayTarget.Roster or OverlayTarget.Events, Child: StackPanel rows }
-            && new Rect(origin, new Size(bounds.Width * scale, bounds.Height * scale)).Contains(point))
-        {
-            // Each row's own height plus the gap after it, whatever else the list has among them.
-            var heights = rows.Children.Where(row => row.Bounds.Height > 0).Select(row => row.Bounds.Height).ToList();
-            if (heights.Count > 0)
-                found = (heights.Average() + rows.Spacing) * scale;
-        }
-
-        var inside = visual is Views.Zoom zoom ? scale * zoom.Scale : scale;
-        foreach (var child in visual.GetVisualChildren())
-            RowHeightAt(child, origin, inside, point, ref found);
-    }
-
     private static bool DrawnAt(Visual visual, Point offset, double scale, double opacity, Point point)
     {
         if (!visual.IsVisible)
@@ -257,6 +225,15 @@ public static class OverlayTargets
         if (seen && box.Contains(point))
             return true;
 
+        // What a list has scrolled out of its room is not drawn, and the rest is where the scroll put it.
+        if (visual is Views.ScrollingList list)
+        {
+            if (!box.Contains(point))
+                return false;
+
+            origin = new Point(origin.X, origin.Y - (list.Offset * scale));
+        }
+
         var inside = visual is Views.Zoom zoom ? scale * zoom.Scale : scale;
         foreach (var child in visual.GetVisualChildren())
         {
@@ -267,16 +244,27 @@ public static class OverlayTargets
         return false;
     }
 
-    private static void Walk(Visual visual, Point offset, double scale, List<PlacedTarget> found)
+    private static void Walk(Visual visual, Point offset, double scale, Rect? clip, List<PlacedTarget> found)
     {
         var bounds = visual.Bounds;
         var origin = new Point(offset.X + (bounds.X * scale), offset.Y + (bounds.Y * scale));
+        var box = new Rect(origin, new Size(bounds.Width * scale, bounds.Height * scale));
 
-        if (visual is Control { Tag: OverlayTarget target })
-            found.Add(new PlacedTarget(target, new Rect(origin, new Size(bounds.Width * scale, bounds.Height * scale))));
+        // A row a list has scrolled out of its room is cut to what is left in it, and is nothing at all when none is.
+        var shown = clip is { } room ? box.Intersect(room) : box;
+
+        if (visual is Control { Tag: OverlayTarget target } && shown.Width > 0 && shown.Height > 0)
+            found.Add(new PlacedTarget(target, shown));
+
+        // The list's rows are where its scroll put them, inside the room it has.
+        if (visual is Views.ScrollingList list)
+        {
+            clip = shown;
+            origin = new Point(origin.X, origin.Y - (list.Offset * scale));
+        }
 
         var inside = visual is Views.Zoom zoom ? scale * zoom.Scale : scale;
         foreach (var child in visual.GetVisualChildren())
-            Walk(child, origin, inside, found);
+            Walk(child, origin, inside, clip, found);
     }
 }
