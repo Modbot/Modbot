@@ -232,7 +232,9 @@ public static class CalendarPreviews
             body.EndsAt,
             body.TimeZone,
             GoogleRepeat(body.Recurrence, body.TimeZone),
-            shut || body.Visibility == "private");
+            shut || body.Visibility == "private",
+            body.ColourId,
+            body.Transparency == "opaque" ? CalendarGoogleColours.Busy : CalendarGoogleColours.Free);
     }
 
     /// <summary>

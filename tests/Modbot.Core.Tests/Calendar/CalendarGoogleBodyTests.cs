@@ -216,4 +216,68 @@ public class CalendarGoogleBodyTests
         Assert.False(CalendarGoogleBody.IsOwnedBy(json, Guid.NewGuid()));
         Assert.False(CalendarGoogleBody.IsOwnedBy(new System.Text.Json.Nodes.JsonObject(), e.Id));
     }
+
+    [Fact]
+    public void AnEventWithNoChoiceIsFreeAndHasNoColour()
+    {
+        var json = CalendarGoogleBody.For(Event(), NoNames, null).ToJson("mbtest0");
+
+        Assert.Equal("transparent", json["transparency"]!.GetValue<string>());
+        Assert.False(json.ContainsKey("colorId"));
+    }
+
+    [Fact]
+    public void ABusyEventIsSentOpaqueAndAColourIsSentAsGoogleIdOfIt()
+    {
+        var e = Event();
+        e.GoogleShowAs = CalendarGoogleColours.Busy;
+        e.GoogleColour = "11";
+
+        var body = CalendarGoogleBody.For(e, NoNames, null);
+        var json = body.ToJson("mbtest0");
+
+        Assert.Equal("opaque", json["transparency"]!.GetValue<string>());
+        Assert.Equal("11", json["colorId"]!.GetValue<string>());
+        Assert.Equal("11", body.ColourId);
+    }
+
+    [Fact]
+    public void ANameThatIsNotOneOfGooglesColoursIsLeftOut()
+    {
+        var e = Event();
+        e.GoogleColour = "12";
+
+        Assert.False(CalendarGoogleBody.For(e, NoNames, null).ToJson("mbtest0").ContainsKey("colorId"));
+    }
+
+    [Fact]
+    public void ChangingTheColourOrBusyChangesWhatIsSentAgain()
+    {
+        var e = Event();
+        var before = CalendarGoogleBody.For(e, NoNames, null).Fingerprint("cal");
+
+        e.GoogleColour = "5";
+        var coloured = CalendarGoogleBody.For(e, NoNames, null).Fingerprint("cal");
+        e.GoogleShowAs = CalendarGoogleColours.Busy;
+        var busy = CalendarGoogleBody.For(e, NoNames, null).Fingerprint("cal");
+
+        Assert.NotEqual(before, coloured);
+        Assert.NotEqual(coloured, busy);
+
+        e.GoogleColour = null;
+        e.GoogleShowAs = CalendarGoogleColours.Free;
+        Assert.Equal(before, CalendarGoogleBody.For(e, NoNames, null).Fingerprint("cal"));
+    }
+
+    [Fact]
+    public void GooglesColoursAreElevenWithDistinctIdsAndNames()
+    {
+        Assert.Equal(11, CalendarGoogleColours.All.Count);
+        Assert.Equal(11, CalendarGoogleColours.All.Select(c => c.Id).Distinct().Count());
+        Assert.Equal(11, CalendarGoogleColours.All.Select(c => c.Name).Distinct().Count());
+        Assert.All(CalendarGoogleColours.All, c => Assert.Matches("^#[0-9a-f]{6}$", c.Hex));
+        Assert.True(CalendarGoogleColours.IsColour("1"));
+        Assert.False(CalendarGoogleColours.IsColour("0"));
+        Assert.False(CalendarGoogleColours.IsColour(""));
+    }
 }

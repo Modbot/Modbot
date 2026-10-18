@@ -387,7 +387,9 @@ public static class CalendarTemplateEndpoints
                 : null,
             BlueskyGif: target.BlueskyGif is { } blueskyGif
                 ? new CalendarBlueskyGifChoice(blueskyGif.Url, blueskyGif.Alt)
-                : null));
+                : null,
+            GoogleColour: target.GoogleColour,
+            GoogleShowAs: target.GoogleShowAs));
     }
 
     /// <summary>
@@ -455,6 +457,8 @@ public static class CalendarTemplateEndpoints
             BlueskyQuotesOff: f.BlueskyQuotesOff,
             BlueskyLanguages: f.BlueskyLanguages,
             BlueskyVideo: f.BlueskyVideo,
-            BlueskyGif: f.BlueskyGif);
+            BlueskyGif: f.BlueskyGif,
+            GoogleColour: f.GoogleColour,
+            GoogleShowAs: f.GoogleShowAs);
     }
 }

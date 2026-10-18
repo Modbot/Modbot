@@ -3202,6 +3202,10 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.DiscordDescription).HasMaxLength(CalendarEvent.MaxDescriptionLength);
             entity.Property(e => e.GoogleTitle).HasMaxLength(CalendarEvent.MaxTitleLength);
             entity.Property(e => e.GoogleDescription).HasMaxLength(CalendarEvent.MaxDescriptionLength);
+            entity.Property(e => e.GoogleColour).HasMaxLength(Modbot.Core.Calendar.CalendarGoogleColours.MaxColourLength);
+            entity.Property(e => e.GoogleShowAs)
+                .HasMaxLength(Modbot.Core.Calendar.CalendarGoogleColours.MaxShowAsLength)
+                .HasDefaultValue(Modbot.Core.Calendar.CalendarGoogleColours.Free);
             entity.Property(e => e.BlueskyTitle).HasMaxLength(CalendarEvent.MaxTitleLength);
             entity.Property(e => e.BlueskyDescription).HasMaxLength(CalendarEvent.MaxDescriptionLength);
             entity.Property(e => e.BlueskyVideoUrl).HasMaxLength(2048);

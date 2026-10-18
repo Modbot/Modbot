@@ -289,9 +289,9 @@ test('the form has a Shared info tab and one for each service that is on, in a f
   assert.deepEqual(tabsFor((place) => place === 'bluesky' || place === 'vrchat'), ['event', 'vrchat', 'bluesky'])
 })
 
-test('the tabs are named Shared info, VRChat, Discord event, Discord post, Google and Bluesky', () => {
+test('the tabs are named Shared info, VRChat, Discord event, Discord post, Google Calendar and Bluesky', () => {
   assert.deepEqual(
     tabsFor(() => true).map((tab) => TAB_LABEL[tab]),
-    ['Shared info', 'VRChat', 'Discord event', 'Discord post', 'Google', 'Bluesky'],
+    ['Shared info', 'VRChat', 'Discord event', 'Discord post', 'Google Calendar', 'Bluesky'],
   )
 })

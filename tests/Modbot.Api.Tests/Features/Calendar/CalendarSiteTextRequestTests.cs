@@ -163,4 +163,31 @@ public class CalendarSiteTextRequestTests
             CalendarBlueskyText.DescriptionTooLong,
             CalendarEndpoints.ApplyAll(Request() with { BlueskyDescription = new string('x', 300) }, new CalendarEvent()));
     }
+
+    [Fact]
+    public void AGoogleColourAndBusyAreKeptOnTheEvent()
+    {
+        var e = new CalendarEvent();
+
+        Assert.Empty(CalendarEndpoints.ApplyAll(Request() with { GoogleColour = "9", GoogleShowAs = "busy" }, e));
+        Assert.Equal("9", e.GoogleColour);
+        Assert.Equal("busy", e.GoogleShowAs);
+
+        // Left out keeps both; a blank colour goes back to the calendar's own.
+        Assert.Empty(CalendarEndpoints.ApplyAll(Request(), e));
+        Assert.Equal("9", e.GoogleColour);
+        Assert.Equal("busy", e.GoogleShowAs);
+
+        Assert.Empty(CalendarEndpoints.ApplyAll(Request() with { GoogleColour = "" }, e));
+        Assert.Null(e.GoogleColour);
+    }
+
+    [Fact]
+    public void AGoogleColourThatIsNotOneOfGooglesAndAShowAsThatIsNeitherBusyNorFreeAreRefused()
+    {
+        var e = new CalendarEvent();
+
+        Assert.NotEmpty(CalendarEndpoints.ApplyAll(Request() with { GoogleColour = "12" }, e));
+        Assert.NotEmpty(CalendarEndpoints.ApplyAll(Request() with { GoogleShowAs = "away" }, e));
+    }
 }

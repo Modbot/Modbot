@@ -69,6 +69,8 @@ public static class CalendarEventFields
             ["publishToVRChat"] = e.PublishToVRChat,
             ["publishToDiscord"] = e.PublishToDiscord,
             ["publishToGoogle"] = e.PublishToGoogle,
+            ["googleColour"] = e.GoogleColour,
+            ["googleShowAs"] = e.GoogleShowAs,
             ["publishToBluesky"] = e.PublishToBluesky,
             ["blueskyPostBeforeMinutes"] = e.BlueskyPostBeforeMinutes,
             ["postToChannel"] = e.PostToChannel,

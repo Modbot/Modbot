@@ -46356,6 +46356,18 @@
                 "$ref": "#/components/schemas/CalendarBlueskyGifChoice"
               }
             ]
+          },
+          "googleColour": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "googleShowAs": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -46861,6 +46873,16 @@
                 "$ref": "#/components/schemas/CalendarBlueskyGifChoice"
               }
             ]
+          },
+          "googleColour": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "googleShowAs": {
+            "type": "string",
+            "default": "free"
           }
         }
       },
@@ -47004,6 +47026,16 @@
           },
           "private": {
             "type": "boolean"
+          },
+          "colour": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "showAs": {
+            "type": "string",
+            "default": "free"
           }
         }
       },
@@ -48169,6 +48201,18 @@
               {
                 "$ref": "#/components/schemas/CalendarBlueskyGifChoice"
               }
+            ]
+          },
+          "googleColour": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "googleShowAs": {
+            "type": [
+              "null",
+              "string"
             ]
           }
         }

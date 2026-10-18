@@ -1332,10 +1332,23 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("featured");
 
+                    b.Property<string>("GoogleColour")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("google_colour");
+
                     b.Property<string>("GoogleDescription")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("google_description");
+
+                    b.Property<string>("GoogleShowAs")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasDefaultValue("free")
+                        .HasColumnName("google_show_as");
 
                     b.Property<string>("GoogleTitle")
                         .HasMaxLength(100)

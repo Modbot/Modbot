@@ -54,7 +54,7 @@ export const TAB_LABEL: Record<CalendarTab, string> = {
   vrchat: 'VRChat',
   discordEvent: 'Discord event',
   channelPost: 'Discord post',
-  googleCalendar: 'Google',
+  googleCalendar: 'Google Calendar',
   bluesky: 'Bluesky',
 }
 

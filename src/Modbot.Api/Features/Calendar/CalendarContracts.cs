@@ -69,6 +69,14 @@ namespace Modbot.Api.Features.Calendar;
 /// null ticks it when Google Calendar is set up and the event is visible to everyone. An event only
 /// the group's members see never goes, ticked or not.
 /// </param>
+/// <param name="GoogleColour">
+/// The event's colour on Google Calendar, as Google's own id (<c>"1"</c> to <c>"11"</c>, the ones in Google's
+/// event colours list). An empty text says the calendar's own colour; null keeps what the event has.
+/// </param>
+/// <param name="GoogleShowAs">
+/// <c>busy</c> or <c>free</c>: whether the event makes the calendar's owner busy on Google Calendar. Null keeps what the
+/// event has; a new event starts with free.
+/// </param>
 /// <param name="PublishToBluesky">
 /// Post each date of the event on the Bluesky account in Settings. Null keeps what the event has;
 /// a new event starts with it off.
@@ -155,7 +163,9 @@ public sealed record CalendarEventRequest(
     bool? BlueskyQuotesOff = null,
     IReadOnlyList<string>? BlueskyLanguages = null,
     CalendarBlueskyVideoChoice? BlueskyVideo = null,
-    CalendarBlueskyGifChoice? BlueskyGif = null);
+    CalendarBlueskyGifChoice? BlueskyGif = null,
+    string? GoogleColour = null,
+    string? GoogleShowAs = null);
 
 /// <summary>
 /// The GIF of an event's Bluesky post: its address on Klipy's media host as Klipy gave it, and its alt text.
@@ -367,6 +377,8 @@ public sealed record CalendarPictureLinkRequest(string? Url);
 /// <param name="Featured">Whether VRChat is asked to show the event as featured.</param>
 /// <param name="Categories">The categories made in Modbot that the event carries, by name; none for an event with none.</param>
 /// <param name="PublishToGoogle">Whether the event is ticked for the Google calendar in Settings.</param>
+/// <param name="GoogleColour">The event's colour on Google Calendar as Google's id; null for the calendar's own.</param>
+/// <param name="GoogleShowAs"><c>busy</c> or <c>free</c> on Google Calendar.</param>
 /// <param name="PublishToBluesky">Whether each date of the event gets its own post on Bluesky.</param>
 /// <param name="BlueskyPostBeforeMinutes">How long before a date starts its Bluesky post goes.</param>
 /// <param name="PostColour">The channel post's colour while a date is scheduled, <c>0xRRGGBB</c>; null for Modbot's violet.</param>
@@ -462,7 +474,9 @@ public sealed record CalendarEventView(
     bool BlueskyQuotesOff = false,
     IReadOnlyList<string>? BlueskyLanguages = null,
     CalendarBlueskyVideoChoice? BlueskyVideo = null,
-    CalendarBlueskyGifChoice? BlueskyGif = null);
+    CalendarBlueskyGifChoice? BlueskyGif = null,
+    string? GoogleColour = null,
+    string GoogleShowAs = "free");
 
 /// <summary>A time the channel streamed on Twitch while this event was on (Twitch design, step 3).</summary>
 /// <param name="Id">Twitch's stream id. Opaque.</param>
@@ -553,6 +567,8 @@ public sealed record CalendarPreviewView(
 /// Only the people the calendar is shared with see the event: Check found the calendar is not
 /// public, or shows only free or busy, or the event itself is sent as private.
 /// </param>
+/// <param name="Colour">The event's colour as Google's id (<c>"1"</c> to <c>"11"</c>); null for the calendar's own.</param>
+/// <param name="ShowAs"><c>busy</c> or <c>free</c>.</param>
 public sealed record CalendarGooglePreviewView(
     string? CalendarName,
     string Title,
@@ -562,7 +578,9 @@ public sealed record CalendarGooglePreviewView(
     DateTimeOffset EndsAt,
     string TimeZone,
     CalendarGoogleRepeatView? Repeat,
-    bool Private);
+    bool Private,
+    string? Colour = null,
+    string ShowAs = "free");
 
 /// <summary>The repeat line Google is sent (<c>RRULE</c>), in its parts.</summary>
 /// <param name="Frequency"><c>daily</c>, <c>weekly</c> or <c>monthly</c>.</param>

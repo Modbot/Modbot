@@ -320,6 +320,18 @@ public class CalendarEvent
     public bool PublishToGoogle { get; set; }
 
     /// <summary>
+    /// Google's own id of the colour the event has on Google Calendar (<c>"1"</c> to <c>"11"</c>, see
+    /// <see cref="Modbot.Core.Calendar.CalendarGoogleColours"/>), or null for the calendar's colour.
+    /// </summary>
+    public string? GoogleColour { get; set; }
+
+    /// <summary>
+    /// Whether the event shows as <c>busy</c> or <c>free</c> on Google Calendar. Free until chosen,
+    /// as every event was sent before the choice existed.
+    /// </summary>
+    public string GoogleShowAs { get; set; } = Modbot.Core.Calendar.CalendarGoogleColours.Free;
+
+    /// <summary>
     /// Whether each date of the event gets its own post on the Bluesky account in Settings →
     /// Bluesky, sent <see cref="BlueskyPostBeforeMinutes"/> before the date starts (added 2026-10-14).
     /// </summary>

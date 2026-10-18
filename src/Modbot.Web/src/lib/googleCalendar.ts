@@ -59,3 +59,33 @@ export function addToGoogleLink(feedUrl: string): string | null {
   const webcal = `webcal://${url.host}${url.pathname}${url.search}`
   return `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`
 }
+
+/**
+ * The date line of Google's event popup, in the event's own zone: "Friday, October 17 ⋅ 8:00 – 9:00 PM",
+ * and for an event that runs past midnight both days: "Friday, October 17 ⋅ 11:00 PM – Saturday, October 18 ⋅ 1:00 AM".
+ * A zone this browser does not know is read in the viewer's own.
+ */
+export function googleWhen(startsAt: string, endsAt: string, timeZone: string, locale?: string): string {
+  const start = new Date(startsAt)
+  const end = new Date(endsAt)
+
+  const formats = (zone: string | undefined) => ({
+    day: new Intl.DateTimeFormat(locale, { weekday: 'long', month: 'long', day: 'numeric', timeZone: zone }),
+    clock: new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit', timeZone: zone }),
+    key: new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: zone }),
+  })
+
+  let f: ReturnType<typeof formats>
+  try {
+    f = formats(timeZone)
+  } catch {
+    f = formats(undefined)
+  }
+
+  const dot = ' ⋅ '
+  if (f.key.format(start) === f.key.format(end)) {
+    return `${f.day.format(start)}${dot}${f.clock.format(start)} – ${f.clock.format(end)}`
+  }
+
+  return `${f.day.format(start)}${dot}${f.clock.format(start)} – ${f.day.format(end)}${dot}${f.clock.format(end)}`
+}

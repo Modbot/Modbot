@@ -2,6 +2,7 @@
 // (the API calls are in `calendarTemplateApi.ts`).
 import type { CalendarEventInput } from './calendar.ts'
 import { DEFAULT_BLUESKY_BEFORE } from './calendarPlaces.ts'
+import type { GoogleShowAs } from './googleColours.ts'
 
 /**
  * Event templates (calendar templates plan): a name and everything the event form holds except its
@@ -22,6 +23,8 @@ export type CalendarTemplateFields = Omit<
   | 'discordDescription'
   | 'googleTitle'
   | 'googleDescription'
+  | 'googleColour'
+  | 'googleShowAs'
   | 'blueskyTitle'
   | 'blueskyDescription'
   | 'categoryIds'
@@ -37,6 +40,9 @@ export type CalendarTemplateFields = Omit<
   discordDescription: string | null
   googleTitle: string | null
   googleDescription: string | null
+  /** Google's colour id and busy or free; null (or left out, in a template saved before them) says the calendar's colour and free. */
+  googleColour?: string | null
+  googleShowAs?: GoogleShowAs | null
   blueskyTitle: string | null
   blueskyDescription: string | null
   /** The categories made in Modbot; null for a template saved before they were kept. */
@@ -92,6 +98,8 @@ export function inputFromTemplate(fields: CalendarTemplateFields, base: Calendar
     discordDescription: fields.discordDescription ?? '',
     googleTitle: fields.googleTitle ?? '',
     googleDescription: fields.googleDescription ?? '',
+    googleColour: fields.googleColour ?? '',
+    googleShowAs: fields.googleShowAs ?? 'free',
     // A template saved before Bluesky has neither: off, and the usual time.
     publishToBluesky: fields.publishToBluesky ?? false,
     blueskyPostBeforeMinutes: fields.blueskyPostBeforeMinutes ?? DEFAULT_BLUESKY_BEFORE,
@@ -125,6 +133,8 @@ export function fieldsFromInput(input: CalendarEventInput, lengthMinutes: number
     discordDescription: input.discordDescription ?? null,
     googleTitle: input.googleTitle ?? null,
     googleDescription: input.googleDescription ?? null,
+    googleColour: input.googleColour || null,
+    googleShowAs: input.googleShowAs ?? null,
     blueskyTitle: input.blueskyTitle ?? null,
     blueskyDescription: input.blueskyDescription ?? null,
     categoryIds: input.categoryIds,

@@ -1,5 +1,6 @@
 import { DEFAULT_BLUESKY_BEFORE, type CalendarReady } from './calendarPlaces.ts'
 import type { BlueskyPostPreview } from './postRules.ts'
+import type { GoogleShowAs } from './googleColours.ts'
 import type { CalendarSameEvents } from './calendarWarnings.ts'
 import { ApiError, http, type InstanceRow, type MissingGroupPermission, type PersonSeen, type PlaceCounts } from './api.ts'
 
@@ -201,6 +202,10 @@ export type CalendarEvent = {
   blueskyGif?: BlueskyGif | null
   /** Ticked for the Google calendar in Settings. Missing from an older server. */
   publishToGoogle?: boolean
+  /** Google's id of the event's colour on Google Calendar; null for the calendar's own. Missing from an older server. */
+  googleColour?: string | null
+  /** Whether the event shows as busy or free on Google Calendar. Missing from an older server. */
+  googleShowAs?: GoogleShowAs
   /** Each date gets its own Bluesky post. Missing from an older server. */
   publishToBluesky?: boolean
   /** How long before a date starts its Bluesky post goes, in minutes. Missing from an older server. */
@@ -394,6 +399,10 @@ export type CalendarGooglePreview = {
   repeat: CalendarGoogleRepeat | null
   /** Only the people the calendar is shared with see it. */
   private: boolean
+  /** Google's id of the event's colour; null for the calendar's own. Missing from an older server. */
+  colour?: string | null
+  /** Busy or free. Missing from an older server. */
+  showAs?: GoogleShowAs
 }
 
 /** The repeat line Google is sent, in its parts. */
@@ -520,6 +529,10 @@ export type CalendarEventInput = {
    * server ticks it when Google Calendar is set up and everyone may see the event.
    */
   publishToGoogle?: boolean | null
+  /** The event's colour on Google Calendar as Google's id; blank says the calendar's own. Left out keeps what the event has. */
+  googleColour?: string
+  /** Busy or free on Google Calendar. Left out keeps what the event has; a new event starts free. */
+  googleShowAs?: GoogleShowAs
   /** Post each date on Bluesky. Left out keeps what the event has; a new event starts off. */
   publishToBluesky?: boolean
   /** How long before a date starts its Bluesky post goes: 60, 1440, 4320 or 10080. */
@@ -891,6 +904,8 @@ export function blankEvent(now: Date): CalendarEventInput {
     discordDescription: '',
     googleTitle: '',
     googleDescription: '',
+    googleColour: '',
+    googleShowAs: 'free',
     publishToBluesky: false,
     blueskyPostBeforeMinutes: DEFAULT_BLUESKY_BEFORE,
     blueskyWhoCanReply: ['anyone'],
@@ -960,6 +975,8 @@ export function inputFrom(event: CalendarEvent): CalendarEventInput {
     discordDescription: event.discordDescription ?? '',
     googleTitle: event.googleTitle ?? '',
     googleDescription: event.googleDescription ?? '',
+    googleColour: event.googleColour ?? '',
+    googleShowAs: event.googleShowAs ?? 'free',
     publishToBluesky: event.publishToBluesky ?? false,
     blueskyPostBeforeMinutes: event.blueskyPostBeforeMinutes ?? DEFAULT_BLUESKY_BEFORE,
     blueskyWhoCanReply: event.blueskyWhoCanReply ?? ['anyone'],

@@ -2027,6 +2027,17 @@ public static class CalendarEndpoints
             && new StringInfo(blueskyDescription).LengthInTextElements > BlueskyText.GraphemeLimit)
             problems.Add(CalendarBlueskyText.DescriptionTooLong);
 
+        // Google's colour: null keeps the event's, blank is the calendar's own, anything else is one of Google's ids.
+        var googleColour = body.GoogleColour is null ? target.GoogleColour
+            : string.IsNullOrWhiteSpace(body.GoogleColour) ? null
+            : body.GoogleColour.Trim();
+        if (googleColour is not null && !CalendarGoogleColours.IsColour(googleColour))
+            problems.Add("Google colour must be one of Google's event colours.");
+
+        var googleShowAs = body.GoogleShowAs?.Trim() ?? target.GoogleShowAs;
+        if (!CalendarGoogleColours.IsShowAs(googleShowAs))
+            problems.Add("Google shows an event as busy or free.");
+
         var blueskyBefore = body.BlueskyPostBeforeMinutes ?? target.BlueskyPostBeforeMinutes;
         if (body.BlueskyPostBeforeMinutes is { } sentBefore && !CalendarBlueskyText.IsChoice(sentBefore))
             problems.Add(CalendarBlueskyText.BeforeNotAChoice);
@@ -2312,6 +2323,8 @@ public static class CalendarEndpoints
         target.PublishToVRChat = body.PublishToVRChat;
         target.PublishToDiscord = body.PublishToDiscord;
         target.PublishToGoogle = body.PublishToGoogle ?? target.PublishToGoogle;
+        target.GoogleColour = googleColour;
+        target.GoogleShowAs = googleShowAs;
         target.PublishToBluesky = body.PublishToBluesky ?? target.PublishToBluesky;
         target.BlueskyPostBeforeMinutes = blueskyBefore;
         target.PostToChannel = body.PostToChannel;
@@ -2617,7 +2630,9 @@ public static class CalendarEndpoints
                     : null,
                 e.BlueskyGif is { } blueskyGif
                     ? new CalendarBlueskyGifChoice(blueskyGif.Url, blueskyGif.Alt)
-                    : null);
+                    : null,
+                CalendarGoogleColours.ColourOf(e.GoogleColour),
+                e.GoogleShowAs);
         })];
     }
 

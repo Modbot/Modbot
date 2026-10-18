@@ -58,6 +58,8 @@ const input: CalendarEventInput = {
   discordDescription: 'Pop in',
   googleTitle: '',
   googleDescription: '',
+  googleColour: '',
+  googleShowAs: 'free' as const,
   publishToGoogle: null,
   publishToBluesky: true,
   blueskyPostBeforeMinutes: 4320,
@@ -172,6 +174,17 @@ test('a template loads into the form over the dates it is given', () => {
   assert.equal(loaded.repeatUntil, null)
   assert.equal(loaded.draft, false)
   assert.deepEqual(loaded.repeatDays, ['tuesday'])
+})
+
+test('a template keeps the Google colour and busy, and one saved before them loads with the calendar default and free', () => {
+  const picked = fieldsFromInput({ ...input, googleColour: '9', googleShowAs: 'busy' }, 120)
+  assert.equal(inputFromTemplate(picked, input).googleColour, '9')
+  assert.equal(inputFromTemplate(picked, input).googleShowAs, 'busy')
+
+  const { googleColour: _colour, googleShowAs: _showAs, ...old } = picked
+  assert.equal(inputFromTemplate(old as typeof picked, input).googleColour, '')
+  assert.equal(inputFromTemplate(old as typeof picked, input).googleShowAs, 'free')
+  assert.equal(inputFromTemplate({ ...picked, googleColour: null, googleShowAs: null }, input).googleShowAs, 'free')
 })
 
 test('a template round trip keeps what the form holds', () => {

@@ -14,8 +14,9 @@ namespace Modbot.Core.Calendar;
 /// <remarks>
 /// <para>
 /// Only the world page goes with it as a link (decision 4 A): never Modbot's join address or public
-/// address. No picture (Google takes Drive files only), no colour (decision 8), no reminders (they
-/// would be the service account's own), and no attendees, so nobody is ever emailed.
+/// address. No picture (Google takes Drive files only), no reminders (they would be the service
+/// account's own), and no attendees, so nobody is ever emailed. A colour goes only when the event
+/// was given one, and the event is free (not busy) on the calendar unless it was set to busy.
 /// </para>
 /// <para>
 /// Modbot's event id goes in the event's private properties, which only the calendar's own copy
@@ -31,6 +32,8 @@ namespace Modbot.Core.Calendar;
 /// <param name="Recurrence">The <c>RRULE</c> and <c>EXDATE</c> lines; empty for an event that does not repeat.</param>
 /// <param name="SourceTitle">The group's name, for Google's link back; null without a world page.</param>
 /// <param name="SourceUrl">The world page; null without a world.</param>
+/// <param name="ColourId">Google's id of the event's colour; null for the calendar's own.</param>
+/// <param name="Transparency">Google's <c>opaque</c> (busy) or <c>transparent</c> (free).</param>
 public sealed record CalendarGoogleBody(
     Guid EventId,
     string Summary,
@@ -42,7 +45,9 @@ public sealed record CalendarGoogleBody(
     IReadOnlyList<string> Recurrence,
     string Visibility,
     string? SourceTitle,
-    string? SourceUrl)
+    string? SourceUrl,
+    string? ColourId,
+    string Transparency)
 {
     /// <summary>Who sees the event's details on Google: always the calendar's own setting.</summary>
     public const string DefaultVisibility = "default";
@@ -92,7 +97,9 @@ public sealed record CalendarGoogleBody(
             recurrence,
             DefaultVisibility,
             page is null ? null : (string.IsNullOrWhiteSpace(groupName) ? "Modbot" : groupName.Trim()),
-            page);
+            page,
+            CalendarGoogleColours.ColourOf(calendarEvent.GoogleColour),
+            CalendarGoogleColours.TransparencyOf(calendarEvent.GoogleShowAs));
     }
 
     /// <summary>
@@ -102,7 +109,7 @@ public sealed record CalendarGoogleBody(
     /// </summary>
     public string Fingerprint(string calendarId) => CalendarFingerprint.Of(
         "google", calendarId, EventId.ToString("D"), Summary, Description, Location, StartsAt, EndsAt, TimeZone,
-        Recurrence, Visibility, SourceTitle, SourceUrl);
+        Recurrence, Visibility, SourceTitle, SourceUrl, ColourId, Transparency);
 
     /// <summary>The body for <c>events.insert</c> and <c>events.update</c>, with the id Modbot gave it.</summary>
     public JsonObject ToJson(string googleId)
@@ -119,8 +126,8 @@ public sealed record CalendarGoogleBody(
             ["end"] = TimeOf(EndsAt, TimeZone),
             ["visibility"] = Visibility,
 
-            // Group events do not make the owner busy on their own calendar.
-            ["transparency"] = "transparent",
+            // Free unless the event was set to busy, so a group event does not make the owner busy on their own calendar.
+            ["transparency"] = Transparency,
 
             // Reminders are each reader's own; any set here would be the service account's.
             ["reminders"] = new JsonObject { ["useDefault"] = true },
@@ -132,6 +139,10 @@ public sealed record CalendarGoogleBody(
 
         if (Description is not null)
             body["description"] = Description;
+
+        // No colour says nothing, and an update that leaves the key out takes a colour off.
+        if (ColourId is not null)
+            body["colorId"] = ColourId;
 
         if (Recurrence.Count > 0)
             body["recurrence"] = new JsonArray([.. Recurrence.Select(line => (JsonNode?)JsonValue.Create(line))]);

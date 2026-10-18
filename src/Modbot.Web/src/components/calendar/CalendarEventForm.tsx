@@ -51,7 +51,7 @@ import { calendarTemplateApi } from '@/lib/calendarTemplateApi'
 import { useCanManageSettings } from '@/lib/manageSettings'
 import { AUTO_LINKS, autoLinkOf, cleanFillInName, FILL_IN_TEXTS, fillInKey, fillInMarker, fillInsIn } from '@/lib/calendarFillIns'
 import { addMinutes, fieldsFromInput, joinLength, splitLength } from '@/lib/calendarTemplates'
-import { countOf, OWN_KEYS, OWN_TEXT, ownKeysWithText, placeholderOf, postAround, sharedWords, textShown, type OwnKey } from '@/lib/calendarOwnText'
+import { around as aroundOf, countOf, OWN_KEYS, OWN_TEXT, ownKeysWithText, placeholderOf, postAround, sharedWords, textShown, type OwnKey } from '@/lib/calendarOwnText'
 import { saveWarnings } from '@/lib/calendarWarnings'
 import type { CardEditing, CardField } from './CardText'
 import { EventPreview, usePreviewAnswer } from './EventPreview'
@@ -66,6 +66,10 @@ import { CopyButton, PasteButton } from './PasteButton'
 import { VRChatPreviews } from './VRChatPreviews'
 import { DiscordPreviews } from './DiscordPreviews'
 import { BlueskyPreviews } from './BlueskyPreviews'
+import { GooglePreviews } from './GooglePreviews'
+import { GoogleChoices } from './GoogleChoices'
+import { googleRepeatWords, googleWhen } from '@/lib/googleCalendar'
+import { googleColourHex } from '@/lib/googleColours'
 import { BLUESKY_BYTE_LIMIT, BLUESKY_PICTURE_MAX_BYTES } from '@/lib/postRules'
 import { BLUESKY_PICTURES_MAX, shownPictures, withoutPicture, withPictureChanged, withPictures } from '@/lib/blueskyPictures'
 import { gifFromKlipy, gifWithAlt, hasGif, NO_GIF } from '@/lib/blueskyGif'
@@ -1254,7 +1258,58 @@ export function CalendarEventForm({
               ) : (
                 !isDiscord && on(active) && !isSetUp(active, ready) && <NotSetUp place={active} newTab />
               )}
-              {!isDiscord && active !== 'bluesky' && card(active)}
+              {!isDiscord && active !== 'bluesky' && active !== 'googleCalendar' && card(active)}
+              {active === 'googleCalendar' && answer.error && <Outcome tone="problem">{answer.error}</Outcome>}
+              {active === 'googleCalendar' &&
+                (() => {
+                  const e = editingFor('googleCalendar', shown ?? input)
+                  const drawn = answer.preview?.google ?? null
+                  const lines = aroundOf(drawn?.description, e.description.asked)
+                  return (
+                    <GooglePreviews
+                      before={lines?.before}
+                      after={lines?.after}
+                      aboutCount={e.description.count}
+                      when={drawn ? googleWhen(drawn.startsAt, drawn.endsAt, drawn.timeZone) : null}
+                      repeat={drawn?.repeat ? googleRepeatWords(drawn.repeat) : null}
+                      location={drawn?.location ?? null}
+                      calendarName={drawn?.calendarName ?? null}
+                      isPrivate={drawn?.private ?? false}
+                      colour={googleColourHex(input.googleColour)}
+                      titleBox={
+                        <span className="flex items-center gap-1">
+                          <FillInText
+                            label="Title"
+                            links={false}
+                            value={e.title.value}
+                            onChange={e.title.onChange}
+                            onActive={e.title.onActive}
+                            placeholder={e.title.placeholder || 'Add a title'}
+                            className="h-auto min-w-0 flex-1 border-none bg-transparent p-0 text-inherit text-[length:inherit]! font-[inherit] focus-visible:ring-0 empty:before:font-normal empty:before:text-current empty:before:opacity-50"
+                          />
+                          <CopyButton text={e.title.value} />
+                          <PasteButton onPaste={(t) => e.title.onChange(e.title.value + t)} />
+                        </span>
+                      }
+                      about={
+                        <span className="flex items-start gap-1">
+                          <FillInText
+                            multiline
+                            label="Description"
+                            value={e.description.value}
+                            onChange={e.description.onChange}
+                            onActive={e.description.onActive}
+                            placeholder={e.description.placeholder || 'Add a description'}
+                            className="min-h-0 min-w-0 flex-1 border-none bg-transparent p-0 text-inherit text-[length:inherit]! focus-visible:ring-0 empty:before:text-current empty:before:opacity-50"
+                          />
+                          <LinkMenu onPick={putIn} />
+                          <CopyButton text={e.description.value} />
+                          <PasteButton onPaste={(t) => e.description.onChange(e.description.value + t)} />
+                        </span>
+                      }
+                    />
+                  )
+                })()}
               {active === 'bluesky' && answer.error && <Outcome tone="problem">{answer.error}</Outcome>}
               {active === 'bluesky' &&
                 (() => {
@@ -1498,6 +1553,17 @@ export function CalendarEventForm({
                   >
                     Reply when the first person joins
                   </Checkbox>
+                </Section>
+              )}
+              {active === 'googleCalendar' && (
+                <Section>
+                  <GoogleChoices
+                    calendarName={answer.preview?.google?.calendarName ?? null}
+                    colour={input.googleColour ?? ''}
+                    onColour={(id) => set('googleColour', id)}
+                    showAs={input.googleShowAs ?? 'free'}
+                    onShowAs={(next) => set('googleShowAs', next)}
+                  />
                 </Section>
               )}
             </div>

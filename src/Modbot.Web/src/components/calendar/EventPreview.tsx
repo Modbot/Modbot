@@ -1,18 +1,16 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { CalendarDays, Lock, MapPin } from 'lucide-react'
+import { CalendarDays, MapPin } from 'lucide-react'
 import { BlueskyPost } from '@/components/marketing/PostPreview'
 import { Outcome } from '@/components/settings/fields'
 import { ApiError } from '@/lib/api'
 import {
   calendarApi,
   type CalendarEventInput,
-  type CalendarGooglePreview,
   type CalendarPreview,
 } from '@/lib/calendar'
 import type { BlueskyPostPreview } from '@/lib/postRules'
 import { DESTINATION_LABEL, type CalendarDestination } from '@/lib/calendarPlaces'
 import { discordPieces, discordTime } from '@/lib/discordText'
-import { googleRepeatWords } from '@/lib/googleCalendar'
 import { postAround } from '@/lib/calendarOwnText'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 import { cn } from '@/lib/utils'
@@ -30,24 +28,6 @@ const time = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-di
 /** "Fri, Oct 2, 8:00 PM – 10:00 PM" in the viewer's own time. */
 function span(startsAt: string, endsAt: string): string {
   return `${when.format(new Date(startsAt))} – ${time.format(new Date(endsAt))}`
-}
-
-/** The same in the event's own zone, the way Google shows it; the viewer's when the zone is unknown here. */
-function spanIn(startsAt: string, endsAt: string, timeZone: string): string {
-  try {
-    const zonedWhen = new Intl.DateTimeFormat(undefined, {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      timeZone,
-    })
-    const zonedTime = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone })
-    return `${zonedWhen.format(new Date(startsAt))} – ${zonedTime.format(new Date(endsAt))}`
-  } catch {
-    return span(startsAt, endsAt)
-  }
 }
 
 /** What the server drew for the form: the cards, or why it could not. */
@@ -129,7 +109,6 @@ export function EventPreview({
         <ChannelPostCard post={preview.channelPost} picture={discordPicture} editing={editing} />
       )}
       {places.includes('vrchat') && <VRChatCard entry={preview.vrChat} picture={vrchatPicture} editing={editing} />}
-      {places.includes('googleCalendar') && preview.google && <GoogleCard entry={preview.google} editing={editing} />}
       {places.includes('bluesky') && preview.bluesky && (
         <div className="flex flex-col gap-1.5">
           <BlueskyPost post={preview.bluesky} body={editing && <BlueskyBody post={preview.bluesky} editing={editing} />} />
@@ -357,41 +336,6 @@ function VRChatCard({ entry, picture, editing }: { entry: CalendarPreview['vrCha
         <Row label="Languages">{!editing && join(entry.languages)}</Row>
       </div>
       )}
-    </Place>
-  )
-}
-
-/** The Google event as the Google loop sends it, times in the event's own zone as Google shows them. */
-function GoogleCard({ entry, editing }: { entry: CalendarGooglePreview; editing: CardEditing | null }) {
-  return (
-    <Place place="googleCalendar" editing={editing}>
-      <div className="flex flex-col gap-1.5 rounded-sm border-(length:--hairline) bg-card p-3">
-        <div className="flex items-center gap-1.5 font-label [overflow-wrap:anywhere]" style={{ fontSize: 'calc(var(--text-base) + 1px)' }}>
-          {entry.private && <Lock className="size-3.5 shrink-0 text-muted-foreground" aria-label="Private" />}
-          {editing ? (
-            <div className="min-w-0 flex-1">
-              <CardText field={editing.title} label="Title" links={false} />
-            </div>
-          ) : (
-            entry.title
-          )}
-        </div>
-        <Row label="When">
-          {spanIn(entry.startsAt, entry.endsAt, entry.timeZone)} · {entry.timeZone}
-        </Row>
-        <Row label="Repeats">{entry.repeat && googleRepeatWords(entry.repeat)}</Row>
-        <Row label="Location">{entry.location}</Row>
-        <Row label="Calendar">{entry.calendarName}</Row>
-        {editing ? (
-          <div className="flex flex-col gap-1.5 pt-1">
-            <Around drawn={entry.description} asked={editing.description.asked} where="before" />
-            <CardText field={editing.description} label="Description" multiline />
-            <Around drawn={entry.description} asked={editing.description.asked} where="after" />
-          </div>
-        ) : (
-          entry.description && <p className="pt-1 whitespace-pre-wrap [overflow-wrap:anywhere]">{entry.description}</p>
-        )}
-      </div>
     </Place>
   )
 }
