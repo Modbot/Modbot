@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.VisualTree;
 using Modbot.Companion.Overlay;
 using Modbot.Overlay.Interaction;
 using Modbot.Overlay.Rendering;
@@ -307,6 +308,50 @@ public class PanelFrameTests
 
         Assert.True(Bounds<OverlayTarget.Bar>(targets).Bottom <= PopUps, "The bar is inside the texture.");
         Assert.True(PopUpLockMetres(narrow) < PanelFrame.ButtonMetres, "The bar is held to the room under the box, so it is smaller than the others.");
+    }
+
+    [Fact]
+    public void ANarrowTallPopUpPanelGetsTheBiggestBarTheStripUnderItsBoxHolds()
+    {
+        var narrow = PopUpPlacement with { Width = NotifyOverlaySettings.MinWidth * NotifyOverlaySettings.PanelPerBox };
+        var tall = narrow with { Tall = 2f };
+        var bar = PanelBar.For(tall, true);
+        const int canvas = PopUps * 2;
+        var (_, targets) = Draw(
+            () => PanelFrame.Notification(NotificationView.Build(NotificationScreen.Empty), bar, null, PopUps, 1, 2),
+            canvas);
+
+        // The strip under a twice-as-tall box is 88 pixels, not the 44 of an ordinary one.
+        Assert.True(Bounds<OverlayTarget.Bar>(targets).Bottom <= canvas, "The bar is inside the texture.");
+        Assert.True(Bounds<OverlayTarget.Bar>(targets).Top >= Bounds<OverlayTarget.PopUpBox>(targets).Bottom, "The bar is under the box.");
+        Assert.True(PopUpLockMetres(tall) > PopUpLockMetres(narrow), "The taller strip holds a bigger bar.");
+    }
+
+    [Fact]
+    public void ANarrowMainPanelKeepsItsBarAtItsRealSizeInsideTheTextureAndClearOfTheHints()
+    {
+        var hints = ControlHints.For(null, holding: true);
+        var bar = PanelBar.For(OverlayPlacement.Default with { Width = OverlayPlacement.MinWidth }, true, hints);
+
+        var (targets, pills) = AvaloniaTestHost.Run(() =>
+        {
+            using var renderer = new AvaloniaFrameRenderer(Main, Main);
+            var root = PanelFrame.Main(OverlayView.Build(Roster(3)), bar, null, Main);
+            renderer.Render(root);
+            var pillBounds = root.GetVisualDescendants()
+                .OfType<Border>()
+                .Where(b => b.Child is TextBlock)
+                .Select(b => new Rect(b.TranslatePoint(default, root) ?? default, b.Bounds.Size))
+                .ToList();
+            return (OverlayTargets.Find(root), pillBounds);
+        });
+
+        SameSize(PanelFrame.ButtonMetres, LockMetres(targets, bar, Main));
+
+        var strip = Bounds<OverlayTarget.Bar>(targets);
+        Assert.True(strip.Bottom <= Main, "The bar is inside the texture.");
+        Assert.NotEmpty(pills);
+        Assert.All(pills, pill => Assert.False(pill.Intersects(strip), "A hint pill does not run over the bar."));
     }
 
     [Fact]

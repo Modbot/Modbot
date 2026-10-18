@@ -372,8 +372,8 @@ public static class PanelFrame
         var boxSide = side * NotifyOverlaySettings.BoxPixels / NotifyOverlaySettings.PanelPixels;
         var canvas = side * Math.Max(wide, tall);
 
-        // The bar has the strip under the box to fit in, which is the same pixels at any width.
-        var size = BarFor(bar, canvas, NotifyOverlaySettings.DefaultWidth * NotifyOverlaySettings.PanelPerBox, side - boxSide);
+        // The bar has the strip under the box to fit in: the canvas below the box, which a taller panel has more of.
+        var size = BarFor(bar, canvas, NotifyOverlaySettings.DefaultWidth * NotifyOverlaySettings.PanelPerBox, canvas - (boxSide * tall));
         var boxWide = boxSide * wide;
         var box = new Panel
         {
