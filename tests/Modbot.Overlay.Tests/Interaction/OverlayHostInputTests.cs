@@ -211,7 +211,7 @@ public class OverlayHostInputTests
 
             runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(Centre)));
             host.PollInput(TimeSpan.Zero);
-            var row = FindRow(host, "usr_3");
+            var row = FindRow(host, "usr_1");
 
             runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down), click: true));
             host.PollInput(TimeSpan.FromMilliseconds(10));
@@ -290,7 +290,7 @@ public class OverlayHostInputTests
 
             runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(Centre)));
             host.PollInput(TimeSpan.Zero);
-            var row = FindRow(host, "usr_3");
+            var row = FindRow(host, "usr_1");
 
             runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down), click: true));
             host.PollInput(TimeSpan.FromMilliseconds(10));
@@ -307,11 +307,11 @@ public class OverlayHostInputTests
             Assert.True(host.Scrolling);
 
             // The trigger goes down on the moving list and comes up without the ray moving.
-            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(0.5f, 0.5f), click: true));
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down), click: true));
             host.PollInput(TimeSpan.FromMilliseconds(110));
             Assert.False(host.Scrolling);
 
-            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(0.5f, 0.5f)));
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down)));
             host.PollInput(TimeSpan.FromMilliseconds(120));
 
             Assert.Empty(taps);

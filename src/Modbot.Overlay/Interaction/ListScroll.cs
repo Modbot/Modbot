@@ -112,12 +112,17 @@ public sealed class ListScroll
         var top = Math.Max(0, max);
         var before = Offset;
 
+        // A step that would take the speed under the stopping speed goes only as far as the moment it
+        // gets there, so the fling stops at the same place however long the steps are.
+        var stops = Math.Abs(Velocity) * Math.Exp(-Friction * seconds) < StopSpeed;
+        var goes = stops ? Math.Log(Math.Abs(Velocity) / StopSpeed) / Friction : seconds;
+
         // The exact distance a speed that falls by a share of itself covers in this long, so a slow
         // poll and a fast one carry a fling the same way.
-        Offset = Math.Clamp(Offset + (Velocity / Friction * (1 - Math.Exp(-Friction * seconds))), 0, top);
-        Velocity *= Math.Exp(-Friction * seconds);
+        Offset = Math.Clamp(Offset + (Velocity / Friction * (1 - Math.Exp(-Friction * goes))), 0, top);
+        Velocity *= Math.Exp(-Friction * goes);
 
-        if (Offset <= 0 || Offset >= top || Math.Abs(Velocity) < StopSpeed)
+        if (stops || Offset <= 0 || Offset >= top)
             Velocity = 0;
 
         return Offset != before;
