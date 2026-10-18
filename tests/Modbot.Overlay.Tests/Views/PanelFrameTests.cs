@@ -262,4 +262,124 @@ public class PanelFrameTests
         Assert.True(bar.Top >= NotifyOverlaySettings.BoxPixels, "The bar is under the pop-ups' box.");
         Assert.True(bar.Bottom <= PopUps, "The bar is inside the texture.");
     }
+
+    [Fact]
+    public void TheMainPanelHasAResizeCornerAtItsBottomRightOnlyWhenTheBarAsksForOne()
+    {
+        var (_, without) = Draw(() => PanelFrame.Main(OverlayView.Build(Roster(3)), new PanelBar(true, false, false), null, Main), Main);
+        var (_, with) = Draw(() => PanelFrame.Main(OverlayView.Build(Roster(3)), new PanelBar(true, false, false, Corner: true), null, Main), Main);
+
+        Assert.DoesNotContain(without, t => t.Target is OverlayTarget.ResizeCorner);
+
+        var corner = Bounds<OverlayTarget.ResizeCorner>(with);
+        Assert.Single(with, t => t.Target is OverlayTarget.ResizeCorner);
+        Assert.True(corner.Right <= Main && corner.Bottom <= Main, "The corner is inside the texture.");
+        Assert.True(corner.Center.X > Main * 0.9 && corner.Center.Y > Main * 0.9, "The corner is in the bottom right.");
+    }
+
+    [Fact]
+    public void TheResizeCornerMovesNoCardsAndNoBar()
+    {
+        var (_, without) = Draw(() => PanelFrame.Main(OverlayView.Build(Roster(3)), new PanelBar(true, false, false), null, Main), Main);
+        var (_, with) = Draw(() => PanelFrame.Main(OverlayView.Build(Roster(3)), new PanelBar(true, false, false, Corner: true), null, Main), Main);
+
+        Assert.Equal(Bounds<OverlayTarget.Roster>(without), Bounds<OverlayTarget.Roster>(with));
+        Assert.Equal(Bounds<OverlayTarget.Bar>(without), Bounds<OverlayTarget.Bar>(with));
+        Assert.Equal(without.Count + 1, with.Count);
+    }
+
+    [Fact]
+    public void TheBarForAPlacementHasACornerOnlyWhenItIsOpenToEditing()
+    {
+        Assert.False(PanelBar.For(OverlayPlacement.Default, true).Corner);
+        Assert.True(PanelBar.For(OverlayPlacement.Default, true, corner: true).Corner);
+        Assert.False(PanelBar.For(OverlayPlacement.Default with { Locked = true }, true, corner: true).Corner);
+        Assert.False(PanelBar.For(OverlayPlacement.Default with { ClickThrough = true }, true, corner: true).Corner);
+    }
+
+    [Fact]
+    public void TheBarForAPlacementCarriesItsShapeSoResizingDrawsItAgain()
+    {
+        var shaped = PanelBar.For(OverlayPlacement.Default with { Wide = 1.5f, Tall = 1.25f }, true);
+
+        Assert.Equal(1.5, shaped.Wide);
+        Assert.Equal(1.25, shaped.Tall);
+        Assert.NotEqual(PanelBar.For(OverlayPlacement.Default, true), shaped);
+    }
+
+    [Fact]
+    public void TheHintsAreSizedFromTheSquareNotJustTheWidth()
+    {
+        var hints = ControlHints.For(null, holding: true);
+        var plain = PanelBar.For(OverlayPlacement.Default, true, hints);
+        var shaped = PanelBar.For(OverlayPlacement.Default with { Wide = 1.5f, Tall = 2f }, true, hints);
+
+        Assert.Equal(OverlayPlacement.Default.Width, plain.WidthInMetres, 4);
+        Assert.Equal(OverlayPlacement.Default.Width * 2.0, shaped.WidthInMetres, 4);
+    }
+
+    [Fact]
+    public void AMainPanelMadeWiderDrawsItsBarInTheMiddleOfItsWidthAndItsCornerAtItsRightEdge()
+    {
+        const int wide = 1536;
+        var (_, targets) = Draw(
+            () => PanelFrame.Main(OverlayView.Build(Roster(3)), new PanelBar(true, false, false, Corner: true), null, Main, wide),
+            wide);
+
+        var bar = Bounds<OverlayTarget.Bar>(targets);
+        var corner = Bounds<OverlayTarget.ResizeCorner>(targets);
+
+        Assert.Equal(wide / 2.0, bar.Center.X, 0);
+        Assert.True(bar.Bottom <= Main, "The bar is inside the panel's height.");
+        Assert.True(corner.Right <= wide && corner.Right > wide - 40, "The corner is at the panel's right edge, not the square's.");
+        Assert.True(corner.Bottom <= Main && corner.Bottom > Main - 40, "The corner is at the panel's foot.");
+    }
+
+    [Fact]
+    public void AMainPanelMadeTallerStillCentresItsBarInItsWidth()
+    {
+        const int tall = 1536;
+        var (_, targets) = Draw(
+            () => PanelFrame.Main(OverlayView.Build(Roster(3)), new PanelBar(true, false, false), null, tall, Main),
+            tall);
+
+        var bar = Bounds<OverlayTarget.Bar>(targets);
+
+        Assert.Equal(Main / 2.0, bar.Center.X, 0);
+        Assert.True(bar.Top >= Bounds<OverlayTarget.Roster>(targets).Bottom, "The bar is under the roster.");
+    }
+
+    [Fact]
+    public void ThePopUpPanelHasAResizeCornerAtTheBottomRightOfItsBoxOnlyWhenTheBarAsksForOne()
+    {
+        var (_, without) = Draw(() => PanelFrame.Notification(NotificationView.Build(NotificationScreen.Empty), new PanelBar(true, false, false), null, PopUps), PopUps);
+        var (_, with) = Draw(() => PanelFrame.Notification(NotificationView.Build(NotificationScreen.Empty), new PanelBar(true, false, false, Corner: true), null, PopUps), PopUps);
+
+        Assert.DoesNotContain(without, t => t.Target is OverlayTarget.ResizeCorner);
+
+        var box = Bounds<OverlayTarget.PopUpBox>(with);
+        var corner = Bounds<OverlayTarget.ResizeCorner>(with);
+        Assert.Single(with, t => t.Target is OverlayTarget.ResizeCorner);
+        Assert.True(box.Contains(corner.Center), "The corner is inside the box.");
+        Assert.True(corner.Center.X > box.Center.X && corner.Center.Y > box.Center.Y, "The corner is in the box's bottom right.");
+        Assert.Equal(Bounds<OverlayTarget.Bar>(without), Bounds<OverlayTarget.Bar>(with));
+    }
+
+    [Fact]
+    public void AMadeBiggerPopUpBoxIsAsWideAndTallAsItWasMade()
+    {
+        const int canvas = PopUps * 2;
+        var (_, targets) = Draw(
+            () => PanelFrame.Notification(NotificationView.Build(NotificationScreen.Empty), new PanelBar(true, false, false, Corner: true), null, PopUps, 1.5, 2),
+            canvas);
+
+        var box = Bounds<OverlayTarget.PopUpBox>(targets);
+        var corner = Bounds<OverlayTarget.ResizeCorner>(targets);
+
+        Assert.Equal(NotifyOverlaySettings.BoxPixels * 1.5, box.Width, 1);
+        Assert.Equal(NotifyOverlaySettings.BoxPixels * 2.0, box.Height, 1);
+        Assert.Equal(0, box.Top);
+        Assert.True(box.Contains(corner.Center), "The corner is inside the box.");
+        Assert.True(Bounds<OverlayTarget.Bar>(targets).Top >= box.Bottom, "The bar is under the box.");
+    }
 }
