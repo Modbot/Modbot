@@ -288,7 +288,7 @@ public sealed record CompanionAppSnapshot(
     /// Only an installed copy shows it. The Close to tray box beside it shows in every copy, so the
     /// card itself is always there.
     /// </remarks>
-    public bool ShowStartupCard => Startup is { Visible: true };
+    public bool ShowStartupSwitch => Startup is { Visible: true };
 
     /// <summary>
     /// Whether this snapshot says exactly what another one says, so the window would draw what it

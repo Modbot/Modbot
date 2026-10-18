@@ -175,17 +175,17 @@ public class CompanionAppStateTests : IDisposable
     }
 
     [Fact]
-    public void TheSettingsCardIsNotDrawnWhenTheSwitchInItIsNot()
+    public void TheStartupSwitchIsNotDrawnWhenItIsNotVisible()
     {
         // Only an installed copy shows the start-with-Windows switch; the card's other box, Close
         // to tray, shows everywhere, so this answers for the switch alone.
         var state = State();
 
-        Assert.False(state.Snapshot().ShowStartupCard);
+        Assert.False(state.Snapshot().ShowStartupSwitch);
 
         state.Startup = new StartupState(Visible: true, On: true, TurnedOffInWindows: false);
 
-        Assert.True(state.Snapshot().ShowStartupCard);
+        Assert.True(state.Snapshot().ShowStartupSwitch);
     }
 
     [Fact]

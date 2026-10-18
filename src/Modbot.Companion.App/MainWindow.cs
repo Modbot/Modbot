@@ -1386,7 +1386,7 @@ public sealed partial class MainWindow : Window
         // built, because the page is built once and refreshed after that, and the first build can
         // happen before the host has said.
         var startup = _snapshot.Startup;
-        _startupBox.IsVisible = _snapshot.ShowStartupCard;
+        _startupBox.IsVisible = _snapshot.ShowStartupSwitch;
         _startupBox.IsChecked = startup is { On: true };
         _startupBox.IsEnabled = startup is { TurnedOffInWindows: false };
 
