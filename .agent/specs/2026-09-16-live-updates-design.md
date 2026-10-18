@@ -263,7 +263,7 @@ its own reconnect and its own message framing on top of one that exists.
 The server: a person with each permission is sent exactly their kinds; a flagged join arrives as
 one with its reason; a cookie alone does not open the socket; a cursor replays what was missed in
 order; the poll answers at once, waits and is woken, answers empty at the timeout, refuses nobody
-signed out; a device is sent presence in its instance only and told which joins it reported; a
+signed out; a device is sent presence in its instance only (unless it asked for moderation and its owner holds See the audit log) and told which joins it reported; a
 subscribe moves the device's instance and records its location; the old alert poll still answers.
 
 The companion: the socket comes first and remembers the cursor; a drop reconnects from the cursor

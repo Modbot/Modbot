@@ -207,10 +207,9 @@ public static class InstanceAudit
         DateTimeOffset now,
         CancellationToken ct)
     {
-        var key = scope.OwnerId is { } ownerId ? (Owner: ownerId, Instance: instance, World: world) : default;
-        var keyed = scope.OwnerId is not null;
-
-        if (keyed && WatchStarts.TryGetValue(key, out var kept) && kept.Until > now)
+        if (scope.OwnerId is { } ownerId
+            && WatchStarts.TryGetValue((ownerId, instance, world), out var kept)
+            && kept.Until > now)
             return kept.Since;
 
         var people = await new InstancePeopleReader(db).ForNumberAsync(instance, world, from, closedAt: null, ct);
@@ -224,7 +223,7 @@ public static class InstanceAudit
         var theirs = owner is null ? null : people.Watching.FirstOrDefault(w => w.UserId == owner);
         var since = theirs?.Since ?? people.Watching.Min(w => w.Since);
 
-        if (keyed)
+        if (scope.OwnerId is { } keptFor)
         {
             if (WatchStarts.Count > 256)
             {
@@ -232,7 +231,7 @@ public static class InstanceAudit
                     WatchStarts.TryRemove(old, out _);
             }
 
-            WatchStarts[key] = (since, now + WatchStartKept);
+            WatchStarts[(keptFor, instance, world)] = (since, now + WatchStartKept);
         }
 
         return since;

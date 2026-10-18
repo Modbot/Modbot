@@ -1,9 +1,11 @@
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Analytics.Facts;
 using Modbot.Api.Features.Audit;
 using Modbot.Api.Features.Companion.Devices;
+using Modbot.Api.Features.Events;
 using Modbot.Api.Features.Live.Stream;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Users;
@@ -337,8 +339,15 @@ public class CompanionAuditFeedTests
 
         var open = PollAsync(setup, wait: 2);
 
-        // Past the poll's first read, which found nothing and is now waiting.
-        await Task.Delay(TimeSpan.FromMilliseconds(500), Ct);
+        // The poll holds its connection from its first read until it answers; wait for it to be open.
+        var connections = setup.Host.Services.GetRequiredService<EventConnections>();
+        var started = Stopwatch.StartNew();
+        while (connections.OpenFor($"live:device:{setup.DeviceId}") != 1)
+        {
+            Assert.True(started.Elapsed < TimeSpan.FromSeconds(10), "The poll never opened.");
+            await Task.Delay(25, Ct);
+        }
+
         await OwnerLosesTheAuditLogAsync(setup);
         await WriteAsync(setup.Host, FactType.GroupInstanceKick, Subject(), instance: Instance, world: World, actor: Subject(), source: FactSource.AuditLog);
 
@@ -346,11 +355,13 @@ public class CompanionAuditFeedTests
     }
 
     [Fact]
-    public async Task AMemberReportAboutAStaffAccount_IsNeverSentToADevice()
+    public async Task AMemberReport_EvenOneAboutTheOwnersOwnAccount_IsNeverSentToADevice()
     {
         var setup = await ReadyAsync(ModbotPermissions.ViewAuditLog);
         await using var keep = setup.Host;
 
+        // Member reports are operational facts: no device is sent one, whoever they are about.
+        // The report here names the owner's own account, so nothing about the person lets it through.
         var staffDiscordId = "555666777";
         await using (var context = setup.Host.Database)
         {
