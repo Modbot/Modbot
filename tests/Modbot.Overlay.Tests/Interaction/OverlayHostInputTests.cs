@@ -135,6 +135,12 @@ public class OverlayHostInputTests
             runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down), click: true));
             host.PollInput(TimeSpan.FromMilliseconds(50));
 
+            // A row is on a list that scrolls, so the press waits to be told from a drag.
+            Assert.Empty(taps);
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down)));
+            host.PollInput(TimeSpan.FromMilliseconds(100));
+
             Assert.Equal([new OverlayTarget.Person("usr_0")], taps);
         });
     }
@@ -187,6 +193,41 @@ public class OverlayHostInputTests
 
             Assert.Equal(2, rows.Sum());
             Assert.All(rows, r => Assert.True(r > 0));
+        });
+    }
+
+    [Fact]
+    public void DraggingTheRosterWithTheTriggerComesOutInRowsAndDoesNotTap()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+            var rows = new List<int>();
+            var taps = new List<OverlayTarget?>();
+            host.RosterScrolled += rows.Add;
+            host.Tapped += taps.Add;
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(Centre)));
+            host.PollInput(TimeSpan.Zero);
+            var row = FindRow(host, "usr_1");
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down), click: true));
+            host.PollInput(TimeSpan.FromMilliseconds(10));
+
+            // The ray goes down the panel with the trigger held: the list goes down with it, which
+            // is towards the rows above, so the rows are negative.
+            for (var i = 1; i <= 5; i++)
+            {
+                runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down + (0.04f * i)), click: true));
+                host.PollInput(TimeSpan.FromMilliseconds(10 + (10 * i)));
+            }
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down + 0.2f)));
+            host.PollInput(TimeSpan.FromMilliseconds(100));
+
+            Assert.NotEmpty(rows);
+            Assert.All(rows, r => Assert.True(r < 0));
+            Assert.Empty(taps);
         });
     }
 

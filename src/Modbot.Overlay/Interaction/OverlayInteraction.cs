@@ -9,17 +9,26 @@ namespace Modbot.Overlay.Interaction;
 /// <param name="Down">0 at the top, 1 at the bottom.</param>
 public readonly record struct Pointer(Hand Hand, float Across, float Down);
 
+/// <summary>
+/// A trigger held down on a list and dragged, as a phone's finger is: how far the ray moved
+/// down the panel since the last poll. The list follows it.
+/// </summary>
+/// <param name="From">Where the trigger went down, which is how the host knows which list it is.</param>
+/// <param name="Down">How far the ray moved down this poll, as a fraction of the panel's height; negative is up.</param>
+public readonly record struct PanelDrag(Pointer From, float Down);
+
 /// <summary>What one poll of the controllers came to.</summary>
 /// <param name="Pointer">The hand pointing at the panel, or null.</param>
 /// <param name="Placement">The placement after this poll.</param>
 /// <param name="PlacementChanged">Whether it differs from before, so the caller applies and saves it.</param>
 /// <param name="Clicks">Trigger presses on the panel, as fractions across and down.</param>
-/// <param name="Scroll">Scrolling while pointing and not holding, for the roster; zero otherwise.</param>
+/// <param name="Scroll">Scrolling with either stick while pointing and not holding, for the lists; zero otherwise.</param>
 /// <param name="Holding">The hand holding the panel, or null.</param>
 /// <param name="Passing">
 /// A ray on a panel that lets rays through, away from its bar: nothing happens on the panel, but
 /// the bar is shown so it can be switched back. Null otherwise.
 /// </param>
+/// <param name="Drag">The trigger held down and dragged on a list this poll, or null.</param>
 public sealed record InteractionResult(
     Pointer? Pointer,
     OverlayPlacement Placement,
@@ -27,7 +36,8 @@ public sealed record InteractionResult(
     IReadOnlyList<Pointer> Clicks,
     Vector2 Scroll,
     Hand? Holding,
-    Pointer? Passing = null)
+    Pointer? Passing = null,
+    PanelDrag? Drag = null)
 {
     /// <summary>Whether any ray is on the panel, used or let through: while one is, the bar is up.</summary>
     public bool RayOnPanel => Pointer is not null || Passing is not null;
@@ -54,7 +64,12 @@ public sealed record InteractionResult(
 /// panel sizes it by how far apart the two hands are.</item>
 /// <item><strong>Head lock.</strong> Two grips on the panel within <see cref="DoubleTap"/> put it
 /// back in front of the head at the default offset, so a lost panel can always be found.</item>
-/// <item><strong>Click.</strong> The trigger while pointing is a click at that spot.</item>
+/// <item><strong>Click.</strong> The trigger while pointing is a click at that spot. On a list
+/// (<see cref="IsScrollableAt"/>) it is a click when the trigger comes up without the ray having
+/// moved more than <see cref="DragDeadZone"/>, and a drag otherwise: the list follows the ray like
+/// a phone's, and letting go does not click.</item>
+/// <item><strong>Scrolling.</strong> Either stick scrolls the list under the ray, whichever hand
+/// holds the ray: the hand pointing is read first, then the other one.</item>
 /// <item><strong>The hand wearing the panel is left out of all of it.</strong> See
 /// <see cref="Ignoring"/>.</item>
 /// <item><strong>Locked.</strong> A locked panel cannot be taken, so nothing that needs it held —
@@ -88,6 +103,12 @@ public sealed class OverlayInteraction
     /// <summary>Metres per poll at full push, from the window's Push speed slider.</summary>
     public float PushStep { get; set; } = DefaultPushStep;
 
+    /// <summary>
+    /// How far a ray may wander, as a fraction of the panel, between the trigger going down and
+    /// coming up on a list and still be a tap. A hand is never quite still.
+    /// </summary>
+    public const float DragDeadZone = 0.015f;
+
     /// <summary>Metres of width per poll at full scroll.</summary>
     public const float WidthStep = 0.005f;
 
@@ -116,6 +137,23 @@ public sealed class OverlayInteraction
         return new Vector2(One(raw.X), One(raw.Y));
     }
 
+    /// <summary>
+    /// The stick that scrolls or pushes: the first hand's, and the second hand's when the first is
+    /// at rest. A moderator with the ray in the left hand reaches for the right stick, and a panel
+    /// that only listened to the ray's hand did nothing for them.
+    /// </summary>
+    /// <param name="first">The hand whose stick is read first.</param>
+    /// <param name="second">The other hand, with <c>Tracked</c> false when it is not to be read.</param>
+    public static Vector2 EitherStick(HandState first, HandState second)
+    {
+        var stick = Stick(first.Scroll);
+        return stick == Vector2.Zero && second.Tracked ? Stick(second.Scroll) : stick;
+    }
+
+    /// <summary>A trigger that went down on a list and has not come up: a tap or a drag, not decided yet.</summary>
+    private sealed record Press(Hand Hand, Pointer From, float LastDown, bool Dragging);
+
+    private Press? _press;
     private OverlayPlacement _placement;
     private OverlayTracking _last = OverlayTracking.None;
     private Hand? _holding;
@@ -188,6 +226,13 @@ public sealed class OverlayInteraction
     public Func<float, float, bool>? IsDrawnAt { get; set; }
 
     /// <summary>
+    /// Whether a point across and down the panel is on a list that scrolls, asked by the host that
+    /// drew it. A trigger pressed there waits to see whether it is a tap or a drag; anywhere else
+    /// it clicks the moment it goes down, as it always did. Null means nothing scrolls.
+    /// </summary>
+    public Func<float, float, bool>? IsScrollableAt { get; set; }
+
+    /// <summary>
     /// The hand the panel is worn on, which is left out of pointing, tapping, scrolling and
     /// grabbing. Null unless the panel is sitting on a wrist.
     /// </summary>
@@ -227,6 +272,7 @@ public sealed class OverlayInteraction
         _placement = placement.Clamped();
         _holding = null;
         _stretching = null;
+        _press = null;
     }
 
     /// <param name="now">Any steadily rising clock; only differences are used.</param>
@@ -241,6 +287,7 @@ public sealed class OverlayInteraction
         var scroll = Vector2.Zero;
         Pointer? pointer = null;
         Pointer? passing = null;
+        PanelDrag? drag = null;
 
         if (_holding is { } holding)
         {
@@ -256,6 +303,9 @@ public sealed class OverlayInteraction
                 Stretch(holding, tracking);
             }
         }
+
+        if (_press is not null)
+            drag = FollowPress(tracking, elsewhere, clicks);
 
         if (_holding is null && Point(tracking, elsewhere) is { } pointing)
         {
@@ -286,15 +336,24 @@ public sealed class OverlayInteraction
                     {
                         _lastGrip[pointing.Hand] = now;
                         Take(pointing.Hand, hand, tracking);
+                        _press = null;
                     }
                 }
                 else if (hand.Click && !was.Click)
                 {
-                    clicks.Add(pointing);
+                    if (IsScrollableAt?.Invoke(pointing.Across, pointing.Down) ?? false)
+                    {
+                        // On a list the press is held back until it is known whether it is a tap.
+                        _press ??= new Press(pointing.Hand, pointing, pointing.Down, false);
+                    }
+                    else
+                    {
+                        clicks.Add(pointing);
+                    }
                 }
                 else if (!_placement.ClickThrough)
                 {
-                    scroll = Stick(hand.Scroll);
+                    scroll = EitherStick(hand, StickHand(tracking, pointing.Hand, elsewhere));
                 }
             }
         }
@@ -307,7 +366,60 @@ public sealed class OverlayInteraction
         _last = tracking;
         _placement = _placement.Clamped();
 
-        return new InteractionResult(pointer, _placement, _placement != before, clicks, scroll, _holding, passing);
+        return new InteractionResult(pointer, _placement, _placement != before, clicks, scroll, _holding, passing, drag);
+    }
+
+    /// <summary>
+    /// The hand whose stick is read after <paramref name="side"/>'s: the other one, unless it is
+    /// worn on the panel's wrist (<see cref="Ignoring"/>) or busy with another panel, which are
+    /// left out of scrolling as they are of everything else. Not tracked when there is none.
+    /// </summary>
+    private HandState StickHand(OverlayTracking tracking, Hand side, Hand? elsewhere)
+    {
+        var otherSide = side == Hand.Left ? Hand.Right : Hand.Left;
+        return otherSide == Ignoring || otherSide == elsewhere ? default : tracking[otherSide];
+    }
+
+    /// <summary>
+    /// Follows a trigger that went down on a list: once the ray has moved more than the dead zone
+    /// it is a drag and every poll after reports how far the ray moved down; coming up before that
+    /// it is a tap, clicked where it went down. Anything that takes the hand away from the list
+    /// drops it without a click.
+    /// </summary>
+    private PanelDrag? FollowPress(OverlayTracking tracking, Hand? elsewhere, List<Pointer> clicks)
+    {
+        var press = _press!;
+        var hand = tracking[press.Hand];
+
+        if (_holding is not null || !hand.Tracked || press.Hand == elsewhere || _placement.ClickThrough)
+        {
+            _press = null;
+            return null;
+        }
+
+        if (!hand.Click)
+        {
+            if (!press.Dragging)
+                clicks.Add(press.From);
+
+            _press = null;
+            return null;
+        }
+
+        // The ray may wander off the panel mid-drag and the list still follows it, so the plane is
+        // measured and not the square.
+        if (PanelGeometry.PanelPose(_placement, tracking) is not { } panel
+            || PanelGeometry.Hit(panel, _placement.Width, hand.Aim) is not { } hit)
+        {
+            return null;
+        }
+
+        var dragging = press.Dragging
+            || Vector2.Distance(new Vector2(hit.Across, hit.Down), new Vector2(press.From.Across, press.From.Down)) > DragDeadZone;
+
+        _press = press with { LastDown = dragging ? hit.Down : press.LastDown, Dragging = dragging };
+
+        return dragging ? new PanelDrag(press.From, hit.Down - press.LastDown) : null;
     }
 
     /// <summary>
@@ -352,12 +464,16 @@ public sealed class OverlayInteraction
             if (!hand.Tracked)
                 continue;
 
+            // The hand dragging a list keeps the pointer, even with the other hand nearer.
             if (PanelGeometry.Hit(panel, _placement.Width, hand.Aim) is { IsOnPanel: true } hit
-                && hit.Distance < nearest
                 && (IsDrawnAt?.Invoke(hit.Across, hit.Down) ?? true))
             {
-                nearest = hit.Distance;
-                best = new Pointer(side, hit.Across, hit.Down);
+                var distance = side == _press?.Hand ? -1f : hit.Distance;
+                if (distance < nearest)
+                {
+                    nearest = distance;
+                    best = new Pointer(side, hit.Across, hit.Down);
+                }
             }
         }
 
@@ -393,9 +509,7 @@ public sealed class OverlayInteraction
         if (_placement.Locked)
             return;
 
-        var stick = Stick(hand.Scroll);
-        if (stick == Vector2.Zero && other.Tracked)
-            stick = Stick(other.Scroll);
+        var stick = EitherStick(hand, other);
 
         // Pushing and pulling slide the panel along the line from the hand to it, never through
         // the hand: the distance changes and the direction stays.

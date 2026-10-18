@@ -136,7 +136,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         Width = surface.Width;
         Height = surface.Height;
         _compositor = new OverlayCompositor(new FrameKeeper(renderer, this), surface);
-        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default) { IsOnBar = IsOnBar, IsDrawnAt = IsDrawnAt };
+        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default) { IsOnBar = IsOnBar, IsDrawnAt = IsDrawnAt, IsScrollableAt = IsListAt };
         _runtime.Place(_interaction.Placement);
     }
 
@@ -180,7 +180,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             }
         };
 
-        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default) { IsOnBar = IsOnBar, IsDrawnAt = IsDrawnAt };
+        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default) { IsOnBar = IsOnBar, IsDrawnAt = IsDrawnAt, IsScrollableAt = IsListAt };
         _runtime.Place(_interaction.Placement);
     }
 
@@ -223,7 +223,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// <summary>A trigger press on the panel, with what it landed on (null for the empty ground).</summary>
     public event Action<OverlayTarget?>? Tapped;
 
-    /// <summary>Scrolling on the roster, in whole rows; negative is up.</summary>
+    /// <summary>Scrolling on the list the page is showing, in whole rows; negative is up.</summary>
     public event Action<int>? RosterScrolled;
 
     /// <summary>A name typed on the runtime's keyboard, with the list it searches.</summary>
@@ -451,16 +451,29 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             }
         }
 
-        if (result.Pointer is { } pointer && result.Scroll.Y != 0f
-            && TargetAt(pointer.Across, pointer.Down) is OverlayTarget.Roster or OverlayTarget.Person or OverlayTarget.Events)
+        // Rows to move, positive towards the rows below. A drag on a list moves it with the ray
+        // (the ray down is the list down, so towards the rows above); a stick pushed up does the
+        // same, and either stick will do.
+        float? moved = null;
+
+        if (result.Drag is { } drag && IsListAt(drag.From.Across, drag.From.Down))
         {
-            // Thumbstick up scrolls the list up, towards the rows above.
-            _scroll -= result.Scroll.Y / ScrollPerRow;
-            var rows = (int)Math.Truncate(_scroll);
-            if (rows != 0)
+            var rowHeight = _root is null ? null : OverlayTargets.RowHeight(_root, new Point(drag.From.Across * Width, drag.From.Down * Height));
+            moved = -drag.Down * Height / (float)(rowHeight ?? Height / DefaultRowsPerPanel);
+        }
+        else if (result.Pointer is { } pointer && result.Scroll.Y != 0f && IsListAt(pointer.Across, pointer.Down))
+        {
+            moved = -result.Scroll.Y / ScrollPerRow;
+        }
+
+        if (moved is { } rows)
+        {
+            _scroll += rows;
+            var whole = (int)Math.Truncate(_scroll);
+            if (whole != 0)
             {
-                _scroll -= rows;
-                RosterScrolled?.Invoke(rows);
+                _scroll -= whole;
+                RosterScrolled?.Invoke(whole);
             }
         }
         else
@@ -468,6 +481,13 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             _scroll = 0f;
         }
     }
+
+    /// <summary>Rows a panel is taken to hold when the list under a drag has none drawn to measure.</summary>
+    private const float DefaultRowsPerPanel = 16f;
+
+    /// <summary>Whether a point on the panel is on a list that scrolls: the roster, a row of it, or the events.</summary>
+    private bool IsListAt(float across, float down)
+        => TargetAt(across, down) is OverlayTarget.Roster or OverlayTarget.Person or OverlayTarget.Events;
 
     /// <summary>
     /// The hints for what a hand is doing to the panel, or none: a hand pointing at it shows how to

@@ -151,6 +151,20 @@ public class WornHandTests
         Assert.Equal(Vector2.Zero, result.Scroll);
     }
 
+    [Theory]
+    [InlineData(Hand.Left)]
+    [InlineData(Hand.Right)]
+    public void TheStickOfTheHandWearingThePanelDoesNotScrollForTheOtherHand(Hand worn)
+    {
+        var placement = WornOn(worn);
+        var interaction = new OverlayInteraction(placement);
+
+        var result = interaction.Update(Both(placement, worn, wornScroll: new Vector2(0, -1f)), At(0));
+
+        Assert.NotNull(result.Pointer);
+        Assert.Equal(Vector2.Zero, result.Scroll);
+    }
+
     /// <summary>
     /// The double grip that sends the panel back in front of the head is reached through pointing
     /// like everything else, so the worn hand cannot do it either.

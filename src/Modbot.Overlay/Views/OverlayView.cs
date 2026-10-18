@@ -884,7 +884,12 @@ public sealed partial class OverlayView
         }
         else
         {
-            foreach (var @event in events.Take(MostEventRows))
+            // Scrolled-past rows are counted, not hidden without a word.
+            var skip = Math.Clamp(screen.EventSkip, 0, Math.Max(0, events.Count - 1));
+            if (skip > 0)
+                rows.Children.Add(Text(skip == 1 ? "1 more above" : skip + " more above", T.Density.TextSmall, V?.Subtext ?? T.TextDimBrush));
+
+            foreach (var @event in events.Skip(skip).Take(MostEventRows))
                 rows.Children.Add(EventRow(@event, screen));
         }
 

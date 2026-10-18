@@ -311,6 +311,49 @@ public class OverlayDriverScreenTests
     }
 
     [Fact]
+    public async Task ScrollingOnTheEventsScreenMovesTheAuditLogAndLeavesTheRosterAlone()
+    {
+        var (driver, presenter, reads, _, _) = Build();
+        reads.Live.Enqueue(new ReadResult<LivePollPage>(
+            ReadOutcome.Fetched,
+            new LivePollPage([.. Enumerable.Range(1, 5).Select(i => Event("e" + i, i % 2 == 0 ? LiveEventKinds.PersonJoined : LiveEventKinds.PersonLeft))], "e5", false)));
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        driver.Tap(new OverlayTarget.GoTo(OverlayPage.Events));
+        driver.ScrollRoster(2);
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, driver.EventSkip);
+        Assert.Equal(2, presenter.Last.EventSkip);
+        Assert.Equal(0, driver.RosterSkip);
+
+        // Never past the last row, and back to the top.
+        driver.ScrollRoster(50);
+        Assert.Equal(driver.Events.Count - 1, driver.EventSkip);
+        driver.ScrollRoster(-50);
+        Assert.Equal(0, driver.EventSkip);
+    }
+
+    [Fact]
+    public async Task AnotherInstanceTakesTheAuditLogBackToTheTop()
+    {
+        var (driver, _, reads, _, _) = Build();
+        reads.Live.Enqueue(new ReadResult<LivePollPage>(
+            ReadOutcome.Fetched,
+            new LivePollPage([Event("e1", LiveEventKinds.PersonJoined), Event("e2", LiveEventKinds.PersonLeft)], "e2", false)));
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+        driver.Tap(new OverlayTarget.GoTo(OverlayPage.Events));
+        driver.ScrollRoster(1);
+        Assert.Equal(1, driver.EventSkip);
+
+        driver.EnteredInstance(Location("40022"));
+
+        Assert.Equal(0, driver.EventSkip);
+    }
+
+    [Fact]
     public void ThePresenterCanBeSwappedWhenTheMainPanelIsSwitchedOff()
     {
         // The loop keeps running for the notification overlay, with the screen going nowhere.

@@ -200,6 +200,39 @@ public static class OverlayTargets
         return DrawnAt(root, new Point(0, 0), 1.0, 1.0, point);
     }
 
+    /// <summary>
+    /// How tall one row is, in panel pixels, of the list under a point: the roster or the events
+    /// list. Null when no list is there or it has no rows drawn. A drag turns the ray's travel into
+    /// rows with it, so the list follows the ray whatever size the rows are drawn at.
+    /// </summary>
+    public static double? RowHeight(Visual root, Point point)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+
+        double? found = null;
+        RowHeightAt(root, new Point(0, 0), 1.0, point, ref found);
+        return found;
+    }
+
+    private static void RowHeightAt(Visual visual, Point offset, double scale, Point point, ref double? found)
+    {
+        var bounds = visual.Bounds;
+        var origin = new Point(offset.X + (bounds.X * scale), offset.Y + (bounds.Y * scale));
+
+        if (visual is Border { Tag: OverlayTarget.Roster or OverlayTarget.Events, Child: StackPanel rows }
+            && new Rect(origin, new Size(bounds.Width * scale, bounds.Height * scale)).Contains(point))
+        {
+            // Each row's own height plus the gap after it, whatever else the list has among them.
+            var heights = rows.Children.Where(row => row.Bounds.Height > 0).Select(row => row.Bounds.Height).ToList();
+            if (heights.Count > 0)
+                found = (heights.Average() + rows.Spacing) * scale;
+        }
+
+        var inside = visual is Views.Zoom zoom ? scale * zoom.Scale : scale;
+        foreach (var child in visual.GetVisualChildren())
+            RowHeightAt(child, origin, inside, point, ref found);
+    }
+
     private static bool DrawnAt(Visual visual, Point offset, double scale, double opacity, Point point)
     {
         if (!visual.IsVisible)

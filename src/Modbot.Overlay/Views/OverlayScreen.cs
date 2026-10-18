@@ -56,6 +56,7 @@ public enum OverlayPage
 /// <param name="Cursor">Where a controller points at the panel, or null when none does.</param>
 /// <param name="Page">Which of the three screens the panel is on.</param>
 /// <param name="Events">What the live link has heard for this instance, newest first.</param>
+/// <param name="EventSkip">How many rows the Audit Log has been scrolled past.</param>
 /// <param name="Clips">
 /// What the Save a clip control says, and whether it can be pressed. Nothing is drawn for it while
 /// Clips is switched off, which is what a fresh install has.
@@ -130,7 +131,8 @@ public sealed record OverlayScreen(
     IReadOnlyList<RecentLeaver>? Left = null,
     bool NotSynced = false,
     DateTimeOffset? ModeratorArrived = null,
-    string? ModeratorId = null)
+    string? ModeratorId = null,
+    int EventSkip = 0)
 {
     private static readonly IReadOnlyDictionary<string, DateTimeOffset?> NoArrivals = new Dictionary<string, DateTimeOffset?>();
 
@@ -223,6 +225,7 @@ public sealed record OverlayScreen(
             && ModeratorArrived == other.ModeratorArrived
             && ModeratorId == other.ModeratorId
             && RosterSkip == other.RosterSkip
+            && EventSkip == other.EventSkip
             && Cursor == other.Cursor
             && Page == other.Page
             && NoKeyboard == other.NoKeyboard

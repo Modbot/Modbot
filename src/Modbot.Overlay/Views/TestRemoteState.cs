@@ -102,6 +102,7 @@ public static class TestRemoteState
             ["events"] = screen.EventsOrNone.Count,
             ["headsUps"] = screen.HeadsUpsOrNone.Count,
             ["rosterSkip"] = screen.RosterSkip,
+            ["eventSkip"] = screen.EventSkip,
             ["cursor"] = screen.Cursor is { } cursor ? new JsonObject { ["across"] = Round(cursor.Across), ["down"] = Round(cursor.Down) } : null,
             ["cards"] = cards,
         };

@@ -147,6 +147,7 @@ public sealed class OverlayDriver : IDisposable
     private UserSummary? _person;
     private string? _personWanted;
     private int _rosterSkip;
+    private int _eventSkip;
     private OverlayPage _page = OverlayPage.Instance;
 
     // The screen the open person was opened from, which Back goes to. The roster or the events list.
@@ -299,6 +300,7 @@ public sealed class OverlayDriver : IDisposable
         _person = null;
         _personWanted = null;
         _rosterSkip = 0;
+        _eventSkip = 0;
         _page = OverlayPage.Instance;
         _personFrom = OverlayPage.Instance;
         _rosterFilters = ListFilters.None;
@@ -325,6 +327,9 @@ public sealed class OverlayDriver : IDisposable
 
     /// <summary>How many roster rows are scrolled past.</summary>
     public int RosterSkip => _rosterSkip;
+
+    /// <summary>How many Audit Log rows are scrolled past.</summary>
+    public int EventSkip => _eventSkip;
 
     /// <summary>Which screen the main panel is on.</summary>
     public OverlayPage Page => _page;
@@ -467,7 +472,11 @@ public sealed class OverlayDriver : IDisposable
     {
         if (list is OverlayPage.Events)
         {
+            var before = _eventFilters;
             _eventFilters = change(_eventFilters);
+
+            if (before with { Open = null } != _eventFilters with { Open = null })
+                _eventSkip = 0;
         }
         else
         {
@@ -707,9 +716,18 @@ public sealed class OverlayDriver : IDisposable
     /// </remarks>
     public bool PinsModeratorRow { get; set; }
 
-    /// <summary>Scrolls the roster by whole rows, inside what the filters leave of it.</summary>
+    /// <summary>
+    /// Scrolls the list the panel is showing by whole rows, inside what the filters leave of it: the
+    /// Audit Log when that is the screen, the roster otherwise.
+    /// </summary>
     public void ScrollRoster(int rows)
     {
+        if (_page is OverlayPage.Events)
+        {
+            ScrollEvents(rows);
+            return;
+        }
+
         var count = 0;
 
         if (RosterHere() is { } context)
@@ -728,6 +746,17 @@ public sealed class OverlayDriver : IDisposable
         }
 
         _rosterSkip = Math.Clamp(_rosterSkip + rows, 0, Math.Max(0, count - 1));
+    }
+
+    private void ScrollEvents(int rows)
+    {
+        // The same rows the screen is built from, cut down by the same filters.
+        var here = NotSynced
+            ? ListFiltering.WithoutRepeatedHere([.. _localEvents.Where(e => IsHere(e.InstanceId, e.WorldId))], ModeratorId)
+            : ListFiltering.WithoutRepeatedHere(_events, ModeratorId);
+        var count = ListFiltering.Events(here, _eventFilters, _clock.UtcNow).Count;
+
+        _eventSkip = Math.Clamp(_eventSkip + rows, 0, Math.Max(0, count - 1));
     }
 
     /// <summary>
@@ -1356,6 +1385,7 @@ public sealed class OverlayDriver : IDisposable
             Clips: Clips,
             RosterFilters: _rosterFilters,
             EventFilters: _eventFilters,
+            EventSkip: _eventSkip,
             Arrivals: Arrivals(context),
             Now: _clock.UtcNow,
             CanPlaceHeadsUps: false,
@@ -1401,6 +1431,7 @@ public sealed class OverlayDriver : IDisposable
             GroupIconUrl: server.Pairing.ManagedGroupIconUrl,
             RosterFilters: _rosterFilters,
             EventFilters: _eventFilters,
+            EventSkip: _eventSkip,
             Arrivals: roster.Value is { } context ? Arrivals(context) : null,
             Now: _clock.UtcNow,
             HeadsUps: roster.Value?.HeadsUpsOrNone,
