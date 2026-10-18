@@ -19,7 +19,8 @@ const PUBLIC: Record<GoogleCalendarCheck['public'], string> = {
 
 /**
  * Settings → Google Calendar (Google Calendar design §3.1): the service account's key file, the
- * calendar, Check, Sync to Google (step 2), and the calendar's own links once Check finds it public.
+ * calendar, Check, Sync to Google (step 2), and the calendar's own links once Check finds it
+ * public.
  *
  * The setup card lists the four steps in short (the owner asked for this text; CLAUDE.md's rule
  * against explanations is waived for it alone) and links to the docs page `moderation/google-calendar`.
@@ -260,9 +261,9 @@ function CalendarCard({
 }
 
 /**
- * Sending events to the calendar (Google Calendar design §3.1, step 2): the switch, Tick all upcoming
- * events for the events planned before Google was set up, and Delete Modbot's events from Google, which asks first. Off leaves
- * what is on Google as it is (decision 7).
+ * Sending events to the calendar (Google Calendar design §3.1, step 2): the Keep Google updated
+ * switch, Tick all upcoming events for the events planned before Google was set up, and Delete
+ * Modbot's events from Google, which asks first. Off leaves what is on Google as it is (decision 7).
  */
 function SendingCard({
   settings,

@@ -7724,7 +7724,7 @@
           "Settings"
         ],
         "summary": "Update Google Calendar settings",
-        "description": "Save the Google service account's key file, the calendar ID, Sending, or any of them. Only the key file's address, key id, project and private key are kept, the private key encrypted. Saving the key or the calendar clears what the last Check found. Sending on needs a Check that passed; off leaves the events on Google as they are. A body over 64 KB is refused with 413.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Save the Google service account's key file, the calendar ID, Keep Google updated, or any of them. Only the key file's address, key id, project and private key are kept, the private key encrypted. Saving the key or the calendar clears what the last Check found. Keep Google updated on needs a Check that passed; off leaves the events on Google as they are. A body over 64 KB is refused with 413.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetGoogleCalendarSettings",
         "requestBody": {
           "content": {
@@ -7802,7 +7802,7 @@
           "Settings"
         ],
         "summary": "Forget Google Calendar settings",
-        "description": "Remove the key, the calendar ID and what Check found, and turn Sending off. Nothing on Google is changed.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Remove the key, the calendar ID and what Check found, and turn Keep Google updated off. Nothing on Google is changed.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "ForgetGoogleCalendarSettings",
         "responses": {
           "200": {
@@ -7911,8 +7911,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Add every event to Google Calendar",
-        "description": "Tick Google Calendar on every scheduled or open event that everyone may see. Events only the group's members see are left as they are. They are sent once Sending is on. Needs a Check that passed.\n\nNeeds the `ManageSettings` permission.",
+        "summary": "Tick all upcoming events for Google Calendar",
+        "description": "Tick Google Calendar on every scheduled or open event that everyone may see. Events only the group's members see are left as they are. They are sent once Keep Google updated is on. Needs a Check that passed.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "AddAllEventsToGoogleCalendar",
         "responses": {
           "200": {
@@ -7971,8 +7971,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Remove Modbot's events from Google Calendar",
-        "description": "Turn Sending off and delete every event Modbot put on the Google calendar, through the sending loop, a few each pass. Events the calendar's owner made are left alone. The events stay ticked in Modbot. Needs a Check that passed.\n\nNeeds the `ManageSettings` permission.",
+        "summary": "Delete Modbot's events from Google Calendar",
+        "description": "Turn Keep Google updated off and delete every event Modbot put on the Google calendar, through the sending loop, a few each pass. Events the calendar's owner made are left alone. The events stay ticked in Modbot. Needs a Check that passed.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "RemoveModbotEventsFromGoogleCalendar",
         "responses": {
           "200": {

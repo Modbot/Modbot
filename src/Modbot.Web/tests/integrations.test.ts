@@ -134,13 +134,13 @@ test('Google Calendar says Failed when Check found a problem, and Unknown when i
   assert.equal(stateOf('google', { googleCalendar: undefined })?.label, 'Unknown')
 })
 
-test('the Google Calendar card names its key, its calendar and sending', () => {
+test('the Google Calendar card names its key, its calendar and sync', () => {
   const google = integrations(reading()).find((i) => i.id === 'google')
 
-  assert.deepEqual(google?.parts.map((p) => p.name), ['Key', 'Calendar', 'Sending'])
+  assert.deepEqual(google?.parts.map((p) => p.name), ['Key', 'Calendar', 'Sync'])
 })
 
-test('Google Calendar says Off while Sending is off, and Failed over Off when sending found a problem', () => {
+test('Google Calendar says Off while Keep Google updated is off, and Failed over Off when sending found a problem', () => {
   assert.deepEqual(stateOf('google', { googleCalendar: { ...CHECKED, sending: false } }), { label: 'Off', tone: 'muted' })
   assert.equal(stateOf('google', { googleCalendar: { ...CHECKED, sending: undefined } })?.label, 'Off')
 

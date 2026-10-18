@@ -25,10 +25,10 @@ namespace Modbot.Api.Features.Settings;
 /// </param>
 /// <param name="Links">Google's own links to the calendar, when Check found it public with every detail.</param>
 /// <param name="Sending">Whether events are sent to the calendar (step 2). Off until turned on after a good Check.</param>
-/// <param name="Removing">Every event Modbot put on the calendar is being deleted (Remove Modbot's events).</param>
+/// <param name="Removing">Every event Modbot put on the calendar is being deleted (Delete Modbot's events from Google).</param>
 /// <param name="CanSend">
-/// The last Check passed and found Modbot may change events: Sending may be turned on, and Add all
-/// and Remove Modbot's events may be used.
+/// The last Check passed and found Modbot may change events: Keep Google updated may be turned on, and
+/// Tick all upcoming events and Delete Modbot's events from Google may be used.
 /// </param>
 public sealed record GoogleCalendarSettingsView(
     bool KeyStored,
@@ -78,7 +78,8 @@ public sealed record GoogleCalendarAddAllView(int Added, GoogleCalendarSettingsV
 
 /// <summary>
 /// Settings → Google Calendar (Google Calendar design §3.1): the service account's key, the
-/// calendar, Check, and (step 2) Sending, Add all and Remove Modbot's events.
+/// calendar, Check, and (step 2) Keep Google updated, Tick all upcoming events and Delete Modbot's
+/// events from Google.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -230,10 +231,10 @@ public static class GoogleCalendarSettingsEndpoints
             .WithName("SetGoogleCalendarSettings")
             .WithSummary("Update Google Calendar settings")
             .WithDescription(
-                "Save the Google service account's key file, the calendar ID, Sending, or any of them. "
-                + "Only the key file's address, key id, project and private key are kept, the private "
-                + "key encrypted. Saving the key or the calendar clears what the last Check found. "
-                + "Sending on needs a Check that passed; off leaves the events on Google as they are. "
+                "Save the Google service account's key file, the calendar ID, Keep Google updated, or any "
+                + "of them. Only the key file's address, key id, project and private key are kept, the "
+                + "private key encrypted. Saving the key or the calendar clears what the last Check found. "
+                + "Keep Google updated on needs a Check that passed; off leaves the events on Google as they are. "
                 + "A body over 64 KB is refused with 413.")
             .Accepts<GoogleCalendarSettingsUpdate>("application/json")
             .Produces<GoogleCalendarSettingsView>()
@@ -282,7 +283,7 @@ public static class GoogleCalendarSettingsEndpoints
             .WithName("ForgetGoogleCalendarSettings")
             .WithSummary("Forget Google Calendar settings")
             .WithDescription(
-                "Remove the key, the calendar ID and what Check found, and turn Sending off. Nothing on "
+                "Remove the key, the calendar ID and what Check found, and turn Keep Google updated off. Nothing on "
                 + "Google is changed.")
             .Produces<GoogleCalendarSettingsView>()
             .Produces(StatusCodes.Status403Forbidden);
@@ -349,7 +350,7 @@ public static class GoogleCalendarSettingsEndpoints
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
 
-        // Existing events: Add all (decision 6 A). Ticks every live event that may go; the sending
+        // Existing events: Tick all upcoming events (decision 6 A). Ticks every live event that may go; the sending
         // loop sends them. Written as one settings change with the count, not one entry per event.
         group.MapPost("/add-all", async (
                 HttpContext http,
@@ -383,16 +384,16 @@ public static class GoogleCalendarSettingsEndpoints
                 return Results.Ok(new GoogleCalendarAddAllView(ticked.Count, View(settings, clock.UtcNow)));
             })
             .WithName("AddAllEventsToGoogleCalendar")
-            .WithSummary("Add every event to Google Calendar")
+            .WithSummary("Tick all upcoming events for Google Calendar")
             .WithDescription(
                 "Tick Google Calendar on every scheduled or open event that everyone may see. Events "
-                + "only the group's members see are left as they are. They are sent once Sending is on. "
-                + "Needs a Check that passed.")
+                + "only the group's members see are left as they are. They are sent once Keep Google "
+                + "updated is on. Needs a Check that passed.")
             .Produces<GoogleCalendarAddAllView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
 
-        // Remove Modbot's events (decision 7 A): Sending goes off, and the loop deletes every event
+        // Delete Modbot's events from Google (decision 7 A): Keep Google updated goes off, and the loop deletes every event
         // Modbot put on the calendar, one call at a time.
         group.MapPost("/remove-events", async (
                 HttpContext http,
@@ -424,9 +425,9 @@ public static class GoogleCalendarSettingsEndpoints
                 return Results.Ok(View(settings, clock.UtcNow));
             })
             .WithName("RemoveModbotEventsFromGoogleCalendar")
-            .WithSummary("Remove Modbot's events from Google Calendar")
+            .WithSummary("Delete Modbot's events from Google Calendar")
             .WithDescription(
-                "Turn Sending off and delete every event Modbot put on the Google calendar, through the "
+                "Turn Keep Google updated off and delete every event Modbot put on the Google calendar, through the "
                 + "sending loop, a few each pass. Events the calendar's owner made are left alone. The "
                 + "events stay ticked in Modbot. Needs a Check that passed.")
             .Produces<GoogleCalendarSettingsView>()

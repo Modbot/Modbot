@@ -335,8 +335,8 @@ public class Settings
 
     /// <summary>
     /// Every event Modbot put on the Google calendar is being deleted, one call at a time, by the
-    /// sending loop (Remove Modbot's events, decision 7). Turned off by the loop once none is left.
-    /// Sending is off while this is on.
+    /// sending loop (Delete Modbot's events from Google, decision 7). Turned off by the loop once none
+    /// is left. Keep Google updated is off while this is on.
     /// </summary>
     public bool GoogleRemovingEvents { get; set; }
 

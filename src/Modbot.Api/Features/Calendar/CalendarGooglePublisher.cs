@@ -15,7 +15,7 @@ namespace Modbot.Api.Features.Calendar;
 
 public enum CalendarGoogleOutcome
 {
-    /// <summary>Google is not set up, or Sending is off and nothing is being removed.</summary>
+    /// <summary>Google is not set up, or Keep Google updated is off and nothing is being removed.</summary>
     Off = 1,
 
     /// <summary>Everything is as it should be, or waiting for edits to settle.</summary>
@@ -255,7 +255,7 @@ public sealed class CalendarGooglePublisher
                 await DatesAsync(calendarEvent, place, ct).ConfigureAwait(false);
         }
 
-        // Remove Modbot's events is done once nothing of Modbot's is left on Google.
+        // Delete Modbot's events from Google is done once nothing of Modbot's is left on Google.
         if (removing && places.Values.All(p => p.State == CalendarPlaceStates.Removed))
         {
             _settings.GoogleRemovingEvents = false;

@@ -109,7 +109,7 @@ export function integrations(reading: IntegrationReading): Integration[] {
     {
       id: 'google',
       name: 'Google Calendar',
-      parts: [{ name: 'Key' }, { name: 'Calendar' }, { name: 'Sending' }],
+      parts: [{ name: 'Key' }, { name: 'Calendar' }, { name: 'Sync' }],
       topic: 'google',
       state: googleStatus(reading.googleCalendar),
     },

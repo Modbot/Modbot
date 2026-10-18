@@ -176,7 +176,7 @@ test('an event VRChat shows only to some roles is members-only, as the server sa
   assert.deepEqual(notSetUp(staff, { vrChat: true, discord: true, google: false }), [])
 })
 
-test('Google Calendar not set up, or Sending off, says Not set up for a ticked event', () => {
+test('Google Calendar not set up, or Keep Google updated off, says Not set up for a ticked event', () => {
   const off = { vrChat: true, discord: true, google: false }
 
   assert.deepEqual(notSetUp(google(), off), ['googleCalendar'])

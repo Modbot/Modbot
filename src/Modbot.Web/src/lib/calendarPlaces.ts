@@ -5,7 +5,8 @@ import type { CalendarEvent, CalendarEventInput, CalendarPlace, CalendarPlaceNam
 
 /**
  * VRChat: a managed group and a VRChat account. Discord: a server id and a connected bot. Google: a
- * key, a calendar, a good Check and Keep Google updated on (missing from an older server: taken as set up).
+ * key, a calendar, a good Check and Keep Google updated on (missing from an older server: taken as
+ * set up).
  * Bluesky: an account that passed Check and Posting on (the same).
  */
 export type CalendarReady = { vrChat: boolean; discord: boolean; google?: boolean; bluesky?: boolean }
@@ -141,8 +142,8 @@ export function googleTicked(
 }
 
 /**
- * The form's Google Calendar chip. "Not set up" while Google Calendar is not set up or Keep Google updated
- * is off, ticked or not, since the chip is the way to it; otherwise "Members only" for an event only
+ * The form's Google Calendar chip. "Not set up" while Google Calendar is not set up or Keep Google
+ * updated is off, ticked or not, since the chip is the way to it; otherwise "Members only" for an event only
  * members see, which cannot be ticked. A ticked event that becomes members-only keeps its tick and
  * is drawn off: made visible to everyone again, it goes. An older server that says nothing about
  * Google marks nothing.
