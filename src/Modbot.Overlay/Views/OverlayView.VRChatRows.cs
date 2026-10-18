@@ -303,7 +303,8 @@ public sealed partial class OverlayView
     private Control VRChatModerationCard(LiveEvent @event, VRChatLook v)
     {
         // Names people chose are in it, so it is cut to two lines and never allowed to push the card out of shape.
-        var sentence = Text(@event.Sentence ?? "", T.Density.TextBase, v.Text, FontWeight.Bold);
+        // The small size, because two lines of the larger one and the origin under them do not fit the card's height.
+        var sentence = Text(@event.Sentence ?? "", T.Density.TextSmall, v.Text, FontWeight.Bold);
         sentence.VerticalAlignment = VerticalAlignment.Center;
         sentence.TextWrapping = TextWrapping.Wrap;
         sentence.MaxLines = 2;
@@ -409,7 +410,8 @@ public sealed partial class OverlayView
     /// <remarks>
     /// <para>The middle column takes what is left, so the card is as wide as the panel gives it and
     /// no wider whatever is written in it. A card with nobody behind it (an event with no person) has
-    /// no edge and no target, which is how it says so.</para>
+    /// no edge and no target, which is how it says so; a <paramref name="framed"/> one (a moderation row,
+    /// which is about people and not one person) has the edge and still no target.</para>
     /// <para>The edge, the shadow and the lighting under the mouse belong to the card and the
     /// contents are not cut by it, so the shadow can fall outside.</para>
     /// </remarks>
@@ -420,6 +422,7 @@ public sealed partial class OverlayView
     /// <param name="press">A button after those, or null.</param>
     /// <param name="subjectId">Whose card a press opens, or null when there is nobody to open.</param>
     /// <param name="banner">Drawn as the moderator's own: in the highlights colour.</param>
+    /// <param name="framed">Has the edge although there is no one to open.</param>
     private Control VRChatCard(Control? avatar, Control top, Control? under, Control? trailing, Control? press, string? subjectId, bool banner, bool framed = false)
     {
         var v = V!;

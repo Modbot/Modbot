@@ -138,6 +138,10 @@ public sealed class LiveLink : IDisposable
         _instanceId = instanceId;
         _worldId = worldId;
 
+        // A moderation row still waiting to be taken was sent for the instance just left: it is
+        // about somebody seen there, and means nothing for this one.
+        DropQueuedModeration();
+
         if (instanceId is null)
         {
             CloseSocket();
@@ -150,6 +154,20 @@ public sealed class LiveLink : IDisposable
 
         if (_socket is not null && State is LiveLinkState.Live)
             _ = SubscribeAsync(_socket, instanceId, worldId);
+    }
+
+    /// <summary>Takes the moderation rows out of what has been received and not yet drained; presence stays in order.</summary>
+    private void DropQueuedModeration()
+    {
+        var kept = new List<LiveEvent>();
+        while (_events.TryDequeue(out var queued))
+        {
+            if (!queued.IsModeration)
+                kept.Add(queued);
+        }
+
+        foreach (var presence in kept)
+            _events.Enqueue(presence);
     }
 
     /// <summary>Everything received since the last drain, oldest first.</summary>

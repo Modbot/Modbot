@@ -213,9 +213,9 @@ what the [audit log](/moderation/audit-log) records about the instance and about
 in it while you were watching: somebody joins the instance, then the group, then your Discord, and
 all three show. Each of those rows is the audit log's own sentence, such as *Mira kicked Ada out of
 The Black Cat #39047.*, with where it comes from under it or beside it: **VRChat**, **Discord** or
-**Modbot**. They sit among the join and leave rows by time. The **Kind** filter has **Moderation**
-for them, and **Name** also finds a name inside their sentence. Without that permission the tab is
-as above. A row appears only once it has happened while you are in the instance; nothing from
+**Modbot**. They sit among the join and leave rows in the order they arrived, not sorted by time.
+The **Kind** filter has **Actions** for them, and **Name** also finds a name inside their sentence.
+Without that permission the tab is as above. A row appears only once it has happened while you are in the instance; nothing from
 before you arrived is added.
 
 Somebody who was already in the instance when you arrived reads `(here before you) ~5m+` on the
@@ -378,7 +378,8 @@ is unreadable:
 - your group's icon and name,
 - how many people are here, in yellow when the list is no longer fresh,
 - a Modbot fault if there is one; otherwise a flagged arrival, name first with the reason under
-  it; otherwise the newest join or leave,
+  it; otherwise the newest row: a join or leave, name first with the kind under it, or one of the
+  audit log's sentences with where it comes from under it,
 - nothing else.
 
 **The hand wearing the panel ignores it.** It does not point at it, tap it, scroll it or grab it,

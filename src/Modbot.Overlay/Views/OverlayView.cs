@@ -385,11 +385,26 @@ public sealed partial class OverlayView
         else if (screen.EventsOrNone.Count > 0)
         {
             var newest = screen.EventsOrNone[0];
-            lines.Children.Add(Text(
-                newest.Person?.DisplayName ?? newest.Person?.SubjectId ?? Words(newest.Kind),
-                T.Density.TextBase * 1.5,
-                T.TextDimBrush));
-            lines.Children.Add(Text(EventWords(newest, screen), T.Density.TextBase * 1.3, T.TextDimBrush));
+            if (newest.IsModeration)
+            {
+                // The server's sentence is the row, so it is the line, and where it comes from is
+                // under it. Three lines at most: a name made of words cannot take the whole wrist.
+                var sentence = Text(newest.Sentence ?? "", T.Density.TextBase * 1.3, T.TextDimBrush);
+                sentence.TextWrapping = TextWrapping.Wrap;
+                sentence.MaxLines = 3;
+                lines.Children.Add(sentence);
+
+                if (newest.Origin is { Length: > 0 } origin)
+                    lines.Children.Add(Text(origin, T.Density.TextBase * 1.3, T.TextDimBrush));
+            }
+            else
+            {
+                lines.Children.Add(Text(
+                    newest.Person?.DisplayName ?? newest.Person?.SubjectId ?? Words(newest.Kind),
+                    T.Density.TextBase * 1.5,
+                    T.TextDimBrush));
+                lines.Children.Add(Text(EventWords(newest, screen), T.Density.TextBase * 1.3, T.TextDimBrush));
+            }
         }
 
         return new Border
@@ -1166,7 +1181,7 @@ public sealed partial class OverlayView
         LiveEventKinds.PersonLeft => "Left",
         LiveEventKinds.PersonHere => ListFiltering.HereBeforeYou,
         LiveEventKinds.WatchStopped => "Watch ended",
-        LiveEventKinds.Moderation => "Moderation",
+        LiveEventKinds.Moderation => "Actions",
         _ => kind,
     };
 

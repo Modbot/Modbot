@@ -157,13 +157,18 @@ public class OverlayDriverModerationRowsTests
     }
 
     [Fact]
-    public async Task AModerationRowForAnotherInstanceIsNotListed()
+    public async Task AModerationRowNamingAnotherInstanceIsListed_BecauseTheServerSendsItOnlyForSomebodySeenHere()
     {
-        var (driver, presenter, reads, _) = Build();
+        var (driver, presenter, reads, popUps) = Build();
+        await driver.TickAsync(Ct);
+        var before = reads.ContextReads;
 
         await Poll(driver, reads, Moderation("e1", "40000"));
 
-        Assert.Empty(presenter.Last.EventsOrNone);
+        Assert.Equal(["e1"], presenter.Last.EventsOrNone.Select(e => e.Id));
+        Assert.Equal(before, reads.ContextReads);
+        Assert.Null(presenter.Last.Alert);
+        Assert.Empty(popUps.Current());
     }
 
     [Fact]

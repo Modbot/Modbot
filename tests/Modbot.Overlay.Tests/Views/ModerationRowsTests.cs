@@ -40,14 +40,19 @@ public class ModerationRowsTests
             Sentence: sentence,
             Origin: origin);
 
-    private static IReadOnlyList<string?> Texts(IReadOnlyList<LiveEvent> events, OverlayLook look)
+    private static IReadOnlyList<string?> Texts(
+        IReadOnlyList<LiveEvent> events,
+        OverlayLook look,
+        OverlayPage page = OverlayPage.Events,
+        ListFilters? filters = null)
     {
         var screen = new OverlayScreen(
             "Cat Lounge",
             new Cached<InstanceContext>(new InstanceContext("39911", []), Freshness.Fresh, TimeSpan.Zero),
             Freshness.Fresh,
-            Page: OverlayPage.Events,
+            Page: page,
             Events: events,
+            EventFilters: filters,
             Now: Now);
 
         return AvaloniaTestHost.Run<IReadOnlyList<string?>>(() =>
@@ -71,6 +76,73 @@ public class ModerationRowsTests
         Assert.Contains(sentence, texts);
         Assert.Contains(origin, texts);
         Assert.Contains(Now.AddMinutes(-3).ToLocalTime().ToString("HH:mm"), texts);
+    }
+
+    [Fact]
+    public void TheWristShowsTheSentenceAndWhereItComesFromWhenAModerationRowIsNewest()
+    {
+        const string sentence = "Mira kicked Ada out of The Black Cat #39047.";
+
+        var texts = Texts([Moderation("1", sentence, "Discord", 1), Presence("0", LiveEventKinds.PersonJoined, "Kai", 5)], OverlayLook.Headset, OverlayPage.Wrist);
+
+        Assert.Contains(sentence, texts);
+        Assert.Contains("Discord", texts);
+        Assert.DoesNotContain("fact", texts);
+        Assert.DoesNotContain("Kai", texts);
+    }
+
+    [Fact]
+    public void TheWristStillShowsTheNameAndKindWhenAPresenceRowIsNewest()
+    {
+        var texts = Texts([Presence("1", LiveEventKinds.PersonJoined, "Kai", 1), Moderation("0", "Kai joined the group.", "VRChat", 5)], OverlayLook.Headset, OverlayPage.Wrist);
+
+        Assert.Contains("Kai", texts);
+        Assert.Contains("Joined", texts);
+        Assert.DoesNotContain("Kai joined the group.", texts);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TheKindFilterCallsTheServersRowsActions(bool inVRChatLook)
+    {
+        var look = inVRChatLook ? AuditLogRowsTests.VRChatLook() : OverlayLook.Headset;
+
+        var texts = Texts([], look, filters: new ListFilters(Open: FilterPart.Kind));
+
+        Assert.Contains("Actions", texts);
+        Assert.DoesNotContain("Moderation", texts);
+    }
+
+    [Fact]
+    public void AModerationCardInVRChatsLookFitsItsWordsInsideItsEdge()
+    {
+        // A sentence long enough for every line it is allowed, in a panel as wide as the headset's.
+        var sentence = string.Join(' ', Enumerable.Repeat("Mira kicked Ada out of The Black Cat #39047.", 6));
+
+        var screen = new OverlayScreen(
+            "Cat Lounge",
+            new Cached<InstanceContext>(new InstanceContext("39911", []), Freshness.Fresh, TimeSpan.Zero),
+            Freshness.Fresh,
+            Page: OverlayPage.Events,
+            Events: [Moderation("1", sentence, "Discord", 3)],
+            Now: Now);
+
+        var (needed, room) = AvaloniaTestHost.Run(() =>
+        {
+            var root = OverlayView.Build(screen, null, AuditLogRowsTests.VRChatLook());
+            root.Measure(new Avalonia.Size(640, 900));
+            root.Arrange(new Avalonia.Rect(0, 0, 640, 900));
+
+            var card = root.GetLogicalDescendants().OfType<Border>().First(b => b.Height == 68);
+            var words = card.GetLogicalDescendants().OfType<StackPanel>().First(s => s.Children.OfType<TextBlock>().Any(t => t.Text == sentence));
+            var column = words.Bounds.Width;
+
+            words.Measure(new Avalonia.Size(column, double.PositiveInfinity));
+            return (words.DesiredSize.Height, card.Height - 2 * card.BorderThickness.Top);
+        });
+
+        Assert.True(needed <= room, $"the words need {needed}px and the card has {room}px inside its edge");
     }
 
     [Theory]

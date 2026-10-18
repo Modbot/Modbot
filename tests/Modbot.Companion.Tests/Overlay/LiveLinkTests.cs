@@ -301,6 +301,27 @@ public class LiveLinkTests
     }
 
     [Fact]
+    public async Task WalkingIntoAnotherInstance_DropsTheModerationRowsStillWaiting_AndKeepsThePresenceOnes()
+    {
+        var (link, sockets, _, _) = Build();
+        var socket = sockets.Accept();
+
+        link.Follow(Instance);
+        await link.PumpAsync(Ct);
+        await link.PumpAsync(Ct);
+
+        socket.Deliver(new LiveSocketMessage("event", Event("11")));
+        socket.Deliver(new LiveSocketMessage("event", Event("12") with { Sentence = "Mira kicked Ada out of The Black Cat #39911.", Origin = "VRChat" }));
+        socket.Deliver(new LiveSocketMessage("event", Event("13", LiveEventKinds.PersonLeft)));
+        await link.PumpAsync(Ct);
+
+        link.Follow("85019");
+        await link.PumpAsync(Ct);
+
+        Assert.Equal(["11", "13"], link.Drain().Select(e => e.Id).ToArray());
+    }
+
+    [Fact]
     public async Task TheWorldGoesWithTheNumber_OnTheSocket_OnASubscribe_AndOnAPoll()
     {
         var (link, sockets, reads, _) = Build();

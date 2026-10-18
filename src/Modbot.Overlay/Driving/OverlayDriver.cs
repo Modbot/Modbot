@@ -1182,12 +1182,13 @@ public sealed class OverlayDriver : IDisposable
             if (@event.Person is { } person)
                 _known.Note(person.SubjectId, InfoOf(person));
         }
-        else if (@event.IsModeration && @event.InstanceId is null)
+        else if (@event.IsModeration)
         {
             // A moderation row about somebody from this instance: the group they joined, the
-            // Discord they joined. It happened elsewhere, so it names no instance; the server
-            // sent it for the one this link follows. Nothing else is done with it: it is a line
-            // to read, never a roster change, a card or a keep-an-eye.
+            // Discord they joined, a kick in another instance. It happened elsewhere, so it names
+            // no instance or another one; the server sent it for the one this link follows, and
+            // only because it is about somebody seen here. Nothing else is done with it: it is a
+            // line to read, never a roster change, a card or a keep-an-eye.
             Keep(@event);
         }
 
