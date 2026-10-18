@@ -222,6 +222,12 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// </summary>
     public Hand? Busy { get; private set; }
 
+    /// <summary>
+    /// Whether a ray is on a list that scrolls, which is when either hand's stick scrolls it: the
+    /// other stick is then not free for anything else.
+    /// </summary>
+    public bool OnList { get; private set; }
+
     /// <summary>Raised whenever the placement changes, by a controller or by <see cref="Place"/>, so it can be saved.</summary>
     public event Action<OverlayPlacement>? PlacementChanged;
 
@@ -384,6 +390,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         if (Hidden || _runtime.Status.State is not OverlayRuntimeState.Running)
         {
             Busy = null;
+            OnList = false;
             _dragging = false;
             var barWasShowing = _rayOnPanel || _hints is not null;
             _rayOnPanel = false;
@@ -411,6 +418,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         Busy = result.Holding ?? result.Pointer?.Hand;
         var barWasUp = _rayOnPanel;
         _rayOnPanel = result.RayOnPanel;
+        OnList = result.Pointer is { } listPointer && IsListAt(listPointer.Across, listPointer.Down);
 
         var hintsWere = _hints;
         _hints = HintsFor(result);

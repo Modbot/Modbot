@@ -2703,25 +2703,17 @@ internal sealed partial class CompanionHost : IOverlayListener
     /// <summary>
     /// Whether a hand's thumbstick is steering one of the other panels, which keeps it out of the
     /// button's shortcut: any hand while a panel is being carried (either stick pushes and pulls it),
-    /// a hand pointing at a panel, and the other hand while one is pointing (either stick scrolls
-    /// the list under the ray), except a hand the panel is worn on, which scrolling leaves out.
+    /// a hand pointing at a panel, and the other hand while a ray is on the main panel's list (either
+    /// stick scrolls it), except a hand the panel is worn on, which scrolling leaves out. The pop-up
+    /// scrolls nothing, so pointing at it takes only the pointing hand's stick.
     /// </summary>
     private bool StickInUse(Hand hand)
         => _overlayHost?.Holding is not null
             || _notifyHost?.Holding is not null
             || _overlayHost?.Busy == hand
             || _notifyHost?.Busy == hand
-            || Steers(_overlayHost?.Busy, _overlayHost?.Placement, hand)
-            || Steers(_notifyHost?.Busy, _notifyHost?.Placement, hand);
-
-    /// <summary>
-    /// Whether a panel with a hand pointing at it reads this hand's stick: any hand's, bar the one
-    /// the panel is worn on, and not at all on a panel letting rays through.
-    /// </summary>
-    private static bool Steers(Hand? pointing, OverlayPlacement? placement, Hand hand)
-        => pointing is not null
-            && placement is { ClickThrough: false }
-            && placement.Anchor != (hand == Hand.Left ? OverlayAnchor.LeftHand : OverlayAnchor.RightHand);
+            || (_overlayHost is { OnList: true, Placement: var placement }
+                && placement.Anchor != (hand == Hand.Left ? OverlayAnchor.LeftHand : OverlayAnchor.RightHand));
 
     /// <summary>
     /// The SteamVR page's <strong>Shortcut</strong> and <strong>Hold time</strong> choices: which

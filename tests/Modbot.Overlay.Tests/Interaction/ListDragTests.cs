@@ -108,6 +108,23 @@ public class ListDragTests
     }
 
     [Fact]
+    public void ARayThatMissesThePanelPlaneMidDragStandsStillAndDoesNotEndTheDrag()
+    {
+        var interaction = OnAList();
+        var away = Hands.AimingAt(Vector3.Zero, new Vector3(5f, 0f, 1f));
+        interaction.Update(Hands.RightOnly(Hands.Hand(Aim(), click: true)), At(0));
+        interaction.Update(Hands.RightOnly(Hands.Hand(Aim(0.1f), click: true)), At(33));
+
+        var missed = interaction.Update(Hands.RightOnly(Hands.Hand(away, click: true)), At(66));
+        var back = interaction.Update(Hands.RightOnly(Hands.Hand(Aim(0.1f), click: true)), At(99));
+        var end = interaction.Update(Hands.RightOnly(Hands.Hand(Aim(0.1f))), At(132));
+
+        Assert.Equal(0f, missed.Drag!.Value.Down);
+        Assert.Equal(0f, back.Drag!.Value.Down, 4);
+        Assert.Empty(end.Clicks);
+    }
+
+    [Fact]
     public void AFreshPressAfterADragIsATapAgain()
     {
         var interaction = OnAList();

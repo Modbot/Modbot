@@ -411,7 +411,9 @@ public sealed class OverlayInteraction
         if (PanelGeometry.PanelPose(_placement, tracking) is not { } panel
             || PanelGeometry.Hit(panel, _placement.Width, hand.Aim) is not { } hit)
         {
-            return null;
+            // The press is still alive: a drag in progress goes on, standing still, so the host
+            // does not take the ray missing the plane for the trigger coming up.
+            return press.Dragging ? new PanelDrag(press.From, 0f) : null;
         }
 
         var dragging = press.Dragging
