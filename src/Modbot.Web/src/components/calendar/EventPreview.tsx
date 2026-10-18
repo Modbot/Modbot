@@ -355,7 +355,6 @@ function VRChatCard({ entry, picture, editing }: { entry: CalendarPreview['vrCha
               .join(' · ')}
         </Row>
         <Row label="Languages">{!editing && join(entry.languages)}</Row>
-        <Row label="VRChat image id">{entry.imageId && <span className="font-mono">{entry.imageId}</span>}</Row>
       </div>
       )}
     </Place>

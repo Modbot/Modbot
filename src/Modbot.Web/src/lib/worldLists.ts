@@ -9,6 +9,8 @@ export type WorldListWorld = {
   thumbnailUrl: string | null
   minPlayers: number | null
   maxPlayers: number | null
+  /** The platforms the world has a build for, in VRChat's words. Null until Modbot has read them. */
+  platforms: string[] | null
 }
 
 /** An event that picks its world from a list. */

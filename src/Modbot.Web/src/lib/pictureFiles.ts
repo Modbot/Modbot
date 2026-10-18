@@ -4,6 +4,8 @@
 // server never turns one kind of picture into another: it has no image library, and this way none
 // of the work or the bytes of the conversion are on it.
 import { croppedSize, type CropBox } from './eventPicture.ts'
+import { iconLayout } from './eventPlatforms.ts'
+import { PLATFORM_ICONS } from './platformIcons.ts'
 
 /** A picture the browser has drawn, and the address it was drawn from (revoke with `closePicture`). */
 export type OpenPicture = { image: HTMLImageElement; url: string; width: number; height: number }
@@ -45,20 +47,62 @@ export function drawCrop(canvas: HTMLCanvasElement, picture: OpenPicture, box: C
   context.drawImage(picture.image, box.x, box.y, box.width, box.height, 0, 0, canvas.width, canvas.height)
 }
 
+/**
+ * Draws the platform icons in the top right corner of `canvas`, the way the event form's preview shows
+ * them: each in its own colour in a ring, on a dark disc so it reads on any picture. Platforms with
+ * no icon are left out.
+ */
+export function drawPlatformIcons(canvas: HTMLCanvasElement, platforms: readonly string[]): void {
+  const context = canvas.getContext('2d')
+  const icons = platforms.flatMap((p) => (PLATFORM_ICONS[p] ? [PLATFORM_ICONS[p]] : []))
+  if (!context || icons.length === 0) return
+
+  const { diameter, gap, x, y } = iconLayout(canvas.width, icons.length)
+
+  icons.forEach((icon, index) => {
+    const left = x + index * (diameter + gap)
+    const ring = diameter * 0.08
+    const [, , viewWidth, viewHeight] = icon.viewBox.split(' ').map(Number)
+    const scale = (diameter * 0.5) / Math.max(viewWidth, viewHeight)
+
+    context.beginPath()
+    context.arc(left + diameter / 2, y + diameter / 2, diameter / 2 - ring / 2, 0, Math.PI * 2)
+    context.fillStyle = 'rgb(0 0 0 / 0.55)'
+    context.fill()
+    context.lineWidth = ring
+    context.strokeStyle = icon.colour
+    context.stroke()
+
+    context.save()
+    context.translate(left + (diameter - viewWidth * scale) / 2, y + (diameter - viewHeight * scale) / 2)
+    context.scale(scale, scale)
+    context.fillStyle = icon.colour
+    context.fill(new Path2D(icon.d))
+    context.restore()
+  })
+}
+
 function toBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob | null> {
   return new Promise((resolve) => canvas.toBlob(resolve, type, quality))
 }
 
 /**
- * The crop as a picture file: a PNG, or a JPEG when the PNG would be larger than `maxBytes`.
- * Throws a plain sentence when neither fits.
+ * The crop as a picture file: a PNG, or a JPEG when the PNG would be larger than `maxBytes`, with
+ * the `platforms` icons drawn in its corner. Throws a plain sentence when neither fits.
  */
-export async function cropToFile(picture: OpenPicture, box: CropBox, aspect: number, maxBytes: number): Promise<Blob> {
+export async function cropToFile(
+  picture: OpenPicture,
+  box: CropBox,
+  aspect: number,
+  maxBytes: number,
+  platforms: readonly string[] = [],
+): Promise<Blob> {
   const size = croppedSize(box, aspect)
   const canvas = document.createElement('canvas')
   canvas.width = size.width
   canvas.height = size.height
   drawCrop(canvas, picture, box)
+  drawPlatformIcons(canvas, platforms)
 
   const png = await toBlob(canvas, 'image/png')
   if (png && png.type === 'image/png' && png.size <= maxBytes) return png

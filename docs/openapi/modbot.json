@@ -46375,6 +46375,7 @@
           "worldId",
           "worldName",
           "worldThumbnailUrl",
+          "worldPlatforms",
           "accessType",
           "region",
           "imageUrl",
@@ -46463,6 +46464,15 @@
               "null",
               "string"
             ]
+          },
+          "worldPlatforms": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           },
           "accessType": {
             "type": "string"
@@ -72869,7 +72879,8 @@
           "name",
           "thumbnailUrl",
           "minPlayers",
-          "maxPlayers"
+          "maxPlayers",
+          "platforms"
         ],
         "type": "object",
         "properties": {
@@ -72901,6 +72912,15 @@
               "integer"
             ],
             "format": "int32"
+          },
+          "platforms": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

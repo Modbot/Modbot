@@ -2510,6 +2510,7 @@ public static class CalendarEndpoints
                 e.WorldId,
                 world?.Name,
                 world?.ThumbnailImageUrl,
+                Places.InstanceRows.PlatformsOf(world?.Platforms),
                 e.AccessType,
                 e.Region,
                 e.ImageUrl,

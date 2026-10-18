@@ -1128,6 +1128,40 @@ Discord's event cover is 2.5:1 and VRChat's picture 16:9, so one crop cannot ser
 - **In the audit log** the event's create and change facts carry `coverPictureId`; the picture itself
   is not in them.
 
+### 15.5 The platform icons are in the picture, and the world's picture (added 2026-10-17)
+
+The PC / Android / iOS boxes exist so the icons show on the event's picture. VRChat's own event form
+has no platform setting (all 25 live events had `platforms` empty, checked 2026-10-17), and until now
+the icons were drawn only over the preview, never into the uploaded file (user, 2026-10-17).
+
+- **The icons are drawn into the file that is uploaded.** `cropToFile` draws the ticked platforms'
+  icons (the artwork of `PlatformIcons`, shared in `platformIcons.ts`) in the top right corner of the
+  16:9 canvas, each in its colour in a ring on a dark disc so it reads on any picture, 7% of the
+  picture's width across (at least 24 px), the last one at the corner. The crop preview draws the
+  same icons. The server still only passes bytes on (§15.2, §15.3); `platforms` is still sent to
+  VRChat as before. **Discord's cover (§15.4) is unchanged: no icons there.**
+- **The boxes belong to the picture.** They sit beside *Choose picture* and are turned off with it for
+  the same reason ("Needs VRChat+", "Uploads off"). A picture the event already has keeps its
+  icons: the boxes are off too when the field is.
+- **Ticks that change after an upload make it a pending crop again.** The form keeps the source and
+  crop of the picture it uploaded (not the bytes of a picture it opened with); when the ticks no
+  longer match the ones it was drawn with and the field still holds that upload's id, the picture
+  opens in the crop box where it was cropped, and Save or Schedule uploads it again. **Nothing is
+  uploaded on a tick**, because VRChat takes one upload a minute (§15). A Cancel is not undone by the
+  same ticks; the next change to them opens it again.
+- **The boxes start from the world.** `worldPlatforms` on the event and `platforms` on a world in a
+  list carry the platforms the world has a build for (the same words as the boxes: `standalonewindows`,
+  `android`, `ios`; null until Modbot has read them). Picking a world, or one world from a list, ticks
+  the boxes for its builds; they can be changed. A whole list picked has no world, so nothing is
+  ticked. A saved event keeps its own boxes until another world is picked.
+- **No picture and a world: the world's picture goes up.** Save or Schedule, for an event on VRChat that
+  is not a draft or a template, with no VRChat picture id, no crop open, no picture link, a picked world
+  with a thumbnail, uploads on and no `Needs VRChat+`, fetches the world's thumbnail with the picture-link
+  fetch (§15.2, so only while VRChat pictures go through Modbot), crops it 16:9 in the middle, draws the
+  icons and uploads it as a chosen picture would be (user, 2026-10-17: "Yes, use world picture"). A
+  failure at any step leaves the event with no picture, as before; nothing is shown. An existing id is
+  never replaced.
+
 ## 16. Copies of an event in Discord (added 2026-10-02)
 
 A review of a live server on 2026-10-02 found its upcoming Discord events listed twice: two other

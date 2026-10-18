@@ -16,6 +16,7 @@ export function CropField({
   set,
   onFile,
   refusal,
+  beside,
 }: {
   label: string
   picture: CroppedPicture
@@ -27,6 +28,8 @@ export function CropField({
   onFile: (file: Blob) => void
   /** Anything to show beside a refusal, such as where to get what was missing. */
   refusal?: (error: string) => ReactNode
+  /** Controls drawn after Choose picture (or after Upload and Cancel while a crop is open). */
+  beside?: ReactNode
 }) {
   const chooser = useRef<HTMLInputElement>(null)
   const { draft, opening, uploading, error } = picture
@@ -58,6 +61,7 @@ export function CropField({
             >
               Cancel
             </Button>
+            {beside}
           </div>
         </>
       ) : (
@@ -67,6 +71,7 @@ export function CropField({
               {opening ? 'Opening…' : 'Choose picture'}
             </Button>
           )}
+          {beside}
         </div>
       )}
       <input

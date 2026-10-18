@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { cropSize, CROP_SMALLEST, moveCrop, sizeCrop, type CropBox } from '@/lib/eventPicture'
-import { drawCrop, type OpenPicture } from '@/lib/pictureFiles'
+import { drawCrop, drawPlatformIcons, type OpenPicture } from '@/lib/pictureFiles'
 
 /**
  * A crop box in a fixed shape over a picture (calendar design §15.3): drag the box to move it, and
@@ -110,13 +110,18 @@ export function CroppedPicture({
   box,
   aspect,
   className,
+  platforms = [],
 }: {
   picture: OpenPicture
   box: CropBox
   aspect: number
   className?: string
+  /** Platform icons drawn in the top right corner, as they will be in the uploaded picture. */
+  platforms?: readonly string[]
 }) {
   const canvas = useRef<HTMLCanvasElement>(null)
+  // The effect depends on the text, so a new array with the same icons does not draw again.
+  const icons = platforms.join(',')
 
   useEffect(() => {
     const target = canvas.current
@@ -126,7 +131,8 @@ export function CroppedPicture({
     target.width = 640
     target.height = Math.round(640 / aspect)
     drawCrop(target, picture, box)
-  }, [picture, box, aspect])
+    drawPlatformIcons(target, icons === '' ? [] : icons.split(','))
+  }, [picture, box, aspect, icons])
 
   return <canvas ref={canvas} className={className} style={{ aspectRatio: `${aspect}`, width: '100%', height: 'auto' }} />
 }

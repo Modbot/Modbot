@@ -1,7 +1,9 @@
+import { useEffect, useRef } from 'react'
 import { calendarApi, CALENDAR_COVER_MAX_BYTES, VRCHAT_PICTURE_MAX_BYTES } from '@/lib/calendar'
 import { smallJpeg } from '@/lib/pictureFiles'
 import { BLUESKY_PICTURE_MAX_BYTES } from '@/lib/postRules'
-import { DISCORD_COVER_ASPECT, VRCHAT_PICTURE_ASPECT, vrchatFileIdInLink } from '@/lib/eventPicture'
+import { platformsKey } from '@/lib/eventPlatforms'
+import { DISCORD_COVER_ASPECT, VRCHAT_PICTURE_ASPECT, vrchatFileIdInLink, type CropBox } from '@/lib/eventPicture'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 import { useCroppedPicture, type CroppedPicture } from './useCroppedPicture'
 import type { PictureThumbnails } from './usePictureThumbnails'
@@ -19,30 +21,60 @@ export function vrchatPictureAddress(
 }
 
 /**
- * VRChat's picture being chosen (calendar design §15.3): a 16:9 crop, uploaded to VRChat, and the
- * file id VRChat answers with saved on the event.
+ * VRChat's picture being chosen (calendar design §15.3): a 16:9 crop with the event's platform icons
+ * drawn in its corner, uploaded to VRChat, and the file id VRChat answers with saved on the event.
+ *
+ * The icons are part of the file, so the file has to match the ticks. A picture uploaded here, from
+ * a chosen file or the world's own picture, is kept; when the ticks change after that it opens in the
+ * crop box again, where it was cropped, and Save uploads it again. Nothing is uploaded on a tick
+ * (VRChat takes one upload a minute). A picture the event had before the form opened is not kept, so
+ * its icons stay as they were.
  */
 export function useVRChatPicture({
   eventId,
   thumbnails,
   onUploaded,
   initialLink,
+  value,
+  platforms,
 }: {
   eventId: string | null
   thumbnails: PictureThumbnails
   onUploaded: (fileId: string) => void
   initialLink: string | null
+  /** The event's VRChat picture now: the kept source is used only while this is still the uploaded one. */
+  value: string | null
+  /** The icons to draw: the event's ticked platforms. */
+  platforms: string[]
 }): CroppedPicture {
-  return useCroppedPicture({
+  const uploaded = useRef<{ id: string; source: Blob; box: CropBox; key: string } | null>(null)
+  const key = platformsKey(platforms)
+
+  const picture = useCroppedPicture({
     aspect: VRCHAT_PICTURE_ASPECT,
     maxBytes: VRCHAT_PICTURE_MAX_BYTES,
     send: (file) => calendarApi.uploadVRChatPicture(file, eventId).then((r) => r.fileId),
-    onUploaded: (fileId, file) => {
+    onUploaded: (fileId, file, from) => {
       thumbnails.add(fileId, file)
+      uploaded.current = { id: fileId, source: from.source, box: from.box, key }
       onUploaded(fileId)
     },
     initialLink,
+    platforms,
   })
+
+  const { draft, opening, openFile } = picture
+
+  useEffect(() => {
+    const kept = uploaded.current
+    if (!kept || kept.key === key || kept.id !== value || draft || opening) return
+
+    // Marked as handled, so a Cancel is not undone by this running again.
+    kept.key = key
+    openFile(kept.source, kept.box)
+  }, [key, value, draft, opening, openFile])
+
+  return picture
 }
 
 /**

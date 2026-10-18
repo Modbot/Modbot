@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button'
-import { coverAddress, isGalleryRefusal, VRCHAT_PLUS_URL } from '@/lib/calendar'
+import { Checkbox } from '@/components/ui/checkbox'
+import { coverAddress, isGalleryRefusal, PLATFORM_LABEL, VRCHAT_PLUS_URL } from '@/lib/calendar'
 import { isVRChatFileHost, vrchatFileIdInLink } from '@/lib/eventPicture'
 import { CropField } from './CropField'
 import { useOpenGivenLink, type CroppedPicture } from './useCroppedPicture'
@@ -17,6 +18,9 @@ import { vrchatPictureAddress } from './useVRChatPicture'
  *
  * A picture link from VRChat fills this field on its own (the form does that, §15.1), and the
  * picture shows from the link.
+ *
+ * The PC, Android and iOS boxes are beside Choose picture, because the icons are drawn into the
+ * picture (§15.3, 2026-10-17). They are turned off with the picture, for the same reason.
  */
 export function VRChatPictureField({
   uploads,
@@ -27,6 +31,9 @@ export function VRChatPictureField({
   link,
   onChange,
   onFile,
+  platforms,
+  ticked,
+  onTick,
 }: {
   /** Whether pictures may be uploaded (Settings). */
   uploads: boolean
@@ -42,6 +49,11 @@ export function VRChatPictureField({
   onChange: (fileId: string | null) => void
   /** A picture file chosen here, which the form opens in every crop box that is shown. */
   onFile: (file: Blob) => void
+  /** Every platform the event can be ticked for. */
+  platforms: string[]
+  /** The platforms ticked: their icons are drawn into the picture. */
+  ticked: string[]
+  onTick: (platform: string) => void
 }) {
   // Why Choose picture is turned off, if it is. No VRChat+ comes first: it is why the switch is off.
   const off = plus === false ? 'Needs VRChat+' : !uploads ? 'Uploads off' : null
@@ -65,6 +77,11 @@ export function VRChatPictureField({
       picture={picture}
       link={link}
       onFile={onFile}
+      beside={platforms.map((p) => (
+        <Checkbox key={p} checked={ticked.includes(p)} disabled={off !== null} title={off ?? undefined} onChange={() => onTick(p)}>
+          {PLATFORM_LABEL[p] ?? p}
+        </Checkbox>
+      ))}
       refusal={(error) =>
         isGalleryRefusal(error) && (
           <a className="underline" href={VRCHAT_PLUS_URL} target="_blank" rel="noreferrer noopener">

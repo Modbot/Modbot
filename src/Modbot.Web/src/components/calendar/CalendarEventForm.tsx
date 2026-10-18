@@ -21,7 +21,6 @@ import {
   coverAddress,
   DAYS,
   inputFrom,
-  PLATFORM_LABEL,
   type BlueskyPicture,
   type BlueskyGif,
   type BlueskyVideo,
@@ -72,7 +71,7 @@ import { BLUESKY_PICTURES_MAX, shownPictures, withoutPicture, withPictureChanged
 import { gifFromKlipy, gifWithAlt, hasGif, NO_GIF } from '@/lib/blueskyGif'
 import { hasVideo, NO_VIDEO, videoFileProblem, videoFromFile, videoFromLink, videoLinkProblem, videoWithAlt } from '@/lib/blueskyVideo'
 import { smallJpeg } from '@/lib/pictureFiles'
-import { PlatformIcons } from './PlatformIcons'
+import { platformsFromWorld, usesWorldPicture } from '@/lib/eventPlatforms'
 import { useDiscordCover, useVRChatPicture, vrchatPictureAddress } from './useVRChatPicture'
 import { DiscordPictureField, VRChatPictureField } from './VRChatPictureField'
 import { FROM_LIST, listMissing, NO_WORLD, OTHER_WORLD, worldChoice } from '@/lib/calendarWorld'
@@ -203,6 +202,8 @@ export function CalendarEventForm({
     thumbnails: pictureThumbnails,
     onUploaded: (fileId) => set('vrChatImageId', fileId),
     initialLink: input.imageUrl,
+    value: input.vrChatImageId,
+    platforms: input.platforms,
   })
   // The picture for Discord, cropped to Discord's cover shape and kept by Modbot (§15.4).
   const discordCover = useDiscordCover({
@@ -334,12 +335,33 @@ export function CalendarEventForm({
   // The picked world's name and picture: the event as saved first (it knows a Seen world the form has not
   // loaded), then the lists' worlds and Seen's once loaded.
   const pickedWorld = [
-    ...(event?.worldId ? [{ worldId: event.worldId, name: event.worldName, thumbnailUrl: event.worldThumbnailUrl }] : []),
+    ...(event?.worldId
+      ? [{ worldId: event.worldId, name: event.worldName, thumbnailUrl: event.worldThumbnailUrl, platforms: event.worldPlatforms }]
+      : []),
     ...lists.flatMap((l) => l.worlds),
     ...(seenWorlds ?? []),
   ].find((w) => w.worldId === input.worldId)
 
   const missingList = listMissing({ choice, worldListId: input.worldListId ?? null, worldId: input.worldId })
+
+  // A world picked here ticks the boxes for the builds it has; they stay changeable. The world the form
+  // opened with keeps the event's own ticks, and a world whose builds are not known yet ticks them
+  // once they are.
+  const tickedFor = useRef(input.worldId)
+  const pickedPlatforms = pickedWorld?.platforms
+  useEffect(() => {
+    if (input.worldId === tickedFor.current) return
+    if (!input.worldId) {
+      tickedFor.current = null
+      return
+    }
+
+    const ticks = platformsFromWorld(pickedPlatforms, platforms)
+    if (!ticks) return
+
+    tickedFor.current = input.worldId
+    setInput((current) => ({ ...current, platforms: ticks }))
+  }, [input.worldId, pickedPlatforms, platforms])
 
   // The lines to show before a save: what the form leaves empty, a title that is not the template's,
   // and an event already at that time. The check for that one failing is no reason to hold the save.
@@ -412,6 +434,26 @@ export function CalendarEventForm({
       }
 
       saving = { ...saving, vrChatImageId: fileId }
+    }
+
+    // No picture of its own: the picked world's picture goes up in its place, with the icons. A world
+    // picture that cannot be fetched or uploaded leaves the event with no picture, as it was.
+    if (
+      pickedWorld?.thumbnailUrl &&
+      usesWorldPicture({
+        vrChatImageId: saving.vrChatImageId,
+        cropWaiting: vrchatPicture.draft !== null,
+        pictureLink: saving.imageUrl,
+        worldPictureUrl: pickedWorld.thumbnailUrl,
+        uploads: pictureUploads,
+        plus: vrchatPlus,
+        publishToVRChat: saving.publishToVRChat,
+        draft,
+        template: !!template,
+      })
+    ) {
+      const fileId = await vrchatPicture.uploadLink(pickedWorld.thumbnailUrl)
+      if (fileId) saving = { ...saving, vrChatImageId: fileId }
     }
 
     if (discordCover.draft && discordOn) {
@@ -571,6 +613,7 @@ export function CalendarEventForm({
       box={vrchatPicture.draft.box}
       aspect={VRCHAT_PICTURE_ASPECT}
       className="rounded-sm"
+      platforms={input.platforms}
     />
   ) : vrchatAddress ? (
     <img src={vrchatAddress} alt="" className="aspect-video w-full rounded-sm object-cover" />
@@ -1374,15 +1417,10 @@ export function CalendarEventForm({
                       link={input.imageUrl}
                       onChange={(id) => set('vrChatImageId', id)}
                       onFile={chooseEverywhere}
+                      platforms={platforms}
+                      ticked={input.platforms}
+                      onTick={(p) => toggle('platforms', p)}
                     />
-                  </div>
-                  <div className="flex flex-wrap gap-3">
-                    {platforms.map((p) => (
-                      <Checkbox key={p} checked={input.platforms.includes(p)} onChange={() => toggle('platforms', p)}>
-                        {PLATFORM_LABEL[p] ?? p}
-                      </Checkbox>
-                    ))}
-                    <PlatformIcons platforms={input.platforms} />
                   </div>
                   <div className="flex flex-wrap gap-3">
                     <Checkbox checked={input.notifyMembers} onChange={(v) => set('notifyMembers', v)}>

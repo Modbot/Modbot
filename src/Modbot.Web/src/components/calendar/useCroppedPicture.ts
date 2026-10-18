@@ -5,7 +5,7 @@ import { centredCrop, type CropBox } from '@/lib/eventPicture'
 import { closePicture, cropToFile, openPicture, type OpenPicture } from '@/lib/pictureFiles'
 
 /** A picture opened in a crop box and not uploaded yet. */
-export type PictureDraft = { picture: OpenPicture; box: CropBox; from: 'file' | 'link' }
+export type PictureDraft = { picture: OpenPicture; box: CropBox; from: 'file' | 'link'; source: Blob }
 
 /** One picture being chosen and cropped in the event form: VRChat's, or Discord's (calendar design §15.3, §15.4). */
 export type CroppedPicture = {
@@ -14,12 +14,17 @@ export type CroppedPicture = {
   draft: PictureDraft | null
   /** Moves or sizes the crop box. */
   setBox: (box: CropBox) => void
-  /** A picture file chosen on this computer. */
-  openFile: (file: Blob) => void
+  /** A picture file chosen on this computer, with the crop box it is opened in (the middle, when none). */
+  openFile: (file: Blob, box?: CropBox) => void
   /** The picture behind a link, fetched by Modbot. */
   openLink: (link: string) => void
   /** Turns the crop into a PNG or JPEG and uploads it; answers with its id, or null when refused. */
   upload: () => Promise<string | null>
+  /**
+   * Fetches the picture behind a link, crops it in the middle and uploads it without a crop box in
+   * between; answers with its id, or null when any step failed (the reason is not shown).
+   */
+  uploadLink: (link: string) => Promise<string | null>
   /** Closes the crop box without uploading. */
   cancel: () => void
   opening: boolean
@@ -63,6 +68,7 @@ export function useCroppedPicture({
   send,
   onUploaded,
   initialLink,
+  platforms = [],
   fetchLink = calendarApi.pictureFromLink,
 }: {
   /**
@@ -74,10 +80,12 @@ export function useCroppedPicture({
   maxBytes: number
   /** Uploads the cropped file and answers with the id to save. */
   send: (file: Blob) => Promise<string>
-  /** Told the id and the file once the upload is through. */
-  onUploaded: (id: string, file: Blob) => void
+  /** Told the id and the file once the upload is through, and the picture and crop it was made from. */
+  onUploaded: (id: string, file: Blob, from: PictureDraft) => void
   /** The picture link the form opened with, which is not opened on its own: only a link given here is. */
   initialLink: string | null
+  /** Platform icons drawn in the corner of the uploaded file. */
+  platforms?: readonly string[]
   /** Fetches the picture behind a link through Modbot: the calendar's own unless told otherwise. */
   fetchLink?: (link: string) => Promise<Blob>
 }): CroppedPicture {
@@ -118,19 +126,24 @@ export function useCroppedPicture({
   )
 
   const open = useCallback(
-    (source: () => Promise<Blob>, from: PictureDraft['from']) => {
+    (source: () => Promise<Blob>, from: PictureDraft['from'], box?: CropBox) => {
       const ask = ++asked.current
       setError(null)
       setOpening(true)
 
       source()
-        .then(openPicture)
-        .then((picture) => {
+        .then(async (blob) => ({ blob, picture: await openPicture(blob) }))
+        .then(({ blob, picture }) => {
           if (ask !== asked.current) {
             closePicture(picture)
             return
           }
-          setDraft({ picture, box: centredCrop(picture.width, picture.height, shapeOf(picture)), from })
+          setDraft({
+            picture,
+            box: box ?? centredCrop(picture.width, picture.height, shapeOf(picture)),
+            from,
+            source: blob,
+          })
         })
         .catch((e: unknown) => {
           if (ask === asked.current) setError(e instanceof Error ? e.message : 'Could not open the picture.')
@@ -142,6 +155,16 @@ export function useCroppedPicture({
     [setDraft, shapeOf],
   )
 
+  const uploadDraft = useCallback(
+    async (current: PictureDraft): Promise<string> => {
+      const file = await cropToFile(current.picture, current.box, shapeOf(current.picture), maxBytes, platforms)
+      const id = await send(file)
+      onUploaded(id, file, current)
+      return id
+    },
+    [shapeOf, maxBytes, platforms, send, onUploaded],
+  )
+
   const upload = useCallback(async (): Promise<string | null> => {
     const current = latest.current
     if (!current) return null
@@ -150,9 +173,7 @@ export function useCroppedPicture({
     setUploading(true)
 
     try {
-      const file = await cropToFile(current.picture, current.box, shapeOf(current.picture), maxBytes)
-      const id = await send(file)
-      onUploaded(id, file)
+      const id = await uploadDraft(current)
       if (latest.current === current) setDraft(null)
       return id
     } catch (e: unknown) {
@@ -161,7 +182,27 @@ export function useCroppedPicture({
     } finally {
       setUploading(false)
     }
-  }, [shapeOf, maxBytes, send, onUploaded, setDraft])
+  }, [uploadDraft, setDraft])
+
+  const uploadLink = useCallback(
+    async (link: string): Promise<string | null> => {
+      setUploading(true)
+      let picture: OpenPicture | null = null
+
+      try {
+        const source = await fetchLink(link)
+        picture = await openPicture(source)
+        const box = centredCrop(picture.width, picture.height, shapeOf(picture))
+        return await uploadDraft({ picture, box, from: 'link', source })
+      } catch {
+        return null
+      } finally {
+        closePicture(picture)
+        setUploading(false)
+      }
+    },
+    [fetchLink, shapeOf, uploadDraft],
+  )
 
   return useMemo<CroppedPicture>(
     () => ({
@@ -170,9 +211,10 @@ export function useCroppedPicture({
       setBox: (box) => {
         if (latest.current) setDraft({ ...latest.current, box })
       },
-      openFile: (file) => open(() => Promise.resolve(file), 'file'),
+      openFile: (file, box) => open(() => Promise.resolve(file), 'file', box),
       openLink: (link) => open(() => fetchLink(link), 'link'),
       upload,
+      uploadLink,
       cancel: () => {
         asked.current++
         setOpening(false)
@@ -186,6 +228,6 @@ export function useCroppedPicture({
       passed,
       setPassed,
     }),
-    [aspect, shapeOf, fetchLink, draft, open, upload, opening, uploading, error, setDraft, passed],
+    [aspect, shapeOf, fetchLink, draft, open, upload, uploadLink, opening, uploading, error, setDraft, passed],
   )
 }
