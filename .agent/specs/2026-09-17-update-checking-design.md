@@ -346,12 +346,15 @@ This narrows two rules that said the pop-ups could not be pressed, and only for 
 - Two overlay modes §2.1 ("It is not interactable"): a ray on the headset's notification panel
   now finds the update card's two buttons, and nothing else on the panel. Every other card still has
   no target, so a trigger press on a flagged-join card still goes to VRChat. The panel's lock,
-  click-through and grab are unchanged, and a panel set to click-through lets rays through to
-  these buttons too, as it does to everything else.
+  click-through and grab are unchanged. With click-through (the hand) on, the panel lets every
+  ray through to VRChat, so Update and Later cannot be pressed in the headset until it is turned
+  off; the update prompt does not override that, and the sidebar button and installing on the next
+  start remain.
 - Desktop overlay §7.1 ("There is nothing on it to press"): the corner window takes clicks only
   while the update card is showing, by dropping `WS_EX_TRANSPARENT` and putting it back when the
-  card is answered. It keeps `WS_EX_NOACTIVATE` throughout, so a click on it never takes the
-  keyboard from VRChat. While the card is up the whole window, not just the buttons, takes the
+  card is answered. It keeps `WS_EX_NOACTIVATE` throughout and answers `WM_MOUSEACTIVATE`
+  with `MA_NOACTIVATE` while it takes clicks, so a click on it never takes the keyboard from VRChat.
+  Only a left click on a button answers the question. While the card is up the whole window, not just the buttons, takes the
   click, so the other cards in the corner cannot be clicked through to the game for that time.
   VRChat may hold the mouse while someone is playing, in which case the buttons need the cursor to
   be free first (the Escape menu); nothing here frees it.

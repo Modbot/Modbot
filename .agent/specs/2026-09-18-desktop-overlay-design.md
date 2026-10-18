@@ -421,6 +421,9 @@ for it being a separate thing is word for word the argument in the two overlay m
   `WS_EX_TRANSPARENT` and `WS_EX_TOOLWINDOW` — so it cannot be brought to the front by a click, a
   click on it goes through to the game underneath, and it is not in Alt-Tab. Those are three
   ex-style bits on Modbot's own window; it asks Windows nothing about anybody else's.
+  *(Narrowed 2026-10-18: `WS_EX_TRANSPARENT` is taken off while the update prompt is up and put back
+  when it is answered, and the window then also answers `WM_MOUSEACTIVATE` with `MA_NOACTIVATE`;
+  update checking design §10.)*
 - **Nothing is drawn while nothing is happening.** An empty stack hides the window outright rather
   than leaving an empty frame in the corner. An always-on panel that is usually blank is the thing
   that makes people turn overlays off — the same rule the headset's notification overlay already

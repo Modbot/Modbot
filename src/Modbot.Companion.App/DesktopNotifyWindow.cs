@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Win32;
 using Modbot.Companion.Presentation;
 using Modbot.Overlay;
 using Modbot.Overlay.Interaction;
@@ -52,6 +53,12 @@ internal sealed class DesktopNotifyWindow : Window
     /// <summary>Keeps it out of Alt-Tab; it is not a window anybody switches to.</summary>
     private const long WsExToolWindow = 0x00000080;
 
+    /// <summary>Windows asks a window, before a click activates it, whether it may.</summary>
+    private const uint WmMouseActivate = 0x0021;
+
+    /// <summary>The answer to <see cref="WmMouseActivate"/>: take the click, but do not activate.</summary>
+    private const int MaNoActivate = 3;
+
     private readonly ContentControl _cards = new();
 
     private NotificationScreen _drawn = NotificationScreen.Empty;
@@ -84,6 +91,11 @@ internal sealed class DesktopNotifyWindow : Window
 
         Content = _cards;
         _cards.PointerPressed += OnCardsPressed;
+
+        // While clicks land on it, the style bit alone is not the only guard: a click is also
+        // answered "do not activate" when Windows asks, so it can never take VRChat's focus.
+        if (OperatingSystem.IsWindows())
+            Win32Properties.AddWndProcHookCallback(this, KeepFocusOnTheGame);
 
         // The window is as tall as what is in it, so where it goes is worked out again every time
         // that changes — otherwise a bottom corner would drift as cards come and go.
@@ -286,8 +298,21 @@ internal sealed class DesktopNotifyWindow : Window
         }
     }
 
+    private IntPtr KeepFocusOnTheGame(IntPtr window, uint message, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (message != WmMouseActivate || !_clickable)
+            return IntPtr.Zero;
+
+        handled = true;
+        return (IntPtr)MaNoActivate;
+    }
+
     private void OnCardsPressed(object? sender, PointerPressedEventArgs e)
     {
+        // The left button only: a right or middle click on the card does nothing.
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            return;
+
         if (_cards.Content is not Visual root)
             return;
 
