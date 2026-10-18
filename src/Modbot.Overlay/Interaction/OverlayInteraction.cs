@@ -22,7 +22,7 @@ public readonly record struct PanelDrag(Pointer From, float Down);
 /// <param name="Placement">The placement after this poll.</param>
 /// <param name="PlacementChanged">Whether it differs from before, so the caller applies and saves it.</param>
 /// <param name="Clicks">Trigger presses on the panel, as fractions across and down.</param>
-/// <param name="Scroll">Scrolling with either stick while pointing and not holding, for the lists; zero otherwise.</param>
+/// <param name="Scroll">Scrolling with the right stick while pointing and not holding, for the lists; zero otherwise.</param>
 /// <param name="Holding">The hand holding the panel, or null.</param>
 /// <param name="Passing">
 /// A ray on a panel that lets rays through, away from its bar: nothing happens on the panel, but
@@ -70,8 +70,8 @@ public sealed record InteractionResult(
 /// (<see cref="IsScrollableAt"/>) it is a click when the trigger comes up without the ray having
 /// moved more than <see cref="DragDeadZone"/>, and a drag otherwise: the list follows the ray like
 /// a phone's, and letting go does not click.</item>
-/// <item><strong>Scrolling.</strong> Either stick scrolls the list under the ray, whichever hand
-/// holds the ray: the hand pointing is read first, then the other one.</item>
+/// <item><strong>Scrolling.</strong> The right stick scrolls the list under the ray, whichever hand
+/// holds the ray. The left stick never does: it is for moving in VRChat.</item>
 /// <item><strong>The hand wearing the panel is left out of all of it.</strong> See
 /// <see cref="Ignoring"/>.</item>
 /// <item><strong>Locked.</strong> A locked panel cannot be taken, so nothing that needs it held —
@@ -92,15 +92,16 @@ public sealed class OverlayInteraction
 
     /// <summary>
     /// Metres per poll at full push, pushing or pulling a carried panel, when nobody has said
-    /// otherwise: about 0.9 m a second at the thirty polls a second the host makes. It was a third
-    /// of that, which the owner found too slow to be worth reaching for.
+    /// otherwise: about 1 m a second at the thirty polls a second the host makes. It was a third
+    /// of that, which the owner found too slow to be worth reaching for. It is the window's Push
+    /// speed default (3) turned into metres, <c>CompanionSettings.PushStep(3)</c>.
     /// </summary>
-    public const float DefaultPushStep = 0.03f;
+    public const float DefaultPushStep = 0.0345f;
 
     /// <summary>The slowest and fastest the window's Push speed slider can set, in metres per poll.</summary>
     public const float MinPushStep = 0.01f;
 
-    public const float MaxPushStep = 0.1f;
+    public const float MaxPushStep = 0.115f;
 
     /// <summary>Metres per poll at full push, from the window's Push speed slider.</summary>
     public float PushStep { get; set; } = DefaultPushStep;
@@ -140,9 +141,9 @@ public sealed class OverlayInteraction
     }
 
     /// <summary>
-    /// The stick that scrolls or pushes: the first hand's, and the second hand's when the first is
-    /// at rest. A moderator with the ray in the left hand reaches for the right stick, and a panel
-    /// that only listened to the ray's hand did nothing for them.
+    /// The stick that pushes, pulls and resizes a carried panel: the first hand's, and the second
+    /// hand's when the first is at rest. A moderator carrying the panel in the left hand reaches for
+    /// the right stick, and a panel that only listened to the carrying hand did nothing for them.
     /// </summary>
     /// <param name="first">The hand whose stick is read first.</param>
     /// <param name="second">The other hand, with <c>Tracked</c> false when it is not to be read.</param>
@@ -357,7 +358,7 @@ public sealed class OverlayInteraction
                 }
                 else if (!_placement.ClickThrough)
                 {
-                    scroll = EitherStick(hand, StickHand(tracking, pointing.Hand, elsewhere));
+                    scroll = RightStick(tracking, elsewhere);
                 }
             }
         }
@@ -374,14 +375,16 @@ public sealed class OverlayInteraction
     }
 
     /// <summary>
-    /// The hand whose stick is read after <paramref name="side"/>'s: the other one, unless it is
-    /// worn on the panel's wrist (<see cref="Ignoring"/>) or busy with another panel, which are
-    /// left out of scrolling as they are of everything else. Not tracked when there is none.
+    /// The right stick, which is the only one that scrolls a list: the left stick is for moving in
+    /// VRChat. Zero when the right hand is worn on the panel's wrist (<see cref="Ignoring"/>) or
+    /// busy with another panel, which are left out of scrolling as they are of everything else.
     /// </summary>
-    private HandState StickHand(OverlayTracking tracking, Hand side, Hand? elsewhere)
+    private Vector2 RightStick(OverlayTracking tracking, Hand? elsewhere)
     {
-        var otherSide = side == Hand.Left ? Hand.Right : Hand.Left;
-        return otherSide == Ignoring || otherSide == elsewhere ? default : tracking[otherSide];
+        var right = tracking[Hand.Right];
+        return !right.Tracked || Ignoring == Hand.Right || elsewhere == Hand.Right
+            ? Vector2.Zero
+            : Stick(right.Scroll);
     }
 
     /// <summary>

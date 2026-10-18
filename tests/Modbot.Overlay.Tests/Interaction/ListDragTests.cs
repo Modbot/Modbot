@@ -9,7 +9,7 @@ namespace Modbot.Overlay.Tests.Interaction;
 
 /// <summary>
 /// Scrolling a list the way a phone does: the trigger held and dragged moves it with the ray, a
-/// short tap is still a click, and either stick scrolls the list under the ray.
+/// short tap is still a click, and the right stick (never the left) scrolls the list under the ray.
 /// </summary>
 public class ListDragTests
 {
@@ -169,7 +169,7 @@ public class ListDragTests
     }
 
     [Fact]
-    public void TheStickOfTheHandNotPointingScrollsToo()
+    public void TheRightStickScrollsWhenTheLeftHandHoldsTheRay()
     {
         var interaction = new OverlayInteraction(OverlayPlacement.Default);
         var away = Hands.AimingAt(Vector3.Zero, new Vector3(5f, 0f, 1f));
@@ -184,7 +184,36 @@ public class ListDragTests
     }
 
     [Fact]
-    public void ThePointingHandsStickIsReadFirst()
+    public void TheLeftStickNeverScrollsEvenWhenItsHandHoldsTheRay()
+    {
+        var interaction = new OverlayInteraction(OverlayPlacement.Default);
+        var away = Hands.AimingAt(Vector3.Zero, new Vector3(5f, 0f, 1f));
+
+        // The ray is in the left hand and the left stick is pushed all the way; the right is at rest.
+        var result = interaction.Update(
+            Hands.Both(Hands.Hand(Aim(), scroll: new Vector2(0f, 1f)), Hands.Hand(away)),
+            At(0));
+
+        Assert.Equal(Hand.Left, result.Pointer!.Value.Hand);
+        Assert.Equal(Vector2.Zero, result.Scroll);
+    }
+
+    [Fact]
+    public void TheLeftStickDoesNotScrollWhenTheRightHandHoldsTheRay()
+    {
+        var interaction = new OverlayInteraction(OverlayPlacement.Default);
+        var away = Hands.AimingAt(Vector3.Zero, new Vector3(5f, 0f, 1f));
+
+        var result = interaction.Update(
+            Hands.Both(Hands.Hand(away, scroll: new Vector2(0f, 1f)), Hands.Hand(Aim())),
+            At(0));
+
+        Assert.Equal(Hand.Right, result.Pointer!.Value.Hand);
+        Assert.Equal(Vector2.Zero, result.Scroll);
+    }
+
+    [Fact]
+    public void OnlyTheRightSticksPushCountsWhenBothSticksArePushed()
     {
         var interaction = new OverlayInteraction(OverlayPlacement.Default);
         var away = Hands.AimingAt(Vector3.Zero, new Vector3(5f, 0f, 1f));
@@ -193,7 +222,7 @@ public class ListDragTests
             Hands.Both(Hands.Hand(Aim(), scroll: new Vector2(0f, 1f)), Hands.Hand(away, scroll: new Vector2(0f, -1f))),
             At(0));
 
-        Assert.Equal(1f, result.Scroll.Y, 4);
+        Assert.Equal(-1f, result.Scroll.Y, 4);
     }
 
     [Fact]

@@ -234,8 +234,8 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     public Hand? Busy { get; private set; }
 
     /// <summary>
-    /// Whether a ray is on a list that scrolls, which is when either hand's stick scrolls it: the
-    /// other stick is then not free for anything else.
+    /// Whether a ray is on a list that scrolls, which is when the right stick scrolls it: that
+    /// stick is then not free for anything else.
     /// </summary>
     public bool OnList { get; private set; }
 
@@ -521,7 +521,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// <summary>
     /// Moves the list the page shows by what the hands did to it this poll: a new touch stops it, a drag on it moves
     /// it with the ray (the ray down is the list down, so towards the rows above), a stick moves it by how far it is
-    /// pushed, either stick will do, and a drag let go leaves it going. Returns whether the list moved, which is
+    /// pushed, the right stick only, and a drag let go leaves it going. Returns whether the list moved, which is
     /// when it is to be drawn again.
     /// </summary>
     private bool ScrollLists(InteractionResult result, TimeSpan now)

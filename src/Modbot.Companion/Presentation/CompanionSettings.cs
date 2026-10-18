@@ -164,8 +164,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
 
     /// <summary>
     /// How fast a carried panel's thumbstick pushes and pulls it, 1 to 10, from the SteamVR page's
-    /// <strong>Push speed</strong> slider as <c>"overlayPushSpeed"</c>. Each step is a centimetre per
-    /// poll at full push; the default of 3 is three times what it was before it could be set.
+    /// <strong>Push speed</strong> slider as <c>"overlayPushSpeed"</c>. Each step is 1.15 centimetres
+    /// per poll at full push (see <see cref="PushStep"/>).
     /// </summary>
     public int OverlayPushSpeed { get; init; } = DefaultPushSpeed;
 
@@ -177,6 +177,12 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
 
     /// <summary>The push speed inside its bounds.</summary>
     public static int ClampPushSpeed(int speed) => Math.Clamp(speed, MinPushSpeed, MaxPushSpeed);
+
+    /// <summary>
+    /// The Push speed slider's 1 to 10 as metres per poll at full push: 1.15 centimetres a step,
+    /// 15% more than the centimetre it was, which the owner found slightly slow while carrying.
+    /// </summary>
+    public static float PushStep(int speed) => ClampPushSpeed(speed) * 0.0115f;
 
     /// <summary>
     /// How lightly a squeeze takes hold of a panel, 1 to 14, from the SteamVR page's

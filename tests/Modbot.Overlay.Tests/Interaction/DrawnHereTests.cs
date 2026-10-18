@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Modbot.Companion.Overlay;
+using Modbot.Companion.Presentation;
 using Modbot.Overlay.Interaction;
 
 namespace Modbot.Overlay.Tests.Interaction;
@@ -80,5 +81,36 @@ public class DrawnHereTests
         interaction.Update(Hands.RightOnly(Hands.Hand(aim, grab: true, scroll: new Vector2(0, 1))), TimeSpan.FromMilliseconds(33));
 
         Assert.Equal(before + 0.05f, Pose.From(interaction.Placement.Offset).Position.Length(), 3);
+    }
+
+    [Theory]
+    [InlineData(1, 0.0115f)]
+    [InlineData(3, 0.0345f)]
+    [InlineData(10, 0.115f)]
+    public void EverySettingOfThePushSpeedSliderIsFifteenPercentFasterThanBefore(int speed, float expected)
+    {
+        var step = CompanionSettings.PushStep(speed);
+
+        Assert.Equal(expected, step, 5);
+        Assert.Equal(speed * 0.01f * 1.15f, step, 5);
+    }
+
+    [Fact]
+    public void TheFastestSliderSettingIsNotCutShortByTheLimitOnAStep()
+    {
+        var aim = Hands.AimingAt(Vector3.Zero, Centre);
+        var interaction = new OverlayInteraction(OverlayPlacement.Default)
+        {
+            PushStep = CompanionSettings.PushStep(CompanionSettings.MaxPushSpeed),
+        };
+        interaction.Update(Hands.RightOnly(Hands.Hand(aim, grab: true)), TimeSpan.Zero);
+        var before = Pose.From(interaction.Placement.Offset).Position.Length();
+
+        interaction.Update(Hands.RightOnly(Hands.Hand(aim, grab: true, scroll: new Vector2(0, 1))), TimeSpan.FromMilliseconds(33));
+
+        Assert.Equal(before + 0.115f, Pose.From(interaction.Placement.Offset).Position.Length(), 3);
+        Assert.True(OverlayInteraction.MaxPushStep >= CompanionSettings.PushStep(CompanionSettings.MaxPushSpeed));
+        Assert.True(OverlayInteraction.MinPushStep <= CompanionSettings.PushStep(CompanionSettings.MinPushSpeed));
+        Assert.Equal(OverlayInteraction.DefaultPushStep, CompanionSettings.PushStep(CompanionSettings.DefaultPushSpeed), 5);
     }
 }

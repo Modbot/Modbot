@@ -2623,9 +2623,9 @@ internal sealed partial class CompanionHost : IOverlayListener
         Render();
     }
 
-    /// <summary>The Push speed slider's 1 to 10 as metres per poll: a centimetre a step.</summary>
+    /// <summary>The Push speed slider's 1 to 10 as metres per poll; see <see cref="CompanionSettings.PushStep"/>.</summary>
     private static float PushStep(int? speed)
-        => CompanionSettings.ClampPushSpeed(speed ?? CompanionSettings.DefaultPushSpeed) * 0.01f;
+        => CompanionSettings.PushStep(speed ?? CompanionSettings.DefaultPushSpeed);
 
     /// <summary>
     /// The SteamVR page's <strong>Look</strong> choice: VRChat's colours or Modbot's own on the headset
@@ -2749,17 +2749,19 @@ internal sealed partial class CompanionHost : IOverlayListener
     /// <summary>
     /// Whether a hand's thumbstick is steering one of the other panels, which keeps it out of the
     /// button's shortcut: any hand while a panel is being carried (either stick pushes and pulls it),
-    /// a hand pointing at a panel, and the other hand while a ray is on the main panel's list (either
-    /// stick scrolls it), except a hand the panel is worn on, which scrolling leaves out. The pop-up
-    /// scrolls nothing, so pointing at it takes only the pointing hand's stick.
+    /// a hand pointing at a panel, and the right hand while a ray is on the main panel's list (the
+    /// right stick scrolls it; the left stick never does), except when the panel is worn on the right
+    /// hand, which scrolling leaves out. The pop-up scrolls nothing, so pointing at it takes only
+    /// the pointing hand's stick.
     /// </summary>
     private bool StickInUse(Hand hand)
         => _overlayHost?.Holding is not null
             || _notifyHost?.Holding is not null
             || _overlayHost?.Busy == hand
             || _notifyHost?.Busy == hand
-            || (_overlayHost is { OnList: true, Placement: var placement }
-                && placement.Anchor != (hand == Hand.Left ? OverlayAnchor.LeftHand : OverlayAnchor.RightHand));
+            || (hand == Hand.Right
+                && _overlayHost is { OnList: true, Placement: var placement }
+                && placement.Anchor != OverlayAnchor.RightHand);
 
     /// <summary>
     /// The SteamVR page's <strong>Shortcut</strong> and <strong>Hold time</strong> choices: which
