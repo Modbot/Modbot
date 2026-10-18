@@ -144,7 +144,9 @@ public sealed class PopUps
     /// </remarks>
     public TimeSpan Dwell { get; set; } = NotifyOverlaySettings.Default.Dwell;
 
-    /// <summary>At most this many are drawn at once.</summary>
+    /// <summary>
+    /// At most this many are kept at once. It follows how tall the headset's panel has been made.
+    /// </summary>
     public int MostAtOnce { get; set; } = NotifyOverlaySettings.MostPopUpsAtOnce;
 
     /// <summary>
@@ -242,13 +244,30 @@ public sealed class PopUps
     /// PC's clock is set back, and without it the card would stay up for as long as the clock was
     /// moved.</para>
     /// </remarks>
-    public IReadOnlyList<PopUp> Current(TimeSpan dwell)
+    public IReadOnlyList<PopUp> Current(TimeSpan dwell) => Current(dwell, int.MaxValue);
+
+    /// <summary>
+    /// The same, for a surface with room for only <paramref name="most"/> cards: the newest ones.
+    /// </summary>
+    /// <remarks>
+    /// The headset's panel can be made taller, and then it has room for more than the desktop's
+    /// does. The cards the smaller surface has no room for stay up here until their time is up.
+    /// </remarks>
+    public IReadOnlyList<PopUp> Current(TimeSpan dwell, int most)
     {
         lock (_gate)
         {
             var now = _clock.UtcNow;
             _shown.RemoveAll(s => s.PopUp.Ask is null && (now - s.ShownAt >= Dwell || s.ShownAt - now >= Dwell));
-            return [.. _shown.Where(s => s.PopUp.Ask is not null || (now - s.ShownAt < dwell && s.ShownAt - now < dwell)).Select(s => s.PopUp)];
+            var up = _shown.Where(s => s.PopUp.Ask is not null || (now - s.ShownAt < dwell && s.ShownAt - now < dwell)).ToList();
+
+            // A card that asks is never left out for room: it stays until it is answered, and the
+            // newest of the others fill what room is left.
+            var room = Math.Max(1, most);
+            var asking = up.Count(s => s.PopUp.Ask is not null);
+            var tells = Math.Max(0, room - asking);
+            var kept = new HashSet<Shown>(up.Where(s => s.PopUp.Ask is not null).Concat(up.Where(s => s.PopUp.Ask is null).Take(tells)));
+            return [.. up.Where(kept.Contains).Select(s => s.PopUp)];
         }
     }
 

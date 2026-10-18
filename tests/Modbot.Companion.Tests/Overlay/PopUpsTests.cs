@@ -82,6 +82,20 @@ public class PopUpsTests
     }
 
     [Fact]
+    public void ASurfaceWithLessRoomGetsTheNewestAndTheRestStayUp()
+    {
+        var clock = new FakeClock();
+        var popUps = new PopUps(clock) { MostAtOnce = 6 };
+
+        for (var i = 1; i <= 5; i++)
+            popUps.Show(Made("a" + i));
+
+        Assert.Equal(["a5", "a4", "a3"], popUps.Current(popUps.Dwell, 3).Select(p => p.Id));
+        Assert.Equal(["a5", "a4", "a3", "a2", "a1"], popUps.Current(popUps.Dwell, 6).Select(p => p.Id));
+        Assert.Equal(5, popUps.Current().Count);
+    }
+
+    [Fact]
     public void OneCanBeTakenAwayEarly()
     {
         var clock = new FakeClock();

@@ -3692,16 +3692,25 @@ internal sealed partial class CompanionHost : IOverlayListener
         if (_popUps is null)
             return;
 
+        // A taller headset panel has room for more cards, up to twice as many at its tallest; the
+        // desktop screen keeps its three.
+        var most = Math.Max(
+            NotifyOverlaySettings.MostPopUpsAtOnce,
+            (int)Math.Round(NotifyOverlaySettings.MostPopUpsAtOnce * (_state?.Settings.NotifyOverlay.Tall ?? 1f)));
+        _popUps.MostAtOnce = most;
+
         if (_notifyHost is not null)
         {
             _notifyHost.Update(new NotificationScreen(
-                _popUps.Current(_state?.Settings.NotifyOverlay.Dwell ?? NotifyOverlaySettings.Default.Dwell)));
+                _popUps.Current(_state?.Settings.NotifyOverlay.Dwell ?? NotifyOverlaySettings.Default.Dwell, most)));
         }
 
         if (_desktopNotify is not null)
         {
             _desktopNotify.Update(new NotificationScreen(
-                _popUps.Current(_state?.Settings.DesktopNotifyOverlay.Dwell ?? DesktopNotifySettings.Default.Dwell)));
+                _popUps.Current(
+                    _state?.Settings.DesktopNotifyOverlay.Dwell ?? DesktopNotifySettings.Default.Dwell,
+                    NotifyOverlaySettings.MostPopUpsAtOnce)));
         }
     }
 
