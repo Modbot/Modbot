@@ -299,6 +299,40 @@ public class ButtonHostTests
             var own = OverlayButton.ToPlacement(ButtonPlace.Corner);
             Assert.Equal(own.Anchor, host.Placement.Anchor);
             Assert.Equal(own.Offset, host.Placement.Offset);
+            Assert.Equal(own.Width, host.Placement.Width, 3);
+        });
+    }
+
+    [Fact]
+    public void AWristButtonGrabbedByTheRightHandAndLetGoStaysOnTheLeftHand()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build(ButtonPlace.Wrist);
+            using var button = host;
+            var wrist = host.Placement.Offset;
+            var left = Hands.Hand(AimedAway(), device: Pose.Identity);
+
+            Assert.Equal(OverlayAnchor.LeftHand, host.Placement.Anchor);
+
+            var above = new Vector3(0f, 0.5f, 0.1f);
+            var target = new Vector3(wrist.X, wrist.Y, wrist.Z);
+            runtime.Tracking = Hands.Both(left, Hands.Hand(Hands.AimingAt(above, target), grab: true));
+            host.PollInput(At(0));
+            Assert.Equal(Hand.Right, host.Holding);
+
+            // Carried 10 cm to the side, then let go.
+            var aside = new Vector3(0.1f, 0f, 0f);
+            var moved = Hands.AimingAt(above + aside, target + aside);
+            runtime.Tracking = Hands.Both(left, Hands.Hand(moved, grab: true));
+            host.PollInput(At(0.033));
+            runtime.Tracking = Hands.Both(left, Hands.Hand(moved));
+            host.PollInput(At(0.066));
+
+            Assert.Null(host.Holding);
+            Assert.Equal(OverlayAnchor.LeftHand, host.Placement.Anchor);
+            Assert.Equal(wrist.X + 0.1f, host.Placement.Offset.X, 3);
+            Assert.Equal(OverlayButton.WristWidth, host.Placement.Width, 3);
         });
     }
 

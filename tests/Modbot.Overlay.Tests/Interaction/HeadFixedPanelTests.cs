@@ -17,7 +17,7 @@ public class HeadFixedPanelTests
     private static Vector3 CornerCentre => new(Corner.Offset.X, Corner.Offset.Y, Corner.Offset.Z);
 
     private static OverlayInteraction HeadFixed(OverlayPlacement? placement = null)
-        => new(placement ?? Corner, home: NotifyOverlaySettings.Default.SpotPlacement(), keepOnHead: true);
+        => new(placement ?? Corner, home: NotifyOverlaySettings.Default.SpotPlacement(), keepAnchor: OverlayAnchor.Head);
 
     [Fact]
     public void LetGoItStaysOnTheHeadWhereTheHandLeftIt()

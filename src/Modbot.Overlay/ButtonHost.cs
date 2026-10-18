@@ -126,7 +126,8 @@ public sealed class ButtonHost : IDisposable
     private OverlayInteraction Interaction(ButtonPlace place, OverlayPlacement? placement) => new(
         placement ?? OverlayButton.ToPlacement(place),
         home: OverlayButton.ToPlacement(place),
-        keepOnHead: true)
+        keepAnchor: OverlayButton.ToPlacement(place).Anchor,
+        homeResetsWidth: true)
     {
         IsOnBar = (across, down) => EditMode && IsBar(TargetAt(across, down)),
 

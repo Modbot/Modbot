@@ -159,7 +159,7 @@ public sealed class NotificationHost : IDisposable
     private OverlayInteraction Interaction(OverlayPlacement? placement) => new(
         placement ?? NotifyOverlaySettings.Default.ToPlacement(),
         home: NotifyOverlaySettings.Default.SpotPlacement(),
-        keepOnHead: true)
+        keepAnchor: OverlayAnchor.Head)
     {
         IsOnBar = (across, down) => EditMode && TargetAt(across, down) is OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough,
 

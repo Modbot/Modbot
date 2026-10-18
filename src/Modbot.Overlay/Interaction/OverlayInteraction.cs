@@ -133,24 +133,35 @@ public sealed class OverlayInteraction
     /// <summary>Where the panel was before it was taken, for a head-fixed panel whose hand vanishes.</summary>
     private OverlayPlacement _beforeTake;
 
-    private readonly bool _keepOnHead;
+    private readonly OverlayAnchor? _keepAnchor;
+    private readonly bool _homeResetsWidth;
 
     /// <param name="placement">Where the panel starts.</param>
     /// <param name="home">
     /// Where two quick grips send it. Null is the main panel's own home in front of the head.
     /// </param>
-    /// <param name="keepOnHead">
-    /// A panel that is only ever fixed to the head, as the notification panel is: let go, it stays
-    /// where it was left <em>relative to the head</em> rather than in the room, and it never goes on
-    /// a wrist.
+    /// <param name="keepAnchor">
+    /// A panel that stays on one anchor, as the notification panel stays on the head: let go, it
+    /// stays where it was left <em>relative to that anchor</em> (the head or one hand) rather than
+    /// in the room, and it never goes on a wrist or into the room. Null is the main panel's free
+    /// rule.
     /// </param>
-    public OverlayInteraction(OverlayPlacement placement, OverlayPlacement? home = null, bool keepOnHead = false)
+    /// <param name="homeResetsWidth">
+    /// Whether two quick grips also put a kept panel back at its home's width. Off keeps the width
+    /// it has, as the pop-up does.
+    /// </param>
+    public OverlayInteraction(
+        OverlayPlacement placement,
+        OverlayPlacement? home = null,
+        OverlayAnchor? keepAnchor = null,
+        bool homeResetsWidth = false)
     {
         ArgumentNullException.ThrowIfNull(placement);
         _placement = placement.Clamped();
         _beforeTake = _placement;
         Home = home;
-        _keepOnHead = keepOnHead;
+        _keepAnchor = keepAnchor;
+        _homeResetsWidth = homeResetsWidth;
     }
 
     public OverlayPlacement Placement => _placement;
@@ -232,7 +243,7 @@ public sealed class OverlayInteraction
 
             if (!hand.Tracked || !hand.Grab || _placement.Locked)
             {
-                LetGo(holding, hand, tracking.Head);
+                LetGo(holding, hand, tracking);
             }
             else
             {
@@ -303,7 +314,9 @@ public sealed class OverlayInteraction
         var home = Home ?? OverlayPlacement.Default;
         _placement = home with
         {
-            Width = _keepOnHead ? _placement.Width : OverlayPlacement.WidthFor(OverlayAnchor.Head, _placement.Width),
+            Width = _keepAnchor is null
+                ? OverlayPlacement.WidthFor(OverlayAnchor.Head, _placement.Width)
+                : _homeResetsWidth ? home.Width : _placement.Width,
             Opacity = _placement.Opacity,
             Curve = _placement.Curve,
             Locked = _placement.Locked,
@@ -458,18 +471,26 @@ public sealed class OverlayInteraction
     /// <summary>How far apart the two controllers must be when the second one takes hold.</summary>
     public const float MinStretchDistance = 0.05f;
 
-    private void LetGo(Hand side, HandState hand, Pose head)
+    private void LetGo(Hand side, HandState hand, OverlayTracking tracking)
     {
         _holding = null;
         _stretching = null;
 
-        if (_keepOnHead)
+        if (_keepAnchor is { } keep)
         {
-            // A head panel goes back on the head, where the hand left it as seen from the eyes. A
-            // hand that vanished mid-carry leaves nothing to measure, so it goes back to where it
-            // was picked up from, at the size it has been given.
-            _placement = hand.Tracked
-                ? _placement with { Anchor = OverlayAnchor.Head, Offset = hand.Device.Then(_heldOffset).RelativeTo(head).ToOverlayPose() }
+            // A kept panel goes back on its anchor, where the hand left it as seen from the head or
+            // from the worn hand. A hand that vanished mid-carry, or an anchor with nothing to
+            // measure from, leaves nothing to work with, so it goes back to where it was picked up
+            // from, at the size it has been given.
+            Pose? from = keep switch
+            {
+                OverlayAnchor.LeftHand => tracking[Hand.Left].Tracked ? tracking[Hand.Left].Device : null,
+                OverlayAnchor.RightHand => tracking[Hand.Right].Tracked ? tracking[Hand.Right].Device : null,
+                _ => tracking.Head,
+            };
+
+            _placement = hand.Tracked && from is { } origin
+                ? _placement with { Anchor = keep, Offset = hand.Device.Then(_heldOffset).RelativeTo(origin).ToOverlayPose() }
                 : _beforeTake with { Width = _placement.Width };
             return;
         }
