@@ -115,7 +115,7 @@ public class ListFilteringTests
     [Fact]
     public void TheCountsSayMembersEighteenPlusAndStaffOfEverybodyHere()
     {
-        Assert.Equal("1 member · 2 18+ · 1 staff", ListFiltering.HereCounts(People));
+        Assert.Equal("2 members · 2 18+ · 1 staff", ListFiltering.HereCounts(People));
     }
 
     [Fact]
@@ -125,11 +125,19 @@ public class ListFilteringTests
     }
 
     [Fact]
-    public void AFlaggedMemberIsCountedAsFlaggedButStillAsEighteenPlus()
+    public void AFlaggedPersonIsInNeitherTheMembersNorTheStaffCountButStillCountsAsEighteenPlus()
     {
         RosterMember[] flagged = [Member("Rin", RosterStanding.Flagged, eighteenPlus: true), Member("Kai", RosterStanding.Member), Member("Jo", RosterStanding.Member)];
 
         Assert.Equal("2 members · 1 18+ · 0 staff", ListFiltering.HereCounts(flagged));
+    }
+
+    [Fact]
+    public void StaffAreCountedAsMembersToo()
+    {
+        RosterMember[] staff = [Member("Kai", RosterStanding.Staff), Member("Jo", RosterStanding.Ordinary)];
+
+        Assert.Equal("1 member · 0 18+ · 1 staff", ListFiltering.HereCounts(staff));
     }
 
     [Fact]

@@ -132,7 +132,7 @@ public class VRChatPeopleRowsTests
         var texts = Texts(Screen(Mixed));
 
         Assert.Contains("Users (5)", texts);
-        Assert.Contains("· 2 members · 3 18+ · 1 staff", texts);
+        Assert.Contains("· 3 members · 3 18+ · 1 staff", texts);
     }
 
     [Fact]
@@ -141,7 +141,7 @@ public class VRChatPeopleRowsTests
         var texts = Texts(Screen(Mixed, filters: new ListFilters(Name: "Kai")));
 
         Assert.Contains("Users (1 of 5)", texts);
-        Assert.Contains("· 2 members · 3 18+ · 1 staff", texts);
+        Assert.Contains("· 3 members · 3 18+ · 1 staff", texts);
     }
 
     [Fact]
@@ -150,7 +150,7 @@ public class VRChatPeopleRowsTests
         var texts = Texts(Screen(Mixed), OverlayLook.Headset);
 
         Assert.Contains("5 here", texts);
-        Assert.Contains("· 2 members · 3 18+ · 1 staff", texts);
+        Assert.Contains("· 3 members · 3 18+ · 1 staff", texts);
     }
 
     [Fact]

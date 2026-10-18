@@ -277,14 +277,15 @@ public static class ListFiltering
     }
 
     /// <summary>
-    /// What the Instance list's heading says about the people here, with the same meaning as the Who
-    /// filter: "25 members · 12 18+ · 3 staff". Members and staff are the people the server stands as
-    /// such (<see cref="RosterStanding.Member"/>, <see cref="RosterStanding.Staff"/>), so a flagged
-    /// member is counted in neither. A zero count is still written.
+    /// What the Instance list's heading says about the people here: "25 members · 12 18+ · 3 staff".
+    /// Staff are members too, so they are in both counts. Somebody flagged is sent as flagged and
+    /// nothing more, so the roster does not say whether they are in the group: they are in neither
+    /// the members nor the staff count. The Who filter's Members choice is only the standing
+    /// <see cref="RosterStanding.Member"/>, which is not what this counts. A zero count is still written.
     /// </summary>
     public static string HereCounts(IReadOnlyList<RosterMember> present)
     {
-        var members = present.Count(member => member.Standing is RosterStanding.Member);
+        var members = present.Count(member => member.Standing is RosterStanding.Member or RosterStanding.Staff);
         var staff = present.Count(member => member.Standing is RosterStanding.Staff);
         var adults = present.Count(member => member.EighteenPlus == true);
 
