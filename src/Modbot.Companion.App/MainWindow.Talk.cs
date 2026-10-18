@@ -14,9 +14,11 @@ namespace Modbot.Companion.App;
 /// <remarks>
 /// <para>Each key is recorded by pressing it, like the desktop overlay's shortcut, and stored
 /// spelled the way the window's own keys are (<c>f13</c>, <c>mod+shift+m</c>). Unlike that
-/// shortcut a key may have no modifier, because it is pressed rather than claimed, and a hotkey
-/// is claimed by one key only. A key lives in one place: recording it again somewhere else takes it
-/// out of the first.</para>
+/// shortcut a key Modbot presses for Discord may have no modifier, because it is pressed rather
+/// than claimed. A hotkey is claimed from Windows, so it needs Ctrl or Alt unless it is a function
+/// key (<see cref="TalkKeys.ReadHotkey"/>), and is refused with a line on the card otherwise. A key
+/// lives in one place: recording it again somewhere else takes it out of the first. While a key is
+/// being recorded the hotkeys are given back to Windows, so a hotkey can be recorded over itself.</para>
 /// <para>What went wrong, if anything, is the one line under the controls. That is an error saying
 /// what failed, which is all the text this card gets.</para>
 /// </remarks>
@@ -42,6 +44,9 @@ public sealed partial class MainWindow
     /// <summary>Which key the next press is recorded for, or null when none is waiting.</summary>
     private TalkKeySlot? _capturingTalkKey;
 
+    /// <summary>Why the last key offered for a hotkey was refused, shown on the card until the next try.</summary>
+    private string? _talkKeyRefusal;
+
     private void WireTalk()
     {
         if (_talkWired)
@@ -64,15 +69,30 @@ public sealed partial class MainWindow
 
     private void ToggleTalkCapture(TalkKeySlot target)
     {
-        _capturingTalkKey = _capturingTalkKey == target ? null : target;
+        _talkKeyRefusal = null;
+        SetCapturingTalkKey(_capturingTalkKey == target ? null : target);
         RenderPage();
     }
 
     private void ClearTalkKey(TalkKeySlot target)
     {
-        _capturingTalkKey = null;
+        _talkKeyRefusal = null;
         TalkChanged(s => s.WithKey(target, null));
+        SetCapturingTalkKey(null);
         RenderPage();
+    }
+
+    /// <summary>
+    /// Starts or stops waiting for a key, and tells the application when waiting begins or ends so it
+    /// can give the hotkeys back to Windows for that time.
+    /// </summary>
+    private void SetCapturingTalkKey(TalkKeySlot? slot)
+    {
+        var wasRecording = _capturingTalkKey is not null;
+        _capturingTalkKey = slot;
+
+        if (wasRecording != (slot is not null))
+            _actions.SetTalkRecording(slot is not null);
     }
 
     /// <summary>What the card's controls say right now, handed to the application as one record.</summary>
@@ -94,7 +114,8 @@ public sealed partial class MainWindow
 
         if (e.Key is Key.Escape)
         {
-            _capturingTalkKey = null;
+            _talkKeyRefusal = null;
+            SetCapturingTalkKey(null);
             RenderPage();
             return;
         }
@@ -107,8 +128,17 @@ public sealed partial class MainWindow
         if (_capturingTalkKey is not { } target)
             return;
 
-        _capturingTalkKey = null;
+        // A hotkey is claimed from every program, so a typing key stays refused and the button keeps waiting.
+        if (TalkSettings.IsHotkey(target) && !TalkKeys.CanBeHotkey(token))
+        {
+            _talkKeyRefusal = TalkKeys.HotkeyNeedsModifier;
+            RenderPage();
+            return;
+        }
+
+        _talkKeyRefusal = null;
         TalkChanged(s => s.WithKey(target, token));
+        SetCapturingTalkKey(null);
         RenderPage();
     }
 
@@ -168,8 +198,9 @@ public sealed partial class MainWindow
             controls.Clear.IsEnabled = talk.On;
         }
 
-        _talkLine.Text = _snapshot.TalkProblem ?? "";
-        _talkLine.IsVisible = _snapshot.TalkProblem is not null;
+        var line = string.Join(Environment.NewLine, new[] { _talkKeyRefusal, _snapshot.TalkProblem }.OfType<string>());
+        _talkLine.Text = line;
+        _talkLine.IsVisible = line.Length > 0;
     }
 
     private static string KeyCaption(string? key, bool waiting)

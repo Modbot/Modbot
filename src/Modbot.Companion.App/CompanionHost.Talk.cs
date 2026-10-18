@@ -35,7 +35,16 @@ internal sealed partial class CompanionHost
     private VRChatOsc? _talkOsc;
     private TalkController? _talk;
 
-    /// <summary>Starts Talk in Discord or VRChat if Settings has it on. Called once at start-up.</summary>
+    /// <summary>
+    /// A key is being recorded on the Settings card. The three hotkeys are given back to Windows for
+    /// that time, so pressing one of them to record it over itself records it instead of firing it.
+    /// </summary>
+    private bool _talkRecording;
+
+    /// <summary>
+    /// Starts Talk in Discord or VRChat if Settings has it on, and claims its hotkeys. Called once at
+    /// start-up and when the switch goes on.
+    /// </summary>
     private void StartTalk()
     {
         if (_state is null || !_state.Settings.Talk.On || _talk is not null)
@@ -66,7 +75,7 @@ internal sealed partial class CompanionHost
         ShowTalkProblem();
     }
 
-    /// <summary>Stops it and withdraws the announcement. Safe to call when it never started.</summary>
+    /// <summary>Stops it, withdraws the announcement and gives the hotkeys back. Safe to call when it never started.</summary>
     private void StopTalk()
     {
         _talk = null;
@@ -95,12 +104,17 @@ internal sealed partial class CompanionHost
         if (!CompanionSettings.SaveTalk(_settingsPath, talk))
             Log.Warning("Could not save the talk settings to {Path}", _settingsPath);
 
+        // Starting and stopping each match the hotkeys to the settings themselves; only a key
+        // changed while it keeps running still needs it.
+        var wasRunning = _talk is not null;
+
         if (talk.On)
             StartTalk();
         else
             StopTalk();
 
-        ApplyTalkHotkeys();
+        if (wasRunning && _talk is not null)
+            ApplyTalkHotkeys();
 
         // Off, or not on this system, leaves what StartTalk and StopTalk just said as it is.
         if (_talk is not null)
@@ -114,7 +128,9 @@ internal sealed partial class CompanionHost
         if (_state is null)
             return;
 
-        _state.TalkProblem = _talk?.State.Problem ?? TalkHotkeyProblem();
+        // Both when both are true: a hotkey taken by another program is not hidden by the controller's own problem.
+        var problems = new[] { _talk?.State.Problem, TalkHotkeyProblem() }.OfType<string>().ToArray();
+        _state.TalkProblem = problems.Length > 0 ? string.Join(Environment.NewLine, problems) : null;
 
         if (_overlay is not null)
             _overlay.Talk = TalkRowRule.For(_talk?.State);
@@ -132,14 +148,29 @@ internal sealed partial class CompanionHost
     private void PressTalk(TalkButton button)
     {
         if (_talk is { } talk)
-            _ = PressTalkAsync(talk, button);
+            _ = PressTalkAsync(talk, button, heldModifiers: 0);
     }
 
-    private static async Task PressTalkAsync(TalkController talk, TalkButton button)
+    /// <summary>
+    /// A button pressed by its hotkey. The hotkey's own modifiers are still down, so the controller
+    /// lets go of them before it presses Discord's key (<see cref="TalkController.PressHotkeyAsync"/>).
+    /// </summary>
+    private void PressTalkHotkey(TalkButton button, TalkKeySlot slot)
+    {
+        if (_talk is not { } talk)
+            return;
+
+        var held = TalkKeys.ReadHotkey(_state?.Settings.Talk.Key(slot))?.Modifiers ?? 0;
+        _ = PressTalkAsync(talk, button, held);
+    }
+
+    private static async Task PressTalkAsync(TalkController talk, TalkButton button, int heldModifiers)
     {
         try
         {
-            var result = await talk.PressButtonAsync(button).ConfigureAwait(false);
+            var result = heldModifiers == 0
+                ? await talk.PressButtonAsync(button).ConfigureAwait(false)
+                : await talk.PressHotkeyAsync(button, heldModifiers).ConfigureAwait(false);
             if (!result.Ok)
                 Log.Information("Talk button {Button} did not work: {Problem}", button, result.Problem);
         }
@@ -150,8 +181,25 @@ internal sealed partial class CompanionHost
     }
 
     /// <summary>
+    /// A key started or stopped being recorded on the Settings card. The hotkeys are given back for
+    /// as long as it is, and claimed again after.
+    /// </summary>
+    private void SetTalkRecording(bool recording)
+    {
+        if (_talkRecording == recording)
+            return;
+
+        _talkRecording = recording;
+        ApplyTalkHotkeys();
+
+        // The re-claim may find a key another program took in the meantime.
+        if (!recording && _talk is not null)
+            ShowTalkProblem();
+    }
+
+    /// <summary>
     /// Makes the three hotkeys match the settings: each recorded one claimed while Talk in Discord or
-    /// VRChat is running, each other one (and all of them when it is off) given back.
+    /// VRChat is running (and no key is being recorded), each other one given back.
     /// </summary>
     private void ApplyTalkHotkeys()
     {
@@ -159,7 +207,7 @@ internal sealed partial class CompanionHost
 
         foreach (var (slot, button) in TalkHotkeySlots)
         {
-            var wanted = _talk is not null && talk.On ? talk.Key(slot) : null;
+            var wanted = _talk is not null && talk.On && !_talkRecording ? talk.Key(slot) : null;
 
             if (wanted is null)
             {
@@ -171,8 +219,8 @@ internal sealed partial class CompanionHost
 
             if (!_talkHotkeys.TryGetValue(slot, out var shortcut))
             {
-                var pressed = button;
-                shortcut = new DesktopOverlayShortcut(() => PressTalk(pressed), key => TalkKeys.Read(key), "pressing a Talk button");
+                var (pressed, claimed) = (button, slot);
+                shortcut = new DesktopOverlayShortcut(() => PressTalkHotkey(pressed, claimed), key => TalkKeys.ReadHotkey(key), "pressing a Talk button");
                 _talkHotkeys[slot] = shortcut;
             }
 

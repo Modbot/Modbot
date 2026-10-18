@@ -2139,6 +2139,12 @@ public sealed record MainWindowActions(
     public Action<TalkSettings> SetTalk { get; init; } = _ => { };
 
     /// <summary>
+    /// A key started (true) or stopped (false) being recorded on the Talk card; the application
+    /// gives the Talk hotkeys back to Windows for that time.
+    /// </summary>
+    public Action<bool> SetTalkRecording { get; init; } = _ => { };
+
+    /// <summary>
     /// The text <strong>Copy crash details</strong> puts on the clipboard, made at the moment of
     /// the press, or null when VRChat's log has not named an instance or written a line. Added
     /// after the positional list the same way the others were.

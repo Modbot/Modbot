@@ -30,9 +30,46 @@ public class TalkKeysTests
     }
 
     [Fact]
-    public void ABareLetterIsAllowedBecauseItIsPressedNotClaimed()
+    public void ABareLetterCanBePressedForDiscord()
     {
         Assert.Equal(new ShortcutKeys(0, 'M'), TalkKeys.Read("m"));
+    }
+
+    [Theory]
+    [InlineData("f13")]
+    [InlineData("f1")]
+    [InlineData("shift+f9")]
+    [InlineData("mod+m")]
+    [InlineData("alt+5")]
+    [InlineData("mod+shift+m")]
+    [InlineData("mod+space")]
+    public void AHotkeyMayBeAFunctionKeyOrNeedCtrlOrAlt(string key)
+    {
+        Assert.True(TalkKeys.CanBeHotkey(key));
+        Assert.Equal(TalkKeys.Read(key), TalkKeys.ReadHotkey(key));
+    }
+
+    [Theory]
+    [InlineData("m")]
+    [InlineData("shift+m")]
+    [InlineData("5")]
+    [InlineData("num0")]
+    [InlineData("space")]
+    [InlineData("enter")]
+    [InlineData("arrowup")]
+    [InlineData("shift+space")]
+    public void AHotkeyThatWouldTakeATypingKeyFromEveryProgramIsRefused(string key)
+    {
+        Assert.NotNull(TalkKeys.Read(key));
+        Assert.Null(TalkKeys.ReadHotkey(key));
+        Assert.False(TalkKeys.CanBeHotkey(key));
+    }
+
+    [Fact]
+    public void WhatCannotBePressedIsNotAHotkeyEither()
+    {
+        Assert.Null(TalkKeys.ReadHotkey("mod+nosuchkey"));
+        Assert.Null(TalkKeys.ReadHotkey(null));
     }
 
     [Theory]

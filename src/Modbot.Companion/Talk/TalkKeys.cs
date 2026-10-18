@@ -21,8 +21,10 @@ public static class TalkKeys
     /// <summary>The recorded key as modifier flags and a virtual-key code, or null when it cannot be pressed.</summary>
     /// <remarks>
     /// Refused: nothing at all, a chord, more than one ordinary key, a key nobody has, and a
-    /// modifier on its own. A bare letter is allowed here, unlike the overlay's shortcut, because it
-    /// is pressed rather than claimed: nothing is taken from any other program.
+    /// modifier on its own. A bare letter is allowed here, unlike the overlay's shortcut, but only for
+    /// a key Modbot <em>presses</em> for Discord, where nothing is taken from any other program. A key
+    /// Modbot <em>claims</em> from Windows as a hotkey takes the key away from every program, so
+    /// <see cref="ReadHotkey"/> is stricter.
     /// </remarks>
     public static ShortcutKeys? Read(string? key)
     {
@@ -59,6 +61,35 @@ public static class TalkKeys
     }
 
     public static bool CanBePressed(string? key) => Read(key) is not null;
+
+    /// <summary>The one line shown when a typing key is offered as a hotkey.</summary>
+    public const string HotkeyNeedsModifier = "A hotkey needs Ctrl or Alt, or a function key.";
+
+    /// <summary>Windows' virtual-key codes for F1 and F24.</summary>
+    private const int FirstFunctionKey = 0x70;
+
+    private const int LastFunctionKey = 0x87;
+
+    /// <summary>
+    /// A recorded key as a hotkey Modbot may claim from Windows, or null. Everything
+    /// <see cref="Read"/> refuses is refused here, and so is any key without Ctrl or Alt that is not
+    /// a function key: claimed across the whole machine, a bare letter, digit, punctuation mark,
+    /// space, Enter, Tab or arrow would stop working in every other program, the game included
+    /// (Shift on its own does not help, as a capital letter is still typing).
+    /// </summary>
+    public static ShortcutKeys? ReadHotkey(string? key)
+    {
+        if (Read(key) is not { } keys)
+            return null;
+
+        var heldWithControl = (keys.Modifiers & (ShortcutKeys.Ctrl | ShortcutKeys.Alt)) != 0;
+        var functionKey = keys.Key is >= FirstFunctionKey and <= LastFunctionKey;
+
+        return heldWithControl || functionKey ? keys : null;
+    }
+
+    /// <summary>Whether <see cref="ReadHotkey"/> accepts the key.</summary>
+    public static bool CanBeHotkey(string? key) => ReadHotkey(key) is not null;
 
     /// <summary>The key as a person reads it: <c>Ctrl Shift M</c>, <c>F13</c>, <c>Num 0</c>.</summary>
     public static string Describe(string key)

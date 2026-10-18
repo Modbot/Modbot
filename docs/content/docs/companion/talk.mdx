@@ -62,11 +62,14 @@ card, record **Talk in Discord or VRChat hotkey**, **Discord Mute hotkey** and *
 hotkey**. They start unset, and a hotkey is only claimed from Windows while Talk in Discord or
 VRChat is on and a key is recorded.
 
-- A hotkey may be a single key with no modifier. It is taken from every other program while it is
-  claimed, so use a key such as `F15`.
-- A key lives in one place. Recording a key that is already recorded somewhere else takes it out of
-  the first place. That keeps one of your hotkeys from also being a key Modbot presses for Discord,
-  which would start the next press by itself.
+- A hotkey is taken from every other program while it is claimed. It may be a function key on its
+  own, such as `F15`, or any key with Ctrl or Alt. A letter, digit, punctuation mark, space, Enter,
+  Tab or arrow on its own is refused, because it would stop working everywhere else.
+- A key lives in one place. A hotkey and a key Modbot presses for Discord can not share their main
+  key (`F13` and `Ctrl+F13` are the same key here): recording one takes the other out of its
+  place. That keeps a hotkey from also being a key Modbot presses for Discord, which would start
+  the next press by itself.
+- While you record a key, the hotkeys are given back, so recording over a hotkey records it.
 - If another program already has a key, the card says so and the rest carries on.
 - **Clear** gives a hotkey back to Windows.
 
@@ -95,5 +98,6 @@ only two things it does with one, and a hotkey is a claim on exactly the keys yo
 | VRChat's microphone didn't change. Turn on Toggle Voice in VRChat's settings. | Turn on Toggle Voice. |
 | Record Discord's Toggle Mute key in Settings. | Record the key (the same for Toggle Deafen). |
 | Windows would not send the key. | Try again; nothing was changed. |
+| A hotkey needs Ctrl or Alt, or a function key. | Record a function key, or add Ctrl or Alt. |
 | Another program has F15. | Record a different hotkey. |
 | Only works on Windows. | Windows only. |

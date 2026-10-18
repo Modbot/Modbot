@@ -64,9 +64,12 @@ public sealed record TalkSettings(
     };
 
     /// <summary>
-    /// The same settings with one slot set (null clears it). A key lives in one slot only: the same
-    /// key already recorded in another slot is taken out of it. Without that, the key Modbot presses
-    /// for Discord could also be one of Modbot's own hotkeys, and each press would start the next.
+    /// The same settings with one slot set (null clears it). A key lives in one slot only: a key
+    /// that clashes with it in another slot is taken out of that one. Without that, the key Modbot
+    /// presses for Discord could also be one of Modbot's own hotkeys, and each press would start the
+    /// next. Between a hotkey and a Discord key the clash is the <em>main key</em>, whatever is held
+    /// with it: when <c>Ctrl+F13</c> fires, Ctrl is still down, so Modbot's own F13 would go out as
+    /// another Ctrl+F13.
     /// </summary>
     public TalkSettings WithKey(TalkKeySlot slot, string? key)
     {
@@ -76,7 +79,7 @@ public sealed record TalkSettings(
         {
             foreach (var other in Enum.GetValues<TalkKeySlot>())
             {
-                if (other != slot && Same(Key(other), key))
+                if (other != slot && Clash(slot, key, other, Key(other)))
                     set = set.Put(other, null);
             }
         }
@@ -87,7 +90,8 @@ public sealed record TalkSettings(
     /// <summary>
     /// The same settings with a key that cannot be pressed (a hand-edited file) taken out, so it
     /// reads as "not recorded" rather than as a key that silently does nothing. A key recorded in
-    /// two slots stays in the first one only.
+    /// two slots stays in the first one only. A hotkey that Windows could not be asked for without
+    /// taking a typing key from every program (<see cref="TalkKeys.ReadHotkey"/>) is taken out too.
     /// </summary>
     public TalkSettings Cleaned()
     {
@@ -96,7 +100,7 @@ public sealed record TalkSettings(
         foreach (var slot in Enum.GetValues<TalkKeySlot>())
         {
             var key = cleaned.Key(slot);
-            if (!TalkKeys.CanBePressed(key))
+            if (!(IsHotkey(slot) ? TalkKeys.CanBeHotkey(key) : TalkKeys.CanBePressed(key)))
             {
                 cleaned = cleaned.Put(slot, null);
                 continue;
@@ -107,7 +111,7 @@ public sealed record TalkSettings(
 
             foreach (var later in Enum.GetValues<TalkKeySlot>().Where(s => s > slot))
             {
-                if (Same(cleaned.Key(later), key))
+                if (Clash(slot, key, later, cleaned.Key(later)))
                     cleaned = cleaned.Put(later, null);
             }
         }
@@ -115,9 +119,22 @@ public sealed record TalkSettings(
         return cleaned;
     }
 
-    /// <summary>Whether two recorded keys press the same keys, however they are spelled.</summary>
-    private static bool Same(string? a, string? b)
-        => TalkKeys.Read(a) is { } first && TalkKeys.Read(b) is { } second && first == second;
+    /// <summary>Whether a slot holds a key Modbot claims from Windows, rather than one it presses.</summary>
+    public static bool IsHotkey(TalkKeySlot slot)
+        => slot is TalkKeySlot.SwapHotkey or TalkKeySlot.MuteHotkey or TalkKeySlot.DeafenHotkey;
+
+    /// <summary>
+    /// Whether two recorded keys cannot both stay. Two Discord keys or two hotkeys clash when they
+    /// are the very same keys, however spelled; a hotkey and a Discord key clash when their main
+    /// key is the same, because the hotkey's modifiers are still held when Modbot presses the other.
+    /// </summary>
+    private static bool Clash(TalkKeySlot slotA, string? a, TalkKeySlot slotB, string? b)
+    {
+        if (TalkKeys.Read(a) is not { } first || TalkKeys.Read(b) is not { } second)
+            return false;
+
+        return IsHotkey(slotA) != IsHotkey(slotB) ? first.Key == second.Key : first == second;
+    }
 
     private TalkSettings Put(TalkKeySlot slot, string? key) => slot switch
     {

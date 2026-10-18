@@ -122,6 +122,12 @@ Already rejected by the clips design (§11.2): the client asks Windows for exact
 combination, by name, and says so as part of the argument that it does not read the keyboard. This
 did not change it.
 
+> **Narrowed 2026-10-17.** "Exactly one" no longer holds, for a different feature: the owner
+> approved desktop hotkeys for Talk in Discord or VRChat, so the client asks Windows for the
+> combinations the person records themselves (the overlay's, and up to three Talk hotkeys). See
+> the Talk design (`2026-10-17-talk-in-discord-or-vrchat-design.md`, §7) and the clips design §11.2.
+> Listening still gets no key of its own.
+
 ---
 
 ## 3. Not blocking the microphone

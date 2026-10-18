@@ -4,8 +4,8 @@ description: Every setting in the companion, including starting with Windows, th
 ---
 
 The client's **Settings** page has the start-with-Windows switch, the **Close to tray** box, the **Tell me about**,
-**Voice**, [**Clips**](/companion/clips) and [**Listening**](/companion/listening) cards, and the VRChat log
-folder. The rest is set in the client's settings file or in environment variables on your PC.
+**Voice**, [**Clips**](/companion/clips), [**Listening**](/companion/listening) and
+[**Talk in Discord or VRChat**](/companion/talk) cards, and the VRChat log folder. The rest is set in the client's settings file or in environment variables on your PC.
 
 Nothing on this page is sent to any server. These settings decide what the client does on your PC.
 
@@ -274,6 +274,12 @@ the file:
 | `clips.keepGigabytes` | `5` | How much room saved clips may take before the oldest are deleted, 1 to 200. There is no control for this on the screen. |
 | `listenForPhrase.on` | `false` | The **Listen for "Modbot"** switch. Off until you turn it on; no microphone is opened while it is off. With it on, saying the name and then **clip that**, **show overlay** or **hide overlay** does those things. See [Listening](/companion/listening). |
 | `listenForPhrase.microphone` | absent | Which microphone to listen on, by Windows' own id for it. Absent means the Windows default, followed wherever Windows moves it. Pick it on the **Listening** card rather than typing it here. |
+| `talk.on` | `false` | The **On** switch on the **Talk in Discord or VRChat** card. Off until you turn it on; nothing is announced to VRChat, no key is pressed and no hotkey is claimed while it is off. See [Talk in Discord or VRChat](/companion/talk). |
+| `talk.discordMuteKey` | absent | The key you recorded for Discord's **Toggle Mute**, which Modbot presses for you, written the way the other keys here are: `f13`, `mod+shift+m`, `num0`. Absent means none is recorded, and the buttons that need it say so. |
+| `talk.discordDeafenKey` | absent | The same for Discord's **Toggle Deafen**. |
+| `talk.swapHotkey` | absent | The hotkey for the **Talk in Discord/VRChat** button, claimed from Windows while Talk is on. Absent means none. It needs Ctrl or Alt, or must be a function key; anything else is read as not recorded. See [On the keyboard](/companion/talk#on-the-keyboard). |
+| `talk.muteHotkey` | absent | The hotkey for the **Discord Mute** button, with the same rules. |
+| `talk.deafenHotkey` | absent | The hotkey for the **Discord Deafen** button, with the same rules. |
 
 For example:
 

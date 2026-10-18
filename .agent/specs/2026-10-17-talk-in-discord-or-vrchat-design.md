@@ -211,8 +211,24 @@ or presses until a person ticks the box; unticking gives the port and the advert
   `TalkController.SwapAsync` reads the side when its turn comes, not when it was asked.
 - **Hotkeys.** Three more recorded keys in the same card (`swapHotkey`, `muteHotkey`,
   `deafenHotkey` in the `talk` object), unset by default, claimed from Windows one key each
-  through `RegisterHotKey` (the desktop overlay shortcut's class) only while the feature is on. A key
-  lives in one slot only, so a hotkey can never also be a key Modbot presses for Discord.
+  through `RegisterHotKey` (the desktop overlay shortcut's class) only while the feature is on. This
+  narrows the clips design's "exactly one keyboard combination" (§11.2) because the owner approved
+  desktop hotkeys for Talk (2026-10-17); the client now asks Windows only for combinations the person
+  records. It still reads no key.
+  - **Only keys that are safe to claim.** A hotkey is taken from every program, so one with no Ctrl
+    or Alt must be a function key (`TalkKeys.ReadHotkey`); a bare letter, digit, punctuation mark,
+    space, Enter, Tab or arrow is refused with one line on the card. A key Modbot only *presses*
+    for Discord may be bare.
+  - **One slot.** A hotkey and a Discord key clash on the main key, whatever is held with it.
+    When `Ctrl+F13` fires Ctrl is still down, so Modbot's own F13 would reach Discord as `Ctrl+F13`
+    and could fire the hotkey again or miss Discord's bind. Two Discord keys, or two hotkeys, clash
+    only when they are the same keys.
+  - **Held modifiers.** As a hotkey fires, `TalkController.PressHotkeyAsync` first lets go of the
+    hotkey's own modifiers (`IKeyPresser.ReleaseModifiers`, key-ups only), so the Discord key goes
+    out as recorded. Waiting for the person to let go would need a read of the keyboard's state,
+    which the client never does (`CompanionSourceGuardTests`).
+  - **Recording.** While a key is being recorded on the card the three hotkeys are given back to
+    Windows and claimed again after, so recording a hotkey over itself records it.
 - **Wiring.** The overlay loop only says which button was tapped (`OverlayDriver.TalkAsked`); the
   host owns the controller and acts, as for Save a clip. The host hands the loop the row on each
   turn, because VRChat can change its own microphone.

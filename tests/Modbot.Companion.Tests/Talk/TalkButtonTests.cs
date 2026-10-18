@@ -37,6 +37,8 @@ public class TalkButtonTests
             log.Add(keys.Key switch { MuteCode => "press mute", DeafenCode => "press deafen", _ => $"press {keys.Key:X}" });
             return true;
         }
+
+        public void ReleaseModifiers(int modifiers) => log.Add($"release {modifiers}");
     }
 
     private static (TalkController Talk, FakeMic Mic, List<string> Log) Make(bool? vrchatMuted, TalkSettings? settings = null)
@@ -144,6 +146,46 @@ public class TalkButtonTests
         await talk.PressButtonAsync(TalkButton.Swap, TestContext.Current.CancellationToken);
 
         Assert.Equal(TalkSide.Discord, talk.State.Side);
+    }
+
+    [Fact]
+    public async Task AHotkeyLetsGoOfItsOwnModifiersBeforeAnythingIsPressed()
+    {
+        var (talk, _, log) = Make(vrchatMuted: true);
+
+        await talk.PressHotkeyAsync(TalkButton.DiscordMute, ShortcutKeys.Ctrl | ShortcutKeys.Shift, TestContext.Current.CancellationToken);
+
+        Assert.Equal([$"release {ShortcutKeys.Ctrl | ShortcutKeys.Shift}", "press mute"], log);
+    }
+
+    [Fact]
+    public async Task AHotkeyWithNoModifierLetsGoOfNothing()
+    {
+        var (talk, _, log) = Make(vrchatMuted: true);
+
+        await talk.PressHotkeyAsync(TalkButton.DiscordMute, 0, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["press mute"], log);
+    }
+
+    [Fact]
+    public async Task APanelButtonLetsGoOfNothing()
+    {
+        var (talk, _, log) = Make(vrchatMuted: true);
+
+        await talk.PressButtonAsync(TalkButton.DiscordMute, TestContext.Current.CancellationToken);
+
+        Assert.DoesNotContain(log, entry => entry.StartsWith("release", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task AHotkeyWhileItIsOffLetsGoOfNothing()
+    {
+        var (talk, _, log) = Make(vrchatMuted: true, TalkSettings.Default);
+
+        await talk.PressHotkeyAsync(TalkButton.DiscordMute, ShortcutKeys.Ctrl, TestContext.Current.CancellationToken);
+
+        Assert.Empty(log);
     }
 
     [Fact]

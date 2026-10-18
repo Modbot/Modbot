@@ -15,6 +15,9 @@ namespace Modbot.Companion.App;
 /// and Toggle Deafen, and only when Talk in Discord or VRChat is on and a button or hotkey asks.
 /// <c>CompanionSourceGuardTests</c> fails the build if a key-reading call appears anywhere the
 /// client ships.</para>
+/// <para>A Talk hotkey fires while its own modifiers are still down. <see cref="ReleaseModifiers"/>
+/// sends only their key-ups, once, so the key that follows reaches Discord as recorded; it asks
+/// Windows nothing about which keys are held.</para>
 /// <para>Windows hands the press to whichever program wants it: Discord's own keybind, which it
 /// listens for on every program, or, if the recorded key is an ordinary one, whichever window has
 /// the keyboard. That is why Settings suggests a key nobody types, such as F13.</para>
@@ -112,6 +115,27 @@ internal sealed class WindowsKeyPresser : IKeyPresser
         SendInput((uint)release.Count, release.ToArray(), Marshal.SizeOf<Input>());
 
         return false;
+    }
+
+    /// <inheritdoc />
+    public void ReleaseModifiers(int modifiers)
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        var up = new List<Input>();
+        if ((modifiers & ShortcutKeys.Ctrl) != 0)
+            up.Add(Event(Control, up: true));
+        if ((modifiers & ShortcutKeys.Alt) != 0)
+            up.Add(Event(Menu, up: true));
+        if ((modifiers & ShortcutKeys.Shift) != 0)
+            up.Add(Event(ShiftKey, up: true));
+
+        if (up.Count == 0)
+            return;
+
+        var array = up.ToArray();
+        SendInput((uint)array.Length, array, Marshal.SizeOf<Input>());
     }
 
     private static Input Event(int key, bool up) => new()

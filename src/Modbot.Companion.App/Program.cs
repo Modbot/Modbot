@@ -4040,6 +4040,7 @@ internal sealed partial class CompanionHost : IOverlayListener
                 SaveClip = SaveClip,
                 SetListening = SetListening,
                 SetTalk = SetTalk,
+                SetTalkRecording = SetTalkRecording,
 
                 // Made on this PC at the press, from VRChat's log and the companion's own memory of
                 // the instance, in this PC's own timezone offset. Copied, never sent.

@@ -28,6 +28,13 @@ public interface IKeyPresser
 {
     /// <summary>True if Windows took the press.</summary>
     bool Press(ShortcutKeys keys);
+
+    /// <summary>
+    /// Lets go of the modifier keys in <paramref name="modifiers"/> (<see cref="ShortcutKeys.Ctrl"/> and
+    /// the others, added together), as if the hand had lifted them. Letting go of a key that is not
+    /// down does nothing.
+    /// </summary>
+    void ReleaseModifiers(int modifiers);
 }
 
 /// <summary>How an action ended.</summary>
@@ -163,6 +170,23 @@ public sealed class TalkController
         TalkButton.DiscordDeafen => ToggleDiscordDeafenAsync(cancellationToken),
         _ => throw new ArgumentOutOfRangeException(nameof(button)),
     };
+
+    /// <summary>
+    /// A button pressed by its hotkey. Windows says the hotkey fired while the keys it was made of
+    /// are still down, so a Discord key pressed now (<c>F13</c>) would reach Discord as, say,
+    /// <c>Ctrl+F13</c>, and miss Discord's bind or fire the hotkey again. The hotkey's own modifiers are
+    /// let go first, once, as the hotkey fires, and the button then runs as it does from the panel.
+    /// </summary>
+    /// <param name="button">The button the hotkey is for.</param>
+    /// <param name="heldModifiers">The modifier keys the hotkey is made of (<see cref="ShortcutKeys.Modifiers"/>).</param>
+    /// <param name="cancellationToken">Cancels the wait for the press.</param>
+    public Task<TalkResult> PressHotkeyAsync(TalkButton button, int heldModifiers, CancellationToken cancellationToken = default)
+    {
+        if (heldModifiers != 0 && _settings().On)
+            _keys.ReleaseModifiers(heldModifiers);
+
+        return PressButtonAsync(button, cancellationToken);
+    }
 
     /// <summary>One press of Discord's Toggle Mute key.</summary>
     public Task<TalkResult> ToggleDiscordMuteAsync(CancellationToken cancellationToken = default)

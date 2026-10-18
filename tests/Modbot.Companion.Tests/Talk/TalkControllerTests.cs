@@ -60,6 +60,8 @@ public class TalkControllerTests
 
             return Works;
         }
+
+        public void ReleaseModifiers(int modifiers) => events.Log.Add($"release {modifiers}");
     }
 
     private sealed record Rig(Events Events, FakeMic Mic, FakeKeys Keys, TalkController Talk, Box<TalkSettings> Settings);

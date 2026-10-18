@@ -649,6 +649,12 @@ documentation as part of the argument that it does not read the keyboard. A seco
 small reversal of a real promise, bought for a control that already exists on a panel the moderator
 is looking at. Not worth it, and not built.
 
+> **Narrowed 2026-10-17.** "Exactly one" no longer holds: the owner approved desktop hotkeys for
+> Talk in Discord or VRChat, so the client now asks Windows for the combinations the person
+> records themselves: the overlay's one, and up to three Talk hotkeys, each only while Talk is on
+> (Talk design §7). The argument that it does not read the keyboard stands: each is a claim on the
+> keys recorded, no key list and no hook. Saving a clip still gets no key of its own.
+
 ### 11.3 It never looks like it worked when it did not
 
 This is most of the work. Inside a headset there is no settings screen, no file explorer and no
