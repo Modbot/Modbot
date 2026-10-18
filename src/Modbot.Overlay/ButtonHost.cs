@@ -557,7 +557,7 @@ public sealed class ButtonHost : IDisposable
             Draw();
     }
 
-    /// <summary>The bar, or null while edit mode is off and the button is the whole picture.</summary>
+    /// <summary>The bar, or null while edit mode is off and the strip under the card is empty.</summary>
     private PanelBar? Bar() => EditMode ? PanelBar.For(_interaction.Placement, _rayOnPanel) : null;
 
     private bool Draw()

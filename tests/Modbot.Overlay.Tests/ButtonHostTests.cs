@@ -375,6 +375,108 @@ public class ButtonHostTests
         });
     }
 
+    [Fact]
+    public void TwoQuickGripsKeepTheBiggerSquareTheRoomIsToldAndTheCardsOwnSavedShape()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var moved = OverlayButton.ToPlacement(ButtonPlace.Corner) with { Offset = new OverlayPose(-0.1f, 0.1f, -0.6f), Width = 0.3f };
+            var runtime = new AttachedRuntime();
+            using var host = new ButtonHost(runtime, new FakeSurface(), new AvaloniaFrameRenderer(Size, Size), ButtonPlace.Corner, moved);
+            runtime.Start();
+            host.Start();
+            host.Update(ButtonScreen.Shown);
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host), grab: true));
+            host.PollInput(At(0));
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host)));
+            host.PollInput(At(0.1));
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host), grab: true));
+            host.PollInput(At(0.2));
+
+            var own = OverlayButton.ToPlacement(ButtonPlace.Corner);
+            var told = runtime.Placed[^1];
+
+            // The room is told the card's own spot and width, with the 1.75 square around it.
+            Assert.Equal(1.75f, OverlayButton.CanvasScale);
+            Assert.Equal(OverlayButton.CanvasScale, told.Wide);
+            Assert.Equal(OverlayButton.CanvasScale, told.Tall);
+            Assert.Equal(own.Offset, told.Offset);
+            Assert.Equal(own.Width, told.Width, 3);
+
+            // What is saved is the card's own, not the square.
+            Assert.Equal(1f, host.Placement.Wide);
+            Assert.Equal(1f, host.Placement.Tall);
+        });
+    }
+
+    [Fact]
+    public void AWristButtonWithASavedSpotKeepsTheCardsSpotAndSizeWithEditModeOnAndOff()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var saved = OverlayButton.ToPlacement(ButtonPlace.Wrist) with { Offset = new OverlayPose(0.03f, 0.05f, -0.04f) };
+            var runtime = new AttachedRuntime();
+            using var host = new ButtonHost(runtime, new FakeSurface(), new AvaloniaFrameRenderer(Size, Size), ButtonPlace.Wrist, saved);
+            runtime.Start();
+            host.Start();
+            host.Update(ButtonScreen.Shown);
+
+            var off = CardEdges(host);
+            var placed = runtime.Placed.Count;
+            var told = runtime.Placed[^1];
+
+            host.EditMode = true;
+            var on = CardEdges(host);
+
+            Assert.Equal(saved, host.Placement);
+            Assert.Equal(OverlayAnchor.LeftHand, told.Anchor);
+            Assert.Equal(saved.Offset, told.Offset);
+            Assert.Equal(saved.Width, told.Width, 3);
+            Assert.Equal(saved.Width, OverlayButton.CardPixels * told.Side / Size, 4);
+
+            // Edit mode tells the room nothing new and moves no edge of the card.
+            Assert.Equal(placed, runtime.Placed.Count);
+            Assert.Equal(off, on);
+            Assert.Equal(saved, host.Placement);
+        });
+    }
+
+    [Fact]
+    public void ARayOnTheClearGroundWithEditModeOffGivesNoGripNoPointerAndNoBusyHand()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+            using var button = host;
+            var saved = new List<OverlayPlacement>();
+            host.PlacementChanged += saved.Add;
+
+            // Under the card, in the strip the bar takes in edit mode, and out at the picture's side.
+            var under = -((host.Placement.Side / 2f) + 0.02f);
+            var beside = (host.Placement.Side / 2f) + 0.02f;
+
+            foreach (var (across, up) in new[] { (0f, under), (beside, 0f) })
+            {
+                runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host, across, up)));
+                host.PollInput(At(0));
+                Assert.Null(host.Busy);
+                Assert.Null(host.LitUp);
+
+                runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host, across, up), grab: true));
+                host.PollInput(At(1));
+                Assert.Null(host.Holding);
+                Assert.Null(host.Busy);
+                Assert.Null(host.LitUp);
+
+                runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host, across, up)));
+                host.PollInput(At(2));
+            }
+
+            Assert.Empty(saved);
+        });
+    }
+
     /// <summary>
     /// The right hand takes the button where it hangs from the left hand, carries it 10 cm to the
     /// side in the room, and lets go while the left hand is <paramref name="leftAtRelease"/>.
