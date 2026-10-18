@@ -318,6 +318,103 @@ public class OverlayHostInputTests
         });
     }
 
+    private static (float Across, float Down) ScrollDownAndFindArrow(OverlayHost host, AttachedRuntime runtime)
+    {
+        runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(Centre)));
+        host.PollInput(TimeSpan.Zero);
+        var row = FindRow(host, "usr_1");
+
+        for (var i = 0; i < 20; i++)
+        {
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down), scroll: new Vector2(0, -1)));
+            host.PollInput(TimeSpan.FromMilliseconds(10 * i));
+        }
+
+        runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down)));
+        host.PollInput(TimeSpan.FromMilliseconds(300));
+        Assert.True(host.ListOffset > 0);
+
+        // Sweep the panel for the arrow, using the host's own hit testing.
+        for (var down = 0.02f; down < 1f; down += 0.01f)
+        {
+            for (var across = 0.1f; across < 0.9f; across += 0.02f)
+            {
+                if (host.TargetAt(across, down) is OverlayTarget.BackToTop)
+                    return (across, down);
+            }
+        }
+
+        throw new InvalidOperationException("No arrow on the panel.");
+    }
+
+    [Fact]
+    public void AScrolledListShowsTheArrowAndAListAtItsTopDoesNot()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build(30);
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(Centre)));
+            host.PollInput(TimeSpan.Zero);
+            Assert.Equal(0, host.ListOffset);
+
+            for (var down = 0.02f; down < 1f; down += 0.01f)
+            {
+                for (var across = 0.1f; across < 0.9f; across += 0.02f)
+                    Assert.IsNotType<OverlayTarget.BackToTop>(host.TargetAt(across, down));
+            }
+
+            Assert.NotEqual((0f, 0f), ScrollDownAndFindArrow(host, runtime));
+        });
+    }
+
+    [Fact]
+    public void PressingTheArrowSendsTheListBackToTheTopAndClicksNoRowUnderIt()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build(30);
+            var taps = new List<OverlayTarget?>();
+            host.Tapped += taps.Add;
+            var arrow = ScrollDownAndFindArrow(host, runtime);
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(arrow.Across, arrow.Down), click: true));
+            host.PollInput(TimeSpan.FromMilliseconds(310));
+
+            Assert.Equal(0, host.ListOffset);
+            Assert.False(host.Scrolling);
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(arrow.Across, arrow.Down)));
+            host.PollInput(TimeSpan.FromMilliseconds(320));
+
+            Assert.Equal(0, host.ListOffset);
+            Assert.Empty(taps);
+        });
+    }
+
+    [Fact]
+    public void ADragThatStartsOnTheArrowDoesNotScrollTheList()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build(30);
+            var arrow = ScrollDownAndFindArrow(host, runtime);
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(arrow.Across, arrow.Down), click: true));
+            host.PollInput(TimeSpan.FromMilliseconds(310));
+
+            // The ray goes up the panel with the trigger held, which would carry a list with it.
+            for (var i = 1; i <= 5; i++)
+            {
+                runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(arrow.Across, arrow.Down - (0.04f * i)), click: true));
+                host.PollInput(TimeSpan.FromMilliseconds(310 + (10 * i)));
+            }
+
+            Assert.Equal(0, host.ListOffset);
+            Assert.False(host.Scrolling);
+        });
+    }
+
     [Fact]
     public void PlacingFromTheSettingsPageReachesTheRuntime()
     {

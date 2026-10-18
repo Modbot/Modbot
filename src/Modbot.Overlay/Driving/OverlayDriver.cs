@@ -593,6 +593,12 @@ public sealed class OverlayDriver : IDisposable
             case OverlayTarget.BackFromPerson:
                 _page = _personFrom;
                 break;
+            case OverlayTarget.BackToTop top:
+                if (top.List is OverlayPage.Events)
+                    _eventSkip = 0;
+                else
+                    _rosterSkip = 0;
+                break;
             case OverlayTarget.Filter or OverlayTarget.Pick or OverlayTarget.ClearFilters:
                 // A filter's choices and a heads-up being written share the space under the tabs.
                 _draft = _draft is { Sending: true } ? _draft : null;

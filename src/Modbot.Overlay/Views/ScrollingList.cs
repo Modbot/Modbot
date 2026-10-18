@@ -18,8 +18,10 @@ namespace Modbot.Overlay.Views;
 /// <para>The room for the bar is always kept, scrollable or not, so rows are the same width whether the
 /// list is long enough to scroll or not and a list that grows one row longer does not re-wrap
 /// the ones it had. The bar is drawn only when there is something to scroll to. It is display only.</para>
+/// <para>A list that is scrolled down also shows an arrow at its top centre that takes it back to the top
+/// (<see cref="TopButton"/>). It floats over the rows and is not moved with them; at the top it is hidden.</para>
 /// </remarks>
-internal sealed class ScrollingList : Decorator
+internal sealed class ScrollingList : Control
 {
     /// <summary>The room kept down the right-hand side for the bar, in layout pixels.</summary>
     public const double Gutter = 12;
@@ -28,25 +30,41 @@ internal sealed class ScrollingList : Decorator
     private const double BarEdge = 2;
     private const double LeastThumb = 28;
 
+    /// <summary>How far down the list has to be before the arrow back to the top shows, in layout pixels.</summary>
+    private const double TopButtonAfter = 24;
+
+    /// <summary>The gap between the top of the list and the arrow.</summary>
+    private const double TopButtonGap = 4;
+
     private readonly IBrush _bar;
+    private readonly Control _rows;
     private double _wanted;
     private double _content;
     private double _room;
+    private bool _topShown;
 
     /// <param name="rows">The list, all of it.</param>
     /// <param name="bar">The colour the bar is drawn in.</param>
     /// <param name="offset">How far the list is scrolled to begin with, in layout pixels.</param>
-    public ScrollingList(Control rows, IBrush bar, double offset)
+    /// <param name="topButton">The arrow that takes the list back to the top, or null for a list without one.</param>
+    public ScrollingList(Control rows, IBrush bar, double offset, Control? topButton = null)
     {
         ArgumentNullException.ThrowIfNull(rows);
         ArgumentNullException.ThrowIfNull(bar);
 
         _bar = bar;
+        _rows = rows;
         _wanted = offset;
         ClipToBounds = true;
-        Child = rows;
+        Adopt(rows);
+
+        TopButton = topButton;
+        ShowTopButton();
         Place();
     }
+
+    /// <summary>The arrow back to the top, in the tree only while the list is scrolled down; null when the list has none.</summary>
+    public Control? TopButton { get; }
 
     /// <summary>How far the rows are scrolled up, in layout pixels: as asked for, held inside the list's ends.</summary>
     public double Offset
@@ -56,6 +74,7 @@ internal sealed class ScrollingList : Decorator
         {
             _wanted = value;
             Place();
+            ShowTopButton();
             InvalidateVisual();
         }
     }
@@ -80,32 +99,71 @@ internal sealed class ScrollingList : Decorator
         return null;
     }
 
-    private void Place()
+    private void Adopt(Control child)
     {
-        if (Child is not null)
-            Child.RenderTransform = new TranslateTransform(0, -Offset);
+        LogicalChildren.Add(child);
+        VisualChildren.Add(child);
+    }
+
+    private void Place() => _rows.RenderTransform = new TranslateTransform(0, -Offset);
+
+    /// <summary>
+    /// Puts the arrow in the tree while the list is scrolled down and takes it out at the top, so at the top it is
+    /// not drawn and not a target. The list may be scrolled on a tree that is already laid out and is not laid out
+    /// again, so an arrow that comes in is measured and placed here, not left to the next layout.
+    /// </summary>
+    private void ShowTopButton()
+    {
+        if (TopButton is null || _topShown == Offset > TopButtonAfter)
+            return;
+
+        _topShown = !_topShown;
+
+        if (_topShown)
+        {
+            // After the rows, so it is drawn over them.
+            Adopt(TopButton);
+            PlaceTopButton(Bounds.Width);
+        }
+        else
+        {
+            VisualChildren.Remove(TopButton);
+            LogicalChildren.Remove(TopButton);
+        }
+    }
+
+    private void PlaceTopButton(double width)
+    {
+        if (!_topShown || TopButton is null)
+            return;
+
+        TopButton.Measure(Size.Infinity);
+        var size = TopButton.DesiredSize;
+        var across = Math.Max(0, width - Gutter);
+        TopButton.Arrange(new Rect(Math.Max(0, (across - size.Width) / 2), TopButtonGap, size.Width, size.Height));
     }
 
     protected override Size MeasureOverride(Size availableSize)
     {
-        if (Child is null)
-            return default;
-
-        Child.Measure(new Size(Math.Max(0, availableSize.Width - Gutter), double.PositiveInfinity));
-        _content = Child.DesiredSize.Height;
+        _rows.Measure(new Size(Math.Max(0, availableSize.Width - Gutter), double.PositiveInfinity));
+        _content = _rows.DesiredSize.Height;
 
         var room = double.IsInfinity(availableSize.Height) ? _content : Math.Min(_content, availableSize.Height);
         _room = room;
         Place();
+        ShowTopButton();
 
-        var width = double.IsInfinity(availableSize.Width) ? Child.DesiredSize.Width + Gutter : availableSize.Width;
+        var width = double.IsInfinity(availableSize.Width) ? _rows.DesiredSize.Width + Gutter : availableSize.Width;
         return new Size(width, room);
     }
 
     protected override Size ArrangeOverride(Size finalSize)
     {
         _room = finalSize.Height;
-        Child?.Arrange(new Rect(0, 0, Math.Max(0, finalSize.Width - Gutter), _content));
+        var across = Math.Max(0, finalSize.Width - Gutter);
+        _rows.Arrange(new Rect(0, 0, across, _content));
+
+        PlaceTopButton(finalSize.Width);
         Place();
         return finalSize;
     }

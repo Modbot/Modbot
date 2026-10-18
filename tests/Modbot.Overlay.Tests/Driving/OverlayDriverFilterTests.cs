@@ -249,6 +249,19 @@ public class OverlayDriverFilterTests
     }
 
     [Fact]
+    public async Task TheBackToTopArrowTakesTheRosterBackToTheTop()
+    {
+        var (driver, _, _) = await Build();
+
+        driver.ScrollRoster(3);
+        Assert.Equal(3, driver.RosterSkip);
+
+        driver.Tap(new OverlayTarget.BackToTop(OverlayPage.Instance));
+
+        Assert.Equal(0, driver.RosterSkip);
+    }
+
+    [Fact]
     public async Task OpeningAFilterLeavesTheScrollWhereItWas()
     {
         var (driver, _, _) = await Build();

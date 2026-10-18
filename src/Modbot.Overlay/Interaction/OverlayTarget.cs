@@ -39,6 +39,12 @@ public abstract record OverlayTarget
     /// <summary>The events list. Scrolling while pointing here moves the list.</summary>
     public sealed record Events : OverlayTarget;
 
+    /// <summary>
+    /// The arrow that takes a list scrolled down back to its top. It is not part of the list, so a press on it
+    /// is not a press on the row under it and does not start a drag.
+    /// </summary>
+    public sealed record BackToTop(Views.OverlayPage List) : OverlayTarget;
+
     /// <summary>Save a clip: keep the last few minutes as a file on this PC.</summary>
     /// <remarks>
     /// The one target that does something rather than showing something, and it is still not an
@@ -247,6 +253,8 @@ public static class OverlayTargets
             return true;
 
         // What a list has scrolled out of its room is not drawn, and the rest is where the scroll put it.
+        // The back-to-top arrow floats over the list and is not scrolled with it.
+        var floating = origin;
         if (visual is Views.ScrollingList list)
         {
             if (!box.Contains(point))
@@ -258,7 +266,8 @@ public static class OverlayTargets
         var inside = visual is Views.Zoom zoom ? scale * zoom.Scale : scale;
         foreach (var child in visual.GetVisualChildren())
         {
-            if (DrawnAt(child, origin, inside, opacity, point))
+            var from = visual is Views.ScrollingList own && ReferenceEquals(child, own.TopButton) ? floating : origin;
+            if (DrawnAt(child, from, inside, opacity, point))
                 return true;
         }
 
@@ -277,7 +286,9 @@ public static class OverlayTargets
         if (visual is Control { Tag: OverlayTarget target } && shown.Width > 0 && shown.Height > 0)
             found.Add(new PlacedTarget(target, shown));
 
-        // The list's rows are where its scroll put them, inside the room it has.
+        // The list's rows are where its scroll put them, inside the room it has. The back-to-top arrow
+        // floats over the list and is not scrolled with it.
+        var floating = origin;
         if (visual is Views.ScrollingList list)
         {
             clip = shown;
@@ -286,6 +297,9 @@ public static class OverlayTargets
 
         var inside = visual is Views.Zoom zoom ? scale * zoom.Scale : scale;
         foreach (var child in visual.GetVisualChildren())
-            Walk(child, origin, inside, clip, found);
+        {
+            var from = visual is Views.ScrollingList own && ReferenceEquals(child, own.TopButton) ? floating : origin;
+            Walk(child, from, inside, clip, found);
+        }
     }
 }

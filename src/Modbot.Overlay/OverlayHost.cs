@@ -515,6 +515,12 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
                     Switch(Placement with { ClickThrough = !Placement.ClickThrough });
                     break;
 
+                // The list's own arrow: this panel's business too, the list goes back to its top.
+                case OverlayTarget.BackToTop:
+                    ShownScroll.Reset();
+                    DrawScrolled();
+                    break;
+
                 // Out of edit mode the bar is not there to press, laid out or not.
                 case OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough or OverlayTarget.ResizeCorner:
                     break;
