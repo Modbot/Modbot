@@ -157,7 +157,7 @@ the Companion.
 
 | Case | What happens | Says |
 |---|---|---|
-| Feature off | every action does nothing | "Talk in Discord is off." |
+| Feature off | every action does nothing | "Talk in Discord or VRChat is off." |
 | OSC off in VRChat, or VRChat not running | the tap is sent; no answer comes | "VRChat didn't answer. Turn on OSC in VRChat's Action Menu, under Osc." |
 | Toggle Voice off in VRChat | microphone does not open | "VRChat's microphone didn't change. Turn on Toggle Voice in VRChat's settings." |
 | OSCQuery could not start (port or network refused) | VRChat's microphone can still be tapped, but nothing can be read back, so Talk in Discord stops | "Modbot could not start listening for VRChat: <reason>." |

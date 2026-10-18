@@ -1226,14 +1226,14 @@ public class CompanionSourceGuardTests
         // Talk in Discord or VRChat (design spec 2026-10-17): the one UDP socket and the one
         // SendInput call in the client belong to it, so a reader of the source finds every
         // keystroke Modbot ever sends, and every packet, in two named files.
-        var withSocket = ClientSources()
+        var withSocket = EverythingTheClientShips()
             .Where(f => Regex.IsMatch(File.ReadAllText(f), @"\b(UdpClient|OSCQueryService\w*|MeaModDiscovery)\b"))
             .Select(Path.GetFileName)
             .ToList();
 
         Assert.Equal(["VRChatOsc.cs"], withSocket);
 
-        var pressing = ClientSources()
+        var pressing = EverythingTheClientShips()
             .Where(f => File.ReadAllText(f).Contains("SendInput", StringComparison.Ordinal))
             .Select(Path.GetFileName)
             .ToList();

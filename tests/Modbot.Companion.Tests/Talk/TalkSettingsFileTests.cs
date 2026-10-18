@@ -63,6 +63,17 @@ public class TalkSettingsFileTests : IDisposable
     }
 
     [Fact]
+    public void ATalkValueThatIsNotAnObjectFallsBackToOffWithoutThrowing()
+    {
+        foreach (var bad in new[] { "true", "\"on\"", "7", "[1, 2]", "null" })
+        {
+            Write("{ \"talk\": " + bad + " }");
+
+            Assert.Equal(TalkSettings.Default, Load());
+        }
+    }
+
+    [Fact]
     public void ReadsTheSwitchAndTheTwoKeys()
     {
         Write("""{ "talk": { "on": true, "discordMuteKey": "f13", "discordDeafenKey": "mod+shift+d" } }""");

@@ -150,7 +150,14 @@ public sealed class VRChatOsc : IVRChatMic, IDisposable
 
             // VRChat says nothing when the tap changed nothing, so waiting out the time is a normal
             // end, and what it last said is the answer.
-            await Task.WhenAny(waiter.Task, Task.Delay(_wait, cancellationToken)).ConfigureAwait(false);
+            // The timer is cancelled as soon as VRChat answers, so it does not sit pending until the
+            // wait would have run out.
+            using (var giveUp = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+            {
+                await Task.WhenAny(waiter.Task, Task.Delay(_wait, giveUp.Token)).ConfigureAwait(false);
+                await giveUp.CancelAsync().ConfigureAwait(false);
+            }
+
             cancellationToken.ThrowIfCancellationRequested();
 
             return new MicTap(true, Muted);

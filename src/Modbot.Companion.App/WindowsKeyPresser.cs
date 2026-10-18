@@ -53,7 +53,11 @@ internal sealed class WindowsKeyPresser : IKeyPresser
         public UIntPtr Extra;
     }
 
-    /// <summary>Windows' INPUT: a type, then a union as big as its biggest member (the mouse's).</summary>
+    /// <summary>
+    /// Windows' INPUT: a type, then a union as big as its biggest member (the mouse's). The union
+    /// starts at byte 8 because a 64-bit process pads the type to the pointer's size, so this layout
+    /// is right for a 64-bit client only; a 32-bit one would need 4 and a struct of 28 bytes.
+    /// </summary>
     [StructLayout(LayoutKind.Explicit)]
     private struct Input
     {
@@ -95,7 +99,19 @@ internal sealed class WindowsKeyPresser : IKeyPresser
             events.Add(Event(down[i], up: true));
 
         var array = events.ToArray();
-        return SendInput((uint)array.Length, array, Marshal.SizeOf<Input>()) == array.Length;
+        if (SendInput((uint)array.Length, array, Marshal.SizeOf<Input>()) == array.Length)
+            return true;
+
+        // Windows took only some of them. Let go of the key and of every modifier that may have
+        // gone down, so none is left held for the rest of whatever the person is doing; a key-up
+        // for a key that is not down does nothing.
+        var release = new List<Input> { Event(keys.Key, up: true) };
+        for (var i = down.Count - 1; i >= 0; i--)
+            release.Add(Event(down[i], up: true));
+
+        SendInput((uint)release.Count, release.ToArray(), Marshal.SizeOf<Input>());
+
+        return false;
     }
 
     private static Input Event(int key, bool up) => new()

@@ -25,6 +25,8 @@ public sealed partial class MainWindow
     private readonly CheckBox _talkOn = new();
     private readonly Button _talkMuteKey = Ui.Button("");
     private readonly Button _talkDeafenKey = Ui.Button("");
+    private readonly Button _talkMuteClear = Ui.Button("Clear");
+    private readonly Button _talkDeafenClear = Ui.Button("Clear");
 
     /// <summary>The buttons' own captions, so setting them keeps the buttons' styling.</summary>
     private readonly TextBlock _talkMuteKeyText = Ui.Text(
@@ -63,11 +65,25 @@ public sealed partial class MainWindow
 
         _talkMuteKey.Click += (_, _) => ToggleTalkCapture(TalkKeyTarget.Mute);
         _talkDeafenKey.Click += (_, _) => ToggleTalkCapture(TalkKeyTarget.Deafen);
+
+        _talkMuteClear.Click += (_, _) => ClearTalkKey(TalkKeyTarget.Mute);
+        _talkDeafenClear.Click += (_, _) => ClearTalkKey(TalkKeyTarget.Deafen);
     }
 
     private void ToggleTalkCapture(TalkKeyTarget target)
     {
         _capturingTalkKey = _capturingTalkKey == target ? null : target;
+        RenderPage();
+    }
+
+    private void ClearTalkKey(TalkKeyTarget target)
+    {
+        _capturingTalkKey = null;
+
+        TalkChanged(s => target == TalkKeyTarget.Deafen
+            ? s with { DiscordDeafenKey = null }
+            : s with { DiscordMuteKey = null });
+
         RenderPage();
     }
 
@@ -164,17 +180,28 @@ public sealed partial class MainWindow
 
         _talkMuteKey.IsEnabled = talk.On;
         _talkDeafenKey.IsEnabled = talk.On;
+        _talkMuteClear.IsVisible = talk.DiscordMuteKey is not null;
+        _talkDeafenClear.IsVisible = talk.DiscordDeafenKey is not null;
+        _talkMuteClear.IsEnabled = talk.On;
+        _talkDeafenClear.IsEnabled = talk.On;
     }
 
     private static string KeyCaption(string? key, bool waiting)
         => waiting ? "Press the keys" : key is null ? "Record" : TalkKeys.Describe(key);
+
+    private static StackPanel KeyRow(Button record, Button clear) => new()
+    {
+        Orientation = Orientation.Horizontal,
+        Spacing = 8,
+        Children = { record, clear },
+    };
 
     /// <summary>The card: the switch, the two keys, and what failed if anything did.</summary>
     private Control TalkCard()
     {
         WireTalk();
 
-        foreach (var control in new Control[] { _talkOn, _talkMuteKey, _talkDeafenKey, _talkLine })
+        foreach (var control in new Control[] { _talkOn, _talkMuteKey, _talkDeafenKey, _talkMuteClear, _talkDeafenClear, _talkLine })
             DetachFromParent(control);
 
         return new StackPanel
@@ -183,8 +210,8 @@ public sealed partial class MainWindow
             Children =
             {
                 _talkOn,
-                Ui.Field("Discord Toggle Mute", _talkMuteKey),
-                Ui.Field("Discord Toggle Deafen", _talkDeafenKey),
+                Ui.Field("Discord Toggle Mute", KeyRow(_talkMuteKey, _talkMuteClear)),
+                Ui.Field("Discord Toggle Deafen", KeyRow(_talkDeafenKey, _talkDeafenClear)),
                 _talkLine,
             },
         };
