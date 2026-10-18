@@ -215,6 +215,10 @@ internal sealed class DesktopNotifyWindow : Window
         _cards.Content = null;
         SetClickable(false);
 
+        // Hiding under the mouse may raise no PointerExited, so the next card would light a stale spot.
+        _mouse = null;
+        _litTarget = null;
+
         if (IsVisible)
             Hide();
     }
