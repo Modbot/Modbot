@@ -56,7 +56,11 @@ if ($BuildOnly) {
 # The running Modbot (the installed one, or an earlier test build) owns the tray icon, so it has
 # to go. The app has no way to be told to quit from outside (its window's X only hides it to the
 # tray), so after the y answer the process is stopped.
-$running = @(Get-Process -Name 'Modbot' -ErrorAction SilentlyContinue)
+#
+# Only this Windows session's copies count: the one-copy lock is per session (Local\), so another
+# signed-in account's Modbot is neither in the way nor ours to stop.
+$session = (Get-Process -Id $PID).SessionId
+$running = @(Get-Process -Name 'Modbot' -ErrorAction SilentlyContinue | Where-Object { $_.SessionId -eq $session })
 if ($running.Count -gt 0) {
     $answer = Read-Host 'Close the running Modbot and start the test build? (y/n)'
     if ($answer -notmatch '^\s*y') {
@@ -64,8 +68,19 @@ if ($running.Count -gt 0) {
         return
     }
     foreach ($process in $running) {
-        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-        [void]$process.WaitForExit(10000)
+        try {
+            Stop-Process -Id $process.Id -Force -ErrorAction Stop
+            [void]$process.WaitForExit(10000)
+        }
+        catch {
+            Write-Host "Could not stop Modbot (process $($process.Id)): $($_.Exception.Message)"
+        }
+    }
+
+    $stillRunning = @(Get-Process -Name 'Modbot' -ErrorAction SilentlyContinue | Where-Object { $_.SessionId -eq $session })
+    if ($stillRunning.Count -gt 0) {
+        $ids = ($stillRunning | ForEach-Object { $_.Id }) -join ', '
+        throw "Modbot is still running (process $ids), so the test build was not started. The test build is at: $exe"
     }
 }
 
@@ -74,6 +89,21 @@ Get-ChildItem -LiteralPath $testRoot -Directory |
     Where-Object { $_.FullName -ne $out } |
     ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
 
-Start-Process -FilePath $exe -WorkingDirectory $out
+# A leftover MODBOT_DATA_FOLDER would make the test build a separate "test copy" with its own
+# settings and pairings. It is cleared for the started copy only and put back afterwards.
+$dataFolderVariable = 'MODBOT_DATA_FOLDER'
+$savedDataFolder = [Environment]::GetEnvironmentVariable($dataFolderVariable)
+if ($savedDataFolder) {
+    Write-Host "Warning: $dataFolderVariable is set; the test build ignores it and uses the normal settings and pairings."
+    [Environment]::SetEnvironmentVariable($dataFolderVariable, $null)
+}
+try {
+    Start-Process -FilePath $exe -WorkingDirectory $out
+}
+finally {
+    if ($savedDataFolder) {
+        [Environment]::SetEnvironmentVariable($dataFolderVariable, $savedDataFolder)
+    }
+}
 Write-Host "Started the test build: $exe"
 Write-Host 'To go back: quit the test build (tray icon, Quit) and start Modbot from the Start menu as usual.'

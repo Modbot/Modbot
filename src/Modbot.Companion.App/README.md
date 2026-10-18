@@ -51,8 +51,8 @@ client starts.
 
 ## Try a change on your own PC
 
-`scripts/try-companion.ps1` builds the Companion from the checkout you run it in and starts it, in
-about a minute, with no release and no upload. From any checkout or worktree:
+`scripts/try-companion.ps1` builds the Companion from the checkout you run it in and starts it, with
+no release and no upload. From any checkout or worktree:
 
 ```powershell
 powershell -File scripts\try-companion.ps1
