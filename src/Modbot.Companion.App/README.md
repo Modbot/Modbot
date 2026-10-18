@@ -49,6 +49,29 @@ client starts.
 | `ModbotRelease` | MSBuild (`-p:ModbotRelease=2026.9.0`) | The release version stamped on the client, `YYYY.M.PATCH`, or `YYYY.M.PATCH-preview.N` for a preview. The client release workflow sets it. |
 | `ModbotUpdateFeed` | MSBuild (`-p:ModbotUpdateFeed=…`) | Where an installed copy asks what the newest version is. Modbot Cloud by default; see `Updates.cs`. |
 
+## Try a change on your own PC
+
+`scripts/try-companion.ps1` builds the Companion from the checkout you run it in and starts it, in
+about a minute, with no release and no upload. From any checkout or worktree:
+
+```powershell
+powershell -File scripts\try-companion.ps1
+```
+
+- It builds only this project, in Release, into `artifacts\try-companion\<time>\`, which git
+  ignores. Earlier test builds there are removed.
+- The Companion allows one copy, so if Modbot is running the script asks
+  `Close the running Modbot and start the test build? (y/n)`. On **y** it stops that process (the
+  app cannot be told to quit from outside) and starts the test build. On **n** it leaves Modbot
+  running and only prints where the test build is.
+- The test build reads and writes `%APPDATA%\Modbot`, so it has the same settings and pairings as
+  the installed copy.
+- Run from a plain folder it never checks for updates and does not touch start-with-Windows. Like
+  every start of the app, it points the `modbot-companion://` link at itself.
+- To go back: quit the test build (tray icon, **Quit**) and start Modbot from the Start menu as
+  usual. That also points the link back.
+- `-BuildOnly` builds and prints where the exe is, without closing or starting anything.
+
 ## Publishing a release
 
 `.github/workflows/companion-release.yml` builds both platforms, runs both suites on each, packs
