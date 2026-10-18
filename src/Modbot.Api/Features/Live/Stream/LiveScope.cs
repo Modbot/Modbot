@@ -102,7 +102,14 @@ public sealed class LiveScope
     public bool CarriesModeration
         => IsDevice && AsksForModeration && AuditVisibility.CanSee(Permissions, AuditCategory.Moderation);
 
-    /// <summary>Whether a fact placed in this instance (and world, when both sides know it) is the one this device stands in.</summary>
+    /// <summary>
+    /// Whether a fact placed in this instance (and world, when both sides know it) is the one this device stands in.
+    /// </summary>
+    /// <remarks>
+    /// With no world named (an older client), this matches by the instance number alone, and an
+    /// instance number is only unique inside one world. That now also gates the moderation facts,
+    /// not just presence; the owner can read the same facts on the web, so nothing new is shown to them.
+    /// </remarks>
     public bool IsHere(string? instanceId, string? worldId)
         => InstanceId is { Length: > 0 }
             && string.Equals(instanceId, InstanceId, StringComparison.Ordinal)

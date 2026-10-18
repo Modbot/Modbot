@@ -100,7 +100,12 @@ Somebody with none of these cannot open the stream (403). If a permission is tak
 connected, the events it allowed stop from then on; if none are left, the connection closes with
 `4003`.
 
-The companion is sent presence in the one instance it is standing in, and nothing else. It names
+The companion is sent presence in the one instance it is standing in. When it connects with
+`moderation=true` and its owner holds **See the audit log**, it is also sent the audit log's facts
+about that instance and about the people seen in it since the moderator arrived, by the owner's
+audit-log visibility, each with the audit log's `sentence` and its `origin` (VRChat, Discord or
+Modbot). Nothing else reaches it, and an owner who loses that permission stops receiving them at
+the next check. It names
 that instance by its number (`instanceId`) and its world (`worldId`), because a number is only unique
 inside one world. A companion that names no world is matched by the number alone.
 

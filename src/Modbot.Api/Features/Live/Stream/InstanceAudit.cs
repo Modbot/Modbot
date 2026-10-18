@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Features.Audit;
 using Modbot.Core.Data;
@@ -168,7 +169,7 @@ public static class InstanceAudit
         if (seen.Count == 0)
             return found;
 
-        var since = await WatchStartAsync(db, scope, instance, world, from, ct);
+        var since = await WatchStartAsync(db, scope, instance, world, from, now, ct);
         if (since is null)
             return found;
 
@@ -186,13 +187,32 @@ public static class InstanceAudit
         return found;
     }
 
+    /// <summary>How long a found watch start is kept, so a long poll's pages do not each read the whole stay again.</summary>
+    private static readonly TimeSpan WatchStartKept = TimeSpan.FromSeconds(30);
+
+    private static readonly ConcurrentDictionary<(Guid Owner, string Instance, string? World), (DateTimeOffset Since, DateTimeOffset Until)>
+        WatchStarts = new();
+
     /// <summary>
     /// When the device's owner started watching the instance, or failing that when the first
-    /// moderator did. Null when nobody is watching it.
+    /// moderator did. Null when nobody is watching it. A start that was found is kept for
+    /// <see cref="WatchStartKept"/> per owner and instance; "nobody is watching" is never kept.
     /// </summary>
     private static async Task<DateTimeOffset?> WatchStartAsync(
-        ModbotContext db, LiveScope scope, string instance, string? world, DateTimeOffset from, CancellationToken ct)
+        ModbotContext db,
+        LiveScope scope,
+        string instance,
+        string? world,
+        DateTimeOffset from,
+        DateTimeOffset now,
+        CancellationToken ct)
     {
+        var key = scope.OwnerId is { } ownerId ? (Owner: ownerId, Instance: instance, World: world) : default;
+        var keyed = scope.OwnerId is not null;
+
+        if (keyed && WatchStarts.TryGetValue(key, out var kept) && kept.Until > now)
+            return kept.Since;
+
         var people = await new InstancePeopleReader(db).ForNumberAsync(instance, world, from, closedAt: null, ct);
         if (people.Watching.Count == 0)
             return null;
@@ -202,8 +222,20 @@ public static class InstanceAudit
             : null;
 
         var theirs = owner is null ? null : people.Watching.FirstOrDefault(w => w.UserId == owner);
+        var since = theirs?.Since ?? people.Watching.Min(w => w.Since);
 
-        return theirs?.Since ?? people.Watching.Min(w => w.Since);
+        if (keyed)
+        {
+            if (WatchStarts.Count > 256)
+            {
+                foreach (var old in WatchStarts.Where(w => w.Value.Until <= now).Select(w => w.Key).ToList())
+                    WatchStarts.TryRemove(old, out _);
+            }
+
+            WatchStarts[key] = (since, now + WatchStartKept);
+        }
+
+        return since;
     }
 
     /// <summary>The people a fact is about or by: its subject, when it is a person, and its actor.</summary>

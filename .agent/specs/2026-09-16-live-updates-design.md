@@ -108,7 +108,7 @@ heartbeat -- a permission removed mid-connection stops the next event.
 | A person with **See analytics** | alerts (the card's own permission) |
 | A person with **Review tickets** | reviews (the sidebar count's) |
 | A person with **See the audit log** / **See the operational log** | every fact of that log, by the audit log's own rules (API keys design §4.3) -- presence still needs **See live instances** |
-| A companion device | presence in the **one instance it named**, and nothing else |
+| A companion device | presence in the **one instance it named**; with `moderation=true` and an owner who holds **See the audit log**, also that instance's facts and the facts about people seen in it, by the owner's audit-log visibility, each with `sentence` and `origin` |
 
 A named kind is sent when either rule allows it: the screen's permission, or the audit log's for
 the fact behind it. A person with none of these is refused a ticket (403) and the poll (403). A device that has

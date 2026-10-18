@@ -3,8 +3,10 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Analytics.Facts;
 using Modbot.Api.Features.Audit;
+using Modbot.Api.Features.Companion.Devices;
 using Modbot.Api.Features.Live.Stream;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Users;
 using Modbot.TestSupport;
 
 namespace Modbot.Api.Tests.Features.Companion;
@@ -30,7 +32,7 @@ public class CompanionAuditFeedTests
     private const string OtherInstance = "11111";
 
     /// <summary>A moderator whose device has watched the instance since before anybody below arrived.</summary>
-    private sealed record Setup(CompanionApiTestHost Host, string Token, Guid DeviceId, long Before);
+    private sealed record Setup(CompanionApiTestHost Host, string Token, Guid DeviceId, long Before, Guid OwnerId, string DeviceHash);
 
     private async Task<Setup> ReadyAsync(ModbotPermissions ownerHolds)
     {
@@ -49,7 +51,7 @@ public class CompanionAuditFeedTests
         var before = await WriteAsync(
             host, FactType.InstanceJoined, owner.VRChatUserId!, instance: Instance, world: World, reporter: deviceId);
 
-        return new Setup(host, token, deviceId, before);
+        return new Setup(host, token, deviceId, before, owner.Id, DeviceTokens.Hash(token));
     }
 
     private static string Subject() => $"usr_{Guid.NewGuid():N}";
@@ -95,12 +97,12 @@ public class CompanionAuditFeedTests
         return person;
     }
 
-    private static async Task<List<JsonElement>> PollAsync(Setup setup, bool moderation = true)
+    private static async Task<List<JsonElement>> PollAsync(Setup setup, bool moderation = true, int wait = 0)
     {
         var response = await setup.Host.Client.SendAsync(
             setup.Host.WithToken(
                 HttpMethod.Get,
-                $"/api/v1/companion/poll?instanceId={Instance}&worldId={World}&after={setup.Before}&wait=0"
+                $"/api/v1/companion/poll?instanceId={Instance}&worldId={World}&after={setup.Before}&wait={wait}"
                 + (moderation ? "&moderation=true" : ""),
                 setup.Token),
             Ct);
@@ -249,6 +251,127 @@ public class CompanionAuditFeedTests
         var ban = Assert.Single(await PollAsync(setup), e => e.GetProperty("type").GetString() == FactType.ActionBan);
 
         Assert.Equal("Modbot", ban.GetProperty("origin").GetString());
+    }
+
+    /// <summary>Takes the owner's roles away and gives back only the pairing permission.</summary>
+    private static async Task OwnerLosesTheAuditLogAsync(Setup setup)
+    {
+        await using var context = setup.Host.Database;
+        context.UserRoles.RemoveRange(context.UserRoles.Where(r => r.UserId == setup.OwnerId));
+        context.UserRoles.Add(new ModbotUserRole
+        {
+            UserId = setup.OwnerId,
+            RoleId = await TestAccounts.RoleForAsync(context, ModbotPermissions.PairCompanion, Ct),
+        });
+        await context.SaveChangesAsync(Ct);
+    }
+
+    private static async Task<(CompanionDevice Device, ModbotPermissions Permissions)?> StandingAsync(Setup setup)
+    {
+        using var scope = setup.Host.Services.CreateScope();
+        return await DeviceStanding.ResolveWithOwnerAsync(
+            setup.DeviceHash,
+            scope.ServiceProvider.GetRequiredService<ICompanionDeviceStore>(),
+            scope.ServiceProvider.GetRequiredService<UserAccountService>(),
+            setup.Host.Clock.UtcNow,
+            Ct);
+    }
+
+    [Fact]
+    public async Task AKickInTheSameInstanceNumberInAnotherWorld_IsNotSent()
+    {
+        var setup = await ReadyAsync(ModbotPermissions.ViewAuditLog);
+        await using var keep = setup.Host;
+
+        await WriteAsync(setup.Host, FactType.GroupInstanceKick, Subject(), instance: Instance, world: "wrld_other", actor: Subject(), source: FactSource.AuditLog);
+
+        Assert.Empty(await PollAsync(setup));
+    }
+
+    [Fact]
+    public async Task ADisabledOwner_IsNoLongerResolved_SoTheRefreshEndsTheFeed()
+    {
+        var setup = await ReadyAsync(ModbotPermissions.ViewAuditLog);
+        await using var keep = setup.Host;
+
+        var before = await StandingAsync(setup);
+        Assert.True(before!.Value.Permissions.HasFlag(ModbotPermissions.ViewAuditLog));
+
+        await using (var context = setup.Host.Database)
+        {
+            context.Users.Single(u => u.Id == setup.OwnerId).IsDisabled = true;
+            await context.SaveChangesAsync(Ct);
+        }
+
+        Assert.Null(await StandingAsync(setup));
+
+        var response = await setup.Host.Client.SendAsync(
+            setup.Host.WithToken(
+                HttpMethod.Get, $"/api/v1/companion/poll?instanceId={Instance}&worldId={World}&moderation=true&wait=0", setup.Token),
+            Ct);
+
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AnOwnerWhoLosesTheAuditLog_IsResolvedWithoutIt_AndTheScopeStopsCarryingModeration()
+    {
+        var setup = await ReadyAsync(ModbotPermissions.ViewAuditLog);
+        await using var keep = setup.Host;
+
+        await OwnerLosesTheAuditLogAsync(setup);
+
+        var standing = await StandingAsync(setup);
+        Assert.False(standing!.Value.Permissions.HasFlag(ModbotPermissions.ViewAuditLog));
+
+        var scope = LiveScope.ForDevice(
+            setup.DeviceId, Instance, World, ModbotPermissions.ViewAuditLog, setup.OwnerId, moderation: true);
+        Assert.False(scope.WithOwnerPermissions(standing.Value.Permissions).CarriesModeration);
+    }
+
+    [Fact]
+    public async Task APermissionRemovedWhileAPollIsOpen_StopsTheModerationEvents_AtTheNextWait()
+    {
+        var setup = await ReadyAsync(ModbotPermissions.ViewAuditLog);
+        await using var keep = setup.Host;
+
+        var open = PollAsync(setup, wait: 2);
+
+        // Past the poll's first read, which found nothing and is now waiting.
+        await Task.Delay(TimeSpan.FromMilliseconds(500), Ct);
+        await OwnerLosesTheAuditLogAsync(setup);
+        await WriteAsync(setup.Host, FactType.GroupInstanceKick, Subject(), instance: Instance, world: World, actor: Subject(), source: FactSource.AuditLog);
+
+        Assert.DoesNotContain(FactType.GroupInstanceKick, Types(await open));
+    }
+
+    [Fact]
+    public async Task AMemberReportAboutAStaffAccount_IsNeverSentToADevice()
+    {
+        var setup = await ReadyAsync(ModbotPermissions.ViewAuditLog);
+        await using var keep = setup.Host;
+
+        var staffDiscordId = "555666777";
+        await using (var context = setup.Host.Database)
+        {
+            var staff = context.Users.Single(u => u.Id == setup.OwnerId);
+            staff.DiscordUserId = staffDiscordId;
+            staff.DiscordVerifiedAt = setup.Host.Clock.UtcNow;
+            await context.SaveChangesAsync(Ct);
+        }
+
+        // Placed in the device's own instance, so only the report rules and the log's categories
+        // stand between it and the feed.
+        await WriteAsync(
+            setup.Host, FactType.MemberReportOpened, staffDiscordId, platform: FactPlatform.Discord,
+            instance: Instance, world: World, source: FactSource.Modbot);
+
+        Assert.DoesNotContain(FactType.MemberReportOpened, Types(await PollAsync(setup)));
+
+        // Not a quirk of this owner: the log files a report under operational facts, which no device is sent.
+        var everything = LiveScope.ForDevice(
+            setup.DeviceId, Instance, World, ModbotPermissions.Administrator, setup.OwnerId, moderation: true);
+        Assert.False(everything.CanSee(LiveKinds.Fact, FactType.MemberReportOpened));
     }
 
     [Fact]
