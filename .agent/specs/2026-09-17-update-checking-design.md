@@ -343,7 +343,8 @@ words.
 - **A test card.** With `MODBOT_DEBUG_MODE=1`, the Debug page's Test events has an **Update ready**
   kind that puts up this same card with a made-up version (`9.9.9-test`). It leaves the updater's
   state and the version asked about alone, so a real update is still asked about as above. On it
-  **Restart now** only takes the card away; nothing restarts.
+  **Restart now** only takes the card away; nothing restarts. If a real question was still up when
+  the test card replaced it, closing the test card puts the real one back.
 
 This narrows two rules that said the pop-ups could not be pressed, and only for this card:
 

@@ -37,6 +37,7 @@ public sealed class UpdatePrompt
 
     private string? _asked;
     private string? _testVersion;
+    private bool _realCardWasUp;
     private DateTimeOffset? _armedAt;
     private bool _restarting;
 
@@ -65,6 +66,7 @@ public sealed class UpdatePrompt
         {
             _asked = version;
             _testVersion = null;
+            _realCardWasUp = false;
             _armedAt = null;
             Put(null);
             return;
@@ -80,11 +82,15 @@ public sealed class UpdatePrompt
     /// <summary>
     /// The Debug page's test card: the same card with a made-up version. It does not touch the
     /// version asked about, so a real update is still put to the moderator as usual; on this card
-    /// the second press of Update only takes the card away, and nothing restarts.
+    /// the second press of Update only takes the card away, and nothing restarts. If a real
+    /// question was still up when the test card replaced it, closing the test card puts it back.
     /// </summary>
     public void ShowTest(string version)
     {
         ArgumentException.ThrowIfNullOrEmpty(version);
+
+        if (_testVersion is null)
+            _realCardWasUp = _asked is not null && _popUps.Current().Any(p => p.Id == CardId);
 
         _testVersion = version;
         _armedAt = null;
@@ -101,8 +107,10 @@ public sealed class UpdatePrompt
         if (!yes)
         {
             _armedAt = null;
-            _testVersion = null;
-            _popUps.Clear(CardId);
+            if (_testVersion is not null)
+                CloseTest();
+            else
+                _popUps.Clear(CardId);
             return;
         }
 
@@ -117,8 +125,7 @@ public sealed class UpdatePrompt
 
         if (_testVersion is not null)
         {
-            _testVersion = null;
-            _popUps.Clear(CardId);
+            CloseTest();
             return;
         }
 
@@ -135,6 +142,22 @@ public sealed class UpdatePrompt
 
         // Nothing was stopped, so the card stays, and says why the restart did not happen.
         Put("Could not start another copy of Modbot.");
+    }
+
+    /// <summary>Takes the test card away, and puts the real question back if the test card had replaced it.</summary>
+    private void CloseTest()
+    {
+        _testVersion = null;
+
+        if (_realCardWasUp)
+        {
+            _realCardWasUp = false;
+            Put(null);
+        }
+        else
+        {
+            _popUps.Clear(CardId);
+        }
     }
 
     private void Put(string? problem)

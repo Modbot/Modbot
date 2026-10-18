@@ -227,6 +227,44 @@ public class UpdatePromptTests
         Assert.Equal(1, rig.Restarts);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ClosingATestCardPutsBackARealOneItReplaced(bool restartNow)
+    {
+        var rig = new Rig();
+        rig.Prompt.Tick("2026.10.3");
+        rig.Prompt.ShowTest("9.9.9-test");
+        Assert.Equal("Update 9.9.9-test is ready", rig.Card!.Body);
+
+        if (restartNow)
+        {
+            await rig.Prompt.AnsweredAsync(UpdatePrompt.CardId, true);
+            await rig.Prompt.AnsweredAsync(UpdatePrompt.CardId, true);
+        }
+        else
+        {
+            await rig.Prompt.AnsweredAsync(UpdatePrompt.CardId, false);
+        }
+
+        Assert.Equal("Update 2026.10.3 is ready", rig.Card!.Body);
+        Assert.Equal("Update", rig.Card.Ask!.Yes);
+        Assert.Equal(0, rig.Restarts);
+    }
+
+    [Fact]
+    public async Task ClosingATestCardDoesNotBringBackARealOneThatWasAlreadyAnswered()
+    {
+        var rig = new Rig();
+        rig.Prompt.Tick("2026.10.3");
+        await rig.Prompt.AnsweredAsync(UpdatePrompt.CardId, false);
+        rig.Prompt.ShowTest("9.9.9-test");
+
+        await rig.Prompt.AnsweredAsync(UpdatePrompt.CardId, false);
+
+        Assert.Null(rig.Card);
+    }
+
     [Fact]
     public void ARealVersionArrivingWhileATestCardIsUpReplacesIt()
     {
