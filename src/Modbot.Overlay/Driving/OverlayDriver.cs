@@ -3,6 +3,7 @@ using Modbot.Companion.Ingest;
 using Modbot.Companion.Instances;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Sounds;
+using Modbot.Companion.Talk;
 using Modbot.Companion.Time;
 using Modbot.Core.Time;
 using Modbot.Core.Users;
@@ -194,6 +195,18 @@ public sealed class OverlayDriver : IDisposable
     /// reaches a server, and no server can raise this.
     /// </remarks>
     public event Action? SaveClipAsked;
+
+    /// <summary>
+    /// What the row of Talk buttons on the panel says. Set by the companion, which owns the
+    /// controller; the overlay never works it out itself. Hidden until the companion says otherwise.
+    /// </summary>
+    public TalkRow Talk { get; set; }
+
+    /// <summary>
+    /// One of the Talk buttons was pressed on either panel. The loop presses nothing: this is the
+    /// companion's to act on, the way Save a clip is.
+    /// </summary>
+    public event Action<TalkButton>? TalkAsked;
 
     /// <param name="listener">Told when an alert becomes a card and when a server rejects the token. Optional.</param>
     /// <param name="sockets">
@@ -563,6 +576,9 @@ public sealed class OverlayDriver : IDisposable
             // drawn a moment before VRChat closed, must not look like it saved anything.
             case OverlayTarget.SaveClip when Clips.CanPress:
                 SaveClipAsked?.Invoke();
+                break;
+            case OverlayTarget.Talk talk when Talk.IsVisible:
+                TalkAsked?.Invoke(talk.Button);
                 break;
             case OverlayTarget.GoTo tab:
                 GoTo(tab.Page);
@@ -942,7 +958,7 @@ public sealed class OverlayDriver : IDisposable
 
             // Still idle — the panel says nothing about a group it is not in. Save a clip travels
             // with it, because the recorder runs wherever VRChat does.
-            return new OverlayTick(Presenter.Update(OverlayScreen.Idle with { Clips = Clips }), false, false);
+            return new OverlayTick(Presenter.Update(OverlayScreen.Idle with { Clips = Clips, Talk = Talk }), false, false);
         }
 
         _lastGroupServer = server;
@@ -1396,6 +1412,7 @@ public sealed class OverlayDriver : IDisposable
             Page: _page,
             Events: [.. ListFiltering.WithoutRepeatedHere([.. _localEvents.Where(e => IsHere(e.InstanceId, e.WorldId))], ModeratorId)],
             Clips: Clips,
+            Talk: Talk,
             RosterFilters: _rosterFilters,
             EventFilters: _eventFilters,
             EventSkip: _eventSkip,
@@ -1440,6 +1457,7 @@ public sealed class OverlayDriver : IDisposable
             // under the compositor would compare equal to itself and never redraw.
             Events: [.. ListFiltering.WithoutRepeatedHere(_events, ModeratorId)],
             Clips: Clips,
+            Talk: Talk,
 
             // The address the server gave at pairing. The panel draws the picture the companion
             // already holds for it; nothing here fetches anything.

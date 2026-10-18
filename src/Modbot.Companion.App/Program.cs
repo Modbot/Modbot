@@ -68,10 +68,11 @@ namespace Modbot.Companion.App;
 /// of your screen, never a recording of anything your microphone heard, never keystrokes, never
 /// your friends list and never a list of your processes.</para>
 /// <para><strong>It never reads the keyboard.</strong> Turning the desktop overlay on asks Windows
-/// for exactly one keyboard combination, by name, so that panel can be brought up while VRChat has
-/// the keyboard (<c>DesktopOverlayShortcut</c>). Windows then sends one message when those keys are
-/// pressed and says nothing about any other key. There is no keyboard hook here and there will not
-/// be one; <c>CompanionSourceGuardTests</c> fails the build if one appears.</para>
+/// for one keyboard combination, by name, so that panel can be brought up while VRChat has
+/// the keyboard (<c>DesktopOverlayShortcut</c>). Talk in Discord or VRChat asks for up to three more,
+/// one for each of its buttons, and only for the ones you recorded while it is on. Windows then sends
+/// one message when those keys are pressed and says nothing about any other key. There is no keyboard
+/// hook here and there will not be one; <c>CompanionSourceGuardTests</c> fails the build if one appears.</para>
 /// <para><strong>It can record VRChat's window and VRChat's sound, and only when you switch that
 /// on.</strong> Until 2026-09-19 this paragraph said the program never captured a screen by any
 /// route, and then that a clip had no sound in it. Neither is true any more, and the honest
@@ -2484,6 +2485,9 @@ internal sealed partial class CompanionHost : IOverlayListener
         // recorder, the folder and the limit on it, so this is where a clip is actually written.
         _overlay.SaveClipAsked += SaveClip;
 
+        // The Talk buttons on either panel. The loop presses nothing; the controller is this half's.
+        _overlay.TalkAsked += PressTalk;
+
         foreach (var connection in _state?.Connections ?? [])
             _overlay.Add(connection.Pairing, connection.Pairing.OverlayLabel);
 
@@ -3554,6 +3558,9 @@ internal sealed partial class CompanionHost : IOverlayListener
     {
         if (_overlay is null)
             return;
+
+        // The row of Talk buttons says where the microphone is, which VRChat can change by itself.
+        _overlay.Talk = CurrentTalkRow();
 
         // A turn can wait on a roster read for as long as the server takes (up to the HTTP
         // timeout), and a leave makes that read due at once. The pop-ups are not held up by it:

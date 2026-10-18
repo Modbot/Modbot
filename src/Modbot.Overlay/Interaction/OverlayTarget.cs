@@ -48,6 +48,14 @@ public abstract record OverlayTarget
     /// </remarks>
     public sealed record SaveClip : OverlayTarget;
 
+    /// <summary>One of the Talk buttons: swap sides, Discord Mute or Discord Deafen.</summary>
+    /// <remarks>
+    /// Like <see cref="SaveClip"/> it is not an action on a person: it presses keys on the moderator's
+    /// own PC. The loop hands it straight back to the companion, which owns the controller; the
+    /// overlay has no keyboard and no way to reach VRChat's microphone.
+    /// </remarks>
+    public sealed record Talk(Modbot.Companion.Talk.TalkButton Button) : OverlayTarget;
+
     /// <summary>The bar under a headset panel, between its buttons. A tap here does nothing.</summary>
     /// <remarks>
     /// A target so that the bar can be found under a ray at all: a panel letting rays through

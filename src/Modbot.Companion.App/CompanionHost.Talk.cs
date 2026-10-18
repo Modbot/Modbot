@@ -6,8 +6,8 @@ using Serilog;
 namespace Modbot.Companion.App;
 
 /// <summary>
-/// Owns Talk in Discord or VRChat: the OSC service and the controller, which exist only while the
-/// switch in Settings is on.
+/// Owns Talk in Discord or VRChat: the OSC service, the controller and the three hotkeys, which
+/// exist only while the switch in Settings is on.
 /// </summary>
 /// <remarks>
 /// <para>Off means nothing is started: no port is opened, nothing is announced on the network and
@@ -21,6 +21,16 @@ internal sealed partial class CompanionHost
 {
     /// <summary>How long to leave after each press of a Discord key, so Discord takes each one.</summary>
     private static readonly TimeSpan TalkKeyGap = TimeSpan.FromMilliseconds(150);
+
+    /// <summary>The three buttons and the hotkey slot each one answers to.</summary>
+    private static readonly (TalkKeySlot Slot, TalkButton Button)[] TalkHotkeySlots =
+    [
+        (TalkKeySlot.SwapHotkey, TalkButton.Swap),
+        (TalkKeySlot.MuteHotkey, TalkButton.DiscordMute),
+        (TalkKeySlot.DeafenHotkey, TalkButton.DiscordDeafen),
+    ];
+
+    private readonly Dictionary<TalkKeySlot, DesktopOverlayShortcut> _talkHotkeys = [];
 
     private VRChatOsc? _talkOsc;
     private TalkController? _talk;
@@ -52,6 +62,7 @@ internal sealed partial class CompanionHost
         _talk = talk;
 
         Log.Information("Talk in Discord or VRChat is on: listening for VRChat's microphone on the loopback address only");
+        ApplyTalkHotkeys();
         ShowTalkProblem();
     }
 
@@ -62,8 +73,13 @@ internal sealed partial class CompanionHost
         _talkOsc?.Dispose();
         _talkOsc = null;
 
+        ApplyTalkHotkeys();
+
         if (_state is not null)
             _state.TalkProblem = null;
+
+        if (_overlay is not null)
+            _overlay.Talk = TalkRow.None;
     }
 
     /// <summary>The Settings card changed: saved, then acted on at once.</summary>
@@ -84,7 +100,13 @@ internal sealed partial class CompanionHost
         else
             StopTalk();
 
-        Render();
+        ApplyTalkHotkeys();
+
+        // Off, or not on this system, leaves what StartTalk and StopTalk just said as it is.
+        if (_talk is not null)
+            ShowTalkProblem();
+        else
+            Render();
     }
 
     private void ShowTalkProblem()
@@ -92,7 +114,84 @@ internal sealed partial class CompanionHost
         if (_state is null)
             return;
 
-        _state.TalkProblem = _talk?.State.Problem;
+        _state.TalkProblem = _talk?.State.Problem ?? TalkHotkeyProblem();
+
+        if (_overlay is not null)
+            _overlay.Talk = TalkRowRule.For(_talk?.State);
+
         Render();
+    }
+
+    /// <summary>What the VR panel's row of Talk buttons shows right now; the overlay's turn asks for it.</summary>
+    private TalkRow CurrentTalkRow() => TalkRowRule.For(_talk?.State);
+
+    /// <summary>
+    /// A button was pressed, on the VR panel or by its hotkey. The controller does the work and says
+    /// what went wrong, if anything, through <see cref="TalkController.Changed"/>.
+    /// </summary>
+    private void PressTalk(TalkButton button)
+    {
+        if (_talk is { } talk)
+            _ = PressTalkAsync(talk, button);
+    }
+
+    private static async Task PressTalkAsync(TalkController talk, TalkButton button)
+    {
+        try
+        {
+            var result = await talk.PressButtonAsync(button).ConfigureAwait(false);
+            if (!result.Ok)
+                Log.Information("Talk button {Button} did not work: {Problem}", button, result.Problem);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Talk button {Button} failed", button);
+        }
+    }
+
+    /// <summary>
+    /// Makes the three hotkeys match the settings: each recorded one claimed while Talk in Discord or
+    /// VRChat is running, each other one (and all of them when it is off) given back.
+    /// </summary>
+    private void ApplyTalkHotkeys()
+    {
+        var talk = _state?.Settings.Talk ?? TalkSettings.Default;
+
+        foreach (var (slot, button) in TalkHotkeySlots)
+        {
+            var wanted = _talk is not null && talk.On ? talk.Key(slot) : null;
+
+            if (wanted is null)
+            {
+                if (_talkHotkeys.Remove(slot, out var unwanted))
+                    unwanted.Dispose();
+
+                continue;
+            }
+
+            if (!_talkHotkeys.TryGetValue(slot, out var shortcut))
+            {
+                var pressed = button;
+                shortcut = new DesktopOverlayShortcut(() => PressTalk(pressed), key => TalkKeys.Read(key), "pressing a Talk button");
+                _talkHotkeys[slot] = shortcut;
+            }
+
+            if (shortcut.Registered != wanted)
+                shortcut.Ask(wanted);
+        }
+    }
+
+    /// <summary>Which hotkey another program already has, in one sentence, or null.</summary>
+    private string? TalkHotkeyProblem()
+    {
+        var talk = _state?.Settings.Talk ?? TalkSettings.Default;
+
+        foreach (var (slot, shortcut) in _talkHotkeys)
+        {
+            if (shortcut.State is ShortcutState.Taken && talk.Key(slot) is { } key)
+                return $"Another program has {TalkKeys.Describe(key)}.";
+        }
+
+        return null;
     }
 }

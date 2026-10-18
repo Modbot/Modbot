@@ -1,5 +1,6 @@
 using Modbot.Companion.Clips;
 using Modbot.Companion.Overlay;
+using Modbot.Companion.Talk;
 
 namespace Modbot.Overlay.Views;
 
@@ -67,6 +68,11 @@ public enum OverlayPage
 /// <param name="Clips">
 /// What the Save a clip control says, and whether it can be pressed. Nothing is drawn for it while
 /// Clips is switched off, which is what a fresh install has.
+/// </param>
+/// <param name="Talk">
+/// The row of Talk buttons: which side the microphone is on and whether Discord is muted or deafened.
+/// Nothing is drawn for it while Talk in Discord or VRChat is switched off, which is what a fresh
+/// install has.
 /// </param>
 /// <param name="GroupIconUrl">
 /// Where the group's icon is, as the server gave it at pairing, or null when it gave none. An
@@ -142,7 +148,8 @@ public sealed record OverlayScreen(
     int EventSkip = 0,
     int RosterListId = 0,
     int EventListId = 0,
-    double? ScrollOffset = null)
+    double? ScrollOffset = null,
+    TalkRow Talk = default)
 {
     private static readonly IReadOnlyDictionary<string, DateTimeOffset?> NoArrivals = new Dictionary<string, DateTimeOffset?>();
 
@@ -230,6 +237,7 @@ public sealed record OverlayScreen(
         return GroupLabel == other.GroupLabel
             && GroupIconUrl == other.GroupIconUrl
             && Clips == other.Clips
+            && Talk == other.Talk
             && ShowIdleCard == other.ShowIdleCard
             && NotSynced == other.NotSynced
             && ModeratorArrived == other.ModeratorArrived

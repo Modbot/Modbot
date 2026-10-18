@@ -6,6 +6,7 @@ using Avalonia.Media;
 using Avalonia.VisualTree;
 using Modbot.Companion.Clips;
 using Modbot.Companion.Overlay;
+using Modbot.Companion.Talk;
 using Modbot.Overlay.Interaction;
 using Modbot.Core.Users;
 using Modbot.Shared.HeadsUps;
@@ -119,21 +120,32 @@ public sealed partial class OverlayView
         // sits. (With a server paired, a public or private instance is not idle: it lists the
         // people from the log and says it is not synced.)
         //
-        // Save a clip is the one thing that still shows there. The recorder runs wherever VRChat
+        // Save a clip still shows there. The recorder runs wherever VRChat
         // does, so a moment worth keeping can happen in a public instance as easily as a group
         // one, and a control the moderator cannot reach there is a control they do not have. It is
         // only ever drawn because they switched Clips on themselves.
+        //
+        // The Talk buttons are the same: swapping the microphone is something to do in any instance.
         if (screen.IsIdle && !screen.ShowIdleCard)
         {
-            return screen.Clips.IsVisible
-                ? new Border
-                {
-                    Background = Brushes.Transparent,
-                    Padding = new Thickness(20),
-                    HorizontalAlignment = HorizontalAlignment.Left,
-                    Child = SaveClipBar(screen.Clips),
-                }
-                : new Border { Background = Brushes.Transparent };
+            if (!screen.Clips.IsVisible && !screen.Talk.IsVisible)
+                return new Border { Background = Brushes.Transparent };
+
+            var alone = new StackPanel { Spacing = 12 };
+
+            if (screen.Clips.IsVisible)
+                alone.Children.Add(SaveClipBar(screen.Clips));
+
+            if (screen.Talk.IsVisible)
+                alone.Children.Add(TalkBar(screen.Talk));
+
+            return new Border
+            {
+                Background = Brushes.Transparent,
+                Padding = new Thickness(20),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Child = alone,
+            };
         }
 
         // Worn on a wrist the panel is a sixth of the width it is in front of the head, so it gets
@@ -172,6 +184,10 @@ public sealed partial class OverlayView
         // three rather than behind a page (clips design spec §11).
         if (screen.Clips.IsVisible)
             stack.Children.Add(SaveClipBar(screen.Clips));
+
+        // Next to it: where the microphone is, and the two Discord switches.
+        if (screen.Talk.IsVisible)
+            stack.Children.Add(TalkBar(screen.Talk));
 
         // The list's own filters, between the tabs and the list, and the open one's choices under
         // them. Each list keeps its own. Not over an empty list, where they would have nothing to

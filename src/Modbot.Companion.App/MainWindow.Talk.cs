@@ -8,13 +8,15 @@ using Modbot.Companion.Talk;
 namespace Modbot.Companion.App;
 
 /// <summary>
-/// The Settings page's Talk in Discord or VRChat card: whether it runs, and the two keys Modbot
-/// presses for Discord.
+/// The Settings page's Talk in Discord or VRChat card: whether it runs, the two keys Modbot
+/// presses for Discord, and the three hotkeys that run its buttons.
 /// </summary>
 /// <remarks>
 /// <para>Each key is recorded by pressing it, like the desktop overlay's shortcut, and stored
 /// spelled the way the window's own keys are (<c>f13</c>, <c>mod+shift+m</c>). Unlike that
-/// shortcut a key may have no modifier, because it is pressed rather than claimed.</para>
+/// shortcut a key may have no modifier, because it is pressed rather than claimed, and a hotkey
+/// is claimed by one key only. A key lives in one place: recording it again somewhere else takes it
+/// out of the first.</para>
 /// <para>What went wrong, if anything, is the one line under the controls. That is an error saying
 /// what failed, which is all the text this card gets.</para>
 /// </remarks>
@@ -23,30 +25,22 @@ public sealed partial class MainWindow
     // Built once, like the other settings controls: a switch rebuilt by the one-second render
     // loses the click on it.
     private readonly CheckBox _talkOn = new();
-    private readonly Button _talkMuteKey = Ui.Button("");
-    private readonly Button _talkDeafenKey = Ui.Button("");
-    private readonly Button _talkMuteClear = Ui.Button("Clear");
-    private readonly Button _talkDeafenClear = Ui.Button("Clear");
 
-    /// <summary>The buttons' own captions, so setting them keeps the buttons' styling.</summary>
-    private readonly TextBlock _talkMuteKeyText = Ui.Text(
-        "", Ui.T.Density.TextSmall, Ui.T.TextBrush, FontWeight.Medium, wrap: false);
+    /// <summary>One slot's two buttons and the caption inside the first, kept so setting the caption keeps the button's styling.</summary>
+    private sealed record TalkKeyControls(Button Record, Button Clear, TextBlock Caption);
 
-    private readonly TextBlock _talkDeafenKeyText = Ui.Text(
-        "", Ui.T.Density.TextSmall, Ui.T.TextBrush, FontWeight.Medium, wrap: false);
+    private readonly Dictionary<TalkKeySlot, TalkKeyControls> _talkKeys = Enum.GetValues<TalkKeySlot>()
+        .ToDictionary(slot => slot, _ => new TalkKeyControls(
+            Ui.Button(""),
+            Ui.Button("Clear"),
+            Ui.Text("", Ui.T.Density.TextSmall, Ui.T.TextBrush, FontWeight.Medium, wrap: false)));
 
     private readonly TextBlock _talkLine = Ui.Text("", Ui.T.Density.TextTiny, Ui.T.DangerBrush);
 
     private bool _talkWired;
 
     /// <summary>Which key the next press is recorded for, or null when none is waiting.</summary>
-    private TalkKeyTarget? _capturingTalkKey;
-
-    private enum TalkKeyTarget
-    {
-        Mute,
-        Deafen,
-    }
+    private TalkKeySlot? _capturingTalkKey;
 
     private void WireTalk()
     {
@@ -56,34 +50,28 @@ public sealed partial class MainWindow
         _talkWired = true;
 
         _talkOn.Content = Ui.Text("On", Ui.T.Density.TextSmall, Ui.T.TextBrush);
-        _talkMuteKey.Content = _talkMuteKeyText;
-        _talkMuteKey.MinWidth = 140;
-        _talkDeafenKey.Content = _talkDeafenKeyText;
-        _talkDeafenKey.MinWidth = 140;
-
         _talkOn.IsCheckedChanged += (_, _) => TalkChanged(s => s with { On = _talkOn.IsChecked == true });
 
-        _talkMuteKey.Click += (_, _) => ToggleTalkCapture(TalkKeyTarget.Mute);
-        _talkDeafenKey.Click += (_, _) => ToggleTalkCapture(TalkKeyTarget.Deafen);
-
-        _talkMuteClear.Click += (_, _) => ClearTalkKey(TalkKeyTarget.Mute);
-        _talkDeafenClear.Click += (_, _) => ClearTalkKey(TalkKeyTarget.Deafen);
+        foreach (var (slot, controls) in _talkKeys)
+        {
+            var captured = slot;
+            controls.Record.Content = controls.Caption;
+            controls.Record.MinWidth = 140;
+            controls.Record.Click += (_, _) => ToggleTalkCapture(captured);
+            controls.Clear.Click += (_, _) => ClearTalkKey(captured);
+        }
     }
 
-    private void ToggleTalkCapture(TalkKeyTarget target)
+    private void ToggleTalkCapture(TalkKeySlot target)
     {
         _capturingTalkKey = _capturingTalkKey == target ? null : target;
         RenderPage();
     }
 
-    private void ClearTalkKey(TalkKeyTarget target)
+    private void ClearTalkKey(TalkKeySlot target)
     {
         _capturingTalkKey = null;
-
-        TalkChanged(s => target == TalkKeyTarget.Deafen
-            ? s with { DiscordDeafenKey = null }
-            : s with { DiscordMuteKey = null });
-
+        TalkChanged(s => s.WithKey(target, null));
         RenderPage();
     }
 
@@ -97,7 +85,7 @@ public sealed partial class MainWindow
     }
 
     /// <summary>
-    /// One key press while one of the two buttons is waiting for it. Escape gives up; anything
+    /// One key press while one of the buttons is waiting for it. Escape gives up; anything
     /// that can be pressed is saved and the button stops waiting.
     /// </summary>
     private void CaptureTalkKey(KeyEventArgs e)
@@ -116,13 +104,11 @@ public sealed partial class MainWindow
         if (TalkTokenFor(e) is not { } token || !TalkKeys.CanBePressed(token))
             return;
 
-        var target = _capturingTalkKey;
+        if (_capturingTalkKey is not { } target)
+            return;
+
         _capturingTalkKey = null;
-
-        TalkChanged(s => target == TalkKeyTarget.Deafen
-            ? s with { DiscordDeafenKey = token }
-            : s with { DiscordMuteKey = token });
-
+        TalkChanged(s => s.WithKey(target, token));
         RenderPage();
     }
 
@@ -172,36 +158,36 @@ public sealed partial class MainWindow
         var talk = _snapshot.Talk;
 
         _talkOn.IsChecked = talk.On;
-        _talkMuteKeyText.Text = KeyCaption(talk.DiscordMuteKey, _capturingTalkKey == TalkKeyTarget.Mute);
-        _talkDeafenKeyText.Text = KeyCaption(talk.DiscordDeafenKey, _capturingTalkKey == TalkKeyTarget.Deafen);
+
+        foreach (var (slot, controls) in _talkKeys)
+        {
+            var key = talk.Key(slot);
+            controls.Caption.Text = KeyCaption(key, _capturingTalkKey == slot);
+            controls.Record.IsEnabled = talk.On;
+            controls.Clear.IsVisible = key is not null;
+            controls.Clear.IsEnabled = talk.On;
+        }
 
         _talkLine.Text = _snapshot.TalkProblem ?? "";
         _talkLine.IsVisible = _snapshot.TalkProblem is not null;
-
-        _talkMuteKey.IsEnabled = talk.On;
-        _talkDeafenKey.IsEnabled = talk.On;
-        _talkMuteClear.IsVisible = talk.DiscordMuteKey is not null;
-        _talkDeafenClear.IsVisible = talk.DiscordDeafenKey is not null;
-        _talkMuteClear.IsEnabled = talk.On;
-        _talkDeafenClear.IsEnabled = talk.On;
     }
 
     private static string KeyCaption(string? key, bool waiting)
         => waiting ? "Press the keys" : key is null ? "Record" : TalkKeys.Describe(key);
 
-    private static StackPanel KeyRow(Button record, Button clear) => new()
+    private Control TalkKeyRow(string label, TalkKeySlot slot) => Ui.Field(label, new StackPanel
     {
         Orientation = Orientation.Horizontal,
         Spacing = 8,
-        Children = { record, clear },
-    };
+        Children = { _talkKeys[slot].Record, _talkKeys[slot].Clear },
+    });
 
-    /// <summary>The card: the switch, the two keys, and what failed if anything did.</summary>
+    /// <summary>The card: the switch, the two Discord keys, the three hotkeys, and what failed if anything did.</summary>
     private Control TalkCard()
     {
         WireTalk();
 
-        foreach (var control in new Control[] { _talkOn, _talkMuteKey, _talkDeafenKey, _talkMuteClear, _talkDeafenClear, _talkLine })
+        foreach (var control in new Control[] { _talkOn, _talkLine }.Concat(_talkKeys.Values.SelectMany(c => new Control[] { c.Record, c.Clear })))
             DetachFromParent(control);
 
         return new StackPanel
@@ -210,8 +196,11 @@ public sealed partial class MainWindow
             Children =
             {
                 _talkOn,
-                Ui.Field("Discord Toggle Mute", KeyRow(_talkMuteKey, _talkMuteClear)),
-                Ui.Field("Discord Toggle Deafen", KeyRow(_talkDeafenKey, _talkDeafenClear)),
+                TalkKeyRow("Discord Toggle Mute", TalkKeySlot.DiscordMute),
+                TalkKeyRow("Discord Toggle Deafen", TalkKeySlot.DiscordDeafen),
+                TalkKeyRow("Talk in Discord or VRChat hotkey", TalkKeySlot.SwapHotkey),
+                TalkKeyRow("Discord Mute hotkey", TalkKeySlot.MuteHotkey),
+                TalkKeyRow("Discord Deafen hotkey", TalkKeySlot.DeafenHotkey),
                 _talkLine,
             },
         };

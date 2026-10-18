@@ -1,7 +1,7 @@
 # Talk in Discord, Talk in VRChat
 
 **Status:** step 1 (the engine), 2026-10-17. Step 2 (the buttons on the headset panel, the same three
-as keys on the desktop, and the docs page) is a later change.
+as keys on the desktop, and the docs page, `docs/content/docs/companion/talk.mdx`), 2026-10-18; §7.
 **Asked for:** staff who are in VRChat want to talk to each other privately in Discord without
 leaving the instance, and to swap back without fumbling for either program.
 
@@ -197,3 +197,22 @@ or presses until a person ticks the box; unticking gives the port and the advert
 - Not testable without the programs, and checked by the user: Discord reacting to the presses,
   VRChat muting, VRChat naming Modbot in its notice, other OSC programs still working, the
   Toggle Mute while deafened row in §3.1, `OSCQuery` on loopback being found by VRChat.
+
+## 7. The buttons (step 2)
+
+- **The row.** On the main panel under the tabs, on every screen and also when the panel is otherwise
+  idle: **Talk in Discord/VRChat**, **Discord Mute**, **Discord Deafen** (`OverlayView.Talk.cs`).
+  Drawn only while the feature is on. The first button names the side being talked in (**Talking in
+  Discord**, **Talking in VRChat**), or **Talk in Discord** when neither; tapping it goes to the
+  other side, and from neither goes to Discord. The other two say **Muted** / **Deafened** while on.
+  A failure is one line under the row. No other text.
+- **Which side.** Talk in Discord is VRChat muted and Discord open; Talk in VRChat is the opposite;
+  anything else (both open, both shut, VRChat not heard from) is neither (`TalkState.Side`).
+  `TalkController.SwapAsync` reads the side when its turn comes, not when it was asked.
+- **Hotkeys.** Three more recorded keys in the same card (`swapHotkey`, `muteHotkey`,
+  `deafenHotkey` in the `talk` object), unset by default, claimed from Windows one key each
+  through `RegisterHotKey` (the desktop overlay shortcut's class) only while the feature is on. A key
+  lives in one slot only, so a hotkey can never also be a key Modbot presses for Discord.
+- **Wiring.** The overlay loop only says which button was tapped (`OverlayDriver.TalkAsked`); the
+  host owns the controller and acts, as for Save a clip. The host hands the loop the row on each
+  turn, because VRChat can change its own microphone.

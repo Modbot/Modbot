@@ -1,0 +1,99 @@
+---
+title: Talk in Discord or VRChat
+description: Swap your microphone between a private Discord call and VRChat with one button on the headset panel or one key, and mute or deafen Discord the same way. Off unless you switch it on, and nothing it does leaves your PC.
+---
+
+You are in an instance with other staff and need to talk to them privately, without the people
+around you hearing it, and then talk to the instance again without fumbling for either program.
+**Talk in Discord or VRChat** does the swap for you: it mutes one side and opens the other.
+
+| Button | VRChat's microphone | Discord's microphone |
+|---|---|---|
+| **Talk in Discord** | muted first | then opened |
+| **Talk in VRChat** | opened last | closed first |
+| **Discord Mute** | left alone | Discord's Toggle Mute pressed once |
+| **Discord Deafen** | left alone | Discord's Toggle Deafen pressed once |
+
+The side being closed always goes first. If VRChat's microphone cannot be muted, Discord is
+**not** opened, so a private conversation never reaches the instance because half a swap worked.
+
+## It is off until you switch it on
+
+A fresh install has it off, and so does a companion updated into a version that has it. While it is
+off nothing listens, nothing is announced to VRChat and no key is ever pressed.
+
+**Settings** → **Talk in Discord or VRChat** → **On** is the whole of the consent. Switching it off
+again gives everything back.
+
+## What you set up once
+
+**In VRChat**, turn on OSC in the Action Menu, under **Osc** → **Enabled**, and turn on **Toggle
+Voice** in VRChat's settings. The companion cannot do either for you. VRChat shows a notice naming
+**Modbot** the first time it hears from it. Other OSC programs keep working, because Modbot takes
+no fixed port.
+
+**In Discord**, the companion has no way to ask Discord to mute without a sign-in, so it presses
+the same keys you would. Under Discord's **Keybinds**, set **Toggle Mute** and **Toggle Deafen**
+to keys no other program wants, such as `F13` to `F24` or a number-pad key. Then, in the
+companion's Settings, record the same two keys by pressing them in **Discord Toggle Mute** and
+**Discord Toggle Deafen**. **Clear** takes a key back out; **Escape** gives up recording.
+
+If Discord is not running, the press goes to whichever program is in front, VRChat included. Pick
+keys nothing else uses.
+
+## On the headset panel
+
+With it on, a row of three buttons sits under the tabs of the main panel, on every screen, and
+stays when you are not in a group's instance.
+
+| Button | Says |
+|---|---|
+| First | **Talking in Discord** or **Talking in VRChat** for the side you are on, **Talk in Discord** when neither is. Tapping it moves you to the other side. |
+| Second | **Discord Mute**, or **Discord Muted** while it is on. |
+| Third | **Discord Deafen**, or **Discord Deafened** while it is on. |
+
+A button on a side, or a Discord switch that is on, is drawn in a colour of its own. When
+something fails, one line under the row says what, for example that VRChat did not answer.
+
+## On the keyboard
+
+The same three buttons can be keys that work while VRChat has the keyboard. In the same Settings
+card, record **Talk in Discord or VRChat hotkey**, **Discord Mute hotkey** and **Discord Deafen
+hotkey**. They start unset, and a hotkey is only claimed from Windows while Talk in Discord or
+VRChat is on and a key is recorded.
+
+- A hotkey may be a single key with no modifier. It is taken from every other program while it is
+  claimed, so use a key such as `F15`.
+- A key lives in one place. Recording a key that is already recorded somewhere else takes it out of
+  the first place. That keeps one of your hotkeys from also being a key Modbot presses for Discord,
+  which would start the next press by itself.
+- If another program already has a key, the card says so and the rest carries on.
+- **Clear** gives a hotkey back to Windows.
+
+## What it does and does not know
+
+VRChat tells Modbot when its microphone changes, so the first button always shows the real state,
+even when you muted by hand.
+
+Discord does not say. Modbot remembers **only what its own presses did**, starting from not muted
+and not deafened. If you mute Discord by hand, the memory is out of step: the buttons still work,
+but Talk in Discord may press the wrong way once. One more press of **Discord Mute** puts both
+right again. Nothing is remembered after the companion restarts.
+
+## What leaves your PC
+
+Nothing. The packets to and from VRChat stay on this PC's own loopback address, the announcement
+that lets VRChat find Modbot is a notice on your local network, and the keys are pressed on this
+PC. The companion still does not read your keyboard: pressing a key and claiming a hotkey are the
+only two things it does with one, and a hotkey is a claim on exactly the keys you recorded.
+
+## When something does not work
+
+| You see | Do |
+|---|---|
+| VRChat didn't answer. Turn on OSC in VRChat's Action Menu, under Osc. | Turn on OSC in VRChat. |
+| VRChat's microphone didn't change. Turn on Toggle Voice in VRChat's settings. | Turn on Toggle Voice. |
+| Record Discord's Toggle Mute key in Settings. | Record the key (the same for Toggle Deafen). |
+| Windows would not send the key. | Try again; nothing was changed. |
+| Another program has F15. | Record a different hotkey. |
+| Only works on Windows. | Windows only. |

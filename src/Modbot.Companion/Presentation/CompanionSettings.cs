@@ -269,7 +269,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public ListeningSettings Listening { get; init; } = ListeningSettings.Default;
 
     /// <summary>
-    /// Talk in Discord / Talk in VRChat: on or off, and the two keys pressed for Discord. Saved as
+    /// Talk in Discord / Talk in VRChat: on or off, the two keys pressed for Discord and the three hotkeys. Saved as
     /// the <c>talk</c> object. Off and no keys unless the file says otherwise.
     /// </summary>
     public TalkSettings Talk { get; init; } = TalkSettings.Default;
@@ -405,7 +405,13 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
 
     private static TalkSettings FromShape(TalkShape? talk) => talk is null
         ? TalkSettings.Default
-        : new TalkSettings(talk.On ?? false, talk.DiscordMuteKey, talk.DiscordDeafenKey).Cleaned();
+        : new TalkSettings(
+            talk.On ?? false,
+            talk.DiscordMuteKey,
+            talk.DiscordDeafenKey,
+            talk.SwapHotkey,
+            talk.MuteHotkey,
+            talk.DeafenHotkey).Cleaned();
 
     /// <summary>
     /// Writes the whole <c>talk</c> object, keeping every other field in the file. The same rules as
@@ -424,6 +430,15 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
 
         if (cleaned.DiscordDeafenKey is not null)
             shape["discordDeafenKey"] = cleaned.DiscordDeafenKey;
+
+        if (cleaned.SwapHotkey is not null)
+            shape["swapHotkey"] = cleaned.SwapHotkey;
+
+        if (cleaned.MuteHotkey is not null)
+            shape["muteHotkey"] = cleaned.MuteHotkey;
+
+        if (cleaned.DeafenHotkey is not null)
+            shape["deafenHotkey"] = cleaned.DeafenHotkey;
 
         return SaveField(path, TalkField, shape);
     }
@@ -765,7 +780,10 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     private sealed record TalkShape(
         [property: JsonPropertyName("on")] bool? On,
         [property: JsonPropertyName("discordMuteKey")] string? DiscordMuteKey,
-        [property: JsonPropertyName("discordDeafenKey")] string? DiscordDeafenKey);
+        [property: JsonPropertyName("discordDeafenKey")] string? DiscordDeafenKey,
+        [property: JsonPropertyName("swapHotkey")] string? SwapHotkey = null,
+        [property: JsonPropertyName("muteHotkey")] string? MuteHotkey = null,
+        [property: JsonPropertyName("deafenHotkey")] string? DeafenHotkey = null);
 
     private sealed record CloudShape(
         [property: JsonPropertyName("endpoint")] string? Endpoint,

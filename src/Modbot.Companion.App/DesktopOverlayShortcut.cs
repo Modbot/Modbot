@@ -6,12 +6,13 @@ using Serilog;
 namespace Modbot.Companion.App;
 
 /// <summary>
-/// The one keyboard combination the client asks Windows for, so the desktop overlay can be brought
-/// up while VRChat has the keyboard.
+/// One keyboard combination the client asks Windows for, so the desktop overlay can be brought
+/// up while VRChat has the keyboard. Each of the three Talk hotkeys is one of these as well, so
+/// the client claims at most four combinations and each is its own claim on its own thread.
 /// </summary>
 /// <remarks>
 /// <para><strong>It does not read the keyboard, and it cannot.</strong> Windows'
-/// <c>RegisterHotKey</c> is a claim on exactly one combination: the client names the keys it wants,
+/// <c>RegisterHotKey</c> is a claim on exactly one combination, and this class makes one claim: the client names the keys it wants,
 /// and Windows sends one message when those keys are pressed and says nothing whatever about any
 /// other key. There is no key list, no buffer and no callback that sees anything else. The
 /// alternative — a low-level keyboard hook, or polling every key's state — would see every
@@ -76,14 +77,26 @@ internal sealed class DesktopOverlayShortcut : IDisposable
     private static extern uint GetCurrentThreadId();
 
     private readonly Action _pressed;
+    private readonly Func<string, ShortcutKeys?> _read;
+    private readonly string _what;
     private Thread? _thread;
     private uint _threadId;
     private volatile bool _stopping;
     private volatile bool _granted;
 
     /// <param name="pressed">Run on the UI thread when the combination is pressed.</param>
-    public DesktopOverlayShortcut(Action pressed)
-        => _pressed = pressed ?? throw new ArgumentNullException(nameof(pressed));
+    /// <param name="read">
+    /// How a recorded combination is read. The desktop overlay's own shortcut needs a modifier
+    /// (<see cref="DesktopOverlayKeys.Read"/>); the Talk hotkeys take a single key with none
+    /// (<c>TalkKeys.Read</c>), because each is claimed knowingly and one at a time.
+    /// </param>
+    /// <param name="what">What the combination does, for the log and the crash guard.</param>
+    public DesktopOverlayShortcut(Action pressed, Func<string, ShortcutKeys?>? read = null, string what = "opening the desktop overlay")
+    {
+        _pressed = pressed ?? throw new ArgumentNullException(nameof(pressed));
+        _read = read ?? (shortcut => DesktopOverlayKeys.Read(shortcut));
+        _what = what;
+    }
 
     /// <summary>What the last <see cref="Ask"/> was told, for the Settings page.</summary>
     public ShortcutState State { get; private set; } = ShortcutState.Off;
@@ -105,7 +118,7 @@ internal sealed class DesktopOverlayShortcut : IDisposable
         if (!OperatingSystem.IsWindows())
             return State = ShortcutState.NotOnThisSystem;
 
-        if (DesktopOverlayKeys.Read(shortcut) is not { } keys)
+        if (_read(shortcut) is not { } keys)
             return State = ShortcutState.NotUnderstood;
 
         // The thread's own answer, waited for here so the Settings page can say what happened
@@ -117,7 +130,7 @@ internal sealed class DesktopOverlayShortcut : IDisposable
         _thread = new Thread(() => Run(keys, answered))
         {
             IsBackground = true,
-            Name = "Modbot desktop overlay shortcut",
+            Name = $"Modbot shortcut for {_what}",
         };
 
         _thread.Start();
@@ -126,14 +139,15 @@ internal sealed class DesktopOverlayShortcut : IDisposable
         if (_granted)
         {
             Registered = shortcut;
-            Log.Information("The desktop overlay's shortcut {Shortcut} is registered", KeyTokens.Describe(shortcut));
+            Log.Information("The shortcut {Shortcut} for {What} is registered", KeyTokens.Describe(shortcut), _what);
             return State = ShortcutState.Registered;
         }
 
         Release();
         Log.Warning(
-            "The desktop overlay's shortcut {Shortcut} could not be registered; another program has it. The client carries on without it",
-            KeyTokens.Describe(shortcut));
+            "The shortcut {Shortcut} for {What} could not be registered; another program has it. The client carries on without it",
+            KeyTokens.Describe(shortcut),
+            _what);
 
         return State = ShortcutState.Taken;
     }
@@ -183,7 +197,7 @@ internal sealed class DesktopOverlayShortcut : IDisposable
 
                 // Back to the thread that owns the windows; nothing about the overlay may be
                 // touched from here.
-                Dispatcher.UIThread.Post(() => CrashGuard.Run("opening the desktop overlay", _pressed));
+                Dispatcher.UIThread.Post(() => CrashGuard.Run(_what, _pressed));
             }
         }
         finally

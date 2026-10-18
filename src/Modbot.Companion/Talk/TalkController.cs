@@ -49,6 +49,24 @@ public sealed record TalkResult(bool Ok, string? Problem = null)
 public sealed record TalkState(bool On, bool? VRChatMuted, bool DiscordMuted, bool DiscordDeafened, string? Problem)
 {
     public static TalkState None { get; } = new(false, null, false, false, null);
+
+    /// <summary>
+    /// Talk in Discord is VRChat muted and Discord open; Talk in VRChat is the opposite. Anything
+    /// else (both open, both shut, VRChat not heard from) is neither.
+    /// </summary>
+    public TalkSide Side
+    {
+        get
+        {
+            var discordOpen = !DiscordMuted && !DiscordDeafened;
+            return VRChatMuted switch
+            {
+                true when discordOpen => TalkSide.Discord,
+                false when !discordOpen => TalkSide.VRChat,
+                _ => TalkSide.Neither,
+            };
+        }
+    }
 }
 
 /// <summary>
@@ -121,22 +139,30 @@ public sealed class TalkController
 
     /// <summary>VRChat muted, then Discord opened.</summary>
     public Task<TalkResult> TalkInDiscordAsync(CancellationToken cancellationToken = default)
-        => RunAsync(async () =>
-        {
-            var vrchat = await SetVRChatMutedAsync(true, cancellationToken).ConfigureAwait(false);
-            return vrchat.Ok
-                ? await SetDiscordMicrophoneAsync(open: true, cancellationToken).ConfigureAwait(false)
-                : vrchat;
-        });
+        => RunAsync(() => TalkInDiscordNowAsync(cancellationToken));
 
     /// <summary>Discord closed, then VRChat opened.</summary>
     public Task<TalkResult> TalkInVRChatAsync(CancellationToken cancellationToken = default)
-        => RunAsync(async () =>
-        {
-            var discord = await SetDiscordMicrophoneAsync(open: false, cancellationToken).ConfigureAwait(false);
-            var vrchat = await SetVRChatMutedAsync(false, cancellationToken).ConfigureAwait(false);
-            return vrchat.Ok ? discord : vrchat;
-        });
+        => RunAsync(() => TalkInVRChatNowAsync(cancellationToken));
+
+    /// <summary>
+    /// The swap button: from Talk in Discord to Talk in VRChat, and from anywhere else to Talk in
+    /// Discord. Which side it is on is read when this action's turn comes, not when it was asked
+    /// for, so two quick presses go there and back.
+    /// </summary>
+    public Task<TalkResult> SwapAsync(CancellationToken cancellationToken = default)
+        => RunAsync(() => State.Side == TalkSide.Discord
+            ? TalkInVRChatNowAsync(cancellationToken)
+            : TalkInDiscordNowAsync(cancellationToken));
+
+    /// <summary>One of the three buttons, as the VR panel and the hotkeys press them.</summary>
+    public Task<TalkResult> PressButtonAsync(TalkButton button, CancellationToken cancellationToken = default) => button switch
+    {
+        TalkButton.Swap => SwapAsync(cancellationToken),
+        TalkButton.DiscordMute => ToggleDiscordMuteAsync(cancellationToken),
+        TalkButton.DiscordDeafen => ToggleDiscordDeafenAsync(cancellationToken),
+        _ => throw new ArgumentOutOfRangeException(nameof(button)),
+    };
 
     /// <summary>One press of Discord's Toggle Mute key.</summary>
     public Task<TalkResult> ToggleDiscordMuteAsync(CancellationToken cancellationToken = default)
@@ -160,6 +186,21 @@ public sealed class TalkController
             _one.Release();
             Changed?.Invoke();
         }
+    }
+
+    private async Task<TalkResult> TalkInDiscordNowAsync(CancellationToken cancellationToken)
+    {
+        var vrchat = await SetVRChatMutedAsync(true, cancellationToken).ConfigureAwait(false);
+        return vrchat.Ok
+            ? await SetDiscordMicrophoneAsync(open: true, cancellationToken).ConfigureAwait(false)
+            : vrchat;
+    }
+
+    private async Task<TalkResult> TalkInVRChatNowAsync(CancellationToken cancellationToken)
+    {
+        var discord = await SetDiscordMicrophoneAsync(open: false, cancellationToken).ConfigureAwait(false);
+        var vrchat = await SetVRChatMutedAsync(false, cancellationToken).ConfigureAwait(false);
+        return vrchat.Ok ? discord : vrchat;
     }
 
     private async Task<TalkResult> SetVRChatMutedAsync(bool muted, CancellationToken cancellationToken)

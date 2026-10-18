@@ -82,6 +82,82 @@ public class TalkSettingsFileTests : IDisposable
     }
 
     [Fact]
+    public void TheThreeHotkeysStartUnset()
+    {
+        Write("""{ "talk": { "on": true, "discordMuteKey": "f13", "discordDeafenKey": "f14" } }""");
+
+        var talk = Load();
+
+        Assert.Null(talk.SwapHotkey);
+        Assert.Null(talk.MuteHotkey);
+        Assert.Null(talk.DeafenHotkey);
+    }
+
+    [Fact]
+    public void TheHotkeysSurviveASaveAndAnUnsetOneIsLeftOutOfTheFile()
+    {
+        var saved = new TalkSettings(true, "f13", "f14", SwapHotkey: "f15", MuteHotkey: null, DeafenHotkey: "f17");
+
+        Assert.True(CompanionSettings.SaveTalk(Path_, saved));
+
+        Assert.Equal(saved, Load());
+
+        var text = File.ReadAllText(Path_);
+        Assert.Contains("\"swapHotkey\": \"f15\"", text, StringComparison.Ordinal);
+        Assert.Contains("\"deafenHotkey\": \"f17\"", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("muteHotkey", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AHotkeyThatCannotBePressedReadsAsNotRecorded()
+    {
+        Write("""{ "talk": { "on": true, "swapHotkey": "mod", "muteHotkey": "g e", "deafenHotkey": "f17" } }""");
+
+        var talk = Load();
+
+        Assert.Null(talk.SwapHotkey);
+        Assert.Null(talk.MuteHotkey);
+        Assert.Equal("f17", talk.DeafenHotkey);
+    }
+
+    [Fact]
+    public void AKeyRecordedTwiceByHandStaysInTheFirstPlaceOnly()
+    {
+        // A hotkey that is also a Discord key would start itself when Modbot pressed that key.
+        Write("""{ "talk": { "on": true, "discordMuteKey": "f13", "swapHotkey": "F13", "muteHotkey": "f15" } }""");
+
+        var talk = Load();
+
+        Assert.Equal("f13", talk.DiscordMuteKey);
+        Assert.Null(talk.SwapHotkey);
+        Assert.Equal("f15", talk.MuteHotkey);
+    }
+
+    [Fact]
+    public void RecordingAKeyAgainSomewhereElseTakesItOutOfTheFirstPlace()
+    {
+        var talk = new TalkSettings(true, "f13", "f14", SwapHotkey: "f15");
+
+        var moved = talk.WithKey(TalkKeySlot.MuteHotkey, "mod+alt+x").WithKey(TalkKeySlot.DeafenHotkey, "f15");
+
+        Assert.Null(moved.SwapHotkey);
+        Assert.Equal("f15", moved.DeafenHotkey);
+        Assert.Equal("mod+alt+x", moved.MuteHotkey);
+        Assert.Equal("f13", moved.DiscordMuteKey);
+    }
+
+    [Fact]
+    public void ClearingAKeyLeavesTheOthersAlone()
+    {
+        var talk = new TalkSettings(true, "f13", "f14", "f15", "f16", "f17");
+
+        var cleared = talk.WithKey(TalkKeySlot.MuteHotkey, null);
+
+        Assert.Null(cleared.MuteHotkey);
+        Assert.Equal(talk with { MuteHotkey = null }, cleared);
+    }
+
+    [Fact]
     public void AKeyThatCannotBePressedReadsAsNotRecorded()
     {
         Write("""{ "talk": { "on": true, "discordMuteKey": "mod", "discordDeafenKey": "g e" } }""");
