@@ -407,6 +407,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        CancelTalkCapture();
         Hide();
 
         // The client is still running and still reporting, which is the point of the tray icon and
@@ -718,6 +719,7 @@ public sealed partial class MainWindow : Window
         if (page is Page.Debug && !_snapshot.DebugMode)
             return;
 
+        CancelTalkCapture();
         _page = page;
         RenderPage();
     }

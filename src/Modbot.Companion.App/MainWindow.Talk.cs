@@ -56,6 +56,7 @@ public sealed partial class MainWindow
 
         _talkOn.Content = Ui.Text("On", Ui.T.Density.TextSmall, Ui.T.TextBrush);
         _talkOn.IsCheckedChanged += (_, _) => TalkChanged(s => s with { On = _talkOn.IsChecked == true });
+        Deactivated += (_, _) => CancelTalkCapture();
 
         foreach (var (slot, controls) in _talkKeys)
         {
@@ -95,6 +96,21 @@ public sealed partial class MainWindow
             _actions.SetTalkRecording(slot is not null);
     }
 
+    /// <summary>
+    /// Gives up a key that is still waiting, the way Escape does, so the hotkeys go back to Windows.
+    /// Called when the window loses focus or is hidden, or the page is left, because nothing else
+    /// would end the waiting and the hotkeys would stay off.
+    /// </summary>
+    private void CancelTalkCapture()
+    {
+        if (_capturingTalkKey is null)
+            return;
+
+        _talkKeyRefusal = null;
+        SetCapturingTalkKey(null);
+        RenderPage();
+    }
+
     /// <summary>What the card's controls say right now, handed to the application as one record.</summary>
     private void TalkChanged(Func<TalkSettings, TalkSettings> change)
     {
@@ -114,9 +130,7 @@ public sealed partial class MainWindow
 
         if (e.Key is Key.Escape)
         {
-            _talkKeyRefusal = null;
-            SetCapturingTalkKey(null);
-            RenderPage();
+            CancelTalkCapture();
             return;
         }
 
