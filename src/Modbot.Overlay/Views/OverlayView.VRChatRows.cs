@@ -293,8 +293,9 @@ public sealed partial class OverlayView
     }
 
     /// <summary>
-    /// A person's name in bold, with their marks at the end of the line. The name is cut with an
-    /// ellipsis before the marks are crowded out of the row, and the marks never push past it.
+    /// A person's name in bold, with their marks at the end of the line. The marks take the room they
+    /// need and the name gives way first, cut with an ellipsis. Only when the name is down to a short
+    /// stub are the marks cut, so a wider panel shows them whole.
     /// </summary>
     private Control NameLine(string name, IBrush brush, IReadOnlyList<Control> marks)
     {
@@ -310,7 +311,6 @@ public sealed partial class OverlayView
             Spacing = 6,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(8, 0, 0, 0),
-            MaxWidth = 220,
             ClipToBounds = true,
         };
 
@@ -320,9 +320,53 @@ public sealed partial class OverlayView
             strip.Children.Add(mark);
         }
 
-        DockPanel.SetDock(strip, Avalonia.Controls.Dock.Right);
+        return new NameAndMarks { Children = { words, strip } };
+    }
 
-        return new DockPanel { LastChildFill = true, Children = { strip, words } };
+    /// <summary>
+    /// A name and the marks after it on one line: the marks get the room they ask for, the name the
+    /// rest, and never less than a short stub of itself while the marks are cut to leave that.
+    /// </summary>
+    /// <remarks>
+    /// A dock gives the name whatever the marks leave, which can be nothing; this keeps a few letters
+    /// of it. The first child is the name, the second the marks.
+    /// </remarks>
+    private sealed class NameAndMarks : Panel
+    {
+        /// <summary>The least of the name kept while the marks are cut, in panel pixels.</summary>
+        private const double LeastName = 64;
+
+        protected override Size MeasureOverride(Size availableSize)
+        {
+            var name = Children[0];
+            var marks = Children[1];
+
+            name.Measure(new Size(double.PositiveInfinity, availableSize.Height));
+            var kept = Math.Min(name.DesiredSize.Width, LeastName);
+
+            marks.Measure(new Size(Math.Max(0, availableSize.Width - kept), availableSize.Height));
+            var markWidth = Math.Min(marks.DesiredSize.Width, Math.Max(0, availableSize.Width - kept));
+
+            name.Measure(new Size(Math.Max(0, availableSize.Width - markWidth), availableSize.Height));
+
+            return new Size(
+                name.DesiredSize.Width + markWidth,
+                Math.Max(name.DesiredSize.Height, marks.DesiredSize.Height));
+        }
+
+        protected override Size ArrangeOverride(Size finalSize)
+        {
+            var name = Children[0];
+            var marks = Children[1];
+
+            var kept = Math.Min(name.DesiredSize.Width, LeastName);
+            var markWidth = Math.Min(marks.DesiredSize.Width, Math.Max(0, finalSize.Width - kept));
+
+            name.Arrange(new Rect(0, 0, Math.Max(0, finalSize.Width - markWidth), finalSize.Height));
+            marks.Arrange(new Rect(Math.Max(0, finalSize.Width - markWidth), 0, markWidth, finalSize.Height));
+
+            return finalSize;
+        }
     }
 
     /// <summary>The small line of words under a name: when somebody came, or the words that say they were here before.</summary>

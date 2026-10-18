@@ -270,6 +270,84 @@ public class VRChatPeopleRowsTests
             counts.TranslatePoint(new Point(counts.Bounds.Width, 0), root)!.Value.X);
     }
 
+    /// <summary>A person with all three labels after the name: a rank, a flag and a heads-up.</summary>
+    private static OverlayScreen WithThreeLabels(string name)
+    {
+        var who = Person(name) with
+        {
+            Flags = ["5 warns"],
+            TrustRank = Modbot.Core.Users.TrustRank.KnownUser,
+        };
+
+        return Screen([who]) with
+        {
+            HeadsUps = [new HeadsUp("h1", "keep_an_eye", who.SubjectId, null, null, null, "Jo", Now)],
+        };
+    }
+
+    /// <summary>Where the name ends, where the labels start and end and where the last one ends, and where the line ends.</summary>
+    private static (double NameRight, double NameWidth, double StripLeft, double StripRight, double LastLabelRight, double LineRight) NameLineEdges(Control root, string name)
+    {
+        var words = root.GetLogicalDescendants().OfType<TextBlock>().First(t => t.Text == name);
+        var line = (Control)words.GetLogicalParent()!;
+        var strip = line.GetLogicalChildren().OfType<Control>().Last();
+        var last = strip.GetLogicalChildren().OfType<Control>().Last();
+
+        double X(Control c, double inside) => c.TranslatePoint(new Point(inside, 0), root)!.Value.X;
+
+        return (X(words, words.Bounds.Width), words.Bounds.Width, X(strip, 0), X(strip, strip.Bounds.Width), X(last, last.Bounds.Width), X(line, line.Bounds.Width));
+    }
+
+    [Theory]
+    [InlineData(OverlayView.HeadsetDesignWidth)]
+    [InlineData(800)]
+    [InlineData(1000)]
+    public void ThreeLabelsAfterANameAreShownInFullAtTheHeadsetWidthAndWider(double width)
+    {
+        var e = Draw(WithThreeLabels("Kai"), root => NameLineEdges(root, "Kai"), width: width);
+
+        Assert.True(e.LastLabelRight <= e.StripRight + 0.5, $"The last label ends at {e.LastLabelRight}, the cut is at {e.StripRight}.");
+        Assert.True(e.NameRight <= e.StripLeft + 0.5, $"The name ends at {e.NameRight}, the labels start at {e.StripLeft}.");
+    }
+
+    [Theory]
+    [InlineData(OverlayView.HeadsetDesignWidth)]
+    [InlineData(800)]
+    public void ALongNameIsTrimmedAndTheLabelsStayWhole(double width)
+    {
+        var long_ = new string('W', 80);
+        var e = Draw(WithThreeLabels(long_), root => NameLineEdges(root, long_), width: width);
+
+        Assert.True(e.LastLabelRight <= e.StripRight + 0.5, $"The last label ends at {e.LastLabelRight}, the cut is at {e.StripRight}.");
+        Assert.True(e.NameRight <= e.StripLeft + 0.5, $"The name ends at {e.NameRight}, the labels start at {e.StripLeft}.");
+        Assert.True(e.NameWidth < 80 * 10, $"The name is {e.NameWidth} wide: it was not trimmed.");
+        Assert.True(e.NameWidth > 0);
+    }
+
+    [Theory]
+    [InlineData(200)]
+    [InlineData(260)]
+    [InlineData(340)]
+    [InlineData(420)]
+    public void AtANarrowWidthTheNameAndTheLabelsNeverOverlapAndNeitherRunsPastTheLine(double width)
+    {
+        var long_ = new string('W', 80);
+        var e = Draw(WithThreeLabels(long_), root => NameLineEdges(root, long_), width: width);
+
+        Assert.True(e.NameRight <= e.StripLeft + 0.5, $"The name ends at {e.NameRight}, the labels start at {e.StripLeft}.");
+        Assert.True(e.StripRight <= e.LineRight + 0.5, $"The labels end at {e.StripRight}, the line at {e.LineRight}.");
+    }
+
+    [Fact]
+    public void TheNameKeepsAStubOfItselfWhileTheLabelsAreCutToLeaveIt()
+    {
+        var long_ = new string('W', 80);
+        var e = Draw(WithThreeLabels(long_), root => NameLineEdges(root, long_), width: 340);
+
+        Assert.True(e.NameWidth >= 48, $"The name is only {e.NameWidth} wide.");
+        Assert.True(e.LastLabelRight > e.StripRight, "The labels were expected to be cut at this width.");
+    }
+
     [Fact]
     public void TheHeadsetKeepsItsOwnCountAndItsOwnRows()
     {
