@@ -103,6 +103,11 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     // Whether a ray is on the panel, which is what puts the bar up under it.
     private bool _rayOnPanel;
 
+    // What is lit under the ray, and what the frame on the panel was drawn with lit. A ray that
+    // stays on one control changes neither, so it costs no frame of its own.
+    private OverlayTarget? _lit;
+    private OverlayTarget? _drawnLit;
+
     // The controller hints beside the bar: up while a hand points at the panel or holds it, and
     // not on a locked, click-through or wrist panel.
     private ControlHints? _hints;
@@ -428,9 +433,10 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             // A list that was going stops: nothing is there to see it, and nothing would stop it.
             _rosterScroll.Touch();
             _eventScroll.Touch();
-            var barWasShowing = _rayOnPanel || _hints is not null;
+            var barWasShowing = _rayOnPanel || _hints is not null || _lit is not null;
             _rayOnPanel = false;
             _hints = null;
+            _lit = null;
             if (_cursor is not null || barWasShowing)
             {
                 _cursor = null;
@@ -472,10 +478,13 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             ? new PanelCursor(MathF.Round(p.Across / CursorStep) * CursorStep, MathF.Round(p.Down / CursorStep) * CursorStep)
             : (PanelCursor?)null;
 
+        var litWas = _lit;
+        _lit = LitUnder(result.Pointer);
+
         // Picking the panel up and putting it down change which screen is drawn without changing
         // the screen itself, and so does the bar coming up or going, so nothing else would redraw
         // it. One frame for all of it, however many changed at once.
-        if (result.PlacementChanged || wasHolding != Holding || barWasUp != _rayOnPanel || hintsWere != _hints)
+        if (result.PlacementChanged || wasHolding != Holding || barWasUp != _rayOnPanel || hintsWere != _hints || litWas != _lit)
         {
             _cursor = cursor;
             Draw();
@@ -629,7 +638,8 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             && _root is { } root
             && _drawn is { ScrollOffset: not null } drawn
             && ScrollingList.In(root) is { } list
-            && (drawn.Cursor is null) == (_cursor is null))
+            && (drawn.Cursor is null) == (_cursor is null)
+            && _drawnLit == _lit)
         {
             var offset = ShownScroll.Offset;
 
@@ -656,6 +666,19 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         }
 
         Draw();
+    }
+
+    /// <summary>
+    /// What lights under the ray: the control it is on, if a press could land there. Nothing while a
+    /// list is moving, so the rows going by under a still ray do not each cost a frame.
+    /// </summary>
+    private OverlayTarget? LitUnder(Pointer? pointer)
+    {
+        if (pointer is not { } at || Scrolling)
+            return null;
+
+        var target = TargetAt(at.Across, at.Down);
+        return Lit.Lights(target, EditMode) ? target : null;
     }
 
     /// <summary>Whether a point on the panel is on a list that scrolls: the roster, a row of it, or the events.</summary>
@@ -952,6 +975,9 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// <summary>What the overlay shows right now: the pinned screen, else the live one, else idle.</summary>
     public OverlayScreen Showing => _drawn ?? OverlayScreen.Idle;
 
+    /// <summary>The control the last frame drew lit, because the ray was on it, or null.</summary>
+    public OverlayTarget? LitUp => _drawnLit;
+
     /// <summary>The controller hints in the frame drawn right now; null when there are none.</summary>
     public ControlHints? Hints => _drawnBar.Hints;
 
@@ -1036,11 +1062,12 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         var placement = _interaction.Placement;
         var bar = PanelBar.For(placement, _rayOnPanel && EditMode, _hints, corner: EditMode && !OnWrist && Holding is null);
 
-        if (next is null || (_drawn is not null && _drawn.LooksTheSameAs(next) && _drawnBar == bar))
+        if (next is null || (_drawn is not null && _drawn.LooksTheSameAs(next) && _drawnBar == bar && _drawnLit == _lit))
             return false;
 
         _drawn = next;
         _drawnBar = bar;
+        _drawnLit = _lit;
         _compositor.Invalidate();
 
         // The cursor is drawn over the bar as well as the cards, so the frame draws it rather
@@ -1058,6 +1085,9 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             Width * placement.Wide);
         if (placement.Longest > 1f)
             root = new Zoom(1.0 / placement.Longest, root);
+
+        if (_lit is not null)
+            new Lit().Show(root, _lit, _look.Tokens);
 
         if (!_compositor.DrawIfChanged(root))
             return false;

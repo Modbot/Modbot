@@ -79,6 +79,10 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     private const double IconSize = 22;
 
     private readonly ContentControl _panel = new();
+
+    // What the mouse is on and lights up, by the same rule the headset's laser lights things by.
+    private readonly Lit _lit = new();
+    private OverlayTarget? _litTarget;
     private readonly Image _groupIcon = new() { Width = IconSize, Height = IconSize, Stretch = Stretch.UniformToFill };
     private readonly Border _groupIconFrame;
     private readonly TextBlock _groupName = Ui.Text(
@@ -262,6 +266,8 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         Content = _scaler;
 
         _panel.PointerPressed += OnPanelPressed;
+        _panel.PointerMoved += OnPanelMoved;
+        _panel.PointerExited += (_, _) => Light(null);
         // The wheel moves the roster or the Audit Log, the two lists the panel itself pages through,
         // the same way the J and K keys do. On the person card it is left to the window's own
         // scrolling, because taking it there would be a wheel that does nothing over a card that is
@@ -707,6 +713,10 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         _panel.Content = screen.IsIdle
             ? OverlayView.Build(screen with { ShowIdleCard = true }, GroupIcon, _look)
             : OverlayView.Build(screen, GroupIcon, _look);
+
+        // A new tree is drawn unlit; the control under the mouse is lit again on it.
+        if (_panel.Content is Visual built)
+            _lit.Show(built, _litTarget, _look.Tokens);
     }
 
     /// <summary>
@@ -1273,6 +1283,27 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         _fittedScaling = scaling;
         _scaled = true;
         return true;
+    }
+
+    private void OnPanelMoved(object? sender, PointerEventArgs e)
+    {
+        if (_panel.Content is not Visual root)
+            return;
+
+        var under = OverlayTargets.At(root, e.GetPosition(root));
+        Light(Lit.Lights(under, editMode: true) ? under : null);
+    }
+
+    /// <summary>Lights the control the mouse is on, or none, and puts the one before it back.</summary>
+    private void Light(OverlayTarget? target)
+    {
+        if (target == _litTarget)
+            return;
+
+        _litTarget = target;
+
+        if (_panel.Content is Visual root)
+            _lit.Show(root, target, _look.Tokens);
     }
 
     private void OnPanelPressed(object? sender, PointerPressedEventArgs e)

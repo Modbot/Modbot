@@ -1888,8 +1888,6 @@ public sealed partial class OverlayView
 
         row.Tag = new OverlayTarget.Person(subjectId);
         row.Background = T.Surface3Brush;
-        row.PointerEntered += (_, _) => row.Background = T.AccentDimBrush;
-        row.PointerExited += (_, _) => row.Background = T.Surface3Brush;
 
         return row;
     }

@@ -55,6 +55,10 @@ public sealed class ButtonHost : IDisposable
     private Control? _root;
     private PanelCursor? _cursor;
     private PanelCursor? _drawnCursor;
+
+    // What is lit under the ray, and what the frame on the panel was drawn with lit.
+    private OverlayTarget? _lit;
+    private OverlayTarget? _drawnLit;
     private bool _rayOnPanel;
     private bool _editMode;
     private PanelBar? _drawnBar;
@@ -203,6 +207,9 @@ public sealed class ButtonHost : IDisposable
     /// <summary>What the button shows right now.</summary>
     public ButtonScreen Showing => _drawn;
 
+    /// <summary>The control the last frame drew lit, because the ray was on it, or null.</summary>
+    public OverlayTarget? LitUp => _drawnLit;
+
     /// <summary>
     /// How the button is drawn: the Modbot look or VRChat's, the same choice the panels make. Drawn
     /// again at once when it changes. UI thread only, like <see cref="Update"/>.
@@ -341,6 +348,7 @@ public sealed class ButtonHost : IDisposable
             _hold.Reset();
             _counting = null;
             _cursor = null;
+            _lit = null;
             Redraw();
             return;
         }
@@ -354,6 +362,7 @@ public sealed class ButtonHost : IDisposable
             Holding = null;
             _rayOnPanel = false;
             _cursor = null;
+            _lit = null;
 
             if (ReadShortcut(tracking, now, stickInUse))
                 ShortcutHeld?.Invoke();
@@ -369,6 +378,7 @@ public sealed class ButtonHost : IDisposable
         _cursor = result.Pointer is { } p
             ? new PanelCursor(MathF.Round(p.Across / CursorStep) * CursorStep, MathF.Round(p.Down / CursorStep) * CursorStep)
             : null;
+        _lit = result.Pointer is { } at && TargetAt(at.Across, at.Down) is { } under && Lit.Lights(under, EditMode) ? under : null;
 
         if (result.PlacementChanged)
         {
@@ -530,7 +540,7 @@ public sealed class ButtonHost : IDisposable
     /// <summary>Draws again if the cursor, the count or the bar would change what is on the button.</summary>
     private void Redraw()
     {
-        if (_cursor != _drawnCursor || _counting != _drawnCounting || Bar() != _drawnBar)
+        if (_cursor != _drawnCursor || _counting != _drawnCounting || Bar() != _drawnBar || _lit != _drawnLit)
             Draw();
     }
 
@@ -550,8 +560,13 @@ public sealed class ButtonHost : IDisposable
             bar,
             _cursor,
             Width);
+
+        if (_lit is not null)
+            new Lit().Show(root, _lit, _look.Tokens);
+
         _drawnBar = bar;
         _drawnCursor = _cursor;
+        _drawnLit = _lit;
         _drawnCounting = _counting;
         _everDrawn = true;
 

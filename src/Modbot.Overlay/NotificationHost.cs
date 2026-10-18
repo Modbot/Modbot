@@ -97,6 +97,10 @@ public sealed class NotificationHost : IDisposable
     private PanelCursor? _drawnCursor;
     private PanelBar _drawnBar;
 
+    // What is lit under the ray, and what the frame on the panel was drawn with lit.
+    private OverlayTarget? _lit;
+    private OverlayTarget? _drawnLit;
+
     /// <summary>The cursor is placed to this fraction, so a trembling hand does not redraw every poll.</summary>
     private const float CursorStep = 1f / 128f;
 
@@ -209,6 +213,9 @@ public sealed class NotificationHost : IDisposable
     /// <summary>What the panel shows right now.</summary>
     public NotificationScreen Showing => _drawn;
 
+    /// <summary>The control the last frame drew lit, because the ray was on it, or null.</summary>
+    public OverlayTarget? LitUp => _drawnLit;
+
     /// <summary>
     /// How the pop-ups are drawn: the Modbot look they have always had, or VRChat's colours and
     /// cards, the same choice the main panel makes. Drawn again at once when it changes. UI thread
@@ -283,6 +290,7 @@ public sealed class NotificationHost : IDisposable
             _hints = null;
             _hintsFrom = null;
             _cursor = null;
+            _lit = null;
             Redraw();
             return;
         }
@@ -297,6 +305,7 @@ public sealed class NotificationHost : IDisposable
         _cursor = result.Pointer is { } p
             ? new PanelCursor(MathF.Round(p.Across / CursorStep) * CursorStep, MathF.Round(p.Down / CursorStep) * CursorStep)
             : null;
+        _lit = result.Pointer is { } at && TargetAt(at.Across, at.Down) is { } under && Lit.Lights(under, EditMode) ? under : null;
 
         if (result.PlacementChanged)
         {
@@ -456,7 +465,7 @@ public sealed class NotificationHost : IDisposable
     /// <summary>Draws again if the cursor, the bar or the lock would change what is on the panel.</summary>
     private void Redraw()
     {
-        if (_cursor != _drawnCursor || Bar() != _drawnBar)
+        if (_cursor != _drawnCursor || Bar() != _drawnBar || _lit != _drawnLit)
             Draw();
     }
 
@@ -490,8 +499,12 @@ public sealed class NotificationHost : IDisposable
         if (Math.Abs(fit - 1) > 1e-6)
             root = new Zoom(fit, root);
 
+        if (_lit is not null)
+            new Lit().Show(root, _lit, _look.Tokens);
+
         _drawnBar = bar;
         _drawnCursor = _cursor;
+        _drawnLit = _lit;
         _everDrawn = true;
 
         if (!_compositor.DrawIfChanged(root))

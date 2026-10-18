@@ -455,8 +455,6 @@ public sealed partial class OverlayView
         }
 
         card.Background = T.Surface3Brush;
-        card.PointerEntered += (_, _) => card.Background = T.AccentDimBrush;
-        card.PointerExited += (_, _) => card.Background = T.Surface3Brush;
 
         return card;
     }

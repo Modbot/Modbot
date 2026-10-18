@@ -5,6 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Presentation;
+using Modbot.Overlay.Interaction;
 using Modbot.Overlay.OpenVr;
 using Modbot.Overlay.Rendering;
 using Modbot.Overlay.Views;
@@ -50,6 +51,11 @@ public sealed class DashboardHost : IDisposable
     private DashboardScreen? _drawn;
     private Control? _root;
     private bool _thumbnailSent;
+
+    // The control the laser is on, and the one the page was drawn with lit. A laser that stays on
+    // one control changes neither, so it costs no frame of its own.
+    private DashboardTarget? _lit;
+    private DashboardTarget? _drawnLit;
 
     /// <summary>The slider the trigger went down on, followed until it comes up.</summary>
     private DashboardSlider? _dragging;
@@ -159,6 +165,9 @@ public sealed class DashboardHost : IDisposable
     /// </summary>
     public DashboardDrawTime? LastDraw { get; private set; }
 
+    /// <summary>The control the last frame drew lit, because the laser was on it, or null.</summary>
+    public DashboardTarget? LitUp => _drawnLit;
+
     /// <summary>
     /// Attaches to SteamVR if it is running and makes the tab. Never starts SteamVR. The texture
     /// is made here, the first time it is known there is a SteamVR to show it.
@@ -235,10 +244,27 @@ public sealed class DashboardHost : IDisposable
             case DashboardPointerKind.Move when _dragging is { } slider:
                 Slide(slider, pointer.X);
                 break;
-            case DashboardPointerKind.Up or DashboardPointerKind.Gone:
+            case DashboardPointerKind.Move:
+                Light(TargetAt(pointer.X, pointer.Y)?.Target);
+                break;
+            case DashboardPointerKind.Up:
                 _dragging = null;
                 break;
+            case DashboardPointerKind.Gone:
+                _dragging = null;
+                Light(null);
+                break;
         }
+    }
+
+    /// <summary>Lights the control the laser is on, or none, and draws the page again only if that changed.</summary>
+    private void Light(DashboardTarget? target)
+    {
+        if (target == _lit)
+            return;
+
+        _lit = target;
+        Draw();
     }
 
     /// <summary>What is drawn under a point on the page, from the tree that drew the current frame.</summary>
@@ -331,7 +357,7 @@ public sealed class DashboardHost : IDisposable
         if (_compositor is null)
             return false;
 
-        if (_drawn is not null && _drawn == _screen)
+        if (_drawn is not null && _drawn == _screen && _drawnLit == _lit)
             return false;
 
         // Timed with the stopwatch's counter, not the clock: only how long it took matters here.
@@ -339,12 +365,16 @@ public sealed class DashboardHost : IDisposable
 
         _compositor.Invalidate();
         var root = DashboardView.Build(_screen, Width, Height);
+        if (_lit is not null)
+            new Lit().Show(root, _lit, DesignTokens.Vr);
+
         if (!_compositor.DrawIfChanged(root))
             return false;
 
         var drawn = Stopwatch.GetTimestamp();
 
         _drawn = _screen;
+        _drawnLit = _lit;
         _root = root;
         _runtime.Submit(_compositor.Surface);
         var handed = Stopwatch.GetTimestamp();
@@ -405,6 +435,7 @@ public sealed class DashboardHost : IDisposable
     private void LetGo()
     {
         _dragging = null;
+        _lit = null;
 
         if (_makeCompositor is null || _compositor is null)
             return;

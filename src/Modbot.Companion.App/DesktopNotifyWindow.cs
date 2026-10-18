@@ -64,6 +64,10 @@ internal sealed class DesktopNotifyWindow : Window
     private NotificationScreen _drawn = NotificationScreen.Empty;
     private DesktopNotifySettings _settings = DesktopNotifySettings.Default;
     private OverlayLook? _look;
+
+    // What the mouse is on and lights up, by the same rule the headset's laser lights things by.
+    private readonly Lit _lit = new();
+    private OverlayTarget? _litTarget;
     private bool _styled;
 
     // Whether a click lands on this window at all: only while a card with buttons is up.
@@ -91,6 +95,8 @@ internal sealed class DesktopNotifyWindow : Window
 
         Content = _cards;
         _cards.PointerPressed += OnCardsPressed;
+        _cards.PointerMoved += OnCardsMoved;
+        _cards.PointerExited += (_, _) => Light(null);
 
         // While clicks land on it, the style bit alone is not the only guard: a click is also
         // answered "do not activate" when Windows asks, so it can never take VRChat's focus.
@@ -136,6 +142,7 @@ internal sealed class DesktopNotifyWindow : Window
             if (!_drawn.IsEmpty)
             {
                 _cards.Content = Cards(_drawn);
+                ShowLit();
                 Place();
             }
         }
@@ -186,6 +193,7 @@ internal sealed class DesktopNotifyWindow : Window
         }
 
         _cards.Content = Cards(screen);
+        ShowLit();
         SetClickable(screen.PopUps.Any(p => p.Ask is not null));
 
         if (!IsVisible)
@@ -305,6 +313,31 @@ internal sealed class DesktopNotifyWindow : Window
 
         handled = true;
         return (IntPtr)MaNoActivate;
+    }
+
+    private void OnCardsMoved(object? sender, PointerEventArgs e)
+    {
+        if (_cards.Content is not Visual root)
+            return;
+
+        var under = OverlayTargets.At(root, e.GetPosition(root));
+        Light(Lit.Lights(under, editMode: true) ? under : null);
+    }
+
+    /// <summary>Lights the button the mouse is on, or none, and puts the one before it back.</summary>
+    private void Light(OverlayTarget? target)
+    {
+        if (target == _litTarget)
+            return;
+
+        _litTarget = target;
+        ShowLit();
+    }
+
+    private void ShowLit()
+    {
+        if (_cards.Content is Visual root)
+            _lit.Show(root, _litTarget, _look is { VRChat: not null } look ? look.Tokens : DesignTokens.Desktop);
     }
 
     private void OnCardsPressed(object? sender, PointerPressedEventArgs e)
