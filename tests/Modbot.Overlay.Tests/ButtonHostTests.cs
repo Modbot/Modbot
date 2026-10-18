@@ -303,35 +303,102 @@ public class ButtonHostTests
         });
     }
 
+    /// <summary>
+    /// The right hand takes the button where it hangs from the left hand, carries it 10 cm to the
+    /// side in the room, and lets go while the left hand is <paramref name="leftAtRelease"/>.
+    /// Returns where it hung before, in the room.
+    /// </summary>
+    private static Pose CarryAside(ButtonHost host, AttachedRuntime runtime, Pose leftDevice, HandState? leftAtRelease = null)
+    {
+        var left = Hands.Hand(AimedAway(), device: leftDevice);
+        var panel = leftDevice.Then(Pose.From(host.Placement.Offset));
+        var from = panel.Position + (Vector3.Transform(Vector3.UnitZ, panel.Rotation) * 0.4f);
+
+        runtime.Tracking = Hands.Both(left, Hands.Hand(Hands.AimingAt(from, panel.Position), grab: true));
+        host.PollInput(At(0));
+        Assert.Equal(Hand.Right, host.Holding);
+
+        var aside = new Vector3(0.1f, 0f, 0f);
+        var moved = Hands.AimingAt(from + aside, panel.Position + aside);
+        runtime.Tracking = Hands.Both(left, Hands.Hand(moved, grab: true));
+        host.PollInput(At(0.033));
+        runtime.Tracking = Hands.Both(leftAtRelease ?? left, Hands.Hand(moved));
+        host.PollInput(At(0.066));
+
+        Assert.Null(host.Holding);
+        return panel;
+    }
+
+    private static readonly Pose LeftSomewhere = new(new Vector3(-0.3f, 0.2f, -0.5f), Quaternion.CreateFromAxisAngle(Vector3.UnitY, 0.6f));
+
     [Fact]
-    public void AWristButtonGrabbedByTheRightHandAndLetGoStaysOnTheLeftHand()
+    public void AWristButtonGrabbedByTheRightHandAndLetGoStaysOnTheLeftHandWhereItWasLeft()
     {
         AvaloniaTestHost.Run(() =>
         {
             var (host, runtime) = Build(ButtonPlace.Wrist);
             using var button = host;
-            var wrist = host.Placement.Offset;
+
+            var panel = CarryAside(host, runtime, LeftSomewhere);
+
+            // Measured from the left hand, which is elsewhere and turned: only right if its pose was used.
+            var expected = new Pose(panel.Position + new Vector3(0.1f, 0f, 0f), panel.Rotation).RelativeTo(LeftSomewhere);
+            Assert.Equal(OverlayAnchor.LeftHand, host.Placement.Anchor);
+            Assert.Equal(expected.Position.X, host.Placement.Offset.X, 3);
+            Assert.Equal(expected.Position.Y, host.Placement.Offset.Y, 3);
+            Assert.Equal(expected.Position.Z, host.Placement.Offset.Z, 3);
+            Assert.Equal(OverlayButton.WristWidth, host.Placement.Width, 3);
+        });
+    }
+
+    [Fact]
+    public void AButtonSwitchedToWristWhileRunningStaysOnTheLeftHandWhenLetGo()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+            using var button = host;
+            host.Place(ButtonPlace.Wrist);
+
+            CarryAside(host, runtime, LeftSomewhere);
+
+            Assert.Equal(OverlayAnchor.LeftHand, host.Placement.Anchor);
+        });
+    }
+
+    [Fact]
+    public void AButtonSwitchedToCornerWhileRunningGoesBackOnTheHeadWhenLetGo()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build(ButtonPlace.Wrist);
+            using var button = host;
+            host.Place(ButtonPlace.Corner);
+
+            // The corner hangs from the head, which these tests keep at the origin.
             var left = Hands.Hand(AimedAway(), device: Pose.Identity);
-
-            Assert.Equal(OverlayAnchor.LeftHand, host.Placement.Anchor);
-
-            var above = new Vector3(0f, 0.5f, 0.1f);
-            var target = new Vector3(wrist.X, wrist.Y, wrist.Z);
-            runtime.Tracking = Hands.Both(left, Hands.Hand(Hands.AimingAt(above, target), grab: true));
+            runtime.Tracking = Hands.Both(left, Hands.Hand(Aim(host), grab: true));
             host.PollInput(At(0));
-            Assert.Equal(Hand.Right, host.Holding);
-
-            // Carried 10 cm to the side, then let go.
-            var aside = new Vector3(0.1f, 0f, 0f);
-            var moved = Hands.AimingAt(above + aside, target + aside);
-            runtime.Tracking = Hands.Both(left, Hands.Hand(moved, grab: true));
+            runtime.Tracking = Hands.Both(left, Hands.Hand(Aim(host)));
             host.PollInput(At(0.033));
-            runtime.Tracking = Hands.Both(left, Hands.Hand(moved));
-            host.PollInput(At(0.066));
 
-            Assert.Null(host.Holding);
+            Assert.Equal(OverlayAnchor.Head, host.Placement.Anchor);
+        });
+    }
+
+    [Fact]
+    public void AWristButtonWhoseLeftHandVanishesMidCarryGoesBackToWhereItWasPickedUp()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build(ButtonPlace.Wrist);
+            using var button = host;
+            var start = host.Placement.Offset;
+
+            CarryAside(host, runtime, LeftSomewhere, leftAtRelease: HandState.Missing);
+
             Assert.Equal(OverlayAnchor.LeftHand, host.Placement.Anchor);
-            Assert.Equal(wrist.X + 0.1f, host.Placement.Offset.X, 3);
+            Assert.Equal(start, host.Placement.Offset);
             Assert.Equal(OverlayButton.WristWidth, host.Placement.Width, 3);
         });
     }

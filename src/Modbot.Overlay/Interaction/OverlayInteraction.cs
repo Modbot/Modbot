@@ -133,8 +133,13 @@ public sealed class OverlayInteraction
     /// <summary>Where the panel was before it was taken, for a head-fixed panel whose hand vanishes.</summary>
     private OverlayPlacement _beforeTake;
 
-    private readonly OverlayAnchor? _keepAnchor;
     private readonly bool _homeResetsWidth;
+
+    /// <summary>
+    /// The anchor a kept panel goes back on when it is let go; see the constructor. Settable because
+    /// a button's place can change while it is running.
+    /// </summary>
+    public OverlayAnchor? KeepAnchor { get; set; }
 
     /// <param name="placement">Where the panel starts.</param>
     /// <param name="home">
@@ -160,7 +165,7 @@ public sealed class OverlayInteraction
         _placement = placement.Clamped();
         _beforeTake = _placement;
         Home = home;
-        _keepAnchor = keepAnchor;
+        KeepAnchor = keepAnchor;
         _homeResetsWidth = homeResetsWidth;
     }
 
@@ -314,7 +319,7 @@ public sealed class OverlayInteraction
         var home = Home ?? OverlayPlacement.Default;
         _placement = home with
         {
-            Width = _keepAnchor is null
+            Width = KeepAnchor is null
                 ? OverlayPlacement.WidthFor(OverlayAnchor.Head, _placement.Width)
                 : _homeResetsWidth ? home.Width : _placement.Width,
             Opacity = _placement.Opacity,
@@ -476,7 +481,7 @@ public sealed class OverlayInteraction
         _holding = null;
         _stretching = null;
 
-        if (_keepAnchor is { } keep)
+        if (KeepAnchor is { } keep)
         {
             // A kept panel goes back on its anchor, where the hand left it as seen from the head or
             // from the worn hand. A hand that vanished mid-carry, or an anchor with nothing to

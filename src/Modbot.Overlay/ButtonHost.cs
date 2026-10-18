@@ -272,7 +272,9 @@ public sealed class ButtonHost : IDisposable
     /// </summary>
     public void Place(ButtonPlace place, OverlayPlacement? placement = null)
     {
-        _interaction.Home = OverlayButton.ToPlacement(place);
+        var own = OverlayButton.ToPlacement(place);
+        _interaction.Home = own;
+        _interaction.KeepAnchor = own.Anchor;
         _interaction.Place(placement ?? OverlayButton.ToPlacement(place));
         Holding = null;
         _runtime.Place(_interaction.Placement);
