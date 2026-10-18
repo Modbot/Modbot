@@ -277,19 +277,20 @@ public static class ListFiltering
     }
 
     /// <summary>
-    /// What the Instance list's heading says about the people here: "25 members · 12 18+ · 3 staff".
-    /// Staff are members too, so they are in both counts. Somebody flagged is sent as flagged and
-    /// nothing more, so the roster does not say whether they are in the group: they are in neither
-    /// the members nor the staff count. The Who filter's Members choice is only the standing
-    /// <see cref="RosterStanding.Member"/>, which is not what this counts. A zero count is still written.
+    /// What the Instance list's heading says about the people here, one part each: "Group (25)",
+    /// "18+ (12)", "Staff (3)". Staff are in the group too, so they are in both counts. Somebody flagged
+    /// is sent as flagged and nothing more, so the roster does not say whether they are in the group:
+    /// they are in neither the group nor the staff count. The Who filter's Members choice is only the
+    /// standing <see cref="RosterStanding.Member"/>, which is not what this counts. A zero count is
+    /// still written.
     /// </summary>
-    public static string HereCounts(IReadOnlyList<RosterMember> present)
+    public static IReadOnlyList<string> HereCounts(IReadOnlyList<RosterMember> present)
     {
-        var members = present.Count(member => member.Standing is RosterStanding.Member or RosterStanding.Staff);
+        var group = present.Count(member => member.Standing is RosterStanding.Member or RosterStanding.Staff);
         var staff = present.Count(member => member.Standing is RosterStanding.Staff);
         var adults = present.Count(member => member.EighteenPlus == true);
 
-        return (members == 1 ? "1 member" : members + " members") + " · " + adults + " 18+ · " + staff + " staff";
+        return ["Group (" + group + ")", "18+ (" + adults + ")", "Staff (" + staff + ")"];
     }
 
     /// <summary>

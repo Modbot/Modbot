@@ -1274,7 +1274,7 @@ public sealed partial class OverlayView
                             Children =
                             {
                                 Text(count, T.Density.TextSmall, T.TextDimBrush, FontWeight.SemiBold),
-                                Text("· " + ListFiltering.HereCounts(present), T.Density.TextSmall, T.TextDimBrush, FontWeight.SemiBold),
+                                Text("· " + string.Join(" · ", ListFiltering.HereCounts(present)), T.Density.TextSmall, T.TextDimBrush, FontWeight.SemiBold),
                             },
                         },
                         Avalonia.Controls.Dock.Left),

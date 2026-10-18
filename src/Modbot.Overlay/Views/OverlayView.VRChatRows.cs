@@ -58,18 +58,29 @@ public sealed partial class OverlayView
     }
 
     /// <summary>
-    /// VRChat's heading over its list: "Users (12)" with a chevron after it, and at the far end how old
-    /// the list is. Not something that folds; the chevron is how VRChat's heading looks.
+    /// VRChat's heading over its list: "Users (35) • Group (30) • 18+ (2) • Staff (3)", and at the far end
+    /// how old the list is, then a chevron. Not something that folds; the chevron is how VRChat's heading looks.
     /// </summary>
-    private Control UsersHeading(string words, string counts, string? state, IBrush stateBrush)
+    private Control UsersHeading(string words, IReadOnlyList<string> counts, string? state, IBrush stateBrush)
     {
         var v = V!;
 
+        var left = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+
         var heading = Text(words, 20, v.Text, FontWeight.Bold);
         heading.VerticalAlignment = VerticalAlignment.Center;
+        left.Children.Add(heading);
 
-        var tally = Text("· " + counts, T.Density.TextSmall, v.Heading, FontWeight.Bold);
-        tally.VerticalAlignment = VerticalAlignment.Bottom;
+        foreach (var count in counts)
+        {
+            var dot = Text("•", 20, v.Heading, FontWeight.Bold);
+            dot.VerticalAlignment = VerticalAlignment.Center;
+            left.Children.Add(dot);
+
+            var part = Text(count, 20, v.Text, FontWeight.Bold);
+            part.VerticalAlignment = VerticalAlignment.Center;
+            left.Children.Add(part);
+        }
 
         var chevron = new Viewbox
         {
@@ -90,17 +101,21 @@ public sealed partial class OverlayView
 
         var head = new DockPanel { LastChildFill = false, Margin = new Thickness(2, 2, 2, 0) };
 
-        var left = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { heading, chevron, tally } };
         DockPanel.SetDock(left, Avalonia.Controls.Dock.Left);
         head.Children.Add(left);
 
+        // The freshness, if there is any, then the chevron at the very far end.
+        var end = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         if (state is not null)
         {
-            var end = Text(state, T.Density.TextSmall, stateBrush, FontWeight.Bold);
-            end.VerticalAlignment = VerticalAlignment.Bottom;
-            DockPanel.SetDock(end, Avalonia.Controls.Dock.Right);
-            head.Children.Add(end);
+            var age = Text(state, T.Density.TextSmall, stateBrush, FontWeight.Bold);
+            age.VerticalAlignment = VerticalAlignment.Bottom;
+            end.Children.Add(age);
         }
+
+        end.Children.Add(chevron);
+        DockPanel.SetDock(end, Avalonia.Controls.Dock.Right);
+        head.Children.Add(end);
 
         return head;
     }

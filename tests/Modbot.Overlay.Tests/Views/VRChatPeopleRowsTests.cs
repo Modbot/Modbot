@@ -127,12 +127,14 @@ public class VRChatPeopleRowsTests
     ];
 
     [Fact]
-    public void TheHeadingCountsMembersEighteenPlusAndStaffOfEverybodyHere()
+    public void TheHeadingCountsGroupEighteenPlusAndStaffOfEverybodyHere()
     {
         var texts = Texts(Screen(Mixed));
 
         Assert.Contains("Users (5)", texts);
-        Assert.Contains("· 3 members · 3 18+ · 1 staff", texts);
+        Assert.Contains("Group (3)", texts);
+        Assert.Contains("18+ (3)", texts);
+        Assert.Contains("Staff (1)", texts);
     }
 
     [Fact]
@@ -141,7 +143,32 @@ public class VRChatPeopleRowsTests
         var texts = Texts(Screen(Mixed, filters: new ListFilters(Name: "Kai")));
 
         Assert.Contains("Users (1 of 5)", texts);
-        Assert.Contains("· 3 members · 3 18+ · 1 staff", texts);
+        Assert.Contains("Group (3)", texts);
+        Assert.Contains("18+ (3)", texts);
+        Assert.Contains("Staff (1)", texts);
+    }
+
+    [Fact]
+    public void TheHeadingPartsAreSeparatedByDotsInTheHeadingColourAndTheCountsAreInTheTextColour()
+    {
+        var (dots, parts) = Draw(
+            Screen(Mixed),
+            root =>
+            {
+                var blocks = root.GetLogicalDescendants().OfType<TextBlock>().ToList();
+                var look = VRChatLook().VRChat!;
+                var heading = ((ISolidColorBrush)look.Heading).Color;
+                var text = ((ISolidColorBrush)look.Text).Color;
+                var separators = blocks.Where(t => t.Text == "•").ToList();
+                var counted = blocks.Where(t => t.Text is "Users (5)" or "Group (3)" or "18+ (3)" or "Staff (1)").ToList();
+
+                return (
+                    separators.Count(t => (t.Foreground as ISolidColorBrush)?.Color == heading && t.FontSize == 20),
+                    counted.Count(t => (t.Foreground as ISolidColorBrush)?.Color == text && t.FontSize == 20 && t.FontWeight == FontWeight.Bold));
+            });
+
+        Assert.Equal(3, dots);
+        Assert.Equal(4, parts);
     }
 
     [Fact]
@@ -150,7 +177,7 @@ public class VRChatPeopleRowsTests
         var texts = Texts(Screen(Mixed), OverlayLook.Headset);
 
         Assert.Contains("5 here", texts);
-        Assert.Contains("· 3 members · 3 18+ · 1 staff", texts);
+        Assert.Contains("· Group (3) · 18+ (3) · Staff (1)", texts);
     }
 
     [Fact]
@@ -165,7 +192,7 @@ public class VRChatPeopleRowsTests
             root =>
             {
                 var blocks = root.GetLogicalDescendants().OfType<TextBlock>().ToList();
-                var tally = blocks.First(t => t.Text is not null && t.Text.StartsWith("· ", StringComparison.Ordinal));
+                var tally = blocks.First(t => t.Text is not null && t.Text.StartsWith("Staff (", StringComparison.Ordinal));
                 var freshness = blocks.First(t => t.Text == "up to date");
                 var heading = blocks.First(t => t.Text is not null && t.Text.StartsWith("Users (", StringComparison.Ordinal));
 

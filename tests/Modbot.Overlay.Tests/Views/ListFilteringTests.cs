@@ -113,31 +113,31 @@ public class ListFilteringTests
     }
 
     [Fact]
-    public void TheCountsSayMembersEighteenPlusAndStaffOfEverybodyHere()
+    public void TheCountsSayGroupEighteenPlusAndStaffOfEverybodyHere()
     {
-        Assert.Equal("2 members · 2 18+ · 1 staff", ListFiltering.HereCounts(People));
+        Assert.Equal(["Group (2)", "18+ (2)", "Staff (1)"], ListFiltering.HereCounts(People));
     }
 
     [Fact]
     public void ACountOfNothingIsStillWritten()
     {
-        Assert.Equal("0 members · 0 18+ · 0 staff", ListFiltering.HereCounts([]));
+        Assert.Equal(["Group (0)", "18+ (0)", "Staff (0)"], ListFiltering.HereCounts([]));
     }
 
     [Fact]
-    public void AFlaggedPersonIsInNeitherTheMembersNorTheStaffCountButStillCountsAsEighteenPlus()
+    public void AFlaggedPersonIsInNeitherTheGroupNorTheStaffCountButStillCountsAsEighteenPlus()
     {
         RosterMember[] flagged = [Member("Rin", RosterStanding.Flagged, eighteenPlus: true), Member("Kai", RosterStanding.Member), Member("Jo", RosterStanding.Member)];
 
-        Assert.Equal("2 members · 1 18+ · 0 staff", ListFiltering.HereCounts(flagged));
+        Assert.Equal(["Group (2)", "18+ (1)", "Staff (0)"], ListFiltering.HereCounts(flagged));
     }
 
     [Fact]
-    public void StaffAreCountedAsMembersToo()
+    public void StaffAreCountedInTheGroupToo()
     {
         RosterMember[] staff = [Member("Kai", RosterStanding.Staff), Member("Jo", RosterStanding.Ordinary)];
 
-        Assert.Equal("1 member · 0 18+ · 1 staff", ListFiltering.HereCounts(staff));
+        Assert.Equal(["Group (1)", "18+ (0)", "Staff (1)"], ListFiltering.HereCounts(staff));
     }
 
     [Fact]
