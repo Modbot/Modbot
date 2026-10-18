@@ -432,6 +432,11 @@ internal sealed partial class CompanionHost : IOverlayListener
     private PopUps? _popUps;
 
     /// <summary>
+    /// Asks, on the pop-up surfaces, whether to install an update that has finished downloading.
+    /// </summary>
+    private UpdatePrompt? _updatePrompt;
+
+    /// <summary>
     /// What turns the log's observations into pop-ups and sounds, kept so the joins it holds for a
     /// trust rank and 18+ mark can be told from the timers.
     /// </summary>
@@ -646,6 +651,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             // changed mid-session takes effect at once.
             Wanted = kind => _state!.Settings.NotificationFilters.PopUpShows(kind),
         };
+        _updatePrompt = new UpdatePrompt(_popUps, _clock, RestartAsync);
 
         // The Debug page's test events: made-up people through the same notifier, pop-ups and
         // overlay loop real ones go through, and nowhere near the queues, the journal or the event
@@ -2354,6 +2360,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             _notifyHost.EditMode = _state?.Settings.OverlayEditMode is true;
             _notifyHost.PushStep = PushStep(_state?.Settings.OverlayPushSpeed);
             _notifyHost.PlacementChanged += NotifyPlacementChanged;
+            _notifyHost.PopUpAnswered += UpdatePromptAnswered;
             StartHeadsetPaletteWatch();
             AttachNotifyOverlay();
         }
@@ -3156,6 +3163,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         try
         {
             _desktopNotify = new DesktopNotifyWindow { PlaceNear = Window };
+            _desktopNotify.PopUpAnswered += UpdatePromptAnswered;
             _desktopNotify.Apply(settings);
             StartHeadsetPaletteWatch();
         }
@@ -3655,6 +3663,7 @@ internal sealed partial class CompanionHost : IOverlayListener
                 // times a second while an overlay runs. A card that went up without them, because
                 // the wait ran out, still has them written onto it if they come while it is up.
                 _notices?.TellWaiting();
+                _updatePrompt?.Tick(_state?.UpdateReady);
                 var overlay = _overlay;
                 EventNotifier.AddInfo(_popUps, subjectId => overlay.InfoOf(subjectId));
                 ShowPopUps();
@@ -3669,6 +3678,10 @@ internal sealed partial class CompanionHost : IOverlayListener
             _overlayTicking = false;
         }
     }
+
+    /// <summary>A button on the update prompt was pressed, in the headset or on the monitor.</summary>
+    private void UpdatePromptAnswered(string id, bool yes)
+        => _ = CrashGuard.RunAsync("answering the update prompt", () => _updatePrompt?.AnsweredAsync(id, yes) ?? Task.CompletedTask);
 
     /// <summary>
     /// Hands each pop-up surface what is still within its time. A surface draws again only when

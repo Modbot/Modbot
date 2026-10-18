@@ -314,3 +314,48 @@ any project-operated service.
   verifies what it downloads against the checksums in the feed, which are GitHub's own and pass
   through Cloud unchanged (§3.3). Central services §3.2 is unaffected: compromising whatever
   serves the index still yields nothing.
+
+## 10. Asking in the game (2026-10-18)
+
+Until now a downloaded update could be installed from one place, the sidebar's **Restart to update**
+in the Companion's window, or by quitting and starting Modbot. A moderator in a headset, or playing
+VRChat on a monitor, had to leave the game to do either, and so mostly did not until the next
+time they started Modbot anyway.
+
+Once a version has finished downloading, the Companion now asks in the game, on whichever pop-up
+surface is on: the notification overlay in the headset, and the notification overlay in the corner
+of a monitor. One card names the version, with two buttons, **Update** and **Later**, and no other
+words.
+
+- **It asks once per version.** Later, or a restart that could not start, does not bring it back.
+  A newer version downloaded afterwards is a new question. Starting Modbot again forgets what was
+  asked; a version still waiting is asked about again then, which is also when it installs.
+- **Update asks twice, as the sidebar's button does.** The first press turns it into **Restart
+  now** for five seconds; the second restarts through the same function the sidebar's button uses
+  (`Program.RestartAsync`), which starts a fresh copy that installs the update before it opens.
+  There is no second way to restart into an update.
+- **Later** takes the card away. The update installs the next time Modbot starts, as in §1.
+- **It stays until answered.** An ordinary pop-up is about a moment and is dropped after a few
+  seconds; this one is a question, so it is not dropped when its time is up, when newer cards push
+  it out, or when the moderator leaves an instance (`PopUps.ClearAll` leaves it).
+- **Nothing is sent and nothing is read** for any of this. The card is made out of the version
+  the updater already holds (`UpdatePrompt`).
+
+This narrows two rules that said the pop-ups could not be pressed, and only for this card:
+
+- Two overlay modes §2.1 ("It is not interactable"): a ray on the headset's notification panel
+  now finds the update card's two buttons, and nothing else on the panel. Every other card still has
+  no target, so a trigger press on a flagged-join card still goes to VRChat. The panel's lock,
+  click-through and grab are unchanged, and a panel set to click-through lets rays through to
+  these buttons too, as it does to everything else.
+- Desktop overlay §7.1 ("There is nothing on it to press"): the corner window takes clicks only
+  while the update card is showing, by dropping `WS_EX_TRANSPARENT` and putting it back when the
+  card is answered. It keeps `WS_EX_NOACTIVATE` throughout, so a click on it never takes the
+  keyboard from VRChat. While the card is up the whole window, not just the buttons, takes the
+  click, so the other cards in the corner cannot be clicked through to the game for that time.
+  VRChat may hold the mouse while someone is playing, in which case the buttons need the cursor to
+  be free first (the Escape menu); nothing here frees it.
+
+What it does not do: it does not summon the desktop panel, which would take the keyboard, and it
+does not ask when both notification overlays are off. The sidebar's button and installing on the next
+start are unchanged for those.

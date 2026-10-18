@@ -1,9 +1,11 @@
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Media;
 using Modbot.Companion.Presentation;
 using Modbot.Overlay;
+using Modbot.Overlay.Interaction;
 using Modbot.Overlay.Views;
 
 namespace Modbot.Companion.App;
@@ -21,7 +23,10 @@ namespace Modbot.Companion.App;
 /// <para><strong>It never takes the keyboard from VRChat.</strong> It is shown without being
 /// activated, and on Windows it is marked as a window that cannot be activated and that a click
 /// passes straight through — so a moderator who clicks where it happens to be is clicking the game.
-/// There is nothing on it to press.</para>
+/// There is nothing on it to press, except while the update prompt is up (<c>UpdatePrompt</c>):
+/// then, and only then, a click lands on its Update and Later buttons. It is still never
+/// activated, so VRChat keeps the keyboard, and it is click-through again the moment the prompt is
+/// answered (update checking design §10).</para>
 /// <para><strong>It sits where it was put.</strong> One of the six corners from settings, on the
 /// screen Modbot's own window is on. It is not dragged, and nothing it shows can move it.</para>
 /// <para><strong>Nothing is drawn while nothing is happening.</strong> An empty stack hides the
@@ -54,6 +59,9 @@ internal sealed class DesktopNotifyWindow : Window
     private OverlayLook? _look;
     private bool _styled;
 
+    // Whether a click lands on this window at all: only while a card with buttons is up.
+    private bool _clickable;
+
     public DesktopNotifyWindow()
     {
         Title = "Modbot";
@@ -75,6 +83,7 @@ internal sealed class DesktopNotifyWindow : Window
         Background = Brushes.Transparent;
 
         Content = _cards;
+        _cards.PointerPressed += OnCardsPressed;
 
         // The window is as tall as what is in it, so where it goes is worked out again every time
         // that changes — otherwise a bottom corner would drift as cards come and go.
@@ -85,6 +94,11 @@ internal sealed class DesktopNotifyWindow : Window
             Place();
         };
     }
+
+    /// <summary>
+    /// A button of a card that asks was clicked: the card's id, and whether it was the first button.
+    /// </summary>
+    public event Action<string, bool>? PopUpAnswered;
 
     /// <summary>
     /// Which visual the window is placed beside, so it lands on the monitor Modbot's own window is
@@ -160,6 +174,7 @@ internal sealed class DesktopNotifyWindow : Window
         }
 
         _cards.Content = Cards(screen);
+        SetClickable(screen.PopUps.Any(p => p.Ask is not null));
 
         if (!IsVisible)
             Show();
@@ -173,6 +188,7 @@ internal sealed class DesktopNotifyWindow : Window
     {
         _drawn = NotificationScreen.Empty;
         _cards.Content = null;
+        SetClickable(false);
 
         if (IsVisible)
             Hide();
@@ -212,7 +228,8 @@ internal sealed class DesktopNotifyWindow : Window
     }
 
     /// <summary>
-    /// Tells Windows this is a window that is never activated and that a click passes through.
+    /// Tells Windows this is a window that is never activated and that a click passes through
+    /// (see <see cref="SetClickable"/> for the one time it does not).
     /// </summary>
     /// <remarks>
     /// Without it, clicking where the notification happens to be would take the front away from
@@ -222,22 +239,62 @@ internal sealed class DesktopNotifyWindow : Window
     /// </remarks>
     private void KeepItOutOfTheWay()
     {
-        if (_styled || !OperatingSystem.IsWindows())
+        if (_styled)
             return;
 
-        if (TryGetPlatformHandle()?.Handle is not { } handle || handle == IntPtr.Zero)
+        _styled = ApplyStyle();
+    }
+
+    /// <summary>
+    /// Lets clicks land on the window while a card with buttons is up, and sends them through to the
+    /// game again otherwise. It is never activated either way.
+    /// </summary>
+    private void SetClickable(bool clickable)
+    {
+        if (_clickable == clickable)
             return;
+
+        _clickable = clickable;
+
+        if (_styled)
+            ApplyStyle();
+    }
+
+    private bool ApplyStyle()
+    {
+        if (!OperatingSystem.IsWindows())
+            return false;
+
+        if (TryGetPlatformHandle()?.Handle is not { } handle || handle == IntPtr.Zero)
+            return false;
 
         try
         {
             var style = (long)GetWindowLongPtrW(handle, GwlExStyle);
-            SetWindowLongPtrW(handle, GwlExStyle, (IntPtr)(style | WsExTransparent | WsExNoActivate | WsExToolWindow));
-            _styled = true;
+            var wanted = (style | WsExNoActivate | WsExToolWindow) & ~WsExTransparent;
+            if (!_clickable)
+                wanted |= WsExTransparent;
+
+            SetWindowLongPtrW(handle, GwlExStyle, (IntPtr)wanted);
+            return true;
         }
         catch (EntryPointNotFoundException)
         {
             // A Windows without the 64-bit entry points. The window is still never activated by
             // being shown; it just is not click-through.
+            return false;
+        }
+    }
+
+    private void OnCardsPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (_cards.Content is not Visual root)
+            return;
+
+        if (OverlayTargets.At(root, e.GetPosition(root)) is OverlayTarget.AnswerPopUp answer)
+        {
+            PopUpAnswered?.Invoke(answer.Id, answer.Yes);
+            e.Handled = true;
         }
     }
 

@@ -70,6 +70,15 @@ public abstract record OverlayTarget
     /// </remarks>
     public sealed record PopUpBox : OverlayTarget;
 
+    /// <summary>One of the two buttons on a pop-up that asks: the update prompt's Update and Later.</summary>
+    /// <remarks>
+    /// Handled by the notification panel's own host, never by the drive loop: it answers the
+    /// client's own question about installing itself, and is not an action on a person.
+    /// </remarks>
+    /// <param name="Id">The pop-up's id.</param>
+    /// <param name="Yes">True for the first button, false for the second.</param>
+    public sealed record AnswerPopUp(string Id, bool Yes) : OverlayTarget;
+
     /// <summary>The bar's lock: the panel cannot be picked up, moved or resized while it is on.</summary>
     /// <remarks>
     /// Handled by the panel's own host, never by the drive loop: it changes where the panel may

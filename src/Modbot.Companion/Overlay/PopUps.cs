@@ -19,6 +19,14 @@ public enum PopUpTone
 }
 
 /// <summary>
+/// The two buttons on a pop-up that asks something. The only pop-up with any is the update prompt
+/// (<see cref="UpdatePrompt"/>).
+/// </summary>
+/// <param name="Yes">The first button's words, which does the thing.</param>
+/// <param name="No">The second button's words, which leaves it for later.</param>
+public sealed record PopUpAsk(string Yes, string No);
+
+/// <summary>
 /// One short-lived pop-up on the notification overlay.
 /// </summary>
 /// <param name="Id">
@@ -41,6 +49,11 @@ public enum PopUpTone
 /// Who the card is about, so their rank and 18+ mark can be written onto it once the server has
 /// said them. Null on a card that is about nobody in particular.
 /// </param>
+/// <param name="Ask">
+/// The buttons, or null on every card that only tells. A card with buttons stays until somebody
+/// presses one: it is not dropped when its time is up, when the stack is full of newer cards, or
+/// by <see cref="PopUps.ClearAll"/>.
+/// </param>
 /// <remarks>
 /// The rank and the mark are kept as what they are rather than written into <paramref name="Detail"/>,
 /// because a line of text has nowhere to hold the rank's colour.
@@ -53,7 +66,8 @@ public sealed record PopUp(
     PopUpTone Tone,
     TrustRank? Rank = null,
     bool EighteenPlus = false,
-    string? SubjectId = null)
+    string? SubjectId = null,
+    PopUpAsk? Ask = null)
 {
     /// <summary>Whether the card has a rank or an 18+ mark to draw.</summary>
     public bool HasPersonInfo => Rank is not null || EighteenPlus;
@@ -160,8 +174,12 @@ public sealed class PopUps
             _shown.RemoveAll(s => string.Equals(s.PopUp.Id, popUp.Id, StringComparison.Ordinal));
             _shown.Insert(0, new Shown(popUp, now));
 
+            // The oldest that only tells goes first; a card that asks waits to be answered.
             while (_shown.Count > Math.Max(1, MostAtOnce))
-                _shown.RemoveAt(_shown.Count - 1);
+            {
+                var oldest = _shown.FindLastIndex(s => s.PopUp.Ask is null);
+                _shown.RemoveAt(oldest >= 0 ? oldest : _shown.Count - 1);
+            }
         }
     }
 
@@ -198,11 +216,14 @@ public sealed class PopUps
             _shown.RemoveAll(s => string.Equals(s.PopUp.Id, id, StringComparison.Ordinal));
     }
 
-    /// <summary>Takes them all away: leaving an instance, or the overlay being switched off.</summary>
+    /// <summary>
+    /// Takes them all away: leaving an instance, or the overlay being switched off. A card that
+    /// asks stays, because what it asks is not about the instance; <see cref="Clear"/> takes it.
+    /// </summary>
     public void ClearAll()
     {
         lock (_gate)
-            _shown.Clear();
+            _shown.RemoveAll(s => s.PopUp.Ask is null);
     }
 
     /// <summary>
@@ -226,8 +247,8 @@ public sealed class PopUps
         lock (_gate)
         {
             var now = _clock.UtcNow;
-            _shown.RemoveAll(s => now - s.ShownAt >= Dwell || s.ShownAt - now >= Dwell);
-            return [.. _shown.Where(s => now - s.ShownAt < dwell && s.ShownAt - now < dwell).Select(s => s.PopUp)];
+            _shown.RemoveAll(s => s.PopUp.Ask is null && (now - s.ShownAt >= Dwell || s.ShownAt - now >= Dwell));
+            return [.. _shown.Where(s => s.PopUp.Ask is not null || (now - s.ShownAt < dwell && s.ShownAt - now < dwell)).Select(s => s.PopUp)];
         }
     }
 

@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Modbot.Companion.Overlay;
+using Modbot.Overlay.Interaction;
 
 namespace Modbot.Overlay.Views;
 
@@ -14,9 +15,11 @@ namespace Modbot.Overlay.Views;
 /// heading in small dim text and one large line under it, a coloured left edge so the eye can
 /// tell a flagged arrival from a fault without reading either. No lists, no controls, nothing to
 /// point at.</para>
-/// <para><strong>Nothing here can be tapped.</strong> There are no targets in this tree at all,
-/// which is what makes the notification panel a thing that tells you something rather than a
-/// thing that swallows trigger presses (two overlay modes design §2.1).</para>
+/// <para><strong>Nothing here can be tapped, except the update prompt's two buttons.</strong> There
+/// are no targets in this tree at all, which is what makes the notification panel a thing that
+/// tells you something rather than a thing that swallows trigger presses (two overlay modes design
+/// §2.1); the one card that asks something, <see cref="UpdatePrompt"/>, has an Update and a Later
+/// to point at, and only while it is up (update checking design §10).</para>
 /// <para><strong>Display names are hostile input.</strong> They are arbitrary user-controlled
 /// text, so they are placed as text — never parsed, never interpreted as markup — and each is
 /// given one line, so a name built out of newlines cannot push the rest off the panel.</para>
@@ -84,7 +87,7 @@ public static class NotificationView
 
     private const double ShadowMargin = 6;
 
-    private static StackPanel Lines(PopUp popUp, DesignTokens t)
+    private static StackPanel Lines(PopUp popUp, DesignTokens t, VRChatLook? v)
     {
         var lines = new StackPanel { Spacing = 0 };
 
@@ -108,7 +111,48 @@ public static class NotificationView
             lines.Children.Add(marks);
         }
 
+        if (popUp.Ask is { } ask)
+        {
+            lines.Children.Add(new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 8,
+                Margin = new Thickness(0, 6, 0, 0),
+                Children =
+                {
+                    AskButton(ask.Yes, new OverlayTarget.AnswerPopUp(popUp.Id, true), true, t, v),
+                    AskButton(ask.No, new OverlayTarget.AnswerPopUp(popUp.Id, false), false, t, v),
+                },
+            });
+        }
+
         return lines;
+    }
+
+    /// <summary>
+    /// One of a card's two buttons: the first in the accent, the second plain. The tap target is
+    /// the whole button.
+    /// </summary>
+    private static Border AskButton(string words, OverlayTarget target, bool first, DesignTokens t, VRChatLook? v)
+    {
+        var foreground = v is null
+            ? first ? t.AccentForegroundBrush : t.TextBrush
+            : first ? v.BrightText : v.Text;
+
+        var label = Text(words, t.Density.TextBase, foreground, FontWeight.SemiBold);
+        label.HorizontalAlignment = HorizontalAlignment.Center;
+
+        return new Border
+        {
+            Tag = target,
+            MinWidth = 96,
+            Padding = new Thickness(14, 5),
+            Background = v is null ? first ? t.AccentBrush : t.Surface2Brush : first ? v.Bright : v.Hover,
+            BorderBrush = v is null ? first ? t.AccentBrush : t.Border2Brush : first ? v.RaisedBrightEdge : v.RaisedEdge,
+            BorderThickness = new Thickness(v is null ? t.Density.Hairline : VRChatLook.EdgeWidth),
+            CornerRadius = v is null ? t.CornerRadius : new CornerRadius(VRChatLook.PillRadius),
+            Child = label,
+        };
     }
 
     private static Control Card(PopUp popUp, DesignTokens t) => new Border
@@ -122,7 +166,7 @@ public static class NotificationView
         CornerRadius = t.CornerRadius,
         Padding = new Thickness(8, 4),
         HorizontalAlignment = HorizontalAlignment.Stretch,
-        Child = Lines(popUp, t),
+        Child = Lines(popUp, t, null),
     };
 
     /// <summary>
@@ -134,7 +178,7 @@ public static class NotificationView
         var strip = new Border { Width = 6, Background = Edge(popUp.Tone, t) };
         DockPanel.SetDock(strip, Dock.Left);
 
-        var words = Lines(popUp, t);
+        var words = Lines(popUp, t, v);
         words.Margin = new Thickness(10, 6);
 
         return new Border

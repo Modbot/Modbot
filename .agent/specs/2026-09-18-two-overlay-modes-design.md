@@ -59,6 +59,9 @@ is that it has no interaction at all: no `OverlayInteraction`, no hit testing, n
 nothing in its view tree carrying an `OverlayTarget`. There is no switch to get wrong, because
 there is nothing there to switch off.
 
+*Narrowed 2026-10-18:* the update prompt's Update and Later buttons are the one exception, and
+only while that card is up (update checking design §10).
+
 ### 2.2 Where on the screen
 
 A named spot, plus a fine offset, plus a distance. The named spot is one of six — top-left,

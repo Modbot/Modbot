@@ -20,7 +20,8 @@ namespace Modbot.Overlay;
 /// as the main panel is, and it has the same bar under it with the same lock and click-through.
 /// The one difference is where it goes when it is let go: back onto the head, where the hand left
 /// it as seen from the eyes, because a pop-up belongs in the corner of the view wherever the
-/// moderator looks. Nothing on it but the bar can be tapped.</para>
+/// moderator looks. Nothing on it but the bar can be tapped, and the two buttons of the update
+/// prompt while it is up (<c>UpdatePrompt</c>).</para>
 /// <para><strong>A box to take hold of.</strong> It used to draw nothing at all while there were
 /// no pop-ups, which left nothing to grab. It now draws a dashed outline of itself while it can be
 /// moved; locked, the outline goes and an empty panel draws nothing again until a ray lands on it
@@ -249,6 +250,12 @@ public sealed class NotificationHost : IDisposable
     /// </summary>
     public event Action<OverlayPlacement>? PlacementChanged;
 
+    /// <summary>
+    /// Raised when a tap lands on a button of a pop-up that asks: the pop-up's id, and whether it was
+    /// the first button. The update prompt's Update and Later are the only ones. UI thread.
+    /// </summary>
+    public event Action<string, bool>? PopUpAnswered;
+
     /// <summary>Puts the panel where the settings say. UI thread only.</summary>
     public void Place(OverlayPlacement placement)
     {
@@ -295,7 +302,8 @@ public sealed class NotificationHost : IDisposable
             PlacementChanged?.Invoke(result.Placement);
         }
 
-        // The bar's switches are the only things on this panel a click can land on.
+        // The bar's switches, and the buttons of a pop-up that asks, are the only things on this
+        // panel a click can land on.
         foreach (var click in result.Clicks)
         {
             switch (TargetAt(click.Across, click.Down))
@@ -305,6 +313,9 @@ public sealed class NotificationHost : IDisposable
                     break;
                 case OverlayTarget.ClickThrough when EditMode:
                     Switch(Placement with { ClickThrough = !Placement.ClickThrough });
+                    break;
+                case OverlayTarget.AnswerPopUp answer:
+                    PopUpAnswered?.Invoke(answer.Id, answer.Yes);
                     break;
             }
         }

@@ -1,6 +1,7 @@
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Presentation;
 using Modbot.Core.Users;
+using Modbot.Overlay.Interaction;
 using Modbot.Overlay.Rendering;
 using Modbot.Overlay.Views;
 
@@ -193,5 +194,50 @@ public class NotificationViewTests
         });
 
         Assert.True(drawn < laidOut);
+    }
+
+    private static PopUp Asking() => new(
+        UpdatePrompt.CardId, "Modbot", "Update 2026.10.3 is ready", null, PopUpTone.Plain,
+        Ask: new PopUpAsk(UpdatePrompt.UpdateWords, UpdatePrompt.LaterWords));
+
+    [Fact]
+    public void ACardThatOnlyTellsHasNothingToTap()
+    {
+        var targets = AvaloniaTestHost.Run(() =>
+        {
+            var root = NotificationView.Build(new NotificationScreen([Flagged()]));
+            root.Measure(new Avalonia.Size(Size, double.PositiveInfinity));
+            root.Arrange(new Avalonia.Rect(root.DesiredSize));
+            return OverlayTargets.Find(root);
+        });
+
+        Assert.Empty(targets);
+    }
+
+    [Fact]
+    public void TheUpdatePromptHasAnUpdateButtonAndALaterButtonToTap()
+    {
+        foreach (var look in new[] { OverlayLook.Headset, VRChatLook() })
+        {
+            var targets = AvaloniaTestHost.Run(() =>
+            {
+                var root = NotificationView.Build(new NotificationScreen([Asking()]), look);
+                root.Measure(new Avalonia.Size(340, double.PositiveInfinity));
+                root.Arrange(new Avalonia.Rect(root.DesiredSize));
+                return OverlayTargets.Find(root).Select(t => t.Target).ToList();
+            });
+
+            Assert.Equal(
+                [new OverlayTarget.AnswerPopUp(UpdatePrompt.CardId, true), new OverlayTarget.AnswerPopUp(UpdatePrompt.CardId, false)],
+                targets);
+        }
+    }
+
+    [Fact]
+    public void TheUpdatePromptDrawsOnAMonitorToo()
+    {
+        var pixels = RenderLook(new NotificationScreen([Asking()]), VRChatLook(), NotificationView.DesktopScale);
+
+        Assert.Contains(pixels, b => b != 0);
     }
 }

@@ -414,6 +414,8 @@ for it being a separate thing is word for word the argument in the two overlay m
 - **It is never dragged.** It sits in the corner the moderator chose. There is nothing on it to
   press and no handle to grab, because it is a thing that tells you something rather than a thing
   you use.
+  *(Narrowed 2026-10-18: it takes clicks on the update prompt's two buttons while that card is up,
+  and is click-through again after; update checking design §10.)*
 - **It never takes the keyboard from VRChat.** It is shown without being activated
   (`ShowActivated = false`), and on Windows it is additionally marked `WS_EX_NOACTIVATE`,
   `WS_EX_TRANSPARENT` and `WS_EX_TOOLWINDOW` — so it cannot be brought to the front by a click, a
