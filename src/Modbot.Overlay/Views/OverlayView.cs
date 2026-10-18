@@ -648,7 +648,7 @@ public sealed partial class OverlayView
             row.Children.Add(FilterChip(list, FilterPart.Rank, filters, filters.Ranks.IsEmpty ? null : RankWords(filters.Ranks)));
 
             if (list is OverlayPage.Instance)
-                row.Children.Add(FilterChip(list, FilterPart.EighteenPlus, filters, filters.EighteenPlus is EighteenPlusPick.Any ? null : filters.EighteenPlus is EighteenPlusPick.Yes ? "Yes" : "No"));
+                row.Children.Add(FilterChip(list, FilterPart.EighteenPlus, filters, filters.EighteenPlus is EighteenPlusPick.Any ? null : filters.EighteenPlus is EighteenPlusPick.Yes ? "18+" : "Not 18+"));
         }
 
         if (list is OverlayPage.Events)
