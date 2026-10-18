@@ -328,8 +328,8 @@ The client does not upload its own log file anywhere.
 ## Updates
 
 An installed client (from `Modbot-win-Setup.exe`, the portable zip or the AppImage) checks for a
-newer version 30 seconds after it starts and every four hours after that. It asks Modbot Cloud,
-which keeps one copy of the answer for everybody and refreshes it from GitHub a few times an hour;
+newer version 30 seconds after it starts and every 15 minutes after that. It asks Modbot Cloud,
+which keeps one copy of the answer for everybody and refreshes it from GitHub every 15 minutes;
 the download itself comes from the GitHub release. A newer version downloads in the
 background, and the window shows a line saying it will be installed the next time Modbot starts.
 
@@ -344,7 +344,7 @@ window opens, and the client comes back up. Your pairings and settings are kept:
 touch `%APPDATA%\Modbot`.
 
 If a check fails (no connection, or the release feed cannot be read), the client writes
-`Could not check for updates` to its log and tries again four hours later. You can always download
+`Could not check for updates` to its log and tries again 15 minutes later. You can always download
 the latest `Modbot-win-Setup.exe` and run it over your current install, or the latest
 `Modbot.AppImage` in place of the one you have.
 

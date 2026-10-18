@@ -1,0 +1,10 @@
+{
+  "solution": {
+    "path": "Modbot.slnx",
+    "projects": [
+      "src\\Modbot.Companion.App\\Modbot.Companion.App.csproj",
+      "tests\\Modbot.Companion.Tests\\Modbot.Companion.Tests.csproj",
+      "tests\\Modbot.Overlay.Tests\\Modbot.Overlay.Tests.csproj"
+    ]
+  }
+}

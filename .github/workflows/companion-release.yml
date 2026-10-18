@@ -39,6 +39,10 @@
 # paths (VRChat's log under Proton, the key-file token store, the raw-pixel overlay) are tested
 # where they run.
 #
+# Both jobs restore and build Modbot.Companion.slnf, not the whole solution: the companion and the
+# two test projects it runs. The server and the rest of the solution are not part of a release,
+# and CI builds and tests them on every push to master.
+#
 # Signing is optional and skipped cleanly when the secrets are absent. Unsigned builds trip
 # SmartScreen; docs/content/docs/companion/install.mdx and .../preview.mdx tell testers how to get
 # past it and the M3 spec (8.2) says what a real certificate involves. There is no signing on Linux.
@@ -152,10 +156,10 @@ jobs:
             nuget-${{ runner.os }}-
 
       - name: Restore
-        run: dotnet restore
+        run: dotnet restore Modbot.Companion.slnf
 
       - name: Build
-        run: dotnet build --no-restore --configuration Release "-p:ModbotRelease=${{ env.VERSION }}"
+        run: dotnet build Modbot.Companion.slnf --no-restore --configuration Release "-p:ModbotRelease=${{ env.VERSION }}"
 
       # Run directly, not through `dotnet test`, for the reason in CLAUDE.md: the suites are xUnit
       # v3 on Microsoft.Testing.Platform, which SDK 10.0.400's `dotnet test` does not drive.
@@ -317,10 +321,10 @@ jobs:
             nuget-${{ runner.os }}-
 
       - name: Restore
-        run: dotnet restore
+        run: dotnet restore Modbot.Companion.slnf
 
       - name: Build
-        run: dotnet build --no-restore --configuration Release "-p:ModbotRelease=${{ env.VERSION }}"
+        run: dotnet build Modbot.Companion.slnf --no-restore --configuration Release "-p:ModbotRelease=${{ env.VERSION }}"
 
       - name: Test the companion
         run: dotnet run --project tests/Modbot.Companion.Tests --configuration Release --no-build "-p:ModbotRelease=${{ env.VERSION }}"

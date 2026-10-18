@@ -36,7 +36,7 @@
 
   <!-- Where an installed client looks for newer versions of itself. Modbot Cloud by default: it
        serves the same release index the workflow publishes to GitHub, out of one cached copy, so
-       however many clients exist GitHub is asked a few times a day rather than by each of them.
+       however many clients exist GitHub is asked once every 15 minutes at most rather than by each of them.
        The packages themselves are still downloaded from GitHub, because the index Cloud serves
        points at them.
 

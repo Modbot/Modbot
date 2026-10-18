@@ -48,11 +48,11 @@ internal sealed class Updates
     private static readonly TimeSpan FirstCheckAfter = TimeSpan.FromSeconds(30);
 
     /// <summary>
-    /// A client that runs for days with VRChat should still learn about a release within the day.
-    /// Every few hours is that, and it is what keeps however many clients exist from adding up to
-    /// traffic worth talking about at the other end.
+    /// A client that runs for days with VRChat should learn about a release soon after it goes
+    /// out. Every quarter of an hour is that, and the check is one small request to Modbot Cloud,
+    /// which reads the release feed no more often than that itself.
     /// </summary>
-    private static readonly TimeSpan CheckEvery = TimeSpan.FromHours(4);
+    private static readonly TimeSpan CheckEvery = TimeSpan.FromMinutes(15);
 
     /// <summary>The build property the release workflow sets; see Modbot.Companion.App.csproj.</summary>
     private const string FeedMetadataKey = "ModbotUpdateFeed";
@@ -173,7 +173,7 @@ internal sealed class Updates
         manager.ApplyUpdatesAndRestart(ready, args);
     }
 
-    /// <summary>Starts checking: once shortly after launch, then every few hours.</summary>
+    /// <summary>Starts checking: once shortly after launch, then every 15 minutes.</summary>
     /// <returns>Whether this copy checks at all: false when it is not an installed copy.</returns>
     public bool Start()
     {
@@ -186,8 +186,8 @@ internal sealed class Updates
             return false;
         }
 
-        Log.Information("Installed as Modbot {Version}; checking {Feed} for newer versions every {Hours} hours",
-            _manager.CurrentVersion, Feed, CheckEvery.TotalHours);
+        Log.Information("Installed as Modbot {Version}; checking {Feed} for newer versions every {Minutes} minutes",
+            _manager.CurrentVersion, Feed, CheckEvery.TotalMinutes);
 
         _timer.Tick += async (_, _) =>
         {
@@ -201,7 +201,7 @@ internal sealed class Updates
     public void Stop() => _timer.Stop();
 
     /// <summary>
-    /// One check, never overlapping itself. A failure is a log line and a retry a few hours
+    /// One check, never overlapping itself. A failure is a log line and a retry 15 minutes
     /// later, never a dialog: a feed that is unreachable, private or empty is an ordinary
     /// condition for a client that works offline and must not interrupt anybody.
     /// </summary>
@@ -245,7 +245,7 @@ internal sealed class Updates
         }
         catch (Exception ex)
         {
-            Log.Warning(ex, "Could not check for updates at {Feed}; trying again in {Hours} hours", Feed, CheckEvery.TotalHours);
+            Log.Warning(ex, "Could not check for updates at {Feed}; trying again in {Minutes} minutes", Feed, CheckEvery.TotalMinutes);
             return UpdateCheckOutcome.Failed;
         }
         finally
