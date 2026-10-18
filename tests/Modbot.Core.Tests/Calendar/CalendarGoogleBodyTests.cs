@@ -312,6 +312,45 @@ public class CalendarGoogleBodyTests
     }
 
     [Fact]
+    public void AnEventsColourAloneAndBusyAloneEachChangeItsFingerprint()
+    {
+        var e = Event();
+        var plain = CalendarGoogleBody.For(e, NoNames, null).Fingerprint("cal");
+
+        e.GoogleColour = "5";
+        var colourOnly = CalendarGoogleBody.For(e, NoNames, null).Fingerprint("cal");
+
+        e.GoogleColour = null;
+        e.GoogleShowAs = CalendarGoogleColours.Busy;
+        var busyOnly = CalendarGoogleBody.For(e, NoNames, null).Fingerprint("cal");
+
+        Assert.NotEqual(plain, colourOnly);
+        Assert.NotEqual(plain, busyOnly);
+        Assert.NotEqual(colourOnly, busyOnly);
+    }
+
+    [Fact]
+    public void ADatesColourAloneAndBusyAloneEachChangeItsFingerprint()
+    {
+        var e = Event(CalendarRepeats.Weekly, "Europe/London", "SU");
+        var planned = Sep20.AddDays(7);
+        var moved = Change(e, planned);
+        moved.StartsAt = planned.AddHours(1);
+        var plain = CalendarGoogleBody.DateFor(e, moved, NoNames).Fingerprint;
+
+        e.GoogleColour = "5";
+        var colourOnly = CalendarGoogleBody.DateFor(e, moved, NoNames).Fingerprint;
+
+        e.GoogleColour = null;
+        e.GoogleShowAs = CalendarGoogleColours.Busy;
+        var busyOnly = CalendarGoogleBody.DateFor(e, moved, NoNames).Fingerprint;
+
+        Assert.NotEqual(plain, colourOnly);
+        Assert.NotEqual(plain, busyOnly);
+        Assert.NotEqual(colourOnly, busyOnly);
+    }
+
+    [Fact]
     public void GooglesColoursAreElevenWithDistinctIdsAndNames()
     {
         Assert.Equal(11, CalendarGoogleColours.All.Count);
