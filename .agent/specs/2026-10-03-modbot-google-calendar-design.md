@@ -196,7 +196,7 @@ One pure function, `CalendarGoogle.Wants(event, settings)`, is used by the loop,
 | `colorId` | none unless the event has a colour (decision 8; changed 2026-10-17: colour is now an optional per-event choice from Google's event palette, `google_colour`, and the key is left out when none is picked) |
 | query | `sendUpdates=none`. There are no attendees ever. |
 
-**The fingerprint** covers: calendar id, id, summary, description, location, start, end, zone, recurrence lines, visibility. It leaves out the event's Open/Scheduled state and the instance, so a date opening costs no write.
+**The fingerprint** covers: calendar id, id, summary, description, location, start, end, zone, recurrence lines, visibility, and (since 2026-10-17) colour and show-as. Colour and show-as are written into the hash only when they are not the defaults (a colour set, or Busy), so an event that never chose either keeps the hash it had before and is not written again on deploy; a changed date's hash follows the same rule. It leaves out the event's Open/Scheduled state and the instance, so a date opening costs no write.
 
 **Pace.** The loop runs every 20 s with up to 10 calls a pass (at most 30 a minute against Google's 600). The 20 s settle is the same as VRChat's, so quick edits fold into one write.
 
@@ -460,7 +460,7 @@ cancelled event is kept as "Cancelled: …" until a day after its date, then rem
 the world page link), **5 A** (the calendar's own Subscribe, Public page and iCal links, plus a
 staff-only button for the secret feed), **6 A** (the tick on by default, with **Add all**), **7 A**
 (Sending off leaves events on Google; **Remove Modbot's events** is separate), **8 A** (no colour for
-Featured).
+Featured; note 2026-10-17: Featured still gets no automatic colour, but colour is now an optional per-event choice, and Busy or Free is per event with Free the default).
 
 The public-only feed question was settled separately: Modbot has had its own public feed at
 `/api/calendar/public.ics` since 2026-10-03 (calendar design §6.1). It lists the public events planned

@@ -108,8 +108,29 @@ public sealed record CalendarGoogleBody(
     /// no write. The Google event id is not in it either: a new turn is a new insert anyway.
     /// </summary>
     public string Fingerprint(string calendarId) => CalendarFingerprint.Of(
-        "google", calendarId, EventId.ToString("D"), Summary, Description, Location, StartsAt, EndsAt, TimeZone,
-        Recurrence, Visibility, SourceTitle, SourceUrl, ColourId, Transparency);
+        [
+            "google", calendarId, EventId.ToString("D"), Summary, Description, Location, StartsAt, EndsAt, TimeZone,
+            Recurrence, Visibility, SourceTitle, SourceUrl,
+            .. LookParts(ColourId, Transparency),
+        ]);
+
+    /// <summary>
+    /// The colour and busy parts of a fingerprint, written only when they are not the defaults (no
+    /// colour, Free), so an event that never chose either keeps the hash it had before they existed
+    /// and is not written again on deploy.
+    /// </summary>
+    internal static object?[] LookParts(string? colourId, string transparency)
+    {
+        var parts = new List<object?>();
+
+        if (colourId is not null)
+            parts.AddRange(["colour", colourId]);
+
+        if (transparency != CalendarGoogleColours.TransparencyOf(CalendarGoogleColours.Free))
+            parts.AddRange(["show-as", transparency]);
+
+        return [.. parts];
+    }
 
     /// <summary>The body for <c>events.insert</c> and <c>events.update</c>, with the id Modbot gave it.</summary>
     public JsonObject ToJson(string googleId)
@@ -200,6 +221,9 @@ public sealed record CalendarGoogleBody(
                 CalendarFingerprint.Of("google-date", "cancel", planned));
         }
 
+        var colourId = CalendarGoogleColours.ColourOf(calendarEvent.GoogleColour);
+        var transparency = CalendarGoogleColours.TransparencyOf(calendarEvent.GoogleShowAs);
+
         var kind = CalendarDates.IsPlain(change, length) ? CalendarGoogleDateKind.Planned : CalendarGoogleDateKind.Changed;
         var occurrence = CalendarRepeat.Changed(change, length);
         var summary = SummaryOf(calendarEvent, CalendarRepeat.TitleOf(calendarEvent, occurrence, CalendarSite.Google));
@@ -210,7 +234,13 @@ public sealed record CalendarGoogleBody(
 
         return new CalendarGoogleDate(
             kind, occurrence.StartsAt, occurrence.EndsAt, zone.Id, summary, description,
-            CalendarFingerprint.Of("google-date", kind.ToString(), planned, occurrence.StartsAt, occurrence.EndsAt, summary, description));
+            CalendarFingerprint.Of(
+            [
+                "google-date", kind.ToString(), planned, occurrence.StartsAt, occurrence.EndsAt, summary, description,
+                .. LookParts(colourId, transparency),
+            ]),
+            colourId,
+            transparency);
     }
 
     /// <summary>The world's page on vrchat.com: the one link a Google event carries (decision 4 A).</summary>
@@ -321,11 +351,14 @@ public sealed record CalendarGoogleDate(
     string TimeZone,
     string Summary,
     string? Description,
-    string Fingerprint)
+    string Fingerprint,
+    string? ColourId = null,
+    string Transparency = "transparent")
 {
     /// <summary>
-    /// The date as Google gave it (from <c>events.instances</c>), with its status, times and words
-    /// set to this. The rest is sent back as it came, as Google's update replaces the whole event.
+    /// The date as Google gave it (from <c>events.instances</c>), with its status, times, words,
+    /// colour and busy or free set to this. The rest is sent back as it came, as Google's update
+    /// replaces the whole event.
     /// </summary>
     public JsonObject ApplyTo(JsonObject instance)
     {
@@ -348,6 +381,13 @@ public sealed record CalendarGoogleDate(
             body.Remove("description");
         else
             body["description"] = Description;
+
+        body["transparency"] = Transparency;
+
+        if (ColourId is null)
+            body.Remove("colorId");
+        else
+            body["colorId"] = ColourId;
 
         return body;
     }

@@ -270,6 +270,48 @@ public class CalendarGoogleBodyTests
     }
 
     [Fact]
+    public void AnEventWithNoColourAndFreeKeepsTheFingerprintItHadBeforeThoseChoicesExisted()
+    {
+        var body = CalendarGoogleBody.For(Event(CalendarRepeats.Weekly, "Europe/London", "SU"), NoNames, "Group");
+
+        var before = CalendarFingerprint.Of(
+            "google", "cal", body.EventId.ToString("D"), body.Summary, body.Description, body.Location, body.StartsAt,
+            body.EndsAt, body.TimeZone, body.Recurrence, body.Visibility, body.SourceTitle, body.SourceUrl);
+
+        Assert.Equal(before, body.Fingerprint("cal"));
+    }
+
+    [Fact]
+    public void ADateKeepsItsOldFingerprintWithNoColourAndFree_AndTakesTheEventsColourAndBusyOtherwise()
+    {
+        var e = Event(CalendarRepeats.Weekly, "Europe/London", "SU");
+        var planned = Sep20.AddDays(7);
+        var moved = Change(e, planned);
+        moved.StartsAt = planned.AddHours(1);
+
+        var date = CalendarGoogleBody.DateFor(e, moved, NoNames);
+        var before = CalendarFingerprint.Of(
+            "google-date", date.Kind.ToString(), planned, date.StartsAt, date.EndsAt, date.Summary, date.Description);
+        Assert.Equal(before, date.Fingerprint);
+
+        e.GoogleColour = "5";
+        e.GoogleShowAs = CalendarGoogleColours.Busy;
+        var coloured = CalendarGoogleBody.DateFor(e, moved, NoNames);
+        Assert.NotEqual(date.Fingerprint, coloured.Fingerprint);
+
+        // Google's own copy of the date had the old colour and was free: it is sent back with the new ones.
+        var instance = new System.Text.Json.Nodes.JsonObject { ["id"] = "x_1", ["colorId"] = "3", ["transparency"] = "transparent" };
+        var put = coloured.ApplyTo(instance);
+        Assert.Equal("5", put["colorId"]!.GetValue<string>());
+        Assert.Equal("opaque", put["transparency"]!.GetValue<string>());
+
+        // With no colour the old one is taken off.
+        var plain = date.ApplyTo(instance);
+        Assert.False(plain.ContainsKey("colorId"));
+        Assert.Equal("transparent", plain["transparency"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void GooglesColoursAreElevenWithDistinctIdsAndNames()
     {
         Assert.Equal(11, CalendarGoogleColours.All.Count);
