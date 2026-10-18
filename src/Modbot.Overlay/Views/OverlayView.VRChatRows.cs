@@ -119,7 +119,7 @@ public sealed partial class OverlayView
     /// <remarks>
     /// <para>Without a moderator's own card (their id is not known, or the filters have hidden them) there is
     /// no banner and no label, and everybody is under the heading as one list.</para>
-    /// <para>The banner stays where it is while the others scroll under it. The count in the label is
+    /// <para>On the desktop window the banner stays where it is while the others scroll under it; the headset's list scrolls it away with the rest. The count in the label is
     /// of the people present, as the heading's is: somebody who has just left is a row and not a person
     /// counted.</para>
     /// </remarks>

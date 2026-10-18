@@ -87,6 +87,10 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// <summary>A drag is under way, and whether it began on a list.</summary>
     private bool _dragging;
     private bool _dragOnList;
+
+    // A press stopped a moving list, so the tap its release would make is not made.
+    private bool _swallowTap;
+
     private OverlayTracking _lastTracking = OverlayTracking.None;
 
     // Whether a ray is on the panel, which is what puts the bar up under it.
@@ -485,6 +489,12 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
         foreach (var click in result.Clicks)
         {
+            if (_swallowTap && IsListAt(click.Across, click.Down))
+            {
+                _swallowTap = false;
+                continue;
+            }
+
             var target = TargetAt(click.Across, click.Down);
             switch (target)
             {
@@ -525,14 +535,30 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         // The other list, if it was going when the page changed, stays where it is.
         (scroll == _rosterScroll ? _eventScroll : _rosterScroll).Touch();
 
-        var max = _root is null ? 0 : ScrollingList.In(_root)?.MaxOffset ?? 0;
+        // A page with no list drawn (a person's card, the wrist) leaves both lists as they are, so the
+        // roster is where it was when the person is closed. Only a list that is drawn is held to its ends.
+        if (_root is null || ScrollingList.In(_root) is not { } shown)
+        {
+            scroll.Touch();
+            _dragging = false;
+            _dragOnList = false;
+            _stickScrolling = false;
+            _swallowTap = false;
+            return false;
+        }
+
+        var max = shown.MaxOffset;
         var scale = OverlayView.HeadsetScale(_look, Width);
 
         // The content may have got shorter since the list was last moved.
         scroll.Clamp(max);
 
         if (result.Touched)
+        {
+            // A press that stops a moving list only stops it, as on a phone: its release taps nothing.
+            _swallowTap = scroll.Flinging;
             scroll.Touch();
+        }
 
         _stickScrolling = false;
 
@@ -542,6 +568,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             // no longer be inside it, and the drag goes on until the trigger is up.
             if (!_dragging)
             {
+                _swallowTap = false;
                 _dragging = true;
                 _dragOnList = IsListAt(drag.From.Across, drag.From.Down);
             }

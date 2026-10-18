@@ -312,6 +312,7 @@ internal sealed partial class CompanionHost : IOverlayListener
     private void StopInputLoop()
     {
         _inputLoop.Stop();
+        _inputLoop.Interval = InputSlow;
         _timerResolution.Set(false);
     }
 

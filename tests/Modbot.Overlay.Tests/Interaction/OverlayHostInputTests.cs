@@ -244,6 +244,81 @@ public class OverlayHostInputTests
     }
 
     [Fact]
+    public void AListKeepsItsPlaceWhileAPersonIsOpenAndAfterBack()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build(30);
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(Centre)));
+            host.PollInput(TimeSpan.Zero);
+            var row = FindRow(host, "usr_1");
+
+            for (var i = 0; i < 20; i++)
+            {
+                runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down), scroll: new Vector2(0, -1)));
+                host.PollInput(TimeSpan.FromMilliseconds(10 * i));
+            }
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down)));
+            host.PollInput(TimeSpan.FromMilliseconds(300));
+            var scrolledTo = host.ListOffset;
+            Assert.True(scrolledTo > 0);
+
+            // A person's card has no list on it: polling there must not take the roster back to the top.
+            var person = new UserSummary("usr_1", "Person 1", RosterStanding.Flagged, 2, DateTimeOffset.UnixEpoch, ["kicked before"], ["Regular"]);
+            host.Update(Roster(30) with { Person = person, Page = OverlayPage.Person });
+
+            for (var i = 0; i < 5; i++)
+                host.PollInput(TimeSpan.FromMilliseconds(400 + (10 * i)));
+
+            host.Update(Roster(30));
+            host.PollInput(TimeSpan.FromMilliseconds(500));
+
+            Assert.Equal(scrolledTo, host.ListOffset, 3);
+        });
+    }
+
+    [Fact]
+    public void APressThatStopsAMovingListTapsNothingWhenItIsLetGo()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build(30);
+            var taps = new List<OverlayTarget?>();
+            host.Tapped += taps.Add;
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(Centre)));
+            host.PollInput(TimeSpan.Zero);
+            var row = FindRow(host, "usr_3");
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down), click: true));
+            host.PollInput(TimeSpan.FromMilliseconds(10));
+
+            for (var i = 1; i <= 5; i++)
+            {
+                runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down - (0.04f * i)), click: true));
+                host.PollInput(TimeSpan.FromMilliseconds(10 + (10 * i)));
+            }
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(row.Across, row.Down - 0.2f)));
+            host.PollInput(TimeSpan.FromMilliseconds(70));
+            host.PollInput(TimeSpan.FromMilliseconds(100));
+            Assert.True(host.Scrolling);
+
+            // The trigger goes down on the moving list and comes up without the ray moving.
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(0.5f, 0.5f), click: true));
+            host.PollInput(TimeSpan.FromMilliseconds(110));
+            Assert.False(host.Scrolling);
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(0.5f, 0.5f)));
+            host.PollInput(TimeSpan.FromMilliseconds(120));
+
+            Assert.Empty(taps);
+        });
+    }
+
+    [Fact]
     public void PlacingFromTheSettingsPageReachesTheRuntime()
     {
         AvaloniaTestHost.Run(() =>
