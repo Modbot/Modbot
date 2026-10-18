@@ -551,7 +551,7 @@ public sealed class OverlayDriver : IDisposable
             case OverlayTarget.RefreshPerson when _person is { } open:
                 _ = OpenPersonAsync(open.SubjectId);
                 break;
-            case OverlayTarget.ClosePerson:
+            case OverlayTarget.BackFromPerson:
                 _page = _personFrom;
                 break;
             case OverlayTarget.Filter or OverlayTarget.Pick or OverlayTarget.ClearFilters:

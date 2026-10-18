@@ -19,7 +19,7 @@ public abstract record OverlayTarget
     public sealed record Person(string SubjectId) : OverlayTarget;
 
     /// <summary>The open person card's Back. Tapping it returns to the screen the person was opened from; the person stays open as a tab.</summary>
-    public sealed record ClosePerson : OverlayTarget;
+    public sealed record BackFromPerson : OverlayTarget;
 
     /// <summary>The roster list. Scrolling while pointing here moves the list.</summary>
     public sealed record Roster : OverlayTarget;

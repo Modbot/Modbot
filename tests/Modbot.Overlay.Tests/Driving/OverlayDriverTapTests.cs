@@ -120,7 +120,8 @@ public class OverlayDriverTapTests
     {
         // A tap on the empty panel used to close the card, because the card sat above the roster.
         // The person is now a screen of its own, so it takes Back to leave it -- and a stray tap
-        // on nothing must not throw the moderator out of the card they just opened.
+        // on nothing must not throw the moderator out of the card they just opened. Back keeps the
+        // person open, so their tab is still there.
         var (driver, presenter, _) = Build();
         await driver.TickAsync(TestContext.Current.CancellationToken);
         await driver.OpenPersonAsync("usr_Rin");
@@ -130,7 +131,7 @@ public class OverlayDriverTapTests
         Assert.NotNull(presenter.Last.Person);
         Assert.Equal(OverlayPage.Person, presenter.Last.Page);
 
-        driver.Tap(new OverlayTarget.ClosePerson());
+        driver.Tap(new OverlayTarget.BackFromPerson());
         await driver.TickAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(OverlayPage.Instance, presenter.Last.Page);
@@ -150,7 +151,7 @@ public class OverlayDriverTapTests
         driver.Tap(new OverlayTarget.GoTo(OverlayPage.Events));
         await driver.OpenPersonAsync("usr_Kai");
 
-        driver.Tap(new OverlayTarget.ClosePerson());
+        driver.Tap(new OverlayTarget.BackFromPerson());
         await driver.TickAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(OverlayPage.Events, presenter.Last.Page);
@@ -166,13 +167,13 @@ public class OverlayDriverTapTests
         await driver.OpenPersonAsync("usr_Kai");
 
         driver.Tap(new OverlayTarget.RefreshPerson());
-        driver.Tap(new OverlayTarget.ClosePerson());
+        driver.Tap(new OverlayTarget.BackFromPerson());
         Assert.Equal(OverlayPage.Events, driver.Page);
 
         // Another person, opened from the Instance, replaces the first and Back goes there.
         driver.Tap(new OverlayTarget.GoTo(OverlayPage.Instance));
         await driver.OpenPersonAsync("usr_Rin");
-        driver.Tap(new OverlayTarget.ClosePerson());
+        driver.Tap(new OverlayTarget.BackFromPerson());
         await driver.TickAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(OverlayPage.Instance, presenter.Last.Page);

@@ -1029,7 +1029,7 @@ public sealed partial class OverlayView
             Margin = new Thickness(0, 8, 0, 0),
             Children =
             {
-                Press("Back", new OverlayTarget.ClosePerson()),
+                Press("Back", new OverlayTarget.BackFromPerson()),
                 Press("Refresh", new OverlayTarget.RefreshPerson()),
             },
         });

@@ -117,7 +117,7 @@ public class OverlayTargetsTests
 
         var found = AvaloniaTestHost.Run(() => OverlayTargets.Find(LaidOut(open)));
 
-        Assert.Contains(found, t => t.Target is OverlayTarget.ClosePerson);
+        Assert.Contains(found, t => t.Target is OverlayTarget.BackFromPerson);
         Assert.Contains(found, t => t.Target is OverlayTarget.RefreshPerson);
         Assert.False(Screen().LooksTheSameAs(open));
     }

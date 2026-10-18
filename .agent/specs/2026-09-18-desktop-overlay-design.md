@@ -229,7 +229,7 @@ roster through `OverlayDriver.ScrollRoster`, which is what the controller's thum
 second set of interactions was written.**
 
 The person's card carries the actions the client already has, which today is: open this person,
-close this person, dismiss this alert. The client has no ban button and this does not add one —
+go back from this person, dismiss this alert. The client has no ban button and this does not add one —
 acting on a person is done in Modbot's web interface, by a human, in a browser.
 
 ### 4.1 It says whose community it is, by name and by picture

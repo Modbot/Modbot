@@ -49,7 +49,7 @@ public class PanelFrameTests
 
         // The whole list of target kinds a framed headset panel has.
         Assert.All(targets, t => Assert.True(
-            t.Target is OverlayTarget.GoTo or OverlayTarget.Person or OverlayTarget.ClosePerson
+            t.Target is OverlayTarget.GoTo or OverlayTarget.Person or OverlayTarget.BackFromPerson
                 or OverlayTarget.RefreshPerson or OverlayTarget.Roster or OverlayTarget.Events
                 or OverlayTarget.DismissAlert or OverlayTarget.SaveClip
                 or OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough

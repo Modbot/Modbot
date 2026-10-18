@@ -144,7 +144,7 @@ public class OverlayPageTests
 
         var targets = Targets(Screen(OverlayPage.Person, person)).Select(t => t.Target).ToList();
 
-        Assert.Contains(targets, t => t is OverlayTarget.ClosePerson);
+        Assert.Contains(targets, t => t is OverlayTarget.BackFromPerson);
         Assert.Contains(targets, t => t is OverlayTarget.RefreshPerson);
 
         // The whole list of target kinds the panel has. Anything new has to be added here on
@@ -158,7 +158,7 @@ public class OverlayPageTests
     /// the bar's, which the headset draws under the panel (PanelFrameTests).
     /// </summary>
     private static bool Allowed(OverlayTarget target) =>
-        target is OverlayTarget.GoTo or OverlayTarget.Person or OverlayTarget.ClosePerson
+        target is OverlayTarget.GoTo or OverlayTarget.Person or OverlayTarget.BackFromPerson
             or OverlayTarget.RefreshPerson or OverlayTarget.Roster or OverlayTarget.Events
             or OverlayTarget.DismissAlert
             or OverlayTarget.Filter or OverlayTarget.Pick or OverlayTarget.ClearFilters or OverlayTarget.TypeName
