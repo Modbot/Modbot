@@ -32,6 +32,12 @@
          cb68c5788b0ddab32c0402e58820956a489ef6cb99ecf2e1fa997533ead54475), for a companion run on
          Linux: .NET looks for "libopenvr_api.so" there when the code asks for "openvr_api". -->
     <None Include="native\linux-x64\libopenvr_api.so" Link="libopenvr_api.so" CopyToOutputDirectory="PreserveNewest" />
+    <!-- SteamVR Input's action manifest and the default bindings it points at (Index, Touch, Vive,
+         Windows Mixed Reality, and a generic one). OpenVrInput hands SteamVR the path of
+         steamvr-input/actions.json beside the exe, so they travel with it into a build and a
+         publish. CopyToPublishDirectory is explicit because a None item is not published by
+         default. -->
+    <None Include="steamvr-input\*.json" Link="steamvr-input\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <PropertyGroup>

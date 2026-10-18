@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using Modbot.Overlay.Interaction;
+using Serilog;
 
 namespace Modbot.Overlay.OpenVr;
 
@@ -105,8 +106,11 @@ public static class OpenVrLayouts
 /// companion is already attached to, each time the overlay polls. It reads nothing about any
 /// other program, and nothing here is reported anywhere: the poses decide where the panel's
 /// cursor is and whether it is being held, and are dropped.</para>
-/// <para>Legacy controller state rather than SteamVR Input actions: an overlay with no action
-/// manifest is given the legacy bindings, which is one call per hand and no manifest to ship.</para>
+/// <para>The hands are read through SteamVR Input (<see cref="OpenVrInput"/>), so the controls
+/// show up under Modbot in SteamVR's controller bindings and can be moved there. The legacy
+/// controller state is the fallback, used when SteamVR Input cannot be set up and until it
+/// reports data (<see cref="InputSourceChoice"/>). Either way the hand data out is the same
+/// <see cref="HandState"/>.</para>
 /// <para><strong>What it does to what it reads.</strong> Two corrections, both because OpenVR
 /// answers a narrower question than the panel asks. The grip is decided from how hard it is
 /// squeezed rather than from SteamVR's own grip button, which on an Index only turns on under a
@@ -143,16 +147,46 @@ internal sealed unsafe class OpenVrSystem
     private readonly GripHold _leftGrip = new();
     private readonly GripHold _rightGrip = new();
 
-    private OpenVrSystem(nint table)
+    // SteamVR Input, when it could be set up, and which of the two reads is in use.
+    private readonly OpenVrInput? _input;
+    private readonly InputSourceChoice _choice;
+    private ControllerInputSource? _logged;
+
+    private OpenVrSystem(nint table, OpenVrInput? input, string? whyNoInput)
     {
         _table = table;
+        _input = input;
+        _choice = new InputSourceChoice(input is not null);
+
+        if (input is null)
+        {
+            _logged = ControllerInputSource.Legacy;
+            Log.Information("Controller input: legacy SteamVR controller state ({Reason})", whyNoInput);
+        }
     }
 
     /// <summary>The system interface of the SteamVR this process is initialised against, or null.</summary>
     public static OpenVrSystem? Open()
     {
         var table = OpenVrInterop.GetGenericInterface(InterfaceVersion, out var error);
-        return table == 0 || error != VrInitError.None ? null : new OpenVrSystem(table);
+        if (table == 0 || error != VrInitError.None)
+            return null;
+
+        // SteamVR Input is the first choice; whatever goes wrong setting it up leaves the legacy
+        // read, which needs nothing set up.
+        OpenVrInput? input = null;
+        string? reason;
+        try
+        {
+            input = OpenVrInput.Open(OpenVrInput.ManifestPath, out var why);
+            reason = why;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or EntryPointNotFoundException)
+        {
+            reason = ex.Message;
+        }
+
+        return new OpenVrSystem(table, input, reason);
     }
 
     /// <summary>SteamVR's index for a hand's controller, or null when it has none right now.</summary>
@@ -209,7 +243,34 @@ internal sealed unsafe class OpenVrSystem
 
         var head = OpenVrLayouts.ReadPose(PoseBytes(0)) ?? Pose.Identity;
 
-        return new OverlayTracking(head, Hand(RoleLeftHand), Hand(RoleRightHand));
+        ActionHand leftActions = default, rightActions = default;
+        if (_input is { } input)
+        {
+            input.Update();
+            leftActions = input.Read(Interaction.Hand.Left);
+            rightActions = input.Read(Interaction.Hand.Right);
+        }
+
+        var seen = !_choice.Settled && (DeviceIndex(Interaction.Hand.Left) is not null || DeviceIndex(Interaction.Hand.Right) is not null);
+        var source = _choice.Next(leftActions.HasData || rightActions.HasData, seen);
+        LogSource(source);
+
+        return source == ControllerInputSource.SteamVrInput
+            ? new OverlayTracking(head, leftActions.ToHandState(_leftGrip), rightActions.ToHandState(_rightGrip))
+            : new OverlayTracking(head, Hand(RoleLeftHand), Hand(RoleRightHand));
+    }
+
+    /// <summary>Says once which read is in use, and again only if it changes.</summary>
+    private void LogSource(ControllerInputSource source)
+    {
+        if (!_choice.Settled || _logged == source)
+            return;
+
+        _logged = source;
+        if (source == ControllerInputSource.SteamVrInput)
+            Log.Information("Controller input: SteamVR Input actions");
+        else
+            Log.Information("Controller input: legacy SteamVR controller state (SteamVR Input gave no data)");
     }
 
     private HandState Hand(int role)

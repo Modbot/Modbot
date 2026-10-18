@@ -19,7 +19,8 @@ namespace Modbot.Overlay.OpenVr;
 /// tilts down off it so that pointing works. The overlay's OpenXR path asks for <c>aim</c> and has
 /// never had the problem. OpenVR has no equivalent to ask for — its one nod to it is a "tip" part
 /// buried in each controller's render model, read through an interface Modbot does not open — so
-/// the tilt is applied here instead.</para>
+/// the tilt is applied here instead. (Read through SteamVR Input, the pointing pose is SteamVR's
+/// own "tip" pose and this tilt is only the stand-in for a binding that gives none.)</para>
 /// <para><strong>The number, and how sure it is.</strong> The tilt is 35° down about the
 /// controller's own side-to-side axis. That is the middle of the range runtimes use between the
 /// two poses for the controllers a moderator is likely to be wearing — a Valve Index or an Oculus

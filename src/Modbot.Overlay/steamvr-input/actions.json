@@ -1,0 +1,32 @@
+{
+  "actions": [
+    { "name": "/actions/modbot/in/grab", "type": "vector1", "requirement": "suggested" },
+    { "name": "/actions/modbot/in/grip", "type": "boolean", "requirement": "suggested" },
+    { "name": "/actions/modbot/in/click", "type": "boolean", "requirement": "suggested" },
+    { "name": "/actions/modbot/in/scroll", "type": "vector2", "requirement": "suggested" },
+    { "name": "/actions/modbot/in/aim", "type": "pose", "requirement": "suggested" },
+    { "name": "/actions/modbot/in/hand", "type": "pose", "requirement": "suggested" }
+  ],
+  "action_sets": [
+    { "name": "/actions/modbot", "usage": "leftright" }
+  ],
+  "default_bindings": [
+    { "controller_type": "knuckles", "binding_url": "bindings_knuckles.json" },
+    { "controller_type": "oculus_touch", "binding_url": "bindings_oculus_touch.json" },
+    { "controller_type": "vive_controller", "binding_url": "bindings_vive_controller.json" },
+    { "controller_type": "holographic_controller", "binding_url": "bindings_holographic_controller.json" },
+    { "controller_type": "generic", "binding_url": "bindings_generic.json" }
+  ],
+  "localization": [
+    {
+      "language_tag": "en_US",
+      "/actions/modbot": "Modbot",
+      "/actions/modbot/in/grab": "Grab panel (how hard the grip is squeezed)",
+      "/actions/modbot/in/grip": "Grab panel (grip button)",
+      "/actions/modbot/in/click": "Click",
+      "/actions/modbot/in/scroll": "Scroll",
+      "/actions/modbot/in/aim": "Point",
+      "/actions/modbot/in/hand": "Hand position"
+    }
+  ]
+}

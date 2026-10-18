@@ -1,0 +1,45 @@
+{
+  "controller_type": "generic",
+  "name": "Modbot default for other controllers",
+  "description": "Trigger clicks, grip button grabs, touchpad scrolls.",
+  "bindings": {
+    "/actions/modbot": {
+      "poses": [
+        { "output": "/actions/modbot/in/hand", "path": "/user/hand/left/pose/raw" },
+        { "output": "/actions/modbot/in/hand", "path": "/user/hand/right/pose/raw" }
+      ],
+      "sources": [
+        {
+          "path": "/user/hand/left/input/grip",
+          "mode": "button",
+          "inputs": { "click": { "output": "/actions/modbot/in/grip" } }
+        },
+        {
+          "path": "/user/hand/right/input/grip",
+          "mode": "button",
+          "inputs": { "click": { "output": "/actions/modbot/in/grip" } }
+        },
+        {
+          "path": "/user/hand/left/input/trigger",
+          "mode": "button",
+          "inputs": { "click": { "output": "/actions/modbot/in/click" } }
+        },
+        {
+          "path": "/user/hand/right/input/trigger",
+          "mode": "button",
+          "inputs": { "click": { "output": "/actions/modbot/in/click" } }
+        },
+        {
+          "path": "/user/hand/left/input/trackpad",
+          "mode": "trackpad",
+          "inputs": { "position": { "output": "/actions/modbot/in/scroll" } }
+        },
+        {
+          "path": "/user/hand/right/input/trackpad",
+          "mode": "trackpad",
+          "inputs": { "position": { "output": "/actions/modbot/in/scroll" } }
+        }
+      ]
+    }
+  }
+}

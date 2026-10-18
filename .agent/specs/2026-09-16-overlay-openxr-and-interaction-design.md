@@ -134,8 +134,15 @@ WiVRn, from source, and the log lines say what happened at each step of §3.2.
 Both runtimes report the same thing each `Poll`: for each hand, whether it is tracked, its
 **aim pose** (position and forward direction) in the **same space the panel is placed in**,
 and its buttons: **grab** (grip), **click** (trigger), **scroll** (thumbstick or touchpad,
-two axes). OpenVR: `GetDeviceToAbsoluteTrackingPose` and `GetControllerState` through
-`IVRSystem`, with the pose converted into the panel's anchor space. OpenXR: an action set
+two axes). OpenVR: SteamVR Input through `IVRInput_011` (2026-10-17): an action set `modbot`
+with `grab` (analogue), `grip` and `click` (boolean), `scroll` (vector2) and the poses `aim`
+(SteamVR's tip pose) and `hand` (the raw device pose), read per hand through the
+`/user/hand/left` and `/user/hand/right` input sources, from the manifest and default bindings
+(Index, Touch, Vive, Windows MR, generic) in `steamvr-input/` beside the exe, so a moderator can
+rebind them in SteamVR. The action set is activated at priority 0, so VRChat keeps its input.
+The legacy `GetDeviceToAbsoluteTrackingPose` and `GetControllerState` through `IVRSystem` stay as
+the fallback, used when `IVRInput` or the manifest cannot be got and until an action reports
+data (`InputSourceChoice`), with the pose converted into the panel's anchor space. OpenXR: an action set
 `modbot` with `aim` (pose), `grab`, `click` (boolean) and `scroll` (vector2), suggested
 bindings for the Valve Index, Oculus Touch, Vive and simple controller profiles, synced each
 frame and read on `Poll`. The struct is `OverlayHands` in Modbot.Overlay; the rest of §4 works
@@ -241,7 +248,9 @@ grip *force* sensor at a threshold set for picking up a heavy thing in a game. T
 panel is not picking up a rock. The panel needed a squeeze nobody wants to make to move a window.
 
 **What it is now.** The squeeze is read as a number — axis 2 of `VRControllerState_t`, which is
-where SteamVR's own legacy bindings put an analogue grip — and `GripHold` decides:
+where SteamVR's own legacy bindings put an analogue grip, or, through SteamVR Input (§4.1), the
+`grab` action's 0 to 1 value, bound to the grip's value and not its force on an Index — and
+`GripHold` decides:
 
 - **0.25** of full travel takes the panel,
 - it is let go below **0.15**,
