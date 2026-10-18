@@ -548,7 +548,8 @@ public sealed class ButtonHost : IDisposable
         var root = PanelFrame.Button(
             ButtonView.Build(_counting is null ? _drawn : _drawn with { Countdown = _counting }, _look),
             bar,
-            _cursor);
+            _cursor,
+            Width);
         _drawnBar = bar;
         _drawnCursor = _cursor;
         _drawnCounting = _counting;

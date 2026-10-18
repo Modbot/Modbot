@@ -21,9 +21,9 @@ namespace Modbot.Overlay.Views;
 /// notification panel, which has no room beside its bar, draws them over the foot of its box.
 /// </param>
 /// <param name="WidthInMetres">
-/// How long the panel's square is on a side in the room, so the hints can be drawn the same physical size on every
-/// panel. Zero (not known, and always while there are no hints) draws them at the pop-up panel's
-/// pixel size. Part of the bar so that stretching the panel draws the hints again.
+/// How long the panel's square is on a side in the room, so the bar and the hints can be drawn the same physical size
+/// on every panel. Zero (not known) draws the hints at the pop-up panel's pixel size and the bar as it is at
+/// the panel's ordinary width. Part of the bar so that stretching the panel, or changing its width, draws them again.
 /// </param>
 /// <param name="Corner">
 /// The resize corner is drawn at the panel's bottom right: edit mode, and the panel is unlocked,
@@ -54,7 +54,7 @@ public readonly record struct PanelBar(
             placement.Locked,
             placement.ClickThrough,
             shown,
-            shown is null ? 0 : placement.Side,
+            placement.Side,
             corner && !placement.Locked && !placement.ClickThrough,
             placement.Wide,
             placement.Tall);
@@ -81,14 +81,36 @@ public static class PanelFrame
 {
     private static DesignTokens T => DesignTokens.Vr;
 
-    /// <summary>The main panel's bar: sized for a 1,024-pixel texture about 45 cm across.</summary>
+    /// <summary>
+    /// The bar drawn on a 1,024-pixel texture about 45 cm across (the main panel at its ordinary width).
+    /// Every panel's bar is this one, stretched by <see cref="BarFor"/> to the same size in the room.
+    /// </summary>
     public static readonly BarSize MainSize = new(Button: 72, Icon: 40, Gap: 12, Padding: 8, Above: 4);
 
-    /// <summary>The notification panel's bar: sized for its 300-pixel texture about 40 cm across.</summary>
-    public static readonly BarSize NotificationSize = new(Button: 28, Icon: 18, Gap: 5, Padding: 3, Above: 3);
+    /// <summary>One bar button's size in the room, in metres, on every panel: the main panel's at its ordinary width (about 3.2 cm).</summary>
+    public static double ButtonMetres => MainSize.Button * OverlayPlacement.Default.Width / OverlayHost.DefaultResolution;
 
-    /// <summary>The show and hide button's bar: sized for a 256-pixel texture about 16 cm across.</summary>
-    public static readonly BarSize ButtonSize = new(Button: 36, Icon: 22, Gap: 6, Padding: 4, Above: 3);
+    /// <summary>
+    /// The bar for a panel, drawn <see cref="ButtonMetres"/> a button whatever the panel's width or
+    /// texture, worked out from how many of its pixels are a metre. A panel whose width is not known
+    /// is taken at <paramref name="ordinaryMetres"/>, its width before it is made wider or taller.
+    /// </summary>
+    /// <param name="side">The panel's square canvas in pixels, which <see cref="PanelBar.WidthInMetres"/> is the length of.</param>
+    /// <param name="ordinaryMetres">The panel's width in the room at its ordinary shape and width setting.</param>
+    /// <param name="room">
+    /// The most the bar's row may take of the panel's height, or unlimited. A narrow panel has more
+    /// pixels to a metre, so a bar of one real size would outgrow a margin of fixed pixels and run off the
+    /// texture; the bar is then drawn as large as the room allows.
+    /// </param>
+    public static BarSize BarFor(PanelBar bar, double side, double ordinaryMetres, double room = double.PositiveInfinity)
+    {
+        var metres = bar.WidthInMetres > 0 ? bar.WidthInMetres : ordinaryMetres * Math.Max(bar.Wide, bar.Tall);
+        var scale = ButtonMetres * (side / metres) / MainSize.Button;
+
+        // The row is the bar's pixels (which scale) and its two hairlines (which do not).
+        var ownPixels = MainSize.Row - (T.Density.Hairline * 2);
+        return MainSize.Scaled(Math.Min(scale, Math.Max(0, room - (T.Density.Hairline * 2)) / ownPixels));
+    }
 
     /// <summary>How big the bar is drawn, in panel pixels.</summary>
     /// <param name="Button">One button, square.</param>
@@ -103,6 +125,9 @@ public static class PanelFrame
 
         /// <summary>The bar's own width: two buttons, the gap and the padding.</summary>
         public double Width => (Button * 2) + Gap + (Padding * 2) + (T.Density.Hairline * 2);
+
+        /// <summary>The same bar drawn <paramref name="by"/> times bigger; its hairlines stay as thin as they were.</summary>
+        public BarSize Scaled(double by) => new(Button * by, Icon * by, Gap * by, Padding * by, Above * by);
     }
 
     /// <summary>
@@ -150,8 +175,8 @@ public static class PanelFrame
     {
         ArgumentNullException.ThrowIfNull(content);
 
-        var size = MainSize;
         var across = width ?? height;
+        var size = BarFor(bar, Math.Max(across, height), OverlayPlacement.Default.Width);
         content.VerticalAlignment = VerticalAlignment.Top;
 
         var above = new Border
@@ -165,7 +190,7 @@ public static class PanelFrame
         var column = new StackPanel
         {
             VerticalAlignment = VerticalAlignment.Top,
-            Children = { above, BarRow(bar, size, across, Math.Max(across, height), bar.Corner ? MainGrip + size.Padding : 0) },
+            Children = { above, BarRow(bar, size, across, Math.Max(across, height), bar.Corner ? MainGrip + MainSize.Padding : 0) },
         };
 
         // Narrower than the square it sits in: the column is the rectangle, from the left.
@@ -181,7 +206,7 @@ public static class PanelFrame
         var grip = Grip(MainGrip);
         grip.HorizontalAlignment = HorizontalAlignment.Right;
         grip.VerticalAlignment = VerticalAlignment.Bottom;
-        grip.Margin = new Thickness(0, 0, size.Padding, size.Padding);
+        grip.Margin = new Thickness(0, 0, MainSize.Padding, MainSize.Padding);
 
         return WithCursor(
             new Panel
@@ -200,6 +225,9 @@ public static class PanelFrame
 
     /// <summary>The resize corner on the notification panel, in panel pixels.</summary>
     private const double NotificationGrip = 52;
+
+    /// <summary>How far the notification panel's resize corner sits from the box's edge, in panel pixels.</summary>
+    private const double NotificationGripMargin = 3;
 
     /// <summary>
     /// The resize corner: two thick, see-through slanted strokes, the mark a window's corner wears,
@@ -339,10 +367,13 @@ public static class PanelFrame
     {
         ArgumentNullException.ThrowIfNull(cards);
 
-        var size = NotificationSize;
         cards.VerticalAlignment = VerticalAlignment.Top;
 
         var boxSide = side * NotifyOverlaySettings.BoxPixels / NotifyOverlaySettings.PanelPixels;
+        var canvas = side * Math.Max(wide, tall);
+
+        // The bar has the strip under the box to fit in, which is the same pixels at any width.
+        var size = BarFor(bar, canvas, NotifyOverlaySettings.DefaultWidth * NotifyOverlaySettings.PanelPerBox, side - boxSide);
         var boxWide = boxSide * wide;
         var box = new Panel
         {
@@ -372,7 +403,6 @@ public static class PanelFrame
             Child = cards,
         });
 
-        var canvas = side * Math.Max(wide, tall);
         if (bar.Hints is { } hints)
             box.Children.Add(BoxHints(hints, boxWide, HintScale(bar, canvas)));
 
@@ -381,7 +411,7 @@ public static class PanelFrame
             var grip = Grip(NotificationGrip);
             grip.HorizontalAlignment = HorizontalAlignment.Right;
             grip.VerticalAlignment = VerticalAlignment.Bottom;
-            grip.Margin = new Thickness(0, 0, size.Padding, size.Padding);
+            grip.Margin = new Thickness(0, 0, NotificationGripMargin, NotificationGripMargin);
             box.Children.Add(grip);
         }
 
@@ -413,7 +443,8 @@ public static class PanelFrame
     /// </remarks>
     /// <param name="card">What <see cref="ButtonView.Build"/> made, without a cursor.</param>
     /// <param name="bar">The bar, or null while edit mode is off.</param>
-    public static Control Button(Control card, PanelBar? bar, PanelCursor? cursor)
+    /// <param name="side">The button's texture size in pixels, which the bar is sized by.</param>
+    public static Control Button(Control card, PanelBar? bar, PanelCursor? cursor, double side = OverlayButton.PanelPixels)
     {
         ArgumentNullException.ThrowIfNull(card);
 
@@ -424,7 +455,7 @@ public static class PanelFrame
         Grid.SetRow(card, 0);
         frame.Children.Add(card);
 
-        var strip = Bar(shown, ButtonSize);
+        var strip = Bar(shown, BarFor(shown, side, OverlayButton.CornerWidth));
         Grid.SetRow(strip, 1);
         frame.Children.Add(strip);
 

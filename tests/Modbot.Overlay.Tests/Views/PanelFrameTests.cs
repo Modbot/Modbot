@@ -228,6 +228,104 @@ public class PanelFrameTests
         Assert.True(PanelFrame.HintScale(narrow, Main) < same / 1.5, "The scale is capped, not left to grow with the pixels per metre.");
     }
 
+    private static readonly OverlayPlacement PopUpPlacement = OverlayPlacement.Default with
+    {
+        Width = NotifyOverlaySettings.DefaultWidth * NotifyOverlaySettings.PanelPerBox,
+    };
+
+    private static readonly OverlayPlacement ButtonPlacement = OverlayPlacement.Default with { Width = OverlayButton.CornerWidth };
+
+    /// <summary>The Lock button's width in metres: its pixels over the panel's pixels to a metre.</summary>
+    private static double LockMetres(IReadOnlyList<PlacedTarget> targets, PanelBar bar, double canvas)
+        => Bounds<OverlayTarget.Lock>(targets).Width / (canvas / bar.WidthInMetres);
+
+    private static double MainLockMetres(OverlayPlacement placement)
+    {
+        var bar = PanelBar.For(placement, true);
+        var width = Main * placement.Wide;
+        var height = Main * placement.Tall;
+        var canvas = (int)Math.Max(width, height);
+        var (_, targets) = Draw(() => PanelFrame.Main(OverlayView.Build(Roster(3)), bar, null, height, width), canvas);
+        return LockMetres(targets, bar, canvas);
+    }
+
+    private static double PopUpLockMetres(OverlayPlacement placement)
+    {
+        var bar = PanelBar.For(placement, true);
+        var canvas = (int)(PopUps * placement.Longest);
+        var (_, targets) = Draw(
+            () => PanelFrame.Notification(NotificationView.Build(NotificationScreen.Empty), bar, null, PopUps, placement.Wide, placement.Tall),
+            canvas);
+        return LockMetres(targets, bar, canvas);
+    }
+
+    private static double ButtonLockMetres(OverlayPlacement placement)
+    {
+        var bar = PanelBar.For(placement, true);
+        var (_, targets) = Draw(
+            () => PanelFrame.Button(new Border(), bar, null, OverlayButton.PanelPixels),
+            OverlayButton.PanelPixels);
+        return LockMetres(targets, bar, OverlayButton.PanelPixels);
+    }
+
+    /// <summary>Within 5%: Avalonia lays a bar out on whole pixels, which is a pixel out on the smallest buttons.</summary>
+    private static void SameSize(double expected, double actual) => Assert.InRange(actual, expected * 0.95, expected * 1.05);
+
+    [Fact]
+    public void TheBarButtonsAreTheSameSizeInTheRoomOnEveryPanel()
+    {
+        var metres = PanelFrame.ButtonMetres;
+
+        Assert.Equal(0.0316, metres, 3);
+        SameSize(metres, MainLockMetres(OverlayPlacement.Default));
+        SameSize(metres, PopUpLockMetres(PopUpPlacement));
+        SameSize(metres, ButtonLockMetres(ButtonPlacement));
+    }
+
+    [Fact]
+    public void TheBarButtonsKeepTheirSizeWhenAPanelIsMadeBiggerOrItsWidthChanges()
+    {
+        var metres = PanelFrame.ButtonMetres;
+
+        SameSize(metres, MainLockMetres(OverlayPlacement.Default with { Wide = 2f, Tall = 2f }));
+        SameSize(metres, MainLockMetres(OverlayPlacement.Default with { Wide = 2f }));
+        SameSize(metres, MainLockMetres(OverlayPlacement.Default with { Width = 0.9f }));
+        SameSize(metres, MainLockMetres(OverlayPlacement.Default with { Width = OverlayPlacement.WristWidth }));
+
+        SameSize(metres, PopUpLockMetres(PopUpPlacement with { Wide = 2f, Tall = 2f }));
+        SameSize(metres, PopUpLockMetres(PopUpPlacement with { Width = 0.8f }));
+
+        SameSize(metres, ButtonLockMetres(ButtonPlacement with { Width = 0.3f }));
+    }
+
+    [Fact]
+    public void ANarrowPopUpPanelKeepsItsBarInsideTheTextureAtTheSizeTheRoomAllows()
+    {
+        var narrow = PopUpPlacement with { Width = NotifyOverlaySettings.MinWidth * NotifyOverlaySettings.PanelPerBox };
+        var bar = PanelBar.For(narrow, true);
+        var (_, targets) = Draw(() => PanelFrame.Notification(NotificationView.Build(NotificationScreen.Empty), bar, null, PopUps), PopUps);
+
+        Assert.True(Bounds<OverlayTarget.Bar>(targets).Bottom <= PopUps, "The bar is inside the texture.");
+        Assert.True(PopUpLockMetres(narrow) < PanelFrame.ButtonMetres, "The bar is held to the room under the box, so it is smaller than the others.");
+    }
+
+    [Fact]
+    public void HintPillsKeepTheirSizeInTheRoomWhenAPanelIsMadeBigger()
+    {
+        var hints = ControlHints.For(null, holding: true);
+        var main = PanelBar.For(OverlayPlacement.Default, true, hints);
+        var bigMain = PanelBar.For(OverlayPlacement.Default with { Wide = 2f, Tall = 2f }, true, hints);
+        var popUps = PanelBar.For(PopUpPlacement, true, hints);
+        var bigPopUps = PanelBar.For(PopUpPlacement with { Wide = 2f, Tall = 2f }, true, hints);
+
+        double Metres(PanelBar bar, double canvas) => PanelFrame.HintScale(bar, canvas) / (canvas / bar.WidthInMetres);
+
+        var reference = Metres(popUps, PopUps);
+        Assert.Equal(reference, Metres(main, Main), 6);
+        Assert.Equal(reference, Metres(bigMain, Main * 2), 6);
+        Assert.Equal(reference, Metres(bigPopUps, PopUps * 2), 6);
+    }
+
     [Fact]
     public void TheMainPanelsHintsAtTheirRealSizeMoveNothing()
     {
