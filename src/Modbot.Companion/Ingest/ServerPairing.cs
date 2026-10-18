@@ -163,8 +163,12 @@ public sealed record ServerPairing
         => $"instanceId={Uri.EscapeDataString(instanceId)}"
             + (worldId is { Length: > 0 } ? $"&worldId={Uri.EscapeDataString(worldId)}" : "");
 
+    /// <summary>
+    /// The live feed's query. Always asks for moderation events (<c>moderation=true</c>): the Audit Log
+    /// tab shows them, and the server sends them only to an owner who may see the audit log.
+    /// </summary>
     private static string Query(string instanceId, string? worldId, string? after)
-        => Address(instanceId, worldId) + (after is null ? "" : $"&after={Uri.EscapeDataString(after)}");
+        => Address(instanceId, worldId) + (after is null ? "" : $"&after={Uri.EscapeDataString(after)}") + "&moderation=true";
 
     public override string ToString() => $"{ServerId} ({BaseUri})";
 }

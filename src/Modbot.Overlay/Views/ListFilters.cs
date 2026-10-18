@@ -131,6 +131,7 @@ public readonly record struct KindPick(int Bits)
         LiveEventKinds.PersonHere,
         LiveEventKinds.FlaggedJoin,
         LiveEventKinds.WatchStopped,
+        LiveEventKinds.Moderation,
     ];
 
     public bool IsEmpty => Bits == 0;
@@ -353,11 +354,11 @@ public static class ListFiltering
         var term = Term(filters.Name);
 
         return events.Where(@event =>
-            filters.Kinds.Lets(@event.Kind)
+            filters.Kinds.Lets(@event.FilterKind)
             && (filters.Who is Who.All || (@event.Person is { } person && Lets(filters.Who, person.Standing)))
             && (filters.Ranks.IsEmpty || (@event.Person is { } ranked && filters.Ranks.Has(RankOf(ranked))))
             && LetsTime(filters.Time, now - @event.At)
-            && (term is null || (@event.Person is { } named && Matches(named.DisplayName, term))))
+            && (term is null || (@event.Person is { } named && Matches(named.DisplayName, term)) || (@event.IsModeration && Matches(@event.Sentence, term))))
             .ToList();
     }
 

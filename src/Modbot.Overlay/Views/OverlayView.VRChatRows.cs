@@ -256,6 +256,9 @@ public sealed partial class OverlayView
     private Control VRChatEventRow(LiveEvent @event, OverlayScreen screen)
     {
         var v = V!;
+
+        if (@event.IsModeration)
+            return VRChatModerationCard(@event, v);
         var flagged = @event.Flagged || @event.Kind == LiveEventKinds.FlaggedJoin;
         var person = @event.Person;
 
@@ -290,6 +293,27 @@ public sealed partial class OverlayView
             null,
             person?.SubjectId,
             false);
+    }
+
+    /// <summary>
+    /// A moderation row as a card the way the others are: the server's sentence where the name goes, where
+    /// it comes from (VRChat, Discord or Modbot) under it, and the time at the end. No picture and not a
+    /// button: it is about people, not one person.
+    /// </summary>
+    private Control VRChatModerationCard(LiveEvent @event, VRChatLook v)
+    {
+        // Names people chose are in it, so it is cut to two lines and never allowed to push the card out of shape.
+        var sentence = Text(@event.Sentence ?? "", T.Density.TextBase, v.Text, FontWeight.Bold);
+        sentence.VerticalAlignment = VerticalAlignment.Center;
+        sentence.TextWrapping = TextWrapping.Wrap;
+        sentence.MaxLines = 2;
+
+        var origin = Text(@event.Origin ?? "", T.Density.TextSmall, v.Subtext, FontWeight.SemiBold);
+
+        var when = Text(@event.At.ToLocalTime().ToString("HH:mm"), T.Density.TextSmall, v.Subtext, FontWeight.Bold);
+        when.VerticalAlignment = VerticalAlignment.Center;
+
+        return VRChatCard(null, sentence, origin, when, null, null, false, framed: true);
     }
 
     /// <summary>
@@ -396,7 +420,7 @@ public sealed partial class OverlayView
     /// <param name="press">A button after those, or null.</param>
     /// <param name="subjectId">Whose card a press opens, or null when there is nobody to open.</param>
     /// <param name="banner">Drawn as the moderator's own: in the highlights colour.</param>
-    private Control VRChatCard(Control? avatar, Control top, Control? under, Control? trailing, Control? press, string? subjectId, bool banner)
+    private Control VRChatCard(Control? avatar, Control top, Control? under, Control? trailing, Control? press, string? subjectId, bool banner, bool framed = false)
     {
         var v = V!;
 
@@ -440,13 +464,15 @@ public sealed partial class OverlayView
             Child = grid,
         };
 
-        if (subjectId is null)
+        if (subjectId is null && !framed)
             return card;
 
         card.BorderBrush = banner ? v.RaisedBrightEdge : v.RaisedEdge;
         card.BorderThickness = new Thickness(VRChatLook.EdgeWidth);
         card.BoxShadow = v.CardShadow;
-        card.Tag = new OverlayTarget.Person(subjectId);
+
+        if (subjectId is not null)
+            card.Tag = new OverlayTarget.Person(subjectId);
 
         if (banner)
         {

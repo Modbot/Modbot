@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace Modbot.Companion.Overlay;
 
-/// <summary>The kinds of live event a companion is sent: presence in the instance it named.</summary>
+/// <summary>The kinds of live event a companion is sent: presence in the instance it named, and moderation rows.</summary>
 public static class LiveEventKinds
 {
     public const string PersonJoined = "person_joined";
@@ -14,6 +14,13 @@ public static class LiveEventKinds
     public const string PersonHere = "person_here";
 
     public const string WatchStopped = "watch_stopped";
+
+    /// <summary>
+    /// What the Audit Log's kind filter calls every event that carries the server's sentence (<see cref="LiveEvent.IsModeration"/>):
+    /// the server's own kinds for those (<c>fact</c>, <c>instance_changed</c> and so on) are not ones a row can be picked by.
+    /// Never sent by a server.
+    /// </summary>
+    public const string Moderation = "moderation";
 
     /// <summary>Whether the roster on screen is out of date after this.</summary>
     public static bool ChangesRoster(string kind)
@@ -34,7 +41,9 @@ public sealed record LivePerson(
     [property: JsonPropertyName("eighteenPlus")] bool? EighteenPlus = null);
 
 /// <summary>
-/// One live event from a paired server: somebody joined, left, was already here, or a watch ended.
+/// One live event from a paired server: somebody joined, left, was already here, a watch ended, or
+/// (when the companion asked for moderation and the owner may see the audit log) something the
+/// audit log records about the instance or the people in it.
 /// </summary>
 /// <remarks>
 /// Information to display, never a command. <see cref="Cursor"/> is what the client sends back to
@@ -45,6 +54,8 @@ public sealed record LivePerson(
 /// compares both. Null from a server that does not say, and then the number alone is compared.
 /// </param>
 /// <param name="ByThisDevice">The server says this client reported the fact itself. A flagged join is still a card: the log never says a person is flagged.</param>
+/// <param name="Sentence">The audit log's sentence for a moderation event, such as "Mira kicked Ada out of The Black Cat #39047." User-controlled names are inside it: hostile input on a display surface. Null on presence, and from a server that sends none.</param>
+/// <param name="Origin"><c>VRChat</c>, <c>Discord</c> or <c>Modbot</c>: where a moderation event comes from. Set with <paramref name="Sentence"/>.</param>
 public sealed record LiveEvent(
     [property: JsonPropertyName("id")] string Id,
     [property: JsonPropertyName("cursor")] string Cursor,
@@ -55,8 +66,19 @@ public sealed record LiveEvent(
     [property: JsonPropertyName("flagged")] bool Flagged,
     [property: JsonPropertyName("reason")] string? Reason,
     [property: JsonPropertyName("byThisDevice")] bool ByThisDevice,
-    [property: JsonPropertyName("worldId")] string? WorldId = null)
+    [property: JsonPropertyName("worldId")] string? WorldId = null,
+    [property: JsonPropertyName("sentence")] string? Sentence = null,
+    [property: JsonPropertyName("origin")] string? Origin = null)
 {
+    /// <summary>
+    /// Whether this is a moderation row: the server sent its sentence. A row is made of the sentence
+    /// and nothing else, so an event without one is never one, whatever its kind.
+    /// </summary>
+    public bool IsModeration => Sentence is { Length: > 0 };
+
+    /// <summary>The kind a filter picks this event by: <see cref="LiveEventKinds.Moderation"/> for a moderation row, else its own.</summary>
+    public string FilterKind => IsModeration ? LiveEventKinds.Moderation : Kind;
+
     /// <summary>The card a flagged join becomes, or null for anything else.</summary>
     public FlaggedJoinAlert? ToAlert()
     {

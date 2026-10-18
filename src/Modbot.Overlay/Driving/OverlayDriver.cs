@@ -1177,12 +1177,18 @@ public sealed class OverlayDriver : IDisposable
         // this is what just happened, not a record. The record is the server's audit log.
         if (IsHere(@event.InstanceId, @event.WorldId))
         {
-            _events.Insert(0, @event);
-            if (_events.Count > MostEventsKept)
-                _events.RemoveRange(MostEventsKept, _events.Count - MostEventsKept);
+            Keep(@event);
 
             if (@event.Person is { } person)
                 _known.Note(person.SubjectId, InfoOf(person));
+        }
+        else if (@event.IsModeration && @event.InstanceId is null)
+        {
+            // A moderation row about somebody from this instance: the group they joined, the
+            // Discord they joined. It happened elsewhere, so it names no instance; the server
+            // sent it for the one this link follows. Nothing else is done with it: it is a line
+            // to read, never a roster change, a card or a keep-an-eye.
+            Keep(@event);
         }
 
         // A flagged join is a card here even when this client reported the join itself. It
@@ -1198,6 +1204,20 @@ public sealed class OverlayDriver : IDisposable
             TellKeptAnEyeOn(server, @event);
 
         return raised;
+    }
+
+    /// <summary>
+    /// Puts an event at the top of the Events screen, and drops the oldest past <see cref="MostEventsKept"/>.
+    /// A moderation row the screen already has (the same event sent again after a reconnect) is not added twice.
+    /// </summary>
+    private void Keep(LiveEvent @event)
+    {
+        if (@event.IsModeration && _events.Any(kept => kept.IsModeration && string.Equals(kept.Id, @event.Id, StringComparison.Ordinal)))
+            return;
+
+        _events.Insert(0, @event);
+        if (_events.Count > MostEventsKept)
+            _events.RemoveRange(MostEventsKept, _events.Count - MostEventsKept);
     }
 
     /// <summary>

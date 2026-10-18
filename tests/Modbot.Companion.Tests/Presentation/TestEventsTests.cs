@@ -92,6 +92,37 @@ public class TestEventsTests
     }
 
     [Fact]
+    public void AModerationRowGoesToTheOverlaysLoopWithASentenceAndAnOriginAndNothingElse()
+    {
+        var wired = Wire();
+
+        Assert.True(wired.Tests.Send(new TestEvent(TestEventKind.Moderation, "Rin")));
+
+        var row = Assert.Single(wired.Live);
+        Assert.True(row.IsModeration);
+        Assert.Equal($"{TestEvents.TestModerator} kicked Rin out of the group.", row.Sentence);
+        Assert.Contains(row.Origin, new[] { "VRChat", "Discord", "Modbot" });
+        Assert.Null(row.Person);
+
+        // No card, no sound and no alert: a real moderation row has none.
+        Assert.Empty(wired.PopUps.Current());
+        Assert.Empty(wired.Sounds);
+        Assert.Empty(wired.Alerts);
+    }
+
+    [Fact]
+    public void ATypedReasonIsTheSentenceAndTheOriginsTakeTurns()
+    {
+        var wired = Wire();
+
+        for (var i = 0; i < 3; i++)
+            wired.Tests.Send(new TestEvent(TestEventKind.Moderation, "Rin", Reason: "Kai was timed out on Discord."));
+
+        Assert.All(wired.Live, e => Assert.Equal("Kai was timed out on Discord.", e.Sentence));
+        Assert.Equal(["Discord", "Modbot", "VRChat"], wired.Live.Select(e => e.Origin).Order());
+    }
+
+    [Fact]
     public void AJoinGoesThroughTheNotifierWithItsRankAndMark()
     {
         var wired = Wire();

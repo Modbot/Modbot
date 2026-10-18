@@ -25,6 +25,7 @@ public sealed partial class MainWindow
         (TestEventKind.AlreadyThere, "Already there"),
         (TestEventKind.ChangedAvatar, "Changed avatar"),
         (TestEventKind.FlaggedJoin, "Flagged join"),
+        (TestEventKind.Moderation, "Moderation row"),
         (TestEventKind.Problem, "Problem"),
         (TestEventKind.Pin, "Pin"),
         (TestEventKind.KeepAnEye, "Keep an eye"),

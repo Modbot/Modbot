@@ -1074,6 +1074,9 @@ public sealed partial class OverlayView
         if (V is not null)
             return VRChatEventRow(@event, screen);
 
+        if (@event.IsModeration)
+            return ModerationRow(@event);
+
         var flagged = @event.Flagged || @event.Kind == LiveEventKinds.FlaggedJoin;
 
         var what = Text(
@@ -1127,6 +1130,34 @@ public sealed partial class OverlayView
         return Row(line, @event.Person?.SubjectId);
     }
 
+    /// <summary>
+    /// A moderation row: where it comes from (VRChat, Discord or Modbot) in the column the kinds use,
+    /// the server's sentence after it, and the time at the end.
+    /// </summary>
+    /// <remarks>
+    /// The sentence is the server's words and is not worded again here. It holds names people chose,
+    /// so it is cut to two lines rather than allowed to push the row out of shape.
+    /// </remarks>
+    private Control ModerationRow(LiveEvent @event)
+    {
+        var origin = Text(@event.Origin ?? "", T.Density.TextSmall, T.TextDimBrush, FontWeight.SemiBold);
+        origin.VerticalAlignment = VerticalAlignment.Center;
+        origin.Width = 110;
+        DockPanel.SetDock(origin, Avalonia.Controls.Dock.Left);
+
+        var when = Text(@event.At.ToLocalTime().ToString("HH:mm"), T.Density.TextSmall, T.TextDimBrush);
+        when.VerticalAlignment = VerticalAlignment.Center;
+        when.Margin = new Thickness(10, 0, 0, 0);
+        DockPanel.SetDock(when, Avalonia.Controls.Dock.Right);
+
+        var sentence = Text(@event.Sentence ?? "", T.Density.TextSmall, T.TextBrush);
+        sentence.VerticalAlignment = VerticalAlignment.Center;
+        sentence.TextWrapping = TextWrapping.Wrap;
+        sentence.MaxLines = 2;
+
+        return Row(new DockPanel { LastChildFill = true, Children = { origin, when, sentence } }, null);
+    }
+
     /// <summary>An event kind in plain words. An unknown kind is shown as it came, never guessed at.</summary>
     private string Words(string kind) => kind switch
     {
@@ -1135,6 +1166,7 @@ public sealed partial class OverlayView
         LiveEventKinds.PersonLeft => "Left",
         LiveEventKinds.PersonHere => ListFiltering.HereBeforeYou,
         LiveEventKinds.WatchStopped => "Watch ended",
+        LiveEventKinds.Moderation => "Moderation",
         _ => kind,
     };
 

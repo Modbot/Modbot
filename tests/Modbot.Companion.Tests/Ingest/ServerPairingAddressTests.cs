@@ -24,12 +24,12 @@ public class ServerPairingAddressTests
     public void TheLivePollAndTheSocketNameThemToo()
     {
         Assert.Equal(
-            "?instanceId=Main&worldId=wrld_a&after=12&wait=20",
+            "?instanceId=Main&worldId=wrld_a&after=12&moderation=true&wait=20",
             Pairing.LivePollEndpoint("Main", "12", 20, "wrld_a").Query);
 
         var socket = Pairing.LiveSocketEndpoint("Main", "12", "wrld_a");
         Assert.Equal("wss", socket.Scheme);
-        Assert.Equal("?instanceId=Main&worldId=wrld_a&after=12", socket.Query);
+        Assert.Equal("?instanceId=Main&worldId=wrld_a&after=12&moderation=true", socket.Query);
     }
 
     [Fact]
@@ -76,6 +76,6 @@ public class ServerPairingAddressTests
     {
         Assert.Equal("?instanceId=Main", Pairing.ContextEndpoint("Main").Query);
         Assert.Equal("?instanceId=Main", Pairing.ContextEndpoint("Main", "").Query);
-        Assert.Equal("?instanceId=Main&wait=20", Pairing.LivePollEndpoint("Main", null, 20).Query);
+        Assert.Equal("?instanceId=Main&moderation=true&wait=20", Pairing.LivePollEndpoint("Main", null, 20).Query);
     }
 }

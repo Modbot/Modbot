@@ -83,7 +83,7 @@ public class AuditLogRowsTests
         Assert.Same(log, ListFiltering.WithoutRepeatedHere(log, Me));
     }
 
-    private static OverlayLook VRChatLook()
+    internal static OverlayLook VRChatLook()
     {
         static PaletteColour c(byte r, byte g, byte b) => new(r, g, b);
 

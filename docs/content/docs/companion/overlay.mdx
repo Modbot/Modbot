@@ -163,7 +163,9 @@ VRChat's **Users** list:
   [heads-up](/companion/heads-ups) is a square button at the right end. Tapping the card still
   opens the person's card. On the headset panel your banner and **Other users** scroll away with the
   rest of the list; on the desktop overlay they stay put and the rows move under them.
-- The Audit Log tab uses the same cards: who, then what happened, with the time at the right.
+- The Audit Log tab uses the same cards: who, then what happened, with the time at the right. A
+  moderation row has no picture: the sentence takes the place of the name, with **VRChat**,
+  **Discord** or **Modbot** under it.
 - The desktop panel is always the same width, whichever tab it is on, however long a name is, and whatever
   is filtered; long names are cut with an ellipsis first; the rank, 18+ mark, flags and heads-up
   after them are only cut once the name is down to a few letters, so a wider panel shows them whole. The group's name at the top is in a light
@@ -205,6 +207,16 @@ is the colour of the title strip.
 Despite its name this is not your group's audit log (that is on the web app). It is the live feed
 for the instance you are in, newest first: who joined, who left, who was already here, flagged joins
 and a watch ending. It is made from the same live connection as the roster.
+
+If your Modbot account holds [**See the audit log**](/accounts/roles-and-permissions#see-the-audit-log), it also lists
+what the [audit log](/moderation/audit-log) records about the instance and about the people who were
+in it while you were watching: somebody joins the instance, then the group, then your Discord, and
+all three show. Each of those rows is the audit log's own sentence, such as *Mira kicked Ada out of
+The Black Cat #39047.*, with where it comes from under it or beside it: **VRChat**, **Discord** or
+**Modbot**. They sit among the join and leave rows by time. The **Kind** filter has **Moderation**
+for them, and **Name** also finds a name inside their sentence. Without that permission the tab is
+as above. A row appears only once it has happened while you are in the instance; nothing from
+before you arrived is added.
 
 Somebody who was already in the instance when you arrived reads `(here before you) ~5m+` on the
 Instance list, the Audit Log and the wrist panel: they have been there at least as long as you have,

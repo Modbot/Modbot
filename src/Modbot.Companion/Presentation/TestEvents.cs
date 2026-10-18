@@ -15,6 +15,7 @@ public enum TestEventKind
     AlreadyThere,
     ChangedAvatar,
     FlaggedJoin,
+    Moderation,
     Problem,
     Pin,
     KeepAnEye,
@@ -27,7 +28,7 @@ public enum TestEventKind
 /// <param name="Name">The made-up person's name. Blank means <see cref="TestEvents.DefaultName"/>.</param>
 /// <param name="Rank">Their VRChat trust rank, or null for none.</param>
 /// <param name="EighteenPlus">Whether they carry Modbot's 18+ mark.</param>
-/// <param name="Reason">A flagged join's reason, a problem's words, or a heads-up's text. Blank means none.</param>
+/// <param name="Reason">A flagged join's reason, a moderation row's sentence, a problem's words, or a heads-up's text. Blank means none.</param>
 public sealed record TestEvent(
     TestEventKind Kind,
     string? Name = null,
@@ -65,6 +66,12 @@ public sealed class TestEvents
 
     /// <summary>The avatar a test avatar change names.</summary>
     public const string TestAvatar = "Test avatar";
+
+    /// <summary>Who a test moderation row says did it.</summary>
+    public const string TestModerator = "Test moderator";
+
+    /// <summary>Where each test moderation row says it comes from, one after the other, so all three can be looked at.</summary>
+    private static readonly string[] TestOrigins = ["VRChat", "Discord", "Modbot"];
 
     /// <summary>Who a test heads-up says placed it.</summary>
     public const string TestPlacer = "Test";
@@ -194,6 +201,10 @@ public sealed class TestEvents
                 Flagged(subject, name, test, reason, info, number);
                 break;
 
+            case TestEventKind.Moderation:
+                ModerationRow(name, reason, number);
+                break;
+
             case TestEventKind.Problem:
                 _popUps?.Show(
                     new PopUp("problem-test", "Modbot", reason ?? "Test problem", null, PopUpTone.Problem),
@@ -254,6 +265,31 @@ public sealed class TestEvents
         alert = alert with { TrustRank = test.Rank };
         _popUps?.Show(PopUp.FlaggedJoin(alert, null, info), NotificationKind.FlaggedJoin);
         _alertShown?.Invoke(alert);
+    }
+
+    /// <summary>
+    /// A moderation row on the main panel's Audit Log, as the server's sentence would make one. The
+    /// sentence is the Reason when one is typed, so a long one can be looked at. No card and no sound:
+    /// a real moderation row has neither.
+    /// </summary>
+    private void ModerationRow(string name, string? sentence, int number)
+    {
+        var here = Here();
+        var id = $"test-{number}";
+
+        _live?.Invoke(new LiveEvent(
+            id,
+            id,
+            "fact",
+            _clock.UtcNow,
+            here.InstanceId,
+            Person: null,
+            Flagged: false,
+            Reason: null,
+            ByThisDevice: false,
+            WorldId: here.WorldId,
+            Sentence: sentence ?? $"{TestModerator} kicked {name} out of the group.",
+            Origin: TestOrigins[number % TestOrigins.Length]));
     }
 
     private LiveEvent Live(
