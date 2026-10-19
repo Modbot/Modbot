@@ -745,8 +745,9 @@ in September, a weekly series, none from Modbot).
   event with `made_on_vrchat` and no VRChat id reads the group's calendar first (the months and match
   of §3.1, with no earliest time, as VRChat's copy is older than the create) and takes a row that is
   its copy and that no other event owns, instead of creating. Only when none is found, and the month
-  was read to its end, is it created. A look that cannot be made, or a month not read to its end,
-  fails the place and sends nothing; it is looked again after 15 minutes or on Try again. Modbot keeps
+  was read to its end, is it created. A look that cannot be made fails the place and sends nothing,
+  and is looked again after 15 minutes or on Try again; a month not read to its end fails it until
+  the event changes or Try again. Modbot keeps
   no VRChat id of its own for such an event once its place has lost it, so the match is by title,
   length and times, as in §3.1.
 - A change to **one date** of a VRChat series made on VRChat stays on VRChat; Modbot keeps the
