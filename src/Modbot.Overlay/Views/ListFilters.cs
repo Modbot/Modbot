@@ -131,6 +131,7 @@ public readonly record struct KindPick(int Bits)
         LiveEventKinds.PersonHere,
         LiveEventKinds.FlaggedJoin,
         LiveEventKinds.WatchStopped,
+        LiveEventKinds.ChangedAvatar,
         LiveEventKinds.Moderation,
     ];
 

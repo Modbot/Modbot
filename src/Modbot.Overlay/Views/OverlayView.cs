@@ -1181,6 +1181,7 @@ public sealed partial class OverlayView
         LiveEventKinds.PersonLeft => "Left",
         LiveEventKinds.PersonHere => ListFiltering.HereBeforeYou,
         LiveEventKinds.WatchStopped => "Watch ended",
+        LiveEventKinds.ChangedAvatar => "Changed avatar",
         LiveEventKinds.Moderation => "Actions",
         _ => kind,
     };

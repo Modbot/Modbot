@@ -293,4 +293,36 @@ public class TestEventsTests
 
         Assert.Contains(typeof(EventNotifier), taken);
     }
+
+    [Fact]
+    public void AnAvatarChangeRowIsAModerationRowOfTheAvatarChangeType()
+    {
+        var wired = Wire();
+
+        Assert.True(wired.Tests.Send(new TestEvent(TestEventKind.AvatarChangeRow, "Rin")));
+
+        var row = Assert.Single(wired.Live);
+        Assert.True(row.IsModeration);
+        Assert.True(row.IsAvatarChange);
+        Assert.Equal(LiveEventKinds.ChangedAvatar, row.FilterKind);
+        Assert.Equal("VRChat", row.Origin);
+        Assert.Null(row.Person);
+
+        // No card, no sound and no alert: a real moderation row has none.
+        Assert.Empty(wired.PopUps.Current());
+        Assert.Empty(wired.Sounds);
+        Assert.Empty(wired.Alerts);
+    }
+
+    [Fact]
+    public void ATypedReasonIsTheSentenceOfAnAvatarChangeRow()
+    {
+        var wired = Wire();
+
+        wired.Tests.Send(new TestEvent(TestEventKind.AvatarChangeRow, "Rin", Reason: "Rin put on a long-named avatar."));
+
+        var row = Assert.Single(wired.Live);
+        Assert.Equal("Rin put on a long-named avatar.", row.Sentence);
+        Assert.True(row.IsAvatarChange);
+    }
 }

@@ -16,6 +16,7 @@ public enum TestEventKind
     ChangedAvatar,
     FlaggedJoin,
     Moderation,
+    AvatarChangeRow,
     Problem,
     Pin,
     KeepAnEye,
@@ -28,7 +29,7 @@ public enum TestEventKind
 /// <param name="Name">The made-up person's name. Blank means <see cref="TestEvents.DefaultName"/>.</param>
 /// <param name="Rank">Their VRChat trust rank, or null for none.</param>
 /// <param name="EighteenPlus">Whether they carry Modbot's 18+ mark.</param>
-/// <param name="Reason">A flagged join's reason, a moderation row's sentence, a problem's words, or a heads-up's text. Blank means none.</param>
+/// <param name="Reason">A flagged join's reason, a moderation or avatar change row's sentence, a problem's words, or a heads-up's text. Blank means none.</param>
 public sealed record TestEvent(
     TestEventKind Kind,
     string? Name = null,
@@ -202,7 +203,11 @@ public sealed class TestEvents
                 break;
 
             case TestEventKind.Moderation:
-                ModerationRow(name, reason, number);
+                ModerationRow(name, reason, null, number);
+                break;
+
+            case TestEventKind.AvatarChangeRow:
+                ModerationRow(name, reason, LiveEventKinds.AvatarChangeType, number);
                 break;
 
             case TestEventKind.Problem:
@@ -270,9 +275,10 @@ public sealed class TestEvents
     /// <summary>
     /// A moderation row on the main panel's Audit Log, as the server's sentence would make one. The
     /// sentence is the Reason when one is typed, so a long one can be looked at. No card and no sound:
-    /// a real moderation row has neither.
+    /// a real moderation row has neither. <paramref name="type"/> is the fact type the server would name,
+    /// or null for a ban-like action.
     /// </summary>
-    private void ModerationRow(string name, string? sentence, int number)
+    private void ModerationRow(string name, string? sentence, string? type, int number)
     {
         var here = Here();
         var id = $"test-{number}";
@@ -288,8 +294,9 @@ public sealed class TestEvents
             Reason: null,
             ByThisDevice: false,
             WorldId: here.WorldId,
-            Sentence: sentence ?? $"{TestModerator} kicked {name} out of the group.",
-            Origin: TestOrigins[number % TestOrigins.Length]));
+            Sentence: sentence ?? (type is null ? $"{TestModerator} kicked {name} out of the group." : $"Changed avatar - {name}"),
+            Origin: type is null ? TestOrigins[number % TestOrigins.Length] : "VRChat",
+            Type: type));
     }
 
     private LiveEvent Live(

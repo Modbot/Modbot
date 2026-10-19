@@ -26,7 +26,7 @@ public class ModerationRowsTests
             null,
             false);
 
-    private static LiveEvent Moderation(string id, string sentence, string origin, int minutesAgo, string kind = "fact", string? instance = null)
+    private static LiveEvent Moderation(string id, string sentence, string origin, int minutesAgo, string kind = "fact", string? instance = null, string? type = null)
         => new(
             id,
             id,
@@ -38,7 +38,8 @@ public class ModerationRowsTests
             null,
             false,
             Sentence: sentence,
-            Origin: origin);
+            Origin: origin,
+            Type: type);
 
     private static IReadOnlyList<string?> Texts(
         IReadOnlyList<LiveEvent> events,
@@ -233,4 +234,66 @@ public class ModerationRowsTests
     [Fact]
     public void TheTimeFilterMeasuresAModerationRowLikeAnyOther()
         => Assert.Equal(["4", "3", "2"], Ids(new ListFilters(Time: TimeWindow.FiveMinutes)));
+
+    private static readonly IReadOnlyList<LiveEvent> LogWithAvatarChanges =
+    [
+        Moderation("4", "Test moderator banned Kai from the group.", "Modbot", 1),
+        Moderation("3", "Changed avatar - Ash in Cat Lounge.", "VRChat", 2, instance: "39911", type: LiveEventKinds.AvatarChangeType),
+        Presence("2", LiveEventKinds.PersonJoined, "Kai", 4),
+        Moderation("1", "Changed avatar - Kai.", "VRChat", 6, type: LiveEventKinds.AvatarChangeType),
+    ];
+
+    private static List<string> AvatarLogIds(ListFilters filters)
+        => [.. ListFiltering.Events(LogWithAvatarChanges, filters, Now).Select(e => e.Id)];
+
+    [Fact]
+    public void ChangedAvatarIsOfferedAsAKindBesideActions()
+    {
+        Assert.Contains(LiveEventKinds.ChangedAvatar, KindPick.Offered);
+        Assert.Contains(LiveEventKinds.Moderation, KindPick.Offered);
+    }
+
+    [Fact]
+    public void TheChangedAvatarKindKeepsOnlyAvatarChanges()
+        => Assert.Equal(["3", "1"], AvatarLogIds(new ListFilters(Kinds: new KindPick().Toggle(LiveEventKinds.ChangedAvatar))));
+
+    [Fact]
+    public void TheActionsKindLeavesAvatarChangesOut()
+        => Assert.Equal(["4"], AvatarLogIds(new ListFilters(Kinds: new KindPick().Toggle(LiveEventKinds.Moderation))));
+
+    [Fact]
+    public void BothKindsPickedKeepBothKindsOfRow()
+        => Assert.Equal(["4", "3", "1"], AvatarLogIds(new ListFilters(
+            Kinds: new KindPick().Toggle(LiveEventKinds.Moderation).Toggle(LiveEventKinds.ChangedAvatar))));
+
+    [Fact]
+    public void WithNoKindPickedAvatarChangesAreShownAmongTheRest()
+        => Assert.Equal(["4", "3", "2", "1"], AvatarLogIds(ListFilters.None));
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TheKindFilterOffersChangedAvatar(bool inVRChatLook)
+    {
+        var look = inVRChatLook ? AuditLogRowsTests.VRChatLook() : OverlayLook.Headset;
+
+        var texts = Texts([], look, filters: new ListFilters(Open: FilterPart.Kind));
+
+        Assert.Contains("Changed avatar", texts);
+        Assert.Contains("Actions", texts);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AnAvatarChangeRowShowsTheServersSentenceLikeAnyOtherModerationRow(bool inVRChatLook)
+    {
+        var look = inVRChatLook ? AuditLogRowsTests.VRChatLook() : OverlayLook.Headset;
+        const string sentence = "Changed avatar - Ash in Cat Lounge.";
+
+        var texts = Texts([Moderation("1", sentence, "VRChat", 3, type: LiveEventKinds.AvatarChangeType)], look);
+
+        Assert.Contains(sentence, texts);
+        Assert.Contains("VRChat", texts);
+    }
 }

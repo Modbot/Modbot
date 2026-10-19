@@ -50,4 +50,50 @@ public class LiveEventWireTests
         Assert.Equal(LiveEventKinds.PersonJoined, @event.FilterKind);
         Assert.True(LiveEventKinds.ChangesRoster(@event.Kind));
     }
+
+    [Fact]
+    public void AnAvatarChangeIsAModerationRowWithItsOwnFilterKind()
+    {
+        const string wire = """
+            {"kind":"event","event":{"id":"83","cursor":"83","kind":"fact","type":"vrchat.avatar.change",
+             "at":"2026-10-18T18:00:00+00:00","instanceId":"39911","worldId":"wrld_a","person":null,"flagged":false,
+             "reason":null,"byThisDevice":false,
+             "sentence":"Changed avatar - Ada in Cat Lounge.","origin":"VRChat"}}
+            """;
+
+        var message = JsonSerializer.Deserialize<LiveSocketMessage>(wire, Json);
+
+        var @event = Assert.IsType<LiveEvent>(message?.Event);
+        Assert.Equal(LiveEventKinds.AvatarChangeType, @event.Type);
+        Assert.True(@event.IsModeration);
+        Assert.True(@event.IsAvatarChange);
+        Assert.Equal(LiveEventKinds.ChangedAvatar, @event.FilterKind);
+    }
+
+    [Fact]
+    public void AnAvatarChangeTypeWithNoSentenceIsNotARow()
+    {
+        var @event = new LiveEvent(
+            "84", "84", "fact", DateTimeOffset.UnixEpoch, null, null, false, null, false,
+            Type: LiveEventKinds.AvatarChangeType);
+
+        Assert.False(@event.IsAvatarChange);
+        Assert.Equal("fact", @event.FilterKind);
+    }
+
+    [Fact]
+    public void AnotherModerationTypeStaysInActions()
+    {
+        const string wire = """
+            {"kind":"event","event":{"id":"85","cursor":"85","kind":"fact","type":"vrchat.group.member.ban",
+             "at":"2026-10-18T18:00:00+00:00","instanceId":null,"worldId":null,"person":null,"flagged":false,
+             "reason":null,"byThisDevice":false,"sentence":"Mira banned Ada from Cat Lounge.","origin":"VRChat"}}
+            """;
+
+        var message = JsonSerializer.Deserialize<LiveSocketMessage>(wire, Json);
+
+        var @event = Assert.IsType<LiveEvent>(message?.Event);
+        Assert.False(@event.IsAvatarChange);
+        Assert.Equal(LiveEventKinds.Moderation, @event.FilterKind);
+    }
 }

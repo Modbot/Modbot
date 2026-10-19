@@ -2,6 +2,7 @@ using Modbot.Companion.Ingest;
 using Modbot.Companion.Instances;
 using Modbot.Companion.Overlay;
 using Modbot.Overlay.Driving;
+using Modbot.Overlay.Interaction;
 using Modbot.Overlay.Views;
 using Modbot.TestSupport;
 
@@ -221,5 +222,22 @@ public class OverlayDriverModerationRowsTests
         Assert.Equal("Modbot", row.Origin);
         Assert.Equal(Instance, row.InstanceId);
         Assert.Empty(popUps.Current());
+    }
+
+    [Fact]
+    public async Task AnAvatarChangeRowIsKeptAndTheChangedAvatarKindCanBePicked()
+    {
+        var (driver, presenter, reads, _) = Build();
+        var avatar = Moderation("e1") with { Sentence = "Changed avatar - Kai.", Type = LiveEventKinds.AvatarChangeType };
+
+        await Poll(driver, reads, avatar);
+        driver.Tap(new OverlayTarget.Pick(
+            OverlayPage.Events, FilterPart.Kind, KindPick.Offered.ToList().IndexOf(LiveEventKinds.ChangedAvatar)));
+        await driver.TickAsync(Ct);
+
+        var row = Assert.Single(presenter.Last.EventsOrNone);
+        Assert.Equal(LiveEventKinds.ChangedAvatar, row.FilterKind);
+        Assert.True(presenter.Last.EventFiltersOrNone.Kinds.Has(LiveEventKinds.ChangedAvatar));
+        Assert.False(presenter.Last.EventFiltersOrNone.Kinds.Has(LiveEventKinds.Moderation));
     }
 }

@@ -16,11 +16,22 @@ public static class LiveEventKinds
     public const string WatchStopped = "watch_stopped";
 
     /// <summary>
-    /// What the Audit Log's kind filter calls every event that carries the server's sentence (<see cref="LiveEvent.IsModeration"/>):
-    /// the server's own kinds for those (<c>fact</c>, <c>instance_changed</c> and so on) are not ones a row can be picked by.
+    /// What the Audit Log's kind filter calls every event that carries the server's sentence (<see cref="LiveEvent.IsModeration"/>),
+    /// except an avatar change (<see cref="ChangedAvatar"/>): the server's own kinds for those (<c>fact</c>,
+    /// <c>instance_changed</c> and so on) are not ones a row can be picked by.
     /// Never sent by a server.
     /// </summary>
     public const string Moderation = "moderation";
+
+    /// <summary>
+    /// What the Audit Log's kind filter calls a moderation row about somebody changing avatar
+    /// (<see cref="LiveEvent.IsAvatarChange"/>), so those can be picked apart from the other actions.
+    /// Never sent by a server.
+    /// </summary>
+    public const string ChangedAvatar = "changed_avatar";
+
+    /// <summary>The server's type for an avatar change fact, as it is on the wire (<c>type</c>).</summary>
+    public const string AvatarChangeType = "vrchat.avatar.change";
 
     /// <summary>Whether the roster on screen is out of date after this.</summary>
     public static bool ChangesRoster(string kind)
@@ -56,6 +67,7 @@ public sealed record LivePerson(
 /// <param name="ByThisDevice">The server says this client reported the fact itself. A flagged join is still a card: the log never says a person is flagged.</param>
 /// <param name="Sentence">The audit log's sentence for a moderation event, such as "Mira kicked Ada out of The Black Cat #39047." User-controlled names are inside it: hostile input on a display surface. Null on presence, and from a server that sends none.</param>
 /// <param name="Origin"><c>VRChat</c>, <c>Discord</c> or <c>Modbot</c>: where a moderation event comes from. Set with <paramref name="Sentence"/>.</param>
+/// <param name="Type">The type of the fact behind the event, such as <c>vrchat.avatar.change</c>. Null from a server that does not say.</param>
 public sealed record LiveEvent(
     [property: JsonPropertyName("id")] string Id,
     [property: JsonPropertyName("cursor")] string Cursor,
@@ -68,7 +80,8 @@ public sealed record LiveEvent(
     [property: JsonPropertyName("byThisDevice")] bool ByThisDevice,
     [property: JsonPropertyName("worldId")] string? WorldId = null,
     [property: JsonPropertyName("sentence")] string? Sentence = null,
-    [property: JsonPropertyName("origin")] string? Origin = null)
+    [property: JsonPropertyName("origin")] string? Origin = null,
+    [property: JsonPropertyName("type")] string? Type = null)
 {
     /// <summary>
     /// Whether this is a moderation row: the server sent its sentence. A row is made of the sentence
@@ -76,8 +89,14 @@ public sealed record LiveEvent(
     /// </summary>
     public bool IsModeration => Sentence is { Length: > 0 };
 
-    /// <summary>The kind a filter picks this event by: <see cref="LiveEventKinds.Moderation"/> for a moderation row, else its own.</summary>
-    public string FilterKind => IsModeration ? LiveEventKinds.Moderation : Kind;
+    /// <summary>Whether this is a moderation row about somebody changing avatar.</summary>
+    public bool IsAvatarChange => IsModeration && Type == LiveEventKinds.AvatarChangeType;
+
+    /// <summary>
+    /// The kind a filter picks this event by: <see cref="LiveEventKinds.ChangedAvatar"/> for an avatar
+    /// change, <see cref="LiveEventKinds.Moderation"/> for any other moderation row, else its own.
+    /// </summary>
+    public string FilterKind => IsAvatarChange ? LiveEventKinds.ChangedAvatar : IsModeration ? LiveEventKinds.Moderation : Kind;
 
     /// <summary>The card a flagged join becomes, or null for anything else.</summary>
     public FlaggedJoinAlert? ToAlert()
