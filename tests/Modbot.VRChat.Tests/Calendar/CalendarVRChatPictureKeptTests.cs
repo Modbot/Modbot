@@ -51,7 +51,7 @@ public class CalendarVRChatPictureKeptTests
     [InlineData(null, Picture, Picture)]
     public void AnEventMadeOnVRChatSendsItsPictureOnlyWhenAModeratorChangedIt(string? vrchatSays, string? picture, string? sent)
     {
-        Assert.Equal(sent, CalendarVRChatRequests.ImageIdToUpdate(Imported(vrchatSays, picture)));
+        Assert.Equal(sent, CalendarVRChatRequests.ImageIdToSend(Imported(vrchatSays, picture)));
     }
 
     [Fact]
@@ -59,7 +59,8 @@ public class CalendarVRChatPictureKeptTests
     {
         var e = new CalendarEvent { Id = Guid.CreateVersion7(), Title = "Movie night", VRChatImageId = Picture };
 
-        Assert.Equal(Picture, CalendarVRChatRequests.ImageIdToUpdate(e));
+        Assert.Equal(Picture, CalendarVRChatRequests.ImageIdToSend(e));
+        Assert.Equal(Picture, CalendarVRChatRequests.Create(e).ImageId);
 
         using var update = JsonDocument.Parse(CalendarVRChatRequests.Update(e).ToJson());
         Assert.Equal(Picture, update.RootElement.GetProperty("imageId").GetString());
@@ -83,11 +84,12 @@ public class CalendarVRChatPictureKeptTests
         using var date = JsonDocument.Parse(CalendarVRChatRequests.UpdateDate(unchanged, change).ToJson());
         Assert.False(date.RootElement.TryGetProperty("imageId", out _));
 
-        // A create has no VRChat copy to keep, and says what it has.
-        Assert.Equal(Picture, CalendarVRChatRequests.Create(unchanged).ImageId);
+        // A create of such an event leaves VRChat's own picture out too (2026-10-19).
+        Assert.Null(CalendarVRChatRequests.Create(unchanged).ImageId);
 
-        // A moderator changing the picture is a change, and is sent, in an update and a one-date one.
+        // A moderator changing the picture is a change, and is sent, in a create, an update and a one-date one.
         var changed = Imported(Picture, "file_other");
+        Assert.Equal("file_other", CalendarVRChatRequests.Create(changed).ImageId);
         using var sent = JsonDocument.Parse(CalendarVRChatRequests.Update(changed).ToJson());
         Assert.Equal("file_other", sent.RootElement.GetProperty("imageId").GetString());
 

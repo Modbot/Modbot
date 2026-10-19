@@ -919,11 +919,18 @@ public sealed class CalendarVRChatPublisher
                 && VRChatGroupPermissions.Holds(settings.VRChatAccountPermissions, permission) == true);
         }
 
-        // No answer: again after a while, not every pass.
+        // No answer: again after a while, not every pass. A look that could not be made before a
+        // create has no send time, and counts from the look.
         return place.FailedFingerprint is null
-            && place.ErrorAt is { } at
-            && now - at < RetryUnansweredAfter;
+            && now - (place.ErrorAt ?? place.UpdatedAt) < RetryUnansweredAfter;
     }
+
+    /// <summary>
+    /// The time a copy found must have been made after: when the create was sent. None for an event
+    /// made on VRChat, whose own copy is older than any create of Modbot's.
+    /// </summary>
+    private static DateTimeOffset LookSince(CalendarEvent calendarEvent, CalendarEventPlace place) =>
+        calendarEvent.MadeOnVRChat ? DateTimeOffset.UnixEpoch : place.ErrorAt!.Value;
 
     /// <summary>
     /// A write VRChat refused for Featured and nothing else is sent again without it, and the
@@ -984,11 +991,15 @@ public sealed class CalendarVRChatPublisher
         string? foundId = null;
         DateTimeOffset? answeredUpdatedAt = null;
 
+        var looked = false;
+
         if (MayHaveBeenCreated(place))
         {
+            looked = true;
+
             // Looked for as it was sent: VRChat's copy has none of the edits made since.
             var look = await LookForEarlierCreateAsync(
-                CalendarVRChatMatch.AsSent(place, calendarEvent), place.ErrorAt!.Value, groupId, ct).ConfigureAwait(false);
+                CalendarVRChatMatch.AsSent(place, calendarEvent), LookSince(calendarEvent, place), groupId, ct).ConfigureAwait(false);
 
             if (look.Failed is { } failed)
                 return CouldNotLook(calendarEvent, place, action, failed, now);
@@ -1052,8 +1063,10 @@ public sealed class CalendarVRChatPublisher
             // One more look before a moderator's Try again sends the create: the copy may have
             // turned up since. A look that fails goes back to waiting for the copy, as after a
             // create with no answer; nothing is sent without it.
+            looked = true;
+
             var look = await LookForEarlierCreateAsync(
-                CalendarVRChatMatch.AsSent(place, calendarEvent), place.ErrorAt!.Value, groupId, ct).ConfigureAwait(false);
+                CalendarVRChatMatch.AsSent(place, calendarEvent), LookSince(calendarEvent, place), groupId, ct).ConfigureAwait(false);
 
             if (look.Failed is { } failed)
             {
@@ -1073,6 +1086,49 @@ public sealed class CalendarVRChatPublisher
                     calendarEvent.Id, lateId);
 
                 return CalendarPublishOutcome.NothingToDo;
+            }
+        }
+
+        if (action == "create" && calendarEvent.MadeOnVRChat && !looked)
+        {
+            // An event made on VRChat already has a copy there: the one it was read from. Looked
+            // for before a create, so a place that lost its id (a 404 taken for a delete, before
+            // 2026-10-19) takes the series back rather than making a second one. Nothing is sent
+            // without the look.
+            var look = await LookForEarlierCreateAsync(
+                calendarEvent, LookSince(calendarEvent, place), groupId, ct).ConfigureAwait(false);
+
+            if (look.Failed is { } failed)
+                return CouldNotLook(calendarEvent, place, action, failed, now);
+
+            if (look.FoundId is { } ownId)
+            {
+                CalendarVRChatMatch.Adopt(place, calendarEvent, ownId, look.UpdatedAt, now);
+
+                _log.Information(
+                    "VRChat calendar create for the event {EventId} made on VRChat was found there as {VRChatEventId}; taken instead of making it again",
+                    calendarEvent.Id, ownId);
+
+                return CalendarPublishOutcome.NothingToDo;
+            }
+
+            if (!look.Whole)
+            {
+                // Too many events that month to read them all: it may be on the part not read, so
+                // nothing is made. Held until the event changes or a moderator presses Try again.
+                place.State = CalendarPlaceStates.Failed;
+                place.Error = Trim("Could not check VRChat's calendar for this event: that month has more events than Modbot reads at once.");
+                place.ErrorAt = now;
+                place.FailedFingerprint = fingerprint;
+                place.MissingGroupPermission = null;
+                place.Problems = null;
+                place.UpdatedAt = now;
+
+                _log.Warning(
+                    "VRChat calendar create for the event {EventId} made on VRChat is held: its month was not read to the end",
+                    calendarEvent.Id);
+
+                return CalendarPublishOutcome.Failed;
             }
         }
 
@@ -1142,7 +1198,9 @@ public sealed class CalendarVRChatPublisher
 
                 // Deleted on VRChat's side while an edit made in Modbot was waiting to go out: the
                 // edit is the newer of the two, so the event is made again (calendar design §12.3).
-                if (status == 404)
+                // Not when the 404 is VRChat refusing the picture: the event is there, and making
+                // it again would make a second one. That is a refusal shown on the place, like any.
+                if (status == 404 && !CalendarVRChatRequests.IsImageRefusal(status, body, error))
                 {
                     place.ExternalId = null;
                     place.SentFingerprint = null;

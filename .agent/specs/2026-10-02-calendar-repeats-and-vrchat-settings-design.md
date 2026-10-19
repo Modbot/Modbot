@@ -158,8 +158,12 @@ deploy, with what VRChat already has.
   the one-date update built from it, leave `imageId` out: `CalendarUpdateBody` hides it behind a
   nullable of its own, as it does Featured. A moderator changing the picture makes the two differ, and
   then it is sent as any event's. Removing it sends nothing (the body leaves a null `imageId` out,
-  as before), so VRChat keeps its picture: Modbot cannot take a picture off VRChat's copy. A create has no VRChat copy to keep and sends what
-  it has. The fingerprint is unchanged: it still hashes `vrchat_image_id`, so a changed picture is
+  as before), so VRChat keeps its picture: Modbot cannot take a picture off VRChat's copy. A create
+  of an event made on VRChat does the same (changed 2026-10-19): it leaves VRChat's own picture out,
+  and sends only a picture chosen in Modbot; the SDK leaves a null `imageId` out of the body. If
+  VRChat still answers a write with 404 about the image, that is a refusal shown on the place and not
+  a delete (calendar design §12.3), and an event made on VRChat is looked for on VRChat's calendar
+  before it is made again. The fingerprint is unchanged: it still hashes `vrchat_image_id`, so a changed picture is
   still written.
 
 ## 5. The feed

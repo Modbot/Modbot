@@ -733,6 +733,22 @@ in September, a weekly series, none from Modbot).
 - **One exception, kept from before:** an update that meets a 404, because the event was deleted on
   VRChat while an edit made in Modbot waited to go out, makes the event again. The edit is the newer
   of the two.
+- **A 404 about the picture is a refusal, not a delete (2026-10-19).** VRChat answers a write whose
+  `imageId` the account may not use with 404 "Couldn't find the image you wanted to use for your
+  calendar entry", though the event is there. Taken for a delete, the place let go of its id and the
+  next pass made the event a second time ("18+ Hangout"). An update (the series' and a date's) whose
+  404 speaks of the image (`IsImageRefusal`, beside `IsFeaturedRefusal`) fails the place like any
+  refusal: the id and the rest are kept, and it is not sent again until the event changes. Any
+  other 404 is handled as above. A date's update never treated a 404 as a delete: it fails on the
+  date.
+- **An event made on VRChat is looked for before it is made again (2026-10-19).** A create of an
+  event with `made_on_vrchat` and no VRChat id reads the group's calendar first (the months and match
+  of §3.1, with no earliest time, as VRChat's copy is older than the create) and takes a row that is
+  its copy and that no other event owns, instead of creating. Only when none is found, and the month
+  was read to its end, is it created. A look that cannot be made, or a month not read to its end,
+  fails the place and sends nothing; it is looked again after 15 minutes or on Try again. Modbot keeps
+  no VRChat id of its own for such an event once its place has lost it, so the match is by title,
+  length and times, as in §3.1.
 - A change to **one date** of a VRChat series made on VRChat stays on VRChat; Modbot keeps the
   series. Modbot's own dates changed on their own (§2.2) are not read back from VRChat: a read finds
   the date Modbot changed with a newer `updatedAt` and reads the series, which has not changed, so

@@ -829,7 +829,10 @@ the event has one, so the shared words Discord and Google show are not replaced.
 that one event. If VRChat says it is gone, Modbot deletes it too, which also ends its Discord event
 and post. A failed or partial read never deletes anything, and an event that was only moved to
 another month is updated, not deleted. One exception: if the event was edited in Modbot and that edit
-had not reached VRChat yet, the edit is newer, so Modbot puts the event back on VRChat.
+had not reached VRChat yet, the edit is newer, so Modbot puts the event back on VRChat. If VRChat
+answers that it cannot find the picture, that is shown on the event as a refusal and the event is
+not put back. An event made on VRChat is looked for on VRChat's calendar before Modbot makes it
+again.
 
 **What Modbot cannot hold.** Modbot keeps one rule per repeating event, so:
 

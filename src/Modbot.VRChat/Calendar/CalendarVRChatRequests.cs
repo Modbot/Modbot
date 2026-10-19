@@ -80,16 +80,18 @@ public static class CalendarVRChatRequests
     }
 
     /// <summary>
-    /// The picture's file id an update sends, or null to leave the field out.
+    /// The picture's file id a create or an update sends, or null to leave the field out.
     /// </summary>
     /// <remarks>
     /// Left out for an event made on VRChat whose picture is still what VRChat reported: a moderator
     /// has not changed it, and sending it back was refused for a picture another user uploaded
     /// ("Couldn't find the image you wanted to use for your calendar entry", "18+ Hangout",
     /// 2026-10-19). A changed picture makes the two differ, and is sent as any event's. One
-    /// taken away is null and left out, as before, so VRChat keeps its picture. A create has no VRChat copy to keep and sends what it has.
+    /// taken away is null and left out, as before, so VRChat keeps its picture. A create of an
+    /// event made on VRChat is the same: VRChat's own picture is not sent back to it, only one
+    /// chosen in Modbot. The SDK leaves a null picture out of the body (checked 2026-10-19).
     /// </remarks>
-    public static string? ImageIdToUpdate(CalendarEvent e)
+    public static string? ImageIdToSend(CalendarEvent e)
     {
         ArgumentNullException.ThrowIfNull(e);
 
@@ -97,6 +99,20 @@ public static class CalendarVRChatRequests
             return null;
 
         return string.IsNullOrWhiteSpace(e.VRChatImageId) ? null : e.VRChatImageId;
+    }
+
+    /// <summary>
+    /// Whether VRChat's answer to a write is its refusal of the picture ("Couldn't find the image
+    /// you wanted to use for your calendar entry", a 404, seen 2026-10-19): the picture is not
+    /// one the account may use, and the event itself is still on VRChat.
+    /// </summary>
+    public static bool IsImageRefusal(int status, string? body, string? error)
+    {
+        if (status != 404)
+            return false;
+
+        var said = VRChatRefusal.MessageOf(body) ?? error ?? body;
+        return said?.Contains("image", StringComparison.OrdinalIgnoreCase) == true;
     }
 
     /// <summary>
@@ -128,7 +144,7 @@ public static class CalendarVRChatRequests
             featured: FeaturedToSend(e, canFeature) ?? false,
             guestEarlyJoinMinutes: e.VRChatGuestEarlyJoinMinutes ?? 0,
             hostEarlyJoinMinutes: e.VRChatHostEarlyJoinMinutes ?? 0,
-            imageId: string.IsNullOrWhiteSpace(e.VRChatImageId) ? null! : e.VRChatImageId,
+            imageId: ImageIdToSend(e)!,
             isDraft: false,
             languages: e.Languages.Count > 0 ? [.. e.Languages] : null!,
             platforms: e.Platforms.Count > 0 ? [.. e.Platforms.Select(Platform)] : null!,
@@ -168,7 +184,7 @@ public static class CalendarVRChatRequests
             Featured = FeaturedToSend(e, canFeature),
             GuestEarlyJoinMinutes = e.VRChatGuestEarlyJoinMinutes ?? 0,
             HostEarlyJoinMinutes = e.VRChatHostEarlyJoinMinutes ?? 0,
-            ImageId = ImageIdToUpdate(e),
+            ImageId = ImageIdToSend(e),
             Languages = [.. e.Languages],
             Platforms = [.. e.Platforms],
             Recurrence = Recurrence(e)!,
