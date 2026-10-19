@@ -68,6 +68,10 @@ public sealed class LiveLink : IDisposable
     private readonly ServerPairing _pairing;
     private readonly BackoffPolicy _backoff;
     private readonly ConcurrentQueue<LiveEvent> _events = new();
+
+    // Held while moderation rows are taken out, so an event received meanwhile cannot land ahead of
+    // the presence events put back.
+    private readonly Lock _eventsLock = new();
     private readonly Queue<DateTimeOffset> _drops = new();
 
     private string? _instanceId;
@@ -159,15 +163,24 @@ public sealed class LiveLink : IDisposable
     /// <summary>Takes the moderation rows out of what has been received and not yet drained; presence stays in order.</summary>
     private void DropQueuedModeration()
     {
-        var kept = new List<LiveEvent>();
-        while (_events.TryDequeue(out var queued))
+        lock (_eventsLock)
         {
-            if (!queued.IsModeration)
-                kept.Add(queued);
-        }
+            var kept = new List<LiveEvent>();
+            while (_events.TryDequeue(out var queued))
+            {
+                if (!queued.IsModeration)
+                    kept.Add(queued);
+            }
 
-        foreach (var presence in kept)
-            _events.Enqueue(presence);
+            foreach (var presence in kept)
+                _events.Enqueue(presence);
+        }
+    }
+
+    private void Receive(LiveEvent @event)
+    {
+        lock (_eventsLock)
+            _events.Enqueue(@event);
     }
 
     /// <summary>Everything received since the last drain, oldest first.</summary>
@@ -257,7 +270,7 @@ public sealed class LiveLink : IDisposable
             {
                 case ReadOutcome.Fetched when result.Value is not null:
                     foreach (var @event in result.Value.Events)
-                        _events.Enqueue(@event);
+                        Receive(@event);
                     Cursor = result.Value.Cursor;
                     _failures = 0;
                     _notBefore = null;
@@ -365,7 +378,7 @@ public sealed class LiveLink : IDisposable
                 switch (message.Kind)
                 {
                     case "event" when message.Event is { } @event:
-                        _events.Enqueue(@event);
+                        Receive(@event);
                         Cursor = @event.Cursor;
                         break;
 

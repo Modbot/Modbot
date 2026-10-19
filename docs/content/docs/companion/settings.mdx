@@ -624,19 +624,19 @@ and the window gains a **Debug** page:
   the client; nothing is fetched or sent for them.
 - **Test events** make up something happening, so you can try the pop-ups, the sound, the
   notification overlay and the main panel without waiting for anybody to walk in. Pick a
-  **Kind** (joined, left, already there, changed avatar, flagged join, moderation row, problem,
-  update ready, or one of the heads-up kinds), give a **Name**, a **Rank** and the **18+** tick if
-  you like, and a **Reason** for a flagged join, a problem or a heads-up (for a moderation row, the
-  sentence the row says), then press **Send**. **Send a run**
+  **Kind** (joined, left, already there, changed avatar, flagged join, moderation row, avatar
+  change row, problem, update ready, or one of the heads-up kinds), give a **Name**, a **Rank** and
+  the **18+** tick if you like, and a **Reason** for a flagged join, a problem or a heads-up (for a
+  moderation row or an avatar change row, the sentence the row says), then press **Send**. **Send a run**
   plays a join, a flagged join, an avatar change and a leave, three seconds apart. **Update
   ready** shows the update card with a made-up version; on it **Restart now** only closes the
   card, and nothing restarts.
 
   A test event goes through the same parts of the client a real one does, so your notification
-  ticks still decide which ones pop up. A flagged join, a join, a leave and a moderation row reach
-  the main panel only while you stand in an instance one of your paired servers covers; anywhere
-  else the pop-up and the sound still come (a moderation row has neither, so there it shows
-  nothing). Each moderation row says it comes from VRChat, Discord or Modbot in turn. **Test events send nothing to anybody**: no server is told, no
+  ticks still decide which ones pop up. A flagged join, a join, a leave, a moderation row and an
+  avatar change row reach the main panel only while you stand in an instance one of your paired
+  servers covers; anywhere else the pop-up and the sound still come (the two row kinds have
+  neither, so there they show nothing). Each moderation row says it comes from VRChat, Discord or Modbot in turn. **Test events send nothing to anybody**: no server is told, no
   server is asked, and nothing is written to the queues, the sent journal, the Cloud backup or
   `settings.json`. Tapping a made-up person on the panel opens their card from what the panel
   already holds, and a heads-up cannot be placed on them.
