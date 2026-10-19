@@ -86,8 +86,8 @@ public static class CalendarVRChatRequests
     /// Left out for an event made on VRChat whose picture is still what VRChat reported: a moderator
     /// has not changed it, and sending it back was refused for a picture another user uploaded
     /// ("Couldn't find the image you wanted to use for your calendar entry", "18+ Hangout",
-    /// 2026-10-19). A picture changed or taken away makes the two differ, and is sent as any
-    /// event's. A create has no VRChat copy to keep and sends what it has.
+    /// 2026-10-19). A changed picture makes the two differ, and is sent as any event's. One
+    /// taken away is null and left out, as before, so VRChat keeps its picture. A create has no VRChat copy to keep and sends what it has.
     /// </remarks>
     public static string? ImageIdToUpdate(CalendarEvent e)
     {

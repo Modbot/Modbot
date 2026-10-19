@@ -156,8 +156,9 @@ deploy, with what VRChat already has.
   VRChat's copy in `CalendarVRChatCopy.Onto`, filled from `vrchat_image_id` for events already read
   in). While an event made on VRChat still has `vrchat_image_id` equal to it, the update body, and
   the one-date update built from it, leave `imageId` out: `CalendarUpdateBody` hides it behind a
-  nullable of its own, as it does Featured. A moderator changing or removing the picture makes the
-  two differ, and then it is sent as any event's. A create has no VRChat copy to keep and sends what
+  nullable of its own, as it does Featured. A moderator changing the picture makes the two differ, and
+  then it is sent as any event's. Removing it sends nothing (the body leaves a null `imageId` out,
+  as before), so VRChat keeps its picture: Modbot cannot take a picture off VRChat's copy. A create has no VRChat copy to keep and sends what
   it has. The fingerprint is unchanged: it still hashes `vrchat_image_id`, so a changed picture is
   still written.
 
