@@ -282,6 +282,16 @@ public class CalendarEvent
     /// </summary>
     public bool? VRChatFeatured { get; set; }
 
+    /// <summary>
+    /// The picture VRChat itself said the event has, the last time it was read from VRChat's
+    /// calendar. Null for an event never read back. An event made on VRChat whose
+    /// <see cref="VRChatImageId"/> still matches it has not had its picture changed by a moderator,
+    /// and is written back without a picture: VRChat refused the update of an event whose picture
+    /// another user uploaded ("Couldn't find the image you wanted to use for your calendar entry",
+    /// seen 2026-10-19), though Modbot only repeated what VRChat holds.
+    /// </summary>
+    public string? VRChatPictureId { get; set; }
+
     // ── VRChat's settings Modbot's form does not have ────────────────────────────────────
     //
     // Kept as VRChat said them, for an event read from VRChat's calendar, and sent back unchanged

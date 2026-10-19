@@ -3238,6 +3238,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.VRChatRoleIds).HasColumnType("jsonb").HasColumnName("vrchat_role_ids");
             entity.Property(e => e.VRChatUsesInstanceOverflow).HasColumnName("vrchat_uses_instance_overflow");
             entity.Property(e => e.VRChatFeatured).HasColumnName("vrchat_featured");
+            entity.Property(e => e.VRChatPictureId).HasColumnType("text").HasColumnName("vrchat_picture_id");
             entity.Property(e => e.InviteStaffUserIds).HasColumnType("jsonb");
             entity.Property(e => e.AnnounceFirstJoinInVRChat).HasColumnName("announce_first_join_in_vrchat");
 

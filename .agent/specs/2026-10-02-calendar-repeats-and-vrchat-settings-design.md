@@ -148,6 +148,18 @@ deploy, with what VRChat already has.
   SDK's update model always writes it, so `CalendarUpdateBody` hides it behind a nullable of its
   own, and the create (which has to say something) says false. A moderator changing the box makes
   the two differ, and then it is sent as any event's.
+- **An event made on VRChat is not refused for a picture it did not change (2026-10-19).** The
+  update of "18+ Hangout" was refused with "Couldn't find the image you wanted to use for your
+  calendar entry": Modbot sent back `imageId`, the file id VRChat gave the event, and the file was
+  one Modbot's account may not use (or was gone). Same pattern as Featured above.
+  `calendar_event.vrchat_picture_id` keeps the picture VRChat itself last said (set with the rest of
+  VRChat's copy in `CalendarVRChatCopy.Onto`, filled from `vrchat_image_id` for events already read
+  in). While an event made on VRChat still has `vrchat_image_id` equal to it, the update body, and
+  the one-date update built from it, leave `imageId` out: `CalendarUpdateBody` hides it behind a
+  nullable of its own, as it does Featured. A moderator changing or removing the picture makes the
+  two differ, and then it is sent as any event's. A create has no VRChat copy to keep and sends what
+  it has. The fingerprint is unchanged: it still hashes `vrchat_image_id`, so a changed picture is
+  still written.
 
 ## 5. The feed
 

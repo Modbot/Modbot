@@ -80,6 +80,26 @@ public static class CalendarVRChatRequests
     }
 
     /// <summary>
+    /// The picture's file id an update sends, or null to leave the field out.
+    /// </summary>
+    /// <remarks>
+    /// Left out for an event made on VRChat whose picture is still what VRChat reported: a moderator
+    /// has not changed it, and sending it back was refused for a picture another user uploaded
+    /// ("Couldn't find the image you wanted to use for your calendar entry", "18+ Hangout",
+    /// 2026-10-19). A picture changed or taken away makes the two differ, and is sent as any
+    /// event's. A create has no VRChat copy to keep and sends what it has.
+    /// </remarks>
+    public static string? ImageIdToUpdate(CalendarEvent e)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+
+        if (e.MadeOnVRChat && e.VRChatPictureId == e.VRChatImageId)
+            return null;
+
+        return string.IsNullOrWhiteSpace(e.VRChatImageId) ? null : e.VRChatImageId;
+    }
+
+    /// <summary>
     /// Whether VRChat's answer to a write refuses Featured itself ("You do not have permission to
     /// make a featured event", seen 2026-10-09 as a 403), as opposed to anything else about the
     /// write.
@@ -148,7 +168,7 @@ public static class CalendarVRChatRequests
             Featured = FeaturedToSend(e, canFeature),
             GuestEarlyJoinMinutes = e.VRChatGuestEarlyJoinMinutes ?? 0,
             HostEarlyJoinMinutes = e.VRChatHostEarlyJoinMinutes ?? 0,
-            ImageId = string.IsNullOrWhiteSpace(e.VRChatImageId) ? null! : e.VRChatImageId,
+            ImageId = ImageIdToUpdate(e),
             Languages = [.. e.Languages],
             Platforms = [.. e.Platforms],
             Recurrence = Recurrence(e)!,

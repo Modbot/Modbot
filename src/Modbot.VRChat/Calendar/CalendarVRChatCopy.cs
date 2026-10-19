@@ -124,6 +124,7 @@ public static class CalendarVRChatCopy
         target.Tags = Clean(source.Tags);
         target.Visibility = source.AccessType == CalendarEventAccess.Public ? "public" : "group";
         target.VRChatImageId = string.IsNullOrWhiteSpace(source.ImageId) ? null : source.ImageId;
+        target.VRChatPictureId = target.VRChatImageId;
 
         // The picture a Discord post uses is the moderator's own choice on an event made in Modbot;
         // on one made on VRChat it is VRChat's, so the pages have one to show.

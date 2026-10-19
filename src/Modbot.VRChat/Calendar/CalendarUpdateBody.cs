@@ -45,4 +45,15 @@ public sealed class CalendarUpdateBody : UpdateCalendarEventRequest
     [DataMember(Name = "featured", EmitDefaultValue = false)]
     [JsonProperty("featured", NullValueHandling = NullValueHandling.Ignore)]
     public new bool? Featured { get; set; }
+
+    /// <summary>
+    /// The picture's file id, or nothing at all. The SDK's own <c>imageId</c> is always written, and
+    /// VRChat refused an event whose picture another user uploaded as soon as it was sent back
+    /// ("Couldn't find the image you wanted to use for your calendar entry", seen 2026-10-19). This
+    /// hides it, so null leaves the field out of the body and VRChat keeps the picture it has.
+    /// Checked by printing the body: null is left out, and a value is written once.
+    /// </summary>
+    [DataMember(Name = "imageId", EmitDefaultValue = false)]
+    [JsonProperty("imageId", NullValueHandling = NullValueHandling.Ignore)]
+    public new string? ImageId { get; set; }
 }

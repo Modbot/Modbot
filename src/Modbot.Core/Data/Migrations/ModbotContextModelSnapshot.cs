@@ -1514,6 +1514,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("vrchat_image_id");
 
+                    b.Property<string>("VRChatPictureId")
+                        .HasColumnType("text")
+                        .HasColumnName("vrchat_picture_id");
+
                     b.PrimitiveCollection<string>("VRChatRoleIds")
                         .HasColumnType("jsonb")
                         .HasColumnName("vrchat_role_ids");
