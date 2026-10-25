@@ -229,14 +229,28 @@ public sealed class WindowsClipCutter : IClipCutter
                     }
 
                     origin = time;
-                    foreach (var held in waiting)
-                    {
-                        var heldResult = Write(writer, held.Sample, held.Time, origin.Value, audioOut, ref payload, maxBytes);
-                        if (heldResult is not null)
-                            return (heldResult, 0);
-                    }
 
+                    // Taken out of the list first, so the finally below never disposes a sample
+                    // that Write has already disposed.
+                    var held = waiting.ToArray();
                     waiting.Clear();
+                    for (var h = 0; h < held.Length; h++)
+                    {
+                        // Sound from before the keyframe would get a time below zero.
+                        if (held[h].Time < origin.Value)
+                        {
+                            held[h].Sample.Dispose();
+                            continue;
+                        }
+
+                        var heldResult = Write(writer, held[h].Sample, held[h].Time, origin.Value, audioOut, ref payload, maxBytes);
+                        if (heldResult is not null)
+                        {
+                            for (var rest = h + 1; rest < held.Length; rest++)
+                                held[rest].Sample.Dispose();
+                            return (heldResult, 0);
+                        }
+                    }
                 }
 
                 if (time < origin.Value)
@@ -334,8 +348,18 @@ public sealed class WindowsClipCutter : IClipCutter
         return (video, audio);
     }
 
+    /// <summary>Whether the sample carries the keyframe mark. A sample without the mark is not one.</summary>
     private static bool IsKeyframe(IMFSample sample)
-        => sample.GetUInt32(KeyframeMark) != 0;
+    {
+        try
+        {
+            return sample.GetUInt32(KeyframeMark) != 0;
+        }
+        catch (SharpGenException)
+        {
+            return false;
+        }
+    }
 
     private static void DeleteQuietly(string path)
     {
