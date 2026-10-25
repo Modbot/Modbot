@@ -81,7 +81,7 @@ public class ClipRequestTests
     private async Task IntakeAsync(FakeClock clock, DeviceLocations locations, CancellationToken ct)
     {
         await using var db = _db.NewContext();
-        var intake = new ClipRequestIntake(db, clock, locations, new ClipRequestStore(db));
+        var intake = new ClipRequestIntake(db, clock, locations, new ClipRequestStore(db), new ClipRequestSignal());
         await intake.RunOnceAsync(ct);
     }
 

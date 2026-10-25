@@ -7,6 +7,7 @@ using Modbot.Analytics.Facts;
 using Modbot.Api.Features.Events;
 using Modbot.Core.Data;
 using Modbot.Core.Time;
+using Modbot.Shared.Clips;
 using Modbot.VRChat.Scheduling;
 using Serilog;
 
@@ -45,6 +46,7 @@ internal sealed class LiveSocketSession
     private readonly FactSignal _signal;
     private readonly Action<string, string?>? _instanceNamed;
     private readonly LiveNudge? _nudge;
+    private readonly LiveDelivery? _delivery;
     private readonly string _caller;
     private readonly ILogger _log;
 
@@ -61,6 +63,7 @@ internal sealed class LiveSocketSession
     /// <param name="startAfter">The cursor from the address, or null for "from now".</param>
     /// <param name="instanceNamed">Told each time a companion names the instance it is in: its number, and its world when it said.</param>
     /// <param name="nudge">Something else this connection is told has changed (a companion's heads-ups), or null.</param>
+    /// <param name="delivery">Messages that are not facts (a companion's clip requests), sent at connect and when new, or null.</param>
     public LiveSocketSession(
         WebSocket socket,
         IServiceScopeFactory scopes,
@@ -73,7 +76,8 @@ internal sealed class LiveSocketSession
         long? startAfter,
         string caller,
         Action<string, string?>? instanceNamed = null,
-        LiveNudge? nudge = null)
+        LiveNudge? nudge = null,
+        LiveDelivery? delivery = null)
     {
         _socket = socket;
         _scopes = scopes;
@@ -87,6 +91,7 @@ internal sealed class LiveSocketSession
         _caller = caller;
         _instanceNamed = instanceNamed;
         _nudge = nudge;
+        _delivery = delivery;
         _log = Log.Logger.ForContext<LiveSocketSession>();
     }
 
@@ -159,10 +164,24 @@ internal sealed class LiveSocketSession
         // read, so only a change after this is sent.
         var nudged = _nudge?.Version() ?? 0;
 
+        // Unlike a nudge, a request written before the connection opened is news: the companion has
+        // not been sent it. The version is read first, so one written during the read is sent next time round.
+        var delivered = _delivery?.Version() ?? 0;
+        if (!await SendDeliveryAsync(ct))
+            return await TooSlowAsync();
+
         while (!ct.IsCancellationRequested)
         {
             // Taken before the version is read, so a change landing in between still wakes the wait.
             var nextNudge = _nudge?.Next();
+            var nextDelivery = _delivery?.Next();
+
+            if (_delivery is { } delivery && delivery.Version() is var deliveryVersion && deliveryVersion != delivered)
+            {
+                delivered = deliveryVersion;
+                if (!await SendDeliveryAsync(ct))
+                    return await TooSlowAsync();
+            }
 
             if (_nudge is { } nudge && nudge.Version() is var version && version != nudged)
             {
@@ -223,10 +242,29 @@ internal sealed class LiveSocketSession
 
             // More to read means read on without waiting.
             if (!page.More)
-                await WaitAsync(nextNudge is null ? written : Task.WhenAny(written, nextNudge), ct);
+                await WaitAsync(Task.WhenAny(new[] { written, nextNudge, nextDelivery }.OfType<Task>()), ct);
         }
 
         return "client went away";
+    }
+
+    /// <summary>Sends what the delivery says is new to this connection. False when the client is too slow to take it.</summary>
+    private async Task<bool> SendDeliveryAsync(CancellationToken ct)
+    {
+        if (_delivery is null)
+            return true;
+
+        IReadOnlyList<ClipRequestMessage> messages;
+        using (var scope = _scopes.CreateScope())
+            messages = await _delivery.Read(scope.ServiceProvider, ct);
+
+        foreach (var message in messages)
+        {
+            if (!await SendAsync(message, ct))
+                return false;
+        }
+
+        return true;
     }
 
     /// <summary>Where reading starts: from now without a cursor, and never before the oldest kept fact.</summary>

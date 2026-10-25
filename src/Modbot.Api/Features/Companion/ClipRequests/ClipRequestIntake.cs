@@ -51,18 +51,25 @@ public sealed class ClipRequestIntake
     private readonly IModbotClock _clock;
     private readonly DeviceLocations _locations;
     private readonly ClipRequestStore _store;
+    private readonly ClipRequestSignal _signal;
 
-    public ClipRequestIntake(ModbotContext db, IModbotClock clock, DeviceLocations locations, ClipRequestStore store)
+    // Devices asked in the page being read, told once the page is saved so a woken connection finds the row.
+    private readonly List<Guid> _asked = [];
+
+    public ClipRequestIntake(
+        ModbotContext db, IModbotClock clock, DeviceLocations locations, ClipRequestStore store, ClipRequestSignal signal)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(clock);
         ArgumentNullException.ThrowIfNull(locations);
         ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(signal);
 
         _db = db;
         _clock = clock;
         _locations = locations;
         _store = store;
+        _signal = signal;
     }
 
     public async Task RunOnceAsync(CancellationToken ct)
@@ -101,6 +108,11 @@ public sealed class ClipRequestIntake
 
             cursor.ReadThrough = page.Through;
             await _db.SaveChangesAsync(ct);
+
+            foreach (var deviceId in _asked.Distinct())
+                _signal.Tell(deviceId);
+
+            _asked.Clear();
         }
     }
 
@@ -149,6 +161,9 @@ public sealed class ClipRequestIntake
             DeviceId = device,
             RequestedAt = device is null ? null : now,
         });
+
+        if (device is { } asked)
+            _asked.Add(asked);
     }
 
     private async Task<Guid?> ModeratorOfAsync(ModbotEvent fact, Core.Data.Entities.Settings settings, CancellationToken ct)

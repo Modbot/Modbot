@@ -53,7 +53,8 @@ public static class LiveStreams
         long? after,
         string connectionKey,
         Action<string, string?>? instanceNamed = null,
-        LiveNudge? nudge = null)
+        LiveNudge? nudge = null,
+        LiveDelivery? delivery = null)
     {
         ArgumentNullException.ThrowIfNull(http);
         ArgumentNullException.ThrowIfNull(socket);
@@ -91,7 +92,8 @@ public static class LiveStreams
                 after,
                 connectionKey,
                 instanceNamed,
-                nudge);
+                nudge,
+                delivery);
 
             await session.RunAsync(http.RequestAborted);
         }
@@ -114,7 +116,8 @@ public static class LiveStreams
         string connectionKey,
         string? after,
         int? wait,
-        int? limit)
+        int? limit,
+        LiveDelivery? delivery = null)
     {
         ArgumentNullException.ThrowIfNull(http);
         ArgumentNullException.ThrowIfNull(db);
@@ -151,6 +154,11 @@ public static class LiveStreams
             var elapsed = services.GetService<IMonotonicClock>() ?? new StopwatchMonotonicClock();
             var deadline = elapsed.Elapsed + waitFor;
 
+            // A request written while this poll waits ends the wait; one already open is carried by
+            // whatever answer this poll gives, so a companion that has not answered is not told to
+            // ask again at once.
+            var delivered = delivery?.Version() ?? 0;
+
             LiveNotice? notice = null;
             long cursor;
 
@@ -171,14 +179,23 @@ public static class LiveStreams
             while (true)
             {
                 var written = signal.Next();
+                var nextDelivery = delivery?.Next();
                 var page = await reader.ReadAsync(cursor, take, scope, clock.UtcNow, options.PageSize, options.LongPollMaxPages, ct);
                 var left = deadline - elapsed.Elapsed;
 
-                if (page.Events.Count > 0 || page.More || left <= TimeSpan.Zero)
-                    return Results.Json(new LivePollResponse(page.Events, LiveJson.Text(page.Cursor), page.More, notice), LiveJson.Options);
+                if (page.Events.Count > 0 || page.More || left <= TimeSpan.Zero
+                    || (delivery is not null && delivery.Version() != delivered))
+                {
+                    var requests = delivery is null ? null : await delivery.Read(services, ct);
+
+                    return Results.Json(
+                        new LivePollResponse(
+                            page.Events, LiveJson.Text(page.Cursor), page.More, notice, requests is { Count: > 0 } ? requests : null),
+                        LiveJson.Options);
+                }
 
                 cursor = page.Cursor;
-                await WaitAsync(written, left < options.PollInterval ? left : options.PollInterval, ct);
+                await WaitAsync(nextDelivery is null ? written : Task.WhenAny(written, nextDelivery), left < options.PollInterval ? left : options.PollInterval, ct);
 
                 // Access may have been taken away while this waited.
                 var refreshed = await refresh(services, scope, ct);

@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Modbot.Core.Data.Entities;
+using Modbot.Shared.Clips;
 
 namespace Modbot.Api.Features.Live.Stream;
 
@@ -201,13 +203,27 @@ public sealed record LiveChanged(string Kind, string What);
 /// </summary>
 public sealed record LiveNudge(string What, Func<long> Version, Func<Task> Next);
 
+/// <summary>
+/// Messages for one connection that are not facts (a companion's clip requests): a count that goes
+/// up when there are new ones, a task that completes at the next, and a read of what the connection
+/// should be sent now. The read is called with a scope of its own and returns only what is new to
+/// this connection; a message the companion sees twice is the same message.
+/// </summary>
+public sealed record LiveDelivery(
+    Func<long> Version,
+    Func<Task> Next,
+    Func<IServiceProvider, CancellationToken, Task<IReadOnlyList<ClipRequestMessage>>> Read);
+
 /// <param name="Cursor">Send back as <c>after</c> to carry on. Moves past events this caller was not sent.</param>
 /// <param name="More">Events are ready past these: ask again straight away.</param>
+/// <param name="ClipRequests">A companion's open clip requests; written only when there are some.</param>
 public sealed record LivePollResponse(
     IReadOnlyList<LiveEvent> Events,
     string Cursor,
     bool More,
-    LiveNotice? Notice);
+    LiveNotice? Notice,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    IReadOnlyList<ClipRequestMessage>? ClipRequests = null);
 
 public static class LiveJson
 {

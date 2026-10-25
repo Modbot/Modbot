@@ -70,6 +70,7 @@ public static class CompanionApi
         services.AddScoped<DeviceAuthenticator>();
 
         // A clip with every action: the requests, and the watcher that makes them.
+        services.AddSingleton<ClipRequestSignal>();
         services.AddScoped<ClipRequestStore>();
         services.AddScoped<ClipRequestIntake>();
         services.AddHostedService<ClipRequestWatcher>();
