@@ -15,6 +15,9 @@ public static class AutomaticRoleReasons
 
     /// <summary>A number the rule needs is not filled in. The role is not given until it is.</summary>
     public const string NumberMissing = "A number on the rule is missing";
+
+    /// <summary>No rule that gives the role is for this person any more.</summary>
+    public const string NoLongerOnTheList = "No longer on the rule's list";
 }
 
 /// <summary>Whether a moderator meets a rule: holds, or the first condition that does not.</summary>

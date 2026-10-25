@@ -124,6 +124,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Automatic role rules: a role held only while the rule's conditions hold.</summary>
     public DbSet<AutomaticRole> AutomaticRoles => Set<AutomaticRole>();
 
+    /// <summary>The automatic roles Modbot gave, open while held and closed when Modbot took them back.</summary>
+    public DbSet<AutomaticRoleGrant> AutomaticRoleGrants => Set<AutomaticRoleGrant>();
+
     /// <summary>Short notes moderators leave from the companion for staff in the same instance.</summary>
     public DbSet<HeadsUp> HeadsUps => Set<HeadsUp>();
 
@@ -4075,6 +4078,27 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.WhoVRChatRoleIds).HasColumnName("who_vrchat_role_ids").HasColumnType("jsonb");
             entity.Property(e => e.MinimumLevelStaffRoleId).HasColumnType("text");
             entity.Property(e => e.TakeBackUserIds).HasColumnType("jsonb");
+        });
+
+        builder.Entity<AutomaticRoleGrant>(entity =>
+        {
+            entity.ToTable("automatic_role_grant");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.RoleId).HasColumnType("text");
+            entity.Property(e => e.TakeReason).HasMaxLength(200);
+
+            // The open grant for a person and a role: at most one, however many rules give the role.
+            entity.HasIndex(e => new { e.ModbotUserId, e.Kind, e.RoleId })
+                .IsUnique()
+                .HasDatabaseName("ux_automatic_role_grant_open")
+                .HasFilter("taken_at IS NULL");
+
+            // The last time Modbot took a role from a person, read to wait before giving it back.
+            entity.HasIndex(e => new { e.ModbotUserId, e.Kind, e.RoleId, e.TakenAt })
+                .HasDatabaseName("ix_automatic_role_grant_taken");
         });
 
         builder.Entity<ClipRequestCursor>(entity =>

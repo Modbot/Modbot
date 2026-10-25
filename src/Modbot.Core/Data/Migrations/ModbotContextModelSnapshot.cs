@@ -1030,6 +1030,56 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("automatic_role", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.AutomaticRoleGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("GivenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("given_at");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer")
+                        .HasColumnName("kind");
+
+                    b.Property<Guid>("ModbotUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("modbot_user_id");
+
+                    b.Property<string>("RoleId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("role_id");
+
+                    b.Property<Guid>("RuleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("rule_id");
+
+                    b.Property<string>("TakeReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("take_reason");
+
+                    b.Property<DateTimeOffset?>("TakenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("taken_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_automatic_role_grant");
+
+                    b.HasIndex("ModbotUserId", "Kind", "RoleId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_automatic_role_grant_open")
+                        .HasFilter("taken_at IS NULL");
+
+                    b.HasIndex("ModbotUserId", "Kind", "RoleId", "TakenAt")
+                        .HasDatabaseName("ix_automatic_role_grant_taken");
+
+                    b.ToTable("automatic_role_grant", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.BanReason", b =>
                 {
                     b.Property<Guid>("Id")
