@@ -6,6 +6,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { PanelGrid } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
+import { MyAutomaticRoles } from '@/components/account/MyAutomaticRoles'
 import { NotificationChoicesCard } from '@/components/account/NotificationChoicesCard'
 import { MyTrials } from '@/components/staffTrial/MyTrials'
 import { VRChatLinkPanel } from '@/components/VRChatLinkPanel'
@@ -63,6 +64,8 @@ export function Account({
       </Card>
 
       <MyTrials />
+
+      <MyAutomaticRoles />
 
       <Card>
         <CardHeader>

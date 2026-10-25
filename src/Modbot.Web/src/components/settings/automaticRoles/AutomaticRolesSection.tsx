@@ -19,6 +19,7 @@ import {
 import { useDiscordRoles } from '@/lib/discordLists'
 import { Checkbox, ConfirmButton, NumberField, Outcome, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
+import { RuleHolders } from './RuleHolders'
 
 const message = (e: unknown, fallback: string) => (e instanceof Error && e.message ? e.message : fallback)
 
@@ -243,6 +244,8 @@ function RulesCard({ lists }: { lists: Lists }) {
                     </Badge>
                   ))}
                 </div>
+
+                <RuleHolders ruleId={rule.id} />
               </li>
             ))}
           </ul>

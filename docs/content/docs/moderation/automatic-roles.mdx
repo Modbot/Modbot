@@ -20,8 +20,8 @@ There are no rules on a new Modbot. A rule that is saved starts working on its n
 **Settings → Automatic roles**. It needs the
 [**Change settings**](/accounts/roles-and-permissions#change-settings) permission.
 
-The page has two cards. **Rules** lists your rules, with **Add rule**, and **Edit** and **Delete** on
-each. **Ask for a clip on** has the switches **Bans**, **Kicks** and **Warnings**; each one saves as
+The page has two cards. **Rules** lists your rules, with **Add rule**, and **Edit**, **Delete** and
+**Holders** on each (see [Holders](#holders)). **Ask for a clip on** has the switches **Bans**, **Kicks** and **Warnings**; each one saves as
 soon as you press it. Which actions ask for a clip, and what the companion does about it, is on the
 [Clips](/companion/clips#clips-for-your-own-actions-sent-automatically) page.
 
@@ -81,6 +81,37 @@ that has either on is refused when you save it.
 Roles that someone already had, or that you gave them by hand, are left alone. To let a rule take a
 role you gave by hand, add the person to its **Take back from** list. Modbot then treats that role
 like one it gave itself, for that rule only.
+
+## Holders
+
+Press **Holders** on a rule to see who holds its role. The list has one row for each Modbot account
+that holds the role, and for each account the rule is for that does not hold it. A rule that gives
+both a VRChat role and a Discord role lists an account once for each, with the role's name under the
+person's name. People who hold the role but have no Modbot account are not listed.
+
+| Column | What it shows |
+|---|---|
+| **Person** | The Modbot account, and the role's name. |
+| **Given** | **By Modbot** when Modbot gave the role and has not taken it back. **By hand** when the person holds it and Modbot did not give it. **Not held** when the rule is for them and they do not hold it. |
+| **Rule** | **Met** when every condition holds for them, or the first one that does not, in the words of the [audit log](#the-audit-log). |
+
+The list needs the **Change settings** permission, like the rest of the page. It is read each time you
+open it, from Modbot's own copy of your group and server members.
+
+## Where you stand
+
+Every moderator can see their own standing on the [**Your account**](/accounts/staff-accounts#your-own-account)
+page. The **Automatic roles** card lists each rule that is for them. It is not there when no rule is.
+Each rule shows its name, whether it is **Met**, and the role it gives with **held** or **not held**.
+Under it is one line for each condition the rule switches on, with a tick when they meet it and a
+cross when they do not.
+
+A condition that counts shows the numbers: **1 of at most 0, 30 days** is one overturned ban where
+the rule allows none, in the last 30 days. The **Daily ban cap** has no days, because it always
+looks back 24 hours. A condition whose number is missing from the rule shows a cross and no numbers.
+
+The card counts the way the role giver does, so the crosses are the conditions that keep the role from
+being given. The card only lists rules that are for the person looking, not every rule you have.
 
 ## How and when roles change
 

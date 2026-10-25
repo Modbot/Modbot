@@ -34,10 +34,49 @@ export type AutomaticRoleInput = Omit<AutomaticRole, 'id' | 'createdAt' | 'updat
 /** Which actions ask the moderator's companion for a clip. */
 export type ClipRequests = { bans: boolean; kicks: boolean; warnings: boolean }
 
+/** One condition of a rule and where the account stands on it. The numbers are null for a yes-or-no condition. */
+export type RuleCondition = {
+  label: string
+  met: boolean
+  reason: string | null
+  count: number | null
+  max: number | null
+  days: number | null
+}
+
+/** A role a rule gives, and whether the signed-in account holds it now. */
+export type MyRoleStanding = { id: string; name: string; held: boolean }
+
+/** A rule that applies to the signed-in account. */
+export type MyAutomaticRole = {
+  id: string
+  name: string | null
+  vrChatRole: MyRoleStanding | null
+  discordRole: MyRoleStanding | null
+  met: boolean
+  conditions: RuleCondition[]
+}
+
+/** Who put a role on a person, as far as Modbot can tell. */
+export type AutomaticRoleGiven = 'ByModbot' | 'ByHand' | 'NotHeld'
+
+/** One Modbot account and one of the roles a rule gives. */
+export type AutomaticRoleHolder = {
+  userId: string
+  username: string
+  platform: string
+  roleName: string
+  given: AutomaticRoleGiven
+  ruleMet: boolean
+  failedReason: string | null
+}
+
 const base = '/api/settings/automatic-roles'
 
 export const automaticRolesApi = {
   list: () => http.request<{ rules: AutomaticRole[] }>(base),
+  holders: (id: string) => http.request<{ holders: AutomaticRoleHolder[] }>(`${base}/${id}/holders`),
+  mine: () => http.request<{ rules: MyAutomaticRole[] }>('/api/me/automatic-roles'),
   add: (body: AutomaticRoleInput) => http.post<AutomaticRole>(base, body),
   change: (id: string, body: AutomaticRoleInput) => http.put<AutomaticRole>(`${base}/${id}`, body),
   remove: (id: string) => http.del<void>(`${base}/${id}`),
