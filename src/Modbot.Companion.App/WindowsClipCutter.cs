@@ -15,7 +15,7 @@ namespace Modbot.Companion.App;
 /// times moved back so the copy starts at zero. Nothing is decoded, so a cut takes a moment and
 /// the picture is exactly the one that was recorded.</para>
 /// <para>It reads one file the moderator's own recorder wrote and writes one file the caller names.
-/// It never looks at a screen or a window, and it is not wired to anything yet.</para>
+/// It never looks at a screen or a window. The part that answers clip requests calls it.</para>
 /// <para>If the part asked for does not fit in the size limit it fails and leaves no file; it does
 /// not quietly cut a shorter part than was asked for.</para>
 /// </remarks>
