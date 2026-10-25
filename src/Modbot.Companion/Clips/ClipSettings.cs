@@ -49,19 +49,25 @@ namespace Modbot.Companion.Clips;
 /// Whether saving a clip in a group's instance tells that group's paired server, with the file's
 /// fingerprint and never the file. False unless a person turned it on.
 /// </param>
+/// <param name="SendForActions">
+/// Whether this PC answers the server's request for a clip of a ban, kick or warning this moderator
+/// made (2026-10-24; this narrows the old promise that a clip never leaves the PC). False unless a
+/// person turned it on; without it every request is answered "Clips was off".
+/// </param>
 public sealed record ClipSettings(
     bool On = false,
     int Minutes = ClipSettings.DefaultMinutes,
     string? Folder = null,
     int KeepGigabytes = ClipSettings.DefaultKeepGigabytes,
     bool DiscordSound = false,
-    bool TellServer = false)
+    bool TellServer = false,
+    bool SendForActions = false)
 {
     /// <summary>The shortest length on offer. Below this a clip rarely holds what happened.</summary>
     public const int MinMinutes = 2;
 
     /// <summary>The longest length on offer.</summary>
-    public const int MaxMinutes = 5;
+    public const int MaxMinutes = 10;
 
     public const int DefaultMinutes = 3;
 

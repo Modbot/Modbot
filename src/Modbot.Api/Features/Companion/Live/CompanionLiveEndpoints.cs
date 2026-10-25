@@ -35,6 +35,11 @@ namespace Modbot.Api.Features.Companion.Live;
 /// the way it is told by a roster read -- a by-product of a request the device makes anyway,
 /// never a report made for its own sake.
 /// </para>
+/// <para>
+/// <strong>Clips settings ride along.</strong> The device's four Clips values arrive as a socket
+/// message when it connects and when one changes, or in the query of each poll, and are kept by
+/// <see cref="ClipSettingsReports"/> (<see cref="ClipSettingsReport"/>).
+/// </para>
 /// </remarks>
 public static class CompanionLiveEndpoints
 {
@@ -47,6 +52,7 @@ public static class CompanionLiveEndpoints
         HttpContext context,
         DeviceAuthenticator authenticator,
         DeviceLocations locations,
+        ClipSettingsReports clipSettings,
         HeadsUpSignal headsUps,
         ClipRequestSignal clipRequests,
         EventSocketOptions options,
@@ -98,7 +104,10 @@ public static class CompanionLiveEndpoints
 
             // A clip request is sent once on this connection; the set remembers which. A request the
             // companion asked for by poll earlier arrives here again and is the same request.
-            ClipRequestDelivery(device.Id, clipRequests, clock, sendOnce: true));
+            ClipRequestDelivery(device.Id, clipRequests, clock, sendOnce: true),
+
+            // The companion's Clips settings, sent when it connects and again when one changes.
+            report => clipSettings.Record(device.Id, report));
 
         return Results.Empty;
     }
@@ -110,9 +119,14 @@ public static class CompanionLiveEndpoints
         string? after,
         int? wait,
         bool? moderation,
+        bool? clipsOn,
+        bool? clipsRecording,
+        int? clipsMinutes,
+        bool? clipsSendForActions,
         HttpContext context,
         DeviceAuthenticator authenticator,
         DeviceLocations locations,
+        ClipSettingsReports clipSettings,
         ClipRequestSignal clipRequests,
         ModbotContext database,
         IModbotClock clock,
@@ -130,6 +144,11 @@ public static class CompanionLiveEndpoints
 
         if (instanceId is { Length: > 0 })
             locations.Record(device.Id, instanceId, clock.UtcNow, worldId);
+
+        // A companion that is polling, not holding the socket, tells us its Clips settings in the
+        // query of every poll. All four, or none: a half-told report is not kept.
+        if (clipsOn is { } on && clipsRecording is { } recording && clipsMinutes is { } minutes && clipsSendForActions is { } send)
+            clipSettings.Record(device.Id, new ClipSettingsReport(on, recording, minutes, send));
 
         return await LiveStreams.PollAsync(
             context,

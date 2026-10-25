@@ -30,6 +30,7 @@ public sealed partial class MainWindow
     private readonly CheckBox _clipsOn = new();
     private readonly CheckBox _clipsDiscordSound = new();
     private readonly CheckBox _clipsTellServer = new();
+    private readonly CheckBox _clipsSendForActions = new();
     private readonly Slider _clipsMinutes = new();
     private readonly TextBlock _clipsMinutesValue = Ui.Text("", Ui.T.Density.TextSmall, Ui.T.TextDimBrush, wrap: false, mono: true);
     private readonly TextBox _clipsFolderBox = Ui.Input();
@@ -56,6 +57,9 @@ public sealed partial class MainWindow
         // fingerprint. Never the clip (clips design spec §16).
         _clipsTellServer.Content = Ui.Text("Tell the group's Modbot when I save a clip", Ui.T.Density.TextSmall, Ui.T.TextBrush);
         _clipsTellServer.IsCheckedChanged += (_, _) => ClipsChanged();
+
+        _clipsSendForActions.Content = Ui.Text("Send clips for my actions automatically", Ui.T.Density.TextSmall, Ui.T.TextBrush);
+        _clipsSendForActions.IsCheckedChanged += (_, _) => ClipsChanged();
 
         _clipsMinutesValue.VerticalAlignment = VerticalAlignment.Center;
         _clipsMinutesValue.Width = 32;
@@ -97,6 +101,7 @@ public sealed partial class MainWindow
             Minutes = (int)_clipsMinutes.Value,
             DiscordSound = _clipsDiscordSound.IsChecked == true,
             TellServer = _clipsTellServer.IsChecked == true,
+            SendForActions = _clipsSendForActions.IsChecked == true,
         });
     }
 
@@ -106,6 +111,7 @@ public sealed partial class MainWindow
         _clipsOn.IsChecked = clips.Settings.On;
         _clipsDiscordSound.IsChecked = clips.Settings.DiscordSound;
         _clipsTellServer.IsChecked = clips.Settings.TellServer;
+        _clipsSendForActions.IsChecked = clips.Settings.SendForActions;
 
         if (!_clipsMinutes.IsPointerOver && !_clipsMinutes.IsFocused)
             _clipsMinutes.Value = ClipSettings.ClampMinutes(clips.Settings.Minutes);
@@ -127,6 +133,7 @@ public sealed partial class MainWindow
         _clipsOn.IsEnabled = clips.Supported;
         _clipsDiscordSound.IsEnabled = clips.Supported;
         _clipsTellServer.IsEnabled = clips.Supported;
+        _clipsSendForActions.IsEnabled = clips.Supported;
         _clipsMinutes.IsEnabled = clips.Supported;
         _clipsFolderBox.IsEnabled = clips.Supported;
 
@@ -141,7 +148,7 @@ public sealed partial class MainWindow
     {
         foreach (var control in new Control[]
         {
-            _clipsOn, _clipsDiscordSound, _clipsTellServer, _clipsMinutes, _clipsMinutesValue, _clipsFolderBox,
+            _clipsOn, _clipsDiscordSound, _clipsTellServer, _clipsSendForActions, _clipsMinutes, _clipsMinutesValue, _clipsFolderBox,
             _clipsFolderSave, _clipsFolderReset, _clipsSave, _clipsLine, _clipsProblem,
         })
         {
@@ -158,6 +165,7 @@ public sealed partial class MainWindow
                 _clipsOn,
                 _clipsDiscordSound,
                 _clipsTellServer,
+                _clipsSendForActions,
                 Ui.Field("Minutes", new StackPanel
                 {
                     Orientation = Orientation.Horizontal,

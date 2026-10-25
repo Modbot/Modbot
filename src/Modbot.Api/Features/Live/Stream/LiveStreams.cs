@@ -6,6 +6,7 @@ using Modbot.Analytics.Facts;
 using Modbot.Api.Features.Events;
 using Modbot.Core.Data;
 using Modbot.Core.Time;
+using Modbot.Shared.Clips;
 using Modbot.VRChat.Scheduling;
 using Serilog;
 
@@ -54,7 +55,8 @@ public static class LiveStreams
         string connectionKey,
         Action<string, string?>? instanceNamed = null,
         LiveNudge? nudge = null,
-        LiveDelivery? delivery = null)
+        LiveDelivery? delivery = null,
+        Action<ClipSettingsReport>? clipSettingsReported = null)
     {
         ArgumentNullException.ThrowIfNull(http);
         ArgumentNullException.ThrowIfNull(socket);
@@ -93,7 +95,8 @@ public static class LiveStreams
                 connectionKey,
                 instanceNamed,
                 nudge,
-                delivery);
+                delivery,
+                clipSettingsReported);
 
             await session.RunAsync(http.RequestAborted);
         }

@@ -487,7 +487,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             string.IsNullOrWhiteSpace(clips.Folder) ? null : clips.Folder.Trim(),
             ClipSettings.ClampKeepGigabytes(clips.KeepGigabytes ?? ClipSettings.DefaultKeepGigabytes),
             clips.DiscordSound ?? false,
-            clips.TellServer ?? false);
+            clips.TellServer ?? false,
+            clips.SendForActions ?? false);
 
     /// <summary>
     /// Writes the whole <c>clips</c> object, keeping every other field in the file. The same rules
@@ -512,6 +513,9 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             // The same reasoning: whether a paired server hears that a clip was saved is
             // something a person opening the file should be able to read, not work out.
             ["tellServer"] = clips.TellServer,
+
+            // The same again for the one switch that lets a clip leave the PC.
+            ["sendForActions"] = clips.SendForActions,
         };
 
         if (!string.IsNullOrWhiteSpace(clips.Folder))
@@ -818,7 +822,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("folder")] string? Folder,
         [property: JsonPropertyName("keepGigabytes")] int? KeepGigabytes,
         [property: JsonPropertyName("discordSound")] bool? DiscordSound,
-        [property: JsonPropertyName("tellServer")] bool? TellServer = null);
+        [property: JsonPropertyName("tellServer")] bool? TellServer = null,
+        [property: JsonPropertyName("sendForActions")] bool? SendForActions = null);
 
     private sealed record ListeningShape(
         [property: JsonPropertyName("on")] bool? On,

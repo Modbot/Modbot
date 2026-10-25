@@ -36,14 +36,15 @@ public class ClipSettingsTests
     [InlineData(2, 2)]
     [InlineData(4, 4)]
     [InlineData(5, 5)]
-    [InlineData(6, ClipSettings.MaxMinutes)]
+    [InlineData(10, 10)]
+    [InlineData(11, ClipSettings.MaxMinutes)]
     [InlineData(90, ClipSettings.MaxMinutes)]
     [InlineData(-4, ClipSettings.MinMinutes)]
-    public void TheLengthIsHeldBetweenTwoAndFiveMinutes(int asked, int expected)
+    public void TheLengthIsHeldBetweenTwoAndTenMinutes(int asked, int expected)
         => Assert.Equal(expected, ClipSettings.ClampMinutes(asked));
 
     [Fact]
-    public void AHandEditedFileAskingForNinetyMinutesGetsFive()
+    public void AHandEditedFileAskingForNinetyMinutesGetsTen()
     {
         // The reason the clamp exists: the file is meant to be hand-editable, and an hour and a
         // half of video on somebody's disk is not a thing a typo should be able to cause.
@@ -107,6 +108,28 @@ public class ClipSettingsTests
 
         Assert.False(CompanionSettings.SaveClips(path, new ClipSettings(true, 3)));
         Assert.Equal("this is not json", File.ReadAllText(path));
+    }
+
+    [Fact]
+    public void SendingClipsForMyActionsIsOffUntilSomebodyTurnsItOn()
+    {
+        Assert.False(ClipSettings.Default.SendForActions);
+        Assert.False(new ClipSettings(On: true).SendForActions);
+
+        var path = TempFile("""{ "clips": { "on": true, "minutes": 10 } }""");
+        Assert.False(CompanionSettings.Load(path, _ => null).Clips.SendForActions);
+    }
+
+    [Fact]
+    public void SendingClipsForMyActionsSurvivesARoundTripAndIsWrittenEvenWhenOff()
+    {
+        var path = TempFile("{}");
+
+        Assert.True(CompanionSettings.SaveClips(path, ClipSettings.Default));
+        Assert.Contains("\"sendForActions\": false", File.ReadAllText(path), StringComparison.Ordinal);
+
+        Assert.True(CompanionSettings.SaveClips(path, ClipSettings.Default with { On = true, SendForActions = true }));
+        Assert.True(CompanionSettings.Load(path, _ => null).Clips.SendForActions);
     }
 
     [Fact]

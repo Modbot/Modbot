@@ -47,6 +47,7 @@ internal sealed class LiveSocketSession
     private readonly Action<string, string?>? _instanceNamed;
     private readonly LiveNudge? _nudge;
     private readonly LiveDelivery? _delivery;
+    private readonly Action<ClipSettingsReport>? _clipSettingsReported;
     private readonly string _caller;
     private readonly ILogger _log;
 
@@ -64,6 +65,7 @@ internal sealed class LiveSocketSession
     /// <param name="instanceNamed">Told each time a companion names the instance it is in: its number, and its world when it said.</param>
     /// <param name="nudge">Something else this connection is told has changed (a companion's heads-ups), or null.</param>
     /// <param name="delivery">Messages that are not facts (a companion's clip requests), sent at connect and when new, or null.</param>
+    /// <param name="clipSettingsReported">Told each time a companion sends its Clips settings (<c>{"op":"clips",...}</c>), or null where a connection has none to send.</param>
     public LiveSocketSession(
         WebSocket socket,
         IServiceScopeFactory scopes,
@@ -77,7 +79,8 @@ internal sealed class LiveSocketSession
         string caller,
         Action<string, string?>? instanceNamed = null,
         LiveNudge? nudge = null,
-        LiveDelivery? delivery = null)
+        LiveDelivery? delivery = null,
+        Action<ClipSettingsReport>? clipSettingsReported = null)
     {
         _socket = socket;
         _scopes = scopes;
@@ -92,6 +95,7 @@ internal sealed class LiveSocketSession
         _instanceNamed = instanceNamed;
         _nudge = nudge;
         _delivery = delivery;
+        _clipSettingsReported = clipSettingsReported;
         _log = Log.Logger.ForContext<LiveSocketSession>();
     }
 
@@ -389,11 +393,41 @@ internal sealed class LiveSocketSession
 
                 break;
 
+            case ClipSettingsReport.Op when _clipSettingsReported is not null:
+                if (ParseClipSettings(root) is { } report)
+                    _clipSettingsReported(report);
+                else
+                    await SendAsync(new LiveError("error", "The clip settings are not valid."), ct);
+
+                break;
+
             default:
                 await SendAsync(new LiveError("error", "Unknown op. Send subscribe or ping."), ct);
                 break;
         }
     }
+
+    /// <summary>The four values of a clip settings message, or null when any is missing or of the wrong kind.</summary>
+    private static ClipSettingsReport? ParseClipSettings(JsonElement root)
+    {
+        if (root.ValueKind == JsonValueKind.Object
+            && Flag(root, "on") is { } on
+            && Flag(root, "recording") is { } recording
+            && Flag(root, "sendForActions") is { } send
+            && root.TryGetProperty("minutes", out var m)
+            && m.ValueKind == JsonValueKind.Number
+            && m.TryGetInt32(out var minutes))
+        {
+            return new ClipSettingsReport(on, recording, minutes, send);
+        }
+
+        return null;
+    }
+
+    private static bool? Flag(JsonElement root, string name)
+        => root.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.True or JsonValueKind.False
+            ? value.GetBoolean()
+            : null;
 
     private static bool ParseChange(JsonElement root, out Change? change, out string? error)
     {
