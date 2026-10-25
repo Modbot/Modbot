@@ -69,6 +69,12 @@ public static class CompanionApi
         services.AddSingleton<ClipSettingsReports>();
         services.AddSingleton<Live.CompanionConnections>();
         services.AddScoped<Modbot.Api.Features.AutomaticRoles.ModeratorFactsGatherer>();
+
+        // Automatic roles: the job that gives and takes the roles, woken by what the companions report.
+        services.AddSingleton<Modbot.Api.Features.AutomaticRoles.AutomaticRoleSignal>();
+        services.AddScoped<Modbot.Core.AutomaticRoles.AutomaticRoleGrantStore>();
+        services.AddScoped<Modbot.Api.Features.AutomaticRoles.AutomaticRoleGiver>();
+        services.AddHostedService<Modbot.Api.Features.AutomaticRoles.AutomaticRoleGiverService>();
         services.AddSingleton<AlertHub>();
         services.AddSingleton<HeadsUpSignal>();
         services.AddScoped<DeviceAuthenticator>();

@@ -18,6 +18,9 @@ public static class AutomaticRoleReasons
 
     /// <summary>No rule that gives the role is for this person any more.</summary>
     public const string NoLongerOnTheList = "No longer on the rule's list";
+
+    /// <summary>The account was turned off or deleted, so no rule is for it any more.</summary>
+    public const string AccountTurnedOff = "Account turned off";
 }
 
 /// <summary>Whether a moderator meets a rule: holds, or the first condition that does not.</summary>

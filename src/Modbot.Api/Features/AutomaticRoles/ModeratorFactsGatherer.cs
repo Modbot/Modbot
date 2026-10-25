@@ -163,7 +163,7 @@ public sealed class ModeratorFactsGatherer
     private static int LongestDays(AutomaticRole rule)
         => Math.Max(rule.OverturnedBansDays ?? 0, rule.MissedClipsDays ?? 0);
 
-    private async Task<Dictionary<string, List<string>>> DiscordRolesAsync(
+    internal async Task<Dictionary<string, List<string>>> DiscordRolesAsync(
         string? guildId, IEnumerable<string> discordIds, CancellationToken ct)
     {
         var ids = discordIds.Distinct(StringComparer.Ordinal).ToList();
@@ -178,7 +178,7 @@ public sealed class ModeratorFactsGatherer
         return members.ToDictionary(m => m.UserId, m => RoleList(m.Roles), StringComparer.Ordinal);
     }
 
-    private async Task<Dictionary<string, List<string>>> VRChatRolesAsync(
+    internal async Task<Dictionary<string, List<string>>> VRChatRolesAsync(
         string? groupId, IReadOnlyCollection<string> vrchatIds, CancellationToken ct)
     {
         if (groupId is not { Length: > 0 } || vrchatIds.Count == 0)
