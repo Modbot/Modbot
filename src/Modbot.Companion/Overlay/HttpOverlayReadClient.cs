@@ -63,6 +63,9 @@ public interface IOverlayReadClient
 /// own instance and the client has been reporting presence for it — and the poll adds the cursor
 /// of the last event received. The profile read names one VRChat user the moderator chose to look
 /// up.</para>
+/// <para><strong>Clips settings.</strong> The live poll also carries four values, the Clips switches
+/// and the length (<see cref="Modbot.Shared.Clips.ClipSettingsReport"/>), so the server knows whether
+/// this device can send a clip for its owner's actions. No file, name or folder.</para>
 /// <para><strong>What it does not send.</strong> Nothing about the moderator's machine, nothing
 /// from the log, and nothing about instances belonging to any other group. A pairing sees exactly
 /// one group's context.</para>
@@ -83,11 +86,13 @@ public sealed class HttpOverlayReadClient : IOverlayReadClient
 
     private readonly HttpClient _http;
     private readonly IModbotClock _clock;
+    private readonly ClipSettingsFeed? _clips;
 
-    public HttpOverlayReadClient(HttpClient http, IModbotClock clock)
+    public HttpOverlayReadClient(HttpClient http, IModbotClock clock, ClipSettingsFeed? clips = null)
     {
         _http = http;
         _clock = clock;
+        _clips = clips;
     }
 
     public async Task<ReadResult<InstanceContext>> GetContextAsync(
@@ -130,7 +135,7 @@ public sealed class HttpOverlayReadClient : IOverlayReadClient
         string? after,
         int waitSeconds,
         CancellationToken cancellationToken)
-        => GetAsync<LivePollPage>(pairing, pairing.LivePollEndpoint(instanceId, after, waitSeconds, worldId), cancellationToken);
+        => GetAsync<LivePollPage>(pairing, pairing.LivePollEndpoint(instanceId, after, waitSeconds, worldId, _clips?.Current), cancellationToken);
 
     private async Task<ReadResult<T>> GetAsync<T>(ServerPairing pairing, Uri endpoint, CancellationToken cancellationToken)
     {

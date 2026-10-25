@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.WebSockets;
 using System.Text.Json;
 using Modbot.Companion.Ingest;
+using Modbot.Shared.Clips;
 
 namespace Modbot.Companion.Overlay;
 
@@ -45,7 +46,8 @@ public interface ILiveSocketFactory
 /// with the device token as a bearer header, naming the instance the moderator is standing in (its
 /// world and its number) and the cursor of the last event received -- which that server already knows, because it is the
 /// group's own instance and this client has been reporting presence for it. Afterwards the only
-/// thing sent is the instance (world and number) the moderator walked into, when they change instances, and nothing else:
+/// things sent are the instance (world and number) the moderator walked into, when they change instances, and the four Clips
+/// settings (<see cref="ClipSettingsReport"/>), once on connecting and again when one changes, and nothing else:
 /// no log lines, nothing about the machine, nothing about instances belonging to any other
 /// group.</para>
 /// <para><strong>What comes back is data to display</strong> -- who joined or left the instance --
@@ -57,6 +59,10 @@ public interface ILiveSocketFactory
 /// </remarks>
 public sealed class ClientLiveSocketFactory : ILiveSocketFactory
 {
+    private readonly ClipSettingsFeed? _clips;
+
+    public ClientLiveSocketFactory(ClipSettingsFeed? clips = null) => _clips = clips;
+
     /// <summary>How long a connect may take before it counts as unreachable.</summary>
     public static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(15);
 
@@ -80,7 +86,7 @@ public sealed class ClientLiveSocketFactory : ILiveSocketFactory
         try
         {
             await socket.ConnectAsync(pairing.LiveSocketEndpoint(instanceId, after, worldId), timeout.Token).ConfigureAwait(false);
-            return new LiveConnect(LiveConnectOutcome.Connected, new ClientLiveSocket(socket));
+            return new LiveConnect(LiveConnectOutcome.Connected, new ClientLiveSocket(socket, _clips));
         }
         catch (WebSocketException) when (socket.HttpStatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
         {
@@ -102,7 +108,53 @@ public sealed class ClientLiveSocketFactory : ILiveSocketFactory
         private readonly ClientWebSocket _socket;
         private readonly byte[] _buffer = new byte[16 * 1024];
 
-        public ClientLiveSocket(ClientWebSocket socket) => _socket = socket;
+        // One send at a time: the instance and the Clips settings are sent from different threads.
+        private readonly SemaphoreSlim _sending = new(1, 1);
+        private readonly ClipSettingsFeed? _clips;
+
+        public ClientLiveSocket(ClientWebSocket socket, ClipSettingsFeed? clips)
+        {
+            _socket = socket;
+            _clips = clips;
+
+            if (clips is null)
+                return;
+
+            clips.Changed += SendClips;
+
+            if (clips.Current is { } current)
+                SendClips(current);
+        }
+
+        /// <summary>Tells the server the Clips settings. Fire and forget: a failed send is the connection closing.</summary>
+        private void SendClips(ClipSettingsReport report)
+            => _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var bytes = JsonSerializer.SerializeToUtf8Bytes(
+                        new { op = ClipSettingsReport.Op, on = report.On, recording = report.Recording, minutes = report.Minutes, sendForActions = report.SendForActions },
+                        Json);
+                    await SendAsync(bytes, CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception e) when (e is WebSocketException or ObjectDisposedException or InvalidOperationException or IOException)
+                {
+                }
+            });
+
+        private async Task SendAsync(byte[] bytes, CancellationToken cancellationToken)
+        {
+            await _sending.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                await _socket.SendAsync(bytes, WebSocketMessageType.Text, endOfMessage: true, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                _sending.Release();
+            }
+        }
 
         public async Task<LiveSocketMessage?> ReceiveAsync(CancellationToken cancellationToken)
         {
@@ -148,7 +200,7 @@ public sealed class ClientLiveSocketFactory : ILiveSocketFactory
         public Task SubscribeAsync(string instanceId, string? worldId, CancellationToken cancellationToken)
         {
             var bytes = JsonSerializer.SerializeToUtf8Bytes(new { op = "subscribe", instanceId, worldId }, Json);
-            return _socket.SendAsync(bytes, WebSocketMessageType.Text, endOfMessage: true, cancellationToken);
+            return SendAsync(bytes, cancellationToken);
         }
 
         public async Task CloseAsync()
@@ -168,7 +220,14 @@ public sealed class ClientLiveSocketFactory : ILiveSocketFactory
             }
         }
 
-        public void Dispose() => _socket.Dispose();
+        public void Dispose()
+        {
+            if (_clips is not null)
+                _clips.Changed -= SendClips;
+
+            _socket.Dispose();
+            _sending.Dispose();
+        }
 
         /// <summary>A message the client does not understand is skipped, never fatal.</summary>
         private static LiveSocketMessage? Parse(byte[] bytes)

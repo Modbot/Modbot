@@ -1,4 +1,5 @@
 using Modbot.Companion.Pairing;
+using Modbot.Shared.Clips;
 
 namespace Modbot.Companion.Ingest;
 
@@ -155,9 +156,19 @@ public sealed record ServerPairing
         return builder.Uri;
     }
 
-    /// <summary>The same updates by long polling, the backup for the WebSocket.</summary>
-    public Uri LivePollEndpoint(string instanceId, string? after, int waitSeconds, string? worldId = null)
-        => new(BaseUri, $"/api/v{ApiVersion}/companion/poll?{Query(instanceId, worldId, after)}&wait={waitSeconds}");
+    /// <summary>
+    /// The same updates by long polling, the backup for the WebSocket. With <paramref name="clips"/>
+    /// the poll also tells the server the Clips settings, the way the socket does.
+    /// </summary>
+    public Uri LivePollEndpoint(string instanceId, string? after, int waitSeconds, string? worldId = null, ClipSettingsReport? clips = null)
+        => new(BaseUri, $"/api/v{ApiVersion}/companion/poll?{Query(instanceId, worldId, after)}&wait={waitSeconds}" + ClipsQuery(clips));
+
+    private static string ClipsQuery(ClipSettingsReport? clips)
+        => clips is null
+            ? ""
+            : $"&clipsOn={Bool(clips.On)}&clipsRecording={Bool(clips.Recording)}&clipsMinutes={clips.Minutes}&clipsSendForActions={Bool(clips.SendForActions)}";
+
+    private static string Bool(bool value) => value ? "true" : "false";
 
     private static string Address(string instanceId, string? worldId)
         => $"instanceId={Uri.EscapeDataString(instanceId)}"

@@ -23,6 +23,7 @@ using Modbot.Companion.App.Voice;
 using Modbot.Core;
 using Modbot.Core.Time;
 using Modbot.Overlay;
+using Modbot.Shared.Clips;
 using Modbot.Overlay.Driving;
 using Modbot.Overlay.Interaction;
 using Modbot.Overlay.OpenVr;
@@ -281,6 +282,9 @@ internal sealed partial class CompanionHost : IOverlayListener
     private readonly HashSet<string> _tokenRejectionsSpoken = new(StringComparer.Ordinal);
 
     private readonly IModbotClock _clock = new SystemModbotClock();
+
+    /// <summary>The Clips settings the live connection tells the server, set at the end of every clips turn.</summary>
+    private readonly ClipSettingsFeed _clipSettingsFeed = new();
     private readonly DispatcherTimer _refresh = new() { Interval = TimeSpan.FromSeconds(1) };
 
     /// <summary>
@@ -1088,6 +1092,9 @@ internal sealed partial class CompanionHost : IOverlayListener
             _recorder?.LastSaved ?? _clipsLastSaved,
             _recorder?.LastProblem ?? _clipsProblem,
             ScreenRecording.Supported);
+
+        _clipSettingsFeed.Set(new ClipSettingsReport(
+            settings.On, wanted == ClipRecordingState.Recording, settings.Minutes, settings.SendForActions));
 
         // What the overlay's Save a clip control shows. Worked out here rather than in the overlay
         // because this is the half that owns the recorder; the panel is only told the answer.
@@ -2480,10 +2487,10 @@ internal sealed partial class CompanionHost : IOverlayListener
         // knows nor cares.
         _overlay = new OverlayDriver(
             new OverlayScreens(() => _overlayHost, () => _desktopOverlay),
-            new HttpOverlayReadClient(_http!, _clock),
+            new HttpOverlayReadClient(_http!, _clock, _clipSettingsFeed),
             _clock,
             listener: this,
-            sockets: new ClientLiveSocketFactory(),
+            sockets: new ClientLiveSocketFactory(_clipSettingsFeed),
             popUps: _popUps,
 
             // Heads-ups go out only when Place or Clear is pressed on a panel.

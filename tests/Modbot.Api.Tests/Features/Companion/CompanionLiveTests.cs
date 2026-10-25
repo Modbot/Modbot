@@ -8,6 +8,7 @@ using Modbot.Api.Features.Companion.Alerts;
 using Modbot.Api.Features.Events;
 using Modbot.Api.Features.Live.Stream;
 using Modbot.Core.Data.Entities;
+using Modbot.Shared.Clips;
 using Modbot.TestSupport;
 
 namespace Modbot.Api.Tests.Features.Companion;
@@ -301,6 +302,50 @@ public class CompanionLiveTests
         var @event = await NextEventAsync(socket);
         Assert.Equal(moved.ToString(System.Globalization.CultureInfo.InvariantCulture), @event.GetProperty("id").GetString());
         Assert.True(host.Services.GetRequiredService<DeviceLocations>().IsIn(deviceId, "85019", host.Clock.UtcNow));
+    }
+
+    [Fact]
+    public async Task TheClipsOp_IsKeptAsTheDevicesReport()
+    {
+        var (host, token) = await ReadyAsync();
+        await using var keep = host;
+        var deviceId = await DeviceIdAsync(host);
+
+        using var socket = await ConnectAsync(host, token);
+        await NextOfKindAsync(socket, "hello");
+
+        await socket.SendAsync(
+            JsonSerializer.SerializeToUtf8Bytes(new { op = "clips", on = true, recording = true, minutes = 10, sendForActions = true }),
+            WebSocketMessageType.Text, true, Ct);
+
+        var reports = host.Services.GetRequiredService<ClipSettingsReports>();
+
+        for (var attempt = 0; attempt < 50 && reports.For(deviceId) is null; attempt++)
+            await Task.Delay(100, Ct);
+
+        Assert.Equal(new ClipSettingsReport(true, true, 10, true), reports.For(deviceId));
+        Assert.True(reports.IsReady([deviceId]));
+    }
+
+    [Fact]
+    public async Task ThePollQuery_IsKeptAsTheDevicesReport_OnlyWhenAllFourAreThere()
+    {
+        var (host, token) = await ReadyAsync();
+        await using var keep = host;
+        var deviceId = await DeviceIdAsync(host);
+        var reports = host.Services.GetRequiredService<ClipSettingsReports>();
+
+        await host.Client.SendAsync(
+            host.WithToken(HttpMethod.Get, $"/api/v1/companion/poll?instanceId={Instance}&wait=0&clipsOn=true&clipsRecording=true", token), Ct);
+        Assert.Null(reports.For(deviceId));
+
+        await host.Client.SendAsync(
+            host.WithToken(
+                HttpMethod.Get,
+                $"/api/v1/companion/poll?instanceId={Instance}&wait=0&clipsOn=true&clipsRecording=false&clipsMinutes=5&clipsSendForActions=true",
+                token),
+            Ct);
+        Assert.Equal(new ClipSettingsReport(true, false, 5, true), reports.For(deviceId));
     }
 
     [Fact]
