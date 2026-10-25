@@ -177,6 +177,19 @@ public sealed class EvidenceAttachments
     }
 
     /// <summary>
+    /// Marks a stored file as a captured clip without putting it on a case file: a clip kept on its
+    /// request, for a kick or a warning, which have no case file.
+    /// </summary>
+    public async Task KeepAsClipAsync(CommitResult committed, SavedClip clip, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(committed);
+        ArgumentNullException.ThrowIfNull(clip);
+
+        await MarkAsClipAsync(committed.Hash.Hex, clip, ct);
+        await _db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
     /// Marks the file's own record as this saved clip — captured, and where, when and by whose
     /// device — for the caller's next save. Once: a file already marked keeps what it was first
     /// marked with.

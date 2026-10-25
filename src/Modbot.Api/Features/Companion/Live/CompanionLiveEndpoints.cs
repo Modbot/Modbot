@@ -1,11 +1,14 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Features.Companion.Alerts;
+using Modbot.Api.Features.Companion.ClipRequests;
 using Modbot.Api.Features.Companion.Devices;
 using Modbot.Api.Features.Companion.HeadsUps;
 using Modbot.Api.Features.Events;
 using Modbot.Api.Features.Live.Stream;
 using Modbot.Core.Data;
+using Modbot.Core.Data.Entities;
+using Modbot.Shared.Clips;
 using Modbot.Core.Time;
 using Modbot.Core.Users;
 
@@ -45,6 +48,7 @@ public static class CompanionLiveEndpoints
         DeviceAuthenticator authenticator,
         DeviceLocations locations,
         HeadsUpSignal headsUps,
+        ClipRequestSignal clipRequests,
         EventSocketOptions options,
         IModbotClock clock,
         CancellationToken ct)
@@ -90,7 +94,11 @@ public static class CompanionLiveEndpoints
             // Heads-ups are not facts, so the stream would never carry them. A change to the ones
             // where this device stands is a nudge to read its roster again; the long poll has
             // none, and its companion finds them at its next roster read instead.
-            new LiveNudge("heads_ups", () => headsUps.VersionOf(device.Id), () => headsUps.NextAsync(device.Id)));
+            new LiveNudge("heads_ups", () => headsUps.VersionOf(device.Id), () => headsUps.NextAsync(device.Id)),
+
+            // A clip request is sent once on this connection; the set remembers which. A request the
+            // companion asked for by poll earlier arrives here again and is the same request.
+            ClipRequestDelivery(device.Id, clipRequests, clock, sendOnce: true));
 
         return Results.Empty;
     }
@@ -105,6 +113,7 @@ public static class CompanionLiveEndpoints
         HttpContext context,
         DeviceAuthenticator authenticator,
         DeviceLocations locations,
+        ClipRequestSignal clipRequests,
         ModbotContext database,
         IModbotClock clock,
         CancellationToken ct)
@@ -131,8 +140,44 @@ public static class CompanionLiveEndpoints
             $"live:device:{device.Id}",
             after,
             wait,
-            limit: null);
+            limit: null,
+            delivery: ClipRequestDelivery(device.Id, clipRequests, clock, sendOnce: false));
     }
+
+    /// <summary>
+    /// The device's open clip requests, from the database each time (one place decides what a device
+    /// is sent). A socket sends each request once; a poll lists all that are still open.
+    /// </summary>
+    private static LiveDelivery ClipRequestDelivery(Guid deviceId, ClipRequestSignal signal, IModbotClock clock, bool sendOnce)
+    {
+        var sent = new HashSet<Guid>();
+
+        return new LiveDelivery(
+            () => signal.VersionOf(deviceId),
+            () => signal.NextAsync(deviceId),
+            async (services, ct) =>
+            {
+                var open = await services.GetRequiredService<ClipRequestStore>().PendingForAsync(deviceId, clock.UtcNow, ct);
+
+                return open
+                    .Where(r => !sendOnce || sent.Add(r.Id))
+                    .Select(r => new ClipRequestMessage(
+                        ClipRequestWire.Kind,
+                        r.Id,
+                        ActionWord(r.Action),
+                        r.ActionAt,
+                        r.RequestedAt!.Value + ClipRequest.AnswerWindow))
+                    .ToList();
+            });
+    }
+
+    private static string ActionWord(ClipAction action) => action switch
+    {
+        ClipAction.Ban => ClipRequestWire.Ban,
+        ClipAction.Kick => ClipRequestWire.Kick,
+        ClipAction.Warning => ClipRequestWire.Warning,
+        _ => throw new ArgumentOutOfRangeException(nameof(action), action, null),
+    };
 
     /// <summary>
     /// The same check the authenticator makes (<see cref="DeviceStanding"/>): a revoked device, an

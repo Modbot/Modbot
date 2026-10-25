@@ -284,6 +284,36 @@ public static class CompanionApi
             .Produces<CompanionError>(StatusCodes.Status404NotFound)
             .AllowAnonymous();
 
+        // Clip requests (2026-10-24): the server asks for a clip down the live connection or the
+        // long poll, and the companion answers once, with the file or with a word. A wrong device, a
+        // wrong id, an answer already taken and a request past its 15 minutes are all the same 404.
+        companion.MapPost("/clip-requests/{requestId:guid}/clip", ClipRequestEndpoints.UploadAsync)
+            .WithName("UploadClientClip")
+            .WithSummary("Send the clip for a request")
+            .WithDescription(
+                "The clip as the raw request body, for a request this device was asked. Accepted once, "
+                + "inside 15 minutes of the request; a ban's clip goes on the ban's case file. Refused "
+                + "with 413 over the evidence size limit and 415 for a file that is not a video.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces<CompanionError>(StatusCodes.Status401Unauthorized)
+            .Produces<CompanionError>(StatusCodes.Status404NotFound)
+            .Produces<CompanionError>(StatusCodes.Status413PayloadTooLarge)
+            .Produces<CompanionError>(StatusCodes.Status415UnsupportedMediaType)
+            .Produces<CompanionError>(StatusCodes.Status503ServiceUnavailable)
+            .AllowAnonymous();
+
+        companion.MapPost("/clip-requests/{requestId:guid}/answer", ClipRequestEndpoints.AnswerAsync)
+            .WithName("AnswerClientClipRequest")
+            .WithSummary("Answer a clip request without a file")
+            .WithDescription(
+                "`outcome` is `clips_off`, `could_not_cut` or `upload_failed`. Accepted once, from the "
+                + "device that was asked, inside 15 minutes of the request.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces<CompanionError>(StatusCodes.Status400BadRequest)
+            .Produces<CompanionError>(StatusCodes.Status401Unauthorized)
+            .Produces<CompanionError>(StatusCodes.Status404NotFound)
+            .AllowAnonymous();
+
         // The companion's own Unpair. A companion built before this gets a 404 here, and one
         // talking to a server built before this gets the same; both still remove the pairing on
         // their own side, which is all an unpair ever did before.
@@ -321,6 +351,7 @@ public static class CompanionApi
         ICompanionDeviceStore devices,
         AlertHub alerts,
         HeadsUpSignal headsUps,
+        ClipRequestSignal clipRequests,
         IModbotClock clock,
         CancellationToken ct)
     {
@@ -335,6 +366,7 @@ public static class CompanionApi
         await devices.RevokeAsync(device.Id, clock.UtcNow, ct);
         alerts.Forget(device.Id);
         headsUps.Forget(device.Id);
+        clipRequests.Forget(device.Id);
 
         return Results.NoContent();
     }
