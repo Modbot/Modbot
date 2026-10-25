@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -6,7 +7,9 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
 using Modbot.Api.Conventions;
+using Modbot.Api.Features.AutomaticRoles;
 using Modbot.Api.Features.Evidence;
+using Modbot.Core.AutomaticRoles;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
@@ -69,6 +72,36 @@ public sealed record AutomaticRoleInput(
     IReadOnlyList<Guid>? TakeBackUserIds);
 
 public sealed record AutomaticRoleList(IReadOnlyList<AutomaticRoleView> Rules);
+
+/// <summary>Who put a role on someone, as far as Modbot can tell.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<AutomaticRoleGiven>))]
+public enum AutomaticRoleGiven
+{
+    /// <summary>The person holds the role and Modbot has an open grant for it.</summary>
+    ByModbot,
+
+    /// <summary>The person holds the role and Modbot has no open grant for it.</summary>
+    ByHand,
+
+    /// <summary>The person does not hold the role.</summary>
+    NotHeld,
+}
+
+/// <summary>One Modbot account and one of the roles a rule gives.</summary>
+/// <param name="Platform">VRChat or Discord.</param>
+/// <param name="RoleName">The role's name, or its id when the name is not known.</param>
+/// <param name="RuleMet">Every condition of the rule is met for this account.</param>
+/// <param name="FailedReason">When not met, the first condition that fails, in the audit log's plain words.</param>
+public sealed record AutomaticRoleHolder(
+    Guid UserId,
+    string Username,
+    string Platform,
+    string RoleName,
+    AutomaticRoleGiven Given,
+    bool RuleMet,
+    string? FailedReason);
+
+public sealed record AutomaticRoleHolderList(IReadOnlyList<AutomaticRoleHolder> Holders);
 
 /// <summary>
 /// What makes an automatic role rule acceptable. No database: whether the group has evidence
@@ -191,7 +224,7 @@ public static class AutomaticRoleRules
 /// <summary>
 /// Settings → Automatic roles: the rules, listed, added, changed and deleted. A rule gives a VRChat
 /// role, a Discord role, or one of each, while every condition it switches on holds. This stores the
-/// rules only; nothing here checks a condition or gives a role.
+/// rules and lists who holds a rule's role; it never gives or takes a role.
 /// </summary>
 public static class AutomaticRoleSettingsEndpoints
 {
@@ -313,6 +346,77 @@ public static class AutomaticRoleSettingsEndpoints
             .WithSummary("Delete automatic role")
             .WithDescription("Delete a rule.")
             .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status403Forbidden);
+
+        group.MapGet("/{id:guid}/holders", async (
+                [FromRoute] Guid id,
+                [FromServices] ModbotContext db,
+                [FromServices] ModeratorFactsGatherer gatherer,
+                CancellationToken ct) =>
+            {
+                var rule = await db.AutomaticRoles.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id, ct);
+                if (rule is null)
+                    return Problems.Of(StatusCodes.Status404NotFound, "No such automatic role.");
+
+                var facts = await gatherer.GatherAsync([rule], null, ct);
+                var userIds = facts.Select(f => f.UserId).ToList();
+
+                var usernames = await db.Users.AsNoTracking()
+                    .Where(u => userIds.Contains(u.Id))
+                    .ToDictionaryAsync(u => u.Id, u => u.Username, ct);
+
+                var open = (await db.AutomaticRoleGrants.AsNoTracking()
+                    .Where(g => g.TakenAt == null && userIds.Contains(g.ModbotUserId))
+                    .Select(g => new { g.ModbotUserId, g.Kind, g.RoleId })
+                    .ToListAsync(ct))
+                    .Select(g => (g.ModbotUserId, g.Kind, g.RoleId))
+                    .ToHashSet();
+
+                var names = await AutomaticRoleNames.ReadAsync(db, [rule], ct);
+
+                var holders = new List<AutomaticRoleHolder>();
+                foreach (var f in facts)
+                {
+                    var failed = AutomaticRoleRule.Explain(rule, f).FirstOrDefault(c => !c.Met);
+                    var applies = AutomaticRoleRule.AppliesTo(rule, f);
+                    var username = usernames.GetValueOrDefault(f.UserId, string.Empty);
+
+                    void Add(AutomaticRoleKind kind, AutomaticRoleName? role, IReadOnlyCollection<string> held)
+                    {
+                        if (role is null)
+                            return;
+
+                        var holds = held.Contains(role.Id);
+                        if (!holds && !applies)
+                            return;
+
+                        var given = !holds
+                            ? AutomaticRoleGiven.NotHeld
+                            : open.Contains((f.UserId, kind, role.Id)) ? AutomaticRoleGiven.ByModbot : AutomaticRoleGiven.ByHand;
+
+                        holders.Add(new AutomaticRoleHolder(
+                            f.UserId, username, kind.ToString(), role.Name, given, failed is null, failed?.Reason));
+                    }
+
+                    Add(AutomaticRoleKind.VRChat, names.VRChat(rule.VRChatRoleId), f.VRChatRoleIds);
+                    Add(AutomaticRoleKind.Discord, names.Discord(rule.DiscordRoleId), f.DiscordRoleIds);
+                }
+
+                return Results.Ok(new AutomaticRoleHolderList([.. holders
+                    .OrderBy(h => h.Given)
+                    .ThenBy(h => h.Platform, StringComparer.Ordinal)
+                    .ThenBy(h => h.Username, StringComparer.OrdinalIgnoreCase)]));
+            })
+            .WithName("ListAutomaticRoleHolders")
+            .WithSummary("List who holds an automatic role")
+            .WithDescription(
+                "Modbot accounts that hold the rule's role in Modbot's copy of the group and server members, "
+                + "and accounts the rule applies to that do not hold it. A rule that gives both a VRChat and a "
+                + "Discord role lists each account once per role. `given` says whether Modbot has an open grant "
+                + "for the role (`byModbot`), not (`byHand`), or the account does not hold it (`notHeld`). "
+                + "`ruleMet` and `failedReason` say where the account stands on the rule's conditions.")
+            .Produces<AutomaticRoleHolderList>()
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status403Forbidden);
 

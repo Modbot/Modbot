@@ -525,6 +525,46 @@
         ]
       }
     },
+    "/api/me/automatic-roles": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Get my automatic roles",
+        "description": "The automatic role rules that apply to the signed-in account: the whole moderator team, or the Discord or VRChat roles the rule names. Each lists whether the account holds the role now and, for every condition the rule switches on, whether it is met and the numbers behind it. Empty when no rule applies.",
+        "operationId": "GetMyAutomaticRoles",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyAutomaticRoleList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/supporters/kofi": {
       "post": {
         "tags": [
@@ -14805,6 +14845,77 @@
         "responses": {
           "204": {
             "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/automatic-roles/{id}/holders": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "List who holds an automatic role",
+        "description": "Modbot accounts that hold the rule's role in Modbot's copy of the group and server members, and accounts the rule applies to that do not hold it. A rule that gives both a VRChat and a Discord role lists each account once per role. `given` says whether Modbot has an open grant for the role (`byModbot`), not (`byHand`), or the account does not hold it (`notHeld`). `ruleMet` and `failedReason` say where the account stands on the rule's conditions.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "ListAutomaticRoleHolders",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutomaticRoleHolderList"
+                }
+              }
+            }
           },
           "404": {
             "description": "Not Found",
@@ -44631,6 +44742,66 @@
           }
         }
       },
+      "AutomaticRoleGiven": {
+        "enum": [
+          "ByModbot",
+          "ByHand",
+          "NotHeld"
+        ]
+      },
+      "AutomaticRoleHolder": {
+        "required": [
+          "userId",
+          "username",
+          "platform",
+          "roleName",
+          "given",
+          "ruleMet",
+          "failedReason"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "roleName": {
+            "type": "string"
+          },
+          "given": {
+            "$ref": "#/components/schemas/AutomaticRoleGiven"
+          },
+          "ruleMet": {
+            "type": "boolean"
+          },
+          "failedReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "AutomaticRoleHolderList": {
+        "required": [
+          "holders"
+        ],
+        "type": "object",
+        "properties": {
+          "holders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AutomaticRoleHolder"
+            }
+          }
+        }
+      },
       "AutomaticRoleInput": {
         "required": [
           "name",
@@ -62844,6 +63015,72 @@
           }
         }
       },
+      "MyAutomaticRole": {
+        "required": [
+          "id",
+          "name",
+          "vrChatRole",
+          "discordRole",
+          "met",
+          "conditions"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "vrChatRole": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MyRoleStanding"
+              }
+            ]
+          },
+          "discordRole": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MyRoleStanding"
+              }
+            ]
+          },
+          "met": {
+            "type": "boolean"
+          },
+          "conditions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuleCondition"
+            }
+          }
+        }
+      },
+      "MyAutomaticRoleList": {
+        "required": [
+          "rules"
+        ],
+        "type": "object",
+        "properties": {
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MyAutomaticRole"
+            }
+          }
+        }
+      },
       "MyAvailabilityRequest": {
         "required": [
           "timeZone",
@@ -62894,6 +63131,25 @@
               "string"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "MyRoleStanding": {
+        "required": [
+          "id",
+          "name",
+          "held"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "held": {
+            "type": "boolean"
           }
         }
       },
@@ -67749,6 +68005,52 @@
             "items": {
               "$ref": "#/components/schemas/PermissionInfo"
             }
+          }
+        }
+      },
+      "RuleCondition": {
+        "required": [
+          "label",
+          "met",
+          "reason",
+          "count",
+          "max",
+          "days"
+        ],
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "met": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "count": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "max": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "days": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },

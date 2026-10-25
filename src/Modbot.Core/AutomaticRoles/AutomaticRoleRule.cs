@@ -33,6 +33,15 @@ public readonly record struct RoleCheck(bool Holds, string? Reason)
     public static RoleCheck Failed(string reason) => new(false, reason);
 }
 
+/// <summary>One condition of a rule and how a moderator stands against it.</summary>
+/// <param name="Label">The condition's name in plain words.</param>
+/// <param name="Met">The moderator meets it.</param>
+/// <param name="Reason">When it is not met, the plain words the audit log uses. Null when it is met.</param>
+/// <param name="Count">For a condition that counts: how many there are in the look-back. Null when there is nothing to count, or a number on the rule is missing.</param>
+/// <param name="Max">For a condition that counts: the most the rule allows. Null when the rule has no number.</param>
+/// <param name="Days">For a condition that counts over days: the look-back. Null for the daily ban cap, which always looks back 24 hours, and when the rule has no number.</param>
+public sealed record RuleCondition(string Label, bool Met, string? Reason, int? Count, int? Max, int? Days);
+
 /// <summary>
 /// Whether a moderator should hold an automatic role right now. Pure: no database, no clock, no
 /// VRChat or Discord -- the caller gathers the <see cref="ModeratorFacts"/> and acts on the answer.
@@ -69,49 +78,75 @@ public static class AutomaticRoleRule
     /// <summary>Whether every condition the rule switches on holds for these facts, or the first that does not.</summary>
     public static RoleCheck Check(AutomaticRole rule, ModeratorFacts facts)
     {
+        // The answer is the first failing line of the explanation, so the two can never disagree.
+        var failed = Explain(rule, facts).FirstOrDefault(c => !c.Met);
+        return failed is null ? RoleCheck.Met : RoleCheck.Failed(failed.Reason!);
+    }
+
+    /// <summary>
+    /// Every condition the rule switches on, in the order <see cref="Check"/> goes through them, each
+    /// with whether it is met and the numbers behind it. Conditions that are switched off are not listed.
+    /// </summary>
+    public static IReadOnlyList<RuleCondition> Explain(AutomaticRole rule, ModeratorFacts facts)
+    {
         ArgumentNullException.ThrowIfNull(rule);
         ArgumentNullException.ThrowIfNull(facts);
 
-        if (rule.CompanionRunning && !facts.CompanionRunning)
-            return RoleCheck.Failed(AutomaticRoleReasons.CompanionNotRunning);
+        var conditions = new List<RuleCondition>();
 
-        if (rule.ClipsReady && !facts.ClipsReady)
-            return RoleCheck.Failed(AutomaticRoleReasons.ClipsTurnedOff);
+        if (rule.CompanionRunning)
+            conditions.Add(Simple("Companion running", facts.CompanionRunning, AutomaticRoleReasons.CompanionNotRunning));
 
-        if (rule.InGroupInstance && !facts.InGroupInstance)
-            return RoleCheck.Failed(AutomaticRoleReasons.NotInGroupInstance);
+        if (rule.ClipsReady)
+            conditions.Add(Simple("Clips ready", facts.ClipsReady, AutomaticRoleReasons.ClipsTurnedOff));
 
-        if (rule.MinimumLevel && !ReachesMinimumLevel(rule, facts))
-            return RoleCheck.Failed(AutomaticRoleReasons.MinimumLevelNotMet);
+        if (rule.InGroupInstance)
+            conditions.Add(Simple("In a group instance", facts.InGroupInstance, AutomaticRoleReasons.NotInGroupInstance));
+
+        if (rule.MinimumLevel)
+            conditions.Add(Simple("Minimum level", ReachesMinimumLevel(rule, facts), AutomaticRoleReasons.MinimumLevelNotMet));
 
         if (rule.OverturnedBans)
         {
-            if (rule.OverturnedBansMax is not { } max || rule.OverturnedBansDays is not { } days)
-                return RoleCheck.Failed(AutomaticRoleReasons.NumberMissing);
-
-            if (CountSince(facts.OverturnedDecidedAt, facts.Now - TimeSpan.FromDays(days)) > max)
-                return RoleCheck.Failed(AutomaticRoleReasons.TooManyOverturnedBans);
+            conditions.Add(Counted(
+                "Overturned bans", facts.OverturnedDecidedAt, rule.OverturnedBansMax, rule.OverturnedBansDays,
+                rule.OverturnedBansDays is { } days ? TimeSpan.FromDays(days) : null, facts.Now,
+                AutomaticRoleReasons.TooManyOverturnedBans));
         }
 
         if (rule.DailyBanCap)
         {
-            if (rule.DailyBanCapMax is not { } max)
-                return RoleCheck.Failed(AutomaticRoleReasons.NumberMissing);
-
-            if (CountSince(facts.BanTimes, facts.Now - DailyWindow) > max)
-                return RoleCheck.Failed(AutomaticRoleReasons.DailyBanCapReached);
+            conditions.Add(Counted(
+                "Daily ban cap", facts.BanTimes, rule.DailyBanCapMax, null, DailyWindow, facts.Now,
+                AutomaticRoleReasons.DailyBanCapReached));
         }
 
         if (rule.MissedClips)
         {
-            if (rule.MissedClipsMax is not { } max || rule.MissedClipsDays is not { } days)
-                return RoleCheck.Failed(AutomaticRoleReasons.NumberMissing);
-
-            if (CountSince(facts.MissedClipTimes, facts.Now - TimeSpan.FromDays(days)) > max)
-                return RoleCheck.Failed(AutomaticRoleReasons.TooManyMissedClips);
+            conditions.Add(Counted(
+                "Missed clips", facts.MissedClipTimes, rule.MissedClipsMax, rule.MissedClipsDays,
+                rule.MissedClipsDays is { } days ? TimeSpan.FromDays(days) : null, facts.Now,
+                AutomaticRoleReasons.TooManyMissedClips));
         }
 
-        return RoleCheck.Met;
+        return conditions;
+    }
+
+    private static RuleCondition Simple(string label, bool met, string failedReason)
+        => new(label, met, met ? null : failedReason, null, null, null);
+
+    // "At most N" allows N. A missing number or look-back never holds, and has no count to show.
+    private static RuleCondition Counted(
+        string label, IReadOnlyList<DateTimeOffset> times, int? max, int? days, TimeSpan? window,
+        DateTimeOffset now, string tooManyReason)
+    {
+        if (max is not { } limit || window is not { } lookBack)
+            return new RuleCondition(label, false, AutomaticRoleReasons.NumberMissing, null, max, days);
+
+        var count = CountSince(times, now - lookBack);
+        return count > limit
+            ? new RuleCondition(label, false, tooManyReason, count, limit, days)
+            : new RuleCondition(label, true, null, count, limit, days);
     }
 
     // The staff trial and the Discord staff role are each enough on their own; a rule that names

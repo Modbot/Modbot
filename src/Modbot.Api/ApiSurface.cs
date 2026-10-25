@@ -13,6 +13,7 @@ using Modbot.Api.Features.Auth.Logout;
 using Modbot.Api.Features.Auth.Me;
 using Modbot.Api.Features.Auth.VRChatLink;
 using Modbot.Api.Features.Analytics;
+using Modbot.Api.Features.AutomaticRoles;
 using Modbot.Api.Features.Audit;
 using Modbot.Api.Features.BlueskyProfile;
 using Modbot.Api.Features.Cases;
@@ -627,6 +628,7 @@ public static class ApiSurface
         // Which actions ask the moderator's companion for a clip.
         app.MapClipRequestSettings();
         app.MapAutomaticRoleSettings();
+        app.MapMyAutomaticRoles();
 
         // The ready-made messages staff can send a reporter when they close a report.
         app.MapReportReplySettings();
