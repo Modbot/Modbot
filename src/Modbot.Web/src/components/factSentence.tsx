@@ -2049,6 +2049,22 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  // A VRChat or Discord role an automatic role rule gave or took. The reason is the rule's own
+  // short phrase ("Companion not running"). A VRChat role has no name in the fact, only an id.
+  'modbot.automatic.role.give': (p) => (
+    <>
+      Modbot gave {p.subject} {named(p.text('roleName'), `${p.text('platform') ?? 'Discord'} role`)}
+      {p.text('ruleName') ? <> ({p.text('ruleName')})</> : null}.
+    </>
+  ),
+
+  'modbot.automatic.role.take': (p) => (
+    <>
+      Modbot took {named(p.text('roleName'), `${p.text('platform') ?? 'Discord'} role`)} from {p.subject}
+      {p.text('reason') ? <>: {p.text('reason')}</> : null}.
+    </>
+  ),
+
   // A Discord role a member picked on a role menu.
   'modbot.rolemenu.role.give': (p) => (
     <>

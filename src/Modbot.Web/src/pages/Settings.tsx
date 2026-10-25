@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { DataSection } from '@/components/settings/DataSection'
+import { AutomaticRolesSection } from '@/components/settings/automaticRoles/AutomaticRolesSection'
 import { EvidenceSection } from '@/components/settings/EvidenceSection'
 import { MemberProfilesSection } from '@/components/settings/MemberProfilesSection'
 import { IamSection } from '@/components/settings/iam/IamSection'
@@ -45,6 +46,7 @@ const TABS = [
   { value: 'moderation', label: 'Moderation', group: 'Your group', needs: ['ManageSettings'] },
   { value: 'automod', label: 'AutoMod', group: 'Your group', needs: ['ManageSettings'] },
   { value: 'auto-invites', label: 'Auto-invites', group: 'Your group', needs: ['ManageAutoInvites'] },
+  { value: 'automatic-roles', label: 'Automatic roles', group: 'Your group', needs: ['ManageSettings'] },
   { value: 'evidence', label: 'Evidence', group: 'Your group', needs: ['ManageSettings'] },
   { value: 'iam', label: 'People and roles', group: 'People', needs: ['ManageUsers', 'ManageRoles'] },
   { value: 'companions', label: 'Paired companions', group: 'People', needs: ['PairCompanion', 'ManageUsers'] },
@@ -294,6 +296,8 @@ function Panel({
       return <ModerationSection />
     case 'automod':
       return <AutoModSection />
+    case 'automatic-roles':
+      return <AutomaticRolesSection />
     case 'evidence':
       return <EvidenceSection />
     case 'ai':
