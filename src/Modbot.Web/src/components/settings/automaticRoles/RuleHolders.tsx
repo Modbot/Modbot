@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { ChevronRight } from 'lucide-react'
+import { Check, ChevronRight, X } from 'lucide-react'
 import { EmptyRow } from '@/components/PanelGrid'
+import { Badge } from '@/components/ui/badge'
 import { ApiError } from '@/lib/api'
 import { automaticRolesApi, type AutomaticRoleHolder } from '@/lib/automaticRoles'
-import { givenLabel } from '@/lib/automaticRoleStanding'
+import { conditionChipText, givenLabel } from '@/lib/automaticRoleStanding'
 
 /**
  * On a rule in Settings → Automatic roles: who holds the rule's role and who it applies to but
@@ -64,7 +65,26 @@ export function RuleHolders({ ruleId }: { ruleId: string }) {
                     <div className="text-muted-foreground">{holder.roleName}</div>
                   </td>
                   <td className="py-1 pr-3 whitespace-nowrap">{givenLabel(holder.given)}</td>
-                  <td className="py-1 break-words">{holder.ruleMet ? 'Met' : holder.failedReason}</td>
+                  <td className="py-1">
+                    {holder.conditions.length === 0 ? (
+                      'Met'
+                    ) : (
+                      <ul className="flex flex-wrap gap-1">
+                        {holder.conditions.map((condition) => (
+                          <li key={condition.label}>
+                            <Badge variant={condition.met ? 'ok' : 'warn'}>
+                              {condition.met ? (
+                                <Check aria-label="Met" />
+                              ) : (
+                                <X aria-label="Not met" />
+                              )}
+                              {conditionChipText(condition)}
+                            </Badge>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

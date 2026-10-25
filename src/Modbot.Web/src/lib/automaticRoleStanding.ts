@@ -17,6 +17,13 @@ export function conditionNumbers(condition: RuleCondition): string | null {
   return `${condition.count} of at most ${condition.max}${days}`
 }
 
+/** A condition as one short chip in the Holders list: the name, and "1/2" for a counted one. */
+export function conditionChipText(condition: RuleCondition): string {
+  const name = conditionName(condition)
+
+  return condition.count === null || condition.max === null ? name : `${name} ${condition.count}/${condition.max}`
+}
+
 const givenLabels: Record<AutomaticRoleGiven, string> = {
   ByModbot: 'By Modbot',
   ByHand: 'By hand',

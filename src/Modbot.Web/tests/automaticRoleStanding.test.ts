@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { conditionName, conditionNumbers, givenLabel } from '../src/lib/automaticRoleStanding.ts'
+import { conditionChipText, conditionName, conditionNumbers, givenLabel } from '../src/lib/automaticRoleStanding.ts'
 import type { RuleCondition } from '../src/lib/automaticRoles.ts'
 
 const condition = (fields: Partial<RuleCondition>): RuleCondition => ({
@@ -30,6 +30,12 @@ test('a yes-or-no condition and a missing number show no numbers', () => {
 test('missed clips go by the name the settings page uses', () => {
   assert.equal(conditionName(condition({ label: 'Missed clips' })), 'Missing clips')
   assert.equal(conditionName(condition({ label: 'Clips ready' })), 'Clips ready')
+})
+
+test('a holders chip is the name, with count and most allowed for a counted condition', () => {
+  assert.equal(conditionChipText(condition({ count: 1, max: 2, days: 30 })), 'Overturned bans 1/2')
+  assert.equal(conditionChipText(condition({ label: 'Missed clips', count: 0, max: 3, days: 7 })), 'Missing clips 0/3')
+  assert.equal(conditionChipText(condition({ label: 'Clips ready' })), 'Clips ready')
 })
 
 test('who gave a role is spelled out', () => {

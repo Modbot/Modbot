@@ -91,7 +91,7 @@ public enum AutomaticRoleGiven
 /// <param name="Platform">VRChat or Discord.</param>
 /// <param name="RoleName">The role's name, or its id when the name is not known.</param>
 /// <param name="RuleMet">Every condition of the rule is met for this account.</param>
-/// <param name="FailedReason">When not met, the first condition that fails, in the audit log's plain words.</param>
+/// <param name="Conditions">One line per condition the rule switches on, in the order the role giver checks them.</param>
 public sealed record AutomaticRoleHolder(
     Guid UserId,
     string Username,
@@ -99,7 +99,7 @@ public sealed record AutomaticRoleHolder(
     string RoleName,
     AutomaticRoleGiven Given,
     bool RuleMet,
-    string? FailedReason);
+    IReadOnlyList<RuleCondition> Conditions);
 
 public sealed record AutomaticRoleHolderList(IReadOnlyList<AutomaticRoleHolder> Holders);
 
@@ -378,7 +378,7 @@ public static class AutomaticRoleSettingsEndpoints
                 var holders = new List<AutomaticRoleHolder>();
                 foreach (var f in facts)
                 {
-                    var failed = AutomaticRoleRule.Explain(rule, f).FirstOrDefault(c => !c.Met);
+                    var conditions = AutomaticRoleRule.Explain(rule, f);
                     var applies = AutomaticRoleRule.AppliesTo(rule, f);
                     var username = usernames.GetValueOrDefault(f.UserId, string.Empty);
 
@@ -396,7 +396,7 @@ public static class AutomaticRoleSettingsEndpoints
                             : open.Contains((f.UserId, kind, role.Id)) ? AutomaticRoleGiven.ByModbot : AutomaticRoleGiven.ByHand;
 
                         holders.Add(new AutomaticRoleHolder(
-                            f.UserId, username, kind.ToString(), role.Name, given, failed is null, failed?.Reason));
+                            f.UserId, username, kind.ToString(), role.Name, given, conditions.All(c => c.Met), conditions));
                     }
 
                     Add(AutomaticRoleKind.VRChat, names.VRChat(rule.VRChatRoleId), f.VRChatRoleIds);
@@ -415,7 +415,8 @@ public static class AutomaticRoleSettingsEndpoints
                 + "and accounts the rule applies to that do not hold it. A rule that gives both a VRChat and a "
                 + "Discord role lists each account once per role. `given` says whether Modbot has an open grant "
                 + "for the role (`byModbot`), not (`byHand`), or the account does not hold it (`notHeld`). "
-                + "`ruleMet` and `failedReason` say where the account stands on the rule's conditions.")
+                + "`ruleMet` says whether every condition is met, and `conditions` lists each condition the rule "
+                + "switches on with whether it is met and the numbers behind it.")
             .Produces<AutomaticRoleHolderList>()
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status403Forbidden);

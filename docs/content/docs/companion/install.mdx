@@ -290,6 +290,10 @@ for up to three days) and go out when it is back.
 
 The client also talks to a paired server in these ways:
 
+- It keeps one small live connection open to each paired server the whole time it runs, with no
+  instance named. It carries your Clips settings and the server's clip requests, and it is how
+  Modbot knows your companion is open and paired.
+
 - It answers a [clip request](/companion/clips#clips-for-your-own-actions-sent-automatically) the
   server sent it, for one of your own bans, kicks or warnings, with a clip or with a word saying why
   there is none (always **Clips was off** unless you ticked **Send clips for my actions

@@ -127,6 +127,27 @@ public class ClipLinkTests
     }
 
     [Fact]
+    public async Task AWantedServerKeepsItsLinkOpenWithNothingToDo()
+    {
+        var clock = new FakeClock();
+        var sockets = new FakeSockets();
+        var socket = sockets.Accept();
+        using var links = new ClipLinks(sockets, new Reads(), clock);
+
+        links.Want([Pairing]);
+        await Connect(links);
+
+        for (var turn = 0; turn < 5; turn++)
+        {
+            clock.Advance(TimeSpan.FromMinutes(10));
+            await links.PumpAsync(Ct);
+        }
+
+        Assert.False(socket.Closed);
+        Assert.Equal("Live", links.Words["cats"]);
+    }
+
+    [Fact]
     public async Task TheSameRequestOnTheSocketAndInAPollIsRaisedOnce()
     {
         var clock = new FakeClock();

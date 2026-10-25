@@ -38,7 +38,7 @@ public enum LiveLinkState
 /// that comes back is a command.</para>
 /// <para><strong>Two kinds of link.</strong> The overlay's follows the instance the moderator is in
 /// and is closed when they are in none; it ignores clip requests. The clip link (<paramref name="clipsOnly"/>,
-/// built by <see cref="ClipLink"/>) names no instance, stays open while the switch is on, and keeps
+/// built by <see cref="ClipLink"/>) names no instance, stays open the whole time the companion runs, and keeps
 /// only the clip requests. Both use this one fallback and backoff.</para>
 /// <para><strong>The fallback rule.</strong> The socket is tried first. When it cannot connect,
 /// or drops, <see cref="DropsBeforePolling"/> times within <see cref="DropWindow"/>, the link

@@ -14893,7 +14893,7 @@
           "Settings"
         ],
         "summary": "List who holds an automatic role",
-        "description": "Modbot accounts that hold the rule's role in Modbot's copy of the group and server members, and accounts the rule applies to that do not hold it. A rule that gives both a VRChat and a Discord role lists each account once per role. `given` says whether Modbot has an open grant for the role (`byModbot`), not (`byHand`), or the account does not hold it (`notHeld`). `ruleMet` and `failedReason` say where the account stands on the rule's conditions.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Modbot accounts that hold the rule's role in Modbot's copy of the group and server members, and accounts the rule applies to that do not hold it. A rule that gives both a VRChat and a Discord role lists each account once per role. `given` says whether Modbot has an open grant for the role (`byModbot`), not (`byHand`), or the account does not hold it (`notHeld`). `ruleMet` says whether every condition is met, and `conditions` lists each condition the rule switches on with whether it is met and the numbers behind it.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "ListAutomaticRoleHolders",
         "parameters": [
           {
@@ -44757,7 +44757,7 @@
           "roleName",
           "given",
           "ruleMet",
-          "failedReason"
+          "conditions"
         ],
         "type": "object",
         "properties": {
@@ -44780,11 +44780,11 @@
           "ruleMet": {
             "type": "boolean"
           },
-          "failedReason": {
-            "type": [
-              "null",
-              "string"
-            ]
+          "conditions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuleCondition"
+            }
           }
         }
       },

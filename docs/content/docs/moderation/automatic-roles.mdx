@@ -61,7 +61,7 @@ has to meet every one that is on.
 
 | Condition | What it checks |
 |---|---|
-| **Companion running** | One of their paired [companions](/companion/install) has its live connection to Modbot open. |
+| **Companion running** | One of their paired [companions](/companion/install) is open and paired: it has its live connection to Modbot open, which it keeps the whole time it runs, in an instance or not and with Clips on or off. |
 | **Clips ready** | One of their paired companions has reported that Clips is switched on and set up to send clips with their actions. |
 | **In a group instance** | One of their paired companions is in an open instance of your group. |
 | **Minimum level** | They have **Passed the staff trial** (a staff trial that was closed), or hold the **Staff role** you pick (a Discord role), or either. Pick at least one; the person needs only one of them. |
@@ -93,7 +93,7 @@ person's name. People who hold the role but have no Modbot account are not liste
 |---|---|
 | **Person** | The Modbot account, and the role's name. |
 | **Given** | **By Modbot** when Modbot gave the role and has not taken it back. **By hand** when the person holds it and Modbot did not give it. **Not held** when the rule is for them and they do not hold it. |
-| **Rule** | **Met** when every condition holds for them, or the first one that does not, in the words of the [audit log](#the-audit-log). |
+| **Rule** | One chip for each condition the rule switches on, with a tick when they meet it and a cross when they do not. A condition that counts shows its numbers, such as **Missing clips 1/2**. **Met** when the rule switches nothing on. |
 
 The list needs the **Change settings** permission, like the rest of the page. It is read each time you
 open it, from Modbot's own copy of your group and server members.

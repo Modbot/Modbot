@@ -7,7 +7,8 @@ namespace Modbot.Companion.Overlay;
 /// <summary>
 /// One paired server's small live connection for clips (automatic clips, 2026-10-24): open whatever
 /// the panels are doing and whatever instance the moderator is in, so a ban made after they left the
-/// instance still reaches them.
+/// instance still reaches them. It stays open the whole time the companion runs, which is also how
+/// the server knows the companion is open and paired.
 /// </summary>
 /// <remarks>
 /// <para><strong>What this sends and receives.</strong> Nothing itself: it drives a <see cref="LiveLink"/>

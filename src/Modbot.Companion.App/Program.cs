@@ -1131,13 +1131,12 @@ internal sealed partial class CompanionHost : IOverlayListener
         _clipSettingsFeed.Set(new ClipSettingsReport(
             settings.On, wanted == ClipRecordingState.Recording, settings.Minutes, settings.SendForActions));
 
-        // While the switch is on, each live paired server gets its own link for clip requests, panel
-        // or no panel. Switching it off lets them go after a short grace (see ClipLinks.CloseDelay).
-        _clipLinks?.Want(settings.SendForActions
-            ? _state.Connections
-                .Where(c => !c.IsPaused && c.State is not (ConnectionState.Stopped or ConnectionState.NeedsRenegotiation))
-                .Select(c => c.Pairing)
-            : []);
+        // Each live paired server gets its own link the whole time the companion runs, panel or no
+        // panel, so the server sees it as open. A clip request on it is acted on only while the
+        // switch is on (see ClipSender).
+        _clipLinks?.Want(_state.Connections
+            .Where(c => !c.IsPaused && c.State is not (ConnectionState.Stopped or ConnectionState.NeedsRenegotiation))
+            .Select(c => c.Pairing));
 
         // What the overlay's Save a clip control shows. Worked out here rather than in the overlay
         // because this is the half that owns the recorder; the panel is only told the answer.

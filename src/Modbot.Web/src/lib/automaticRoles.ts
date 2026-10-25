@@ -68,7 +68,7 @@ export type AutomaticRoleHolder = {
   roleName: string
   given: AutomaticRoleGiven
   ruleMet: boolean
-  failedReason: string | null
+  conditions: RuleCondition[]
 }
 
 const base = '/api/settings/automatic-roles'

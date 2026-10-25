@@ -6,8 +6,9 @@ namespace Modbot.Companion.Overlay;
 
 /// <summary>
 /// The clip links of every paired server that should have one: opened when the pairing is wanted
-/// (the switch is on and the pairing is neither paused nor rejected) and closed when it is not
-/// (automatic clips, 2026-10-24).
+/// (the pairing is neither paused nor rejected, whether or not Clips sends anything) and closed
+/// when it is not (automatic clips, 2026-10-24; kept open the whole time the companion runs, so the
+/// server counts it as running, preview 14).
 /// </summary>
 /// <remarks>
 /// <para><strong>What this sends and receives.</strong> Nothing itself; see <see cref="ClipLink"/>.</para>
@@ -48,7 +49,7 @@ public sealed class ClipLinks : IDisposable
     /// <summary>A request from any of the links.</summary>
     public event Action<ServerPairing, ClipRequestMessage>? ClipRequested;
 
-    /// <summary>The pairings that should have a link now. Empty when the switch is off.</summary>
+    /// <summary>The pairings that should have a link now.</summary>
     public void Want(IEnumerable<ServerPairing> pairings) => _wanted = [.. pairings];
 
     /// <summary>Each server's link state in one word, by server id, for the pairings that have a link.</summary>

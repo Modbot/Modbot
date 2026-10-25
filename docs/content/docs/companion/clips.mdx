@@ -403,8 +403,10 @@ log at least once a minute, so a request does not wait for a slow check.
 
 ### What the companion does
 
-The request comes down the connection the companion already holds to your group's Modbot. It names
-the action and the moment it happened, and nothing else.
+The request comes down the connection the companion already holds to your group's Modbot. The
+companion keeps that connection open the whole time it runs, whether or not you are in an instance
+and whether or not this box is ticked, which is how Modbot knows a companion is open and paired.
+The request names the action and the moment it happened, and nothing else.
 
 - **Clips is off, or the box is not ticked:** the companion answers that, and nothing is cut.
 - **Otherwise** it waits until it has 30 seconds recorded after the action, finds the moment in the

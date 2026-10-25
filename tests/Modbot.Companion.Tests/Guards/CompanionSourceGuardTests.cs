@@ -639,9 +639,10 @@ public class CompanionSourceGuardTests
         // Two of the eleven are the overlay's: HttpOverlayReadClient and LiveSocket. The overlay's
         // driver is the only thing that builds them for a panel, so while both overlays are
         // switched off they run for one reason only: the clip link (ClipLinks.cs), which is a
-        // second user of the same two and adds no sender of its own. It exists only while Send
-        // clips for my actions is on, and it asks for no presence, only clip requests
-        // (TheClipLinkIsBuiltOnlyInProgramAndOnlyWantedWhileSendClipsIsOn). The notification overlay is
+        // second user of the same two and adds no sender of its own. It stays open while the
+        // companion runs, and it asks for no presence, only clip requests, which are acted on only
+        // while Send clips for my actions is on
+        // (TheClipLinkIsBuiltOnlyInProgramAndWantedWhetherOrNotSendClipsIsOn). The notification overlay is
         // fed by the same two, so it is reason enough on its own for them to be running -- which
         // is exactly what a moderator asking to be told about flagged arrivals has asked for.
         var senders = ClientSources()
@@ -670,7 +671,7 @@ public class CompanionSourceGuardTests
     }
 
     [Fact]
-    public void TheClipLinkIsBuiltOnlyInProgramAndOnlyWantedWhileSendClipsIsOn()
+    public void TheClipLinkIsBuiltOnlyInProgramAndWantedWhetherOrNotSendClipsIsOn()
     {
         var building = EverythingTheClientShips()
             .Where(f => File.ReadAllText(f).Contains("new ClipLinks(", StringComparison.Ordinal))
@@ -682,7 +683,11 @@ public class CompanionSourceGuardTests
 
         var program = File.ReadAllText(EverythingTheClientShips().Single(f => Path.GetFileName(f) == "Program.cs"));
 
-        Assert.Contains("_clipLinks?.Want(settings.SendForActions", program, StringComparison.Ordinal);
+        // Open the whole time the companion runs, so the server sees it as open and paired; what a
+        // clip request on it does is decided by the switch, in ClipSender.
+        Assert.Contains("_clipLinks?.Want(_state.Connections", program, StringComparison.Ordinal);
+        Assert.DoesNotContain("_clipLinks?.Want(settings.SendForActions", program, StringComparison.Ordinal);
+        Assert.Contains("sendIsOn: () => _state?.Settings.Clips.SendForActions == true", program, StringComparison.Ordinal);
     }
 
     [Fact]
