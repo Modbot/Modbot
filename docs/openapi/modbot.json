@@ -49662,6 +49662,36 @@
           }
         }
       },
+      "ClipRequestMessage": {
+        "required": [
+          "kind",
+          "requestId",
+          "action",
+          "occurredAt",
+          "expiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "action": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "ClipRequestSettingsResponse": {
         "required": [
           "bans",
@@ -60587,6 +60617,15 @@
                 "$ref": "#/components/schemas/LiveNotice"
               }
             ]
+          },
+          "clipRequests": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ClipRequestMessage"
+            }
           }
         }
       },
