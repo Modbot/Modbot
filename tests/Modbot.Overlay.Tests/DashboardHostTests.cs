@@ -455,7 +455,8 @@ public class DashboardHostTests
 
             Assert.Equal(3, asked.Count);
             Assert.Equal(NotifyOverlaySettings.MinSeconds, asked[^1].Seconds, 3);
-            Assert.Equal(drawn + 1, host.FramesDrawn);
+            // One draw for the slider, one for the lit track the laser is on once it is let go.
+            Assert.Equal(drawn + 2, host.FramesDrawn);
         });
     }
 

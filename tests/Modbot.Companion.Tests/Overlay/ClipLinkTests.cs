@@ -130,13 +130,12 @@ public class ClipLinkTests
     public async Task TheSameRequestOnTheSocketAndInAPollIsRaisedOnce()
     {
         var clock = new FakeClock();
-        var sockets = new FakeSockets();
         var reads = new Reads();
-        sockets.Refuse(LiveConnectOutcome.Unreachable);
         var id = Guid.NewGuid();
         var raised = 0;
 
-        using var link = new ClipLink(Pairing, sockets, reads, clock);
+        // No socket factory: the link only long-polls, so the page is read on the first turns.
+        using var link = new ClipLink(Pairing, null, reads, clock);
         link.ClipRequested += (_, _) => raised++;
 
         reads.Pages.Enqueue(new(ReadOutcome.Fetched, new LivePollPage([], "5", false, [Request(id), Request(id)])));

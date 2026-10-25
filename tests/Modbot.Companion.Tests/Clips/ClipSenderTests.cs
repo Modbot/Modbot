@@ -188,6 +188,9 @@ public sealed class ClipSenderTests : IDisposable
     [Fact]
     public async Task ACutThatFailsOnceIsTriedAgainStartingLater()
     {
+        // A slow recorder, so the planned clip is long enough to start before the action and
+        // there is something to start later than.
+        _source.BitsPerSecond = 120;
         _cutter.Results.Enqueue(CutFailed());
         _cutter.Results.Enqueue(CutOf(250));
 
@@ -290,7 +293,7 @@ public sealed class ClipSenderTests : IDisposable
         public List<RecordingSpan> Live { get; } = [];
 
         public bool IsRecording => Recording;
-        public long BitsPerSecond => 1_820_000;
+        public long BitsPerSecond { get; set; } = 1_820_000;
         public IReadOnlyList<RecordingSpan> Spans() => Live.ToList();
 
         public async Task<SavedRecording?> CopyAsync(string rollingPath, string destination, CancellationToken ct)

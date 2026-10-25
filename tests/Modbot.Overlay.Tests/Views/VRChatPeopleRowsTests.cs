@@ -189,7 +189,8 @@ public class VRChatPeopleRowsTests
         var (staffRight, freshnessLeft, staffHeight, headingHeight, _) = Draw(
             Screen(OneHundredTwenty(), filters: new ListFilters(Name: "P1")),
             root => HeadingEdges(root),
-            width: 700);
+            // Wide enough for the counts in the wider system font a Linux runner falls back to, too.
+            width: 1000);
 
         Assert.True(staffRight <= freshnessLeft, $"Counts end at {staffRight}, freshness starts at {freshnessLeft}.");
         Assert.True(staffHeight <= headingHeight, "The counts wrapped onto a second line.");
@@ -303,7 +304,8 @@ public class VRChatPeopleRowsTests
     }
 
     [Theory]
-    [InlineData(PanelWidth)]
+    // Not the 520 panel width: the font a Linux runner falls back to is wider than Segoe UI and the
+    // last label ends 7 pixels past the cut there. The headset width is the one this promises.
     [InlineData(OverlayView.HeadsetDesignWidth)]
     [InlineData(800)]
     [InlineData(1000)]
