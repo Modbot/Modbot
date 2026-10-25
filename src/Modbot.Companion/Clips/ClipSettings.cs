@@ -24,7 +24,8 @@ namespace Modbot.Companion.Clips;
 /// <para><strong>Telling the server a clip was saved is its own box, and it is off.</strong> Ticked,
 /// saving a clip in a group's instance tells that group's paired server when and where, with the
 /// file's fingerprint, so the clip can be attached to a case later and recognised as this PC's
-/// (clips design spec §16). The clip itself still never leaves the PC.</para>
+/// (clips design spec §16). This box never sends the clip itself. Since 2026-10-24 the clip can
+/// leave the PC only through <see cref="SendForActions"/>, as the answer to a clip request.</para>
 /// </remarks>
 /// <param name="On">
 /// Whether to keep the last few minutes while VRChat is running. False unless a person turned it on.

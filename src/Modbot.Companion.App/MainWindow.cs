@@ -48,7 +48,7 @@ internal enum Page
 /// and a program that is never invisible while it runs.</para>
 /// <para><strong>What this window can record, and what it cannot.</strong> The Settings page has a
 /// Clips card. Switched on — and it is off until somebody switches it on — the client keeps the last
-/// two to five minutes of <strong>VRChat's window and VRChat's sound</strong>, in two files of its
+/// two to ten minutes of <strong>VRChat's window and VRChat's sound</strong>, in two files of its
 /// own, while VRChat is running, and writes them out when <strong>Save a clip</strong> is pressed,
 /// here or on the overlay panel. Whatever is drawn over VRChat while somebody is in it is inside
 /// that window and is in the clip; the rest of their screen never is. The sound is VRChat's own,

@@ -104,7 +104,7 @@ namespace Modbot.Companion.App;
 /// because lines are arriving in VRChat's own log — never by looking for a running program. VRChat
 /// closing stops the recording and deletes what was kept.</description></item>
 /// <item><description><strong>Where it goes.</strong> Two files under <c>%APPDATA%\Modbot\clips</c>,
-/// each holding at most the two to five minutes you chose, each replaced by a fresh one as it fills,
+/// each holding at most the two to ten minutes you chose, each replaced by a fresh one as it fills,
 /// and both deleted when recording stops or this program quits. Pressing <strong>Save a clip</strong>
 /// moves the older of the two into your Videos folder under <c>Modbot Clips</c>, or wherever you
 /// pointed it.</description></item>
