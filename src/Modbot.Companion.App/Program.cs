@@ -363,6 +363,14 @@ internal sealed partial class CompanionHost : IOverlayListener
     private HttpClient? _http;
     private IIngestTransport? _transport;
     private OverlayDriver? _overlay;
+
+    /// <summary>
+    /// The small live connection to each paired server that Send clips for my actions needs. Alive
+    /// whenever that switch is on, whatever panels are up and whatever instance this is.
+    /// </summary>
+    private ClipLinks? _clipLinks;
+
+    private readonly DispatcherTimer _clipLinkLoop = new() { Interval = TimeSpan.FromSeconds(1) };
     private OverlayHost? _overlayHost;
     private NotificationHost? _notifyHost;
     private ButtonHost? _buttonHost;
@@ -603,6 +611,16 @@ internal sealed partial class CompanionHost : IOverlayListener
         // sockets under any real traffic, and this one is also the single place pairing requests
         // leave from.
         _http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+
+        // Answering a clip request is the next step; this one only keeps the connection that
+        // receives it. It shares nothing with the overlay's driver, so it runs with no panel up.
+        _clipLinks = new ClipLinks(
+            new ClientLiveSocketFactory(_clipSettingsFeed),
+            new HttpOverlayReadClient(_http, _clock, _clipSettingsFeed),
+            _clock);
+        _clipLinkLoop.Tick += async (_, _) =>
+            await CrashGuard.RunAsync("keeping the clip link", () => _clipLinks.PumpAsync());
+        _clipLinkLoop.Start();
         Window.Pictures = new GroupPictures(_http, () =>
         {
             Render();
@@ -1095,6 +1113,14 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         _clipSettingsFeed.Set(new ClipSettingsReport(
             settings.On, wanted == ClipRecordingState.Recording, settings.Minutes, settings.SendForActions));
+
+        // While the switch is on, each live paired server gets its own link for clip requests, panel
+        // or no panel. Switching it off lets them go after a short grace (see ClipLinks.CloseDelay).
+        _clipLinks?.Want(settings.SendForActions
+            ? _state.Connections
+                .Where(c => !c.IsPaused && c.State is not ConnectionState.Stopped)
+                .Select(c => c.Pairing)
+            : []);
 
         // What the overlay's Save a clip control shows. Worked out here rather than in the overlay
         // because this is the half that owns the recorder; the panel is only told the answer.
@@ -3808,6 +3834,8 @@ internal sealed partial class CompanionHost : IOverlayListener
     {
         _engineLoop.Stop();
         _overlayLoop.Stop();
+        _clipLinkLoop.Stop();
+        _clipLinks?.Dispose();
         StopInputLoop();
         _voiceLoop.Stop();
         _updates?.Stop();

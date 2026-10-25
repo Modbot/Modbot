@@ -614,9 +614,12 @@ public class CompanionSourceGuardTests
         // from anywhere in this client, and the file that opens the microphone cannot reach it at
         // all (NothingTheClientShipsCanKeepOrSendWhatAMicrophoneHeard).
         //
-        // Two of the eight are the overlay's: HttpOverlayReadClient and LiveSocket. Neither runs
-        // while both overlays are switched off, because nothing then builds the driver that owns
-        // them (TheOverlaysAreOnlyEverBuiltThroughTheirOnOffSwitches). The notification overlay is
+        // Two of the eight are the overlay's: HttpOverlayReadClient and LiveSocket. The overlay's
+        // driver is the only thing that builds them for a panel, so while both overlays are
+        // switched off they run for one reason only: the clip link (ClipLinks.cs), which is a
+        // second user of the same two and adds no sender of its own. It exists only while Send
+        // clips for my actions is on, and it asks for no presence, only clip requests
+        // (TheOverlaysAreOnlyEverBuiltThroughTheirOnOffSwitches). The notification overlay is
         // fed by the same two, so it is reason enough on its own for them to be running -- which
         // is exactly what a moderator asking to be told about flagged arrivals has asked for.
         var senders = ClientSources()
@@ -641,6 +644,22 @@ public class CompanionSourceGuardTests
                 "VoiceDownload.cs",
             ],
             senders);
+    }
+
+    [Fact]
+    public void TheClipLinkIsBuiltOnlyInProgramAndOnlyWantedWhileSendClipsIsOn()
+    {
+        var building = EverythingTheClientShips()
+            .Where(f => File.ReadAllText(f).Contains("new ClipLinks(", StringComparison.Ordinal))
+            .Select(Path.GetFileName)
+            .Order()
+            .ToList();
+
+        Assert.Equal(["Program.cs"], building);
+
+        var program = File.ReadAllText(EverythingTheClientShips().Single(f => Path.GetFileName(f) == "Program.cs"));
+
+        Assert.Contains("_clipLinks?.Want(settings.SendForActions", program, StringComparison.Ordinal);
     }
 
     [Fact]
