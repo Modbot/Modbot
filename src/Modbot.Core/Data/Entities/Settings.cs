@@ -1983,4 +1983,17 @@ public class Settings
     /// down. It sits beside the evidence settings because it is the same disk.
     /// </remarks>
     public long VRChatFileCacheBytes { get; set; } = 2L * 1024 * 1024 * 1024;
+
+    // ── A clip with every action (clip requests) ────────────────────────────────────────────
+
+    /// <summary>
+    /// Whether a ban asks the moderator's companion for a clip. Off until the leads tick it.
+    /// </summary>
+    public bool ClipOnBans { get; set; }
+
+    /// <summary>Same for a kick: removed from the group, or kicked from a group instance.</summary>
+    public bool ClipOnKicks { get; set; }
+
+    /// <summary>Same for a warning in a group instance.</summary>
+    public bool ClipOnWarnings { get; set; }
 }

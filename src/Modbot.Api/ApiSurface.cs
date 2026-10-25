@@ -623,6 +623,9 @@ public static class ApiSurface
         // The channel members post gallery pictures in.
         app.MapDiscordGallerySettings();
 
+        // Which actions ask the moderator's companion for a clip.
+        app.MapClipRequestSettings();
+
         // The ready-made messages staff can send a reporter when they close a report.
         app.MapReportReplySettings();
 

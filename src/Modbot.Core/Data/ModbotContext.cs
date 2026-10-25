@@ -115,6 +115,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Bans staff were asked to lift, logged by hand, and how each ended (batch 3, step G).</summary>
     public DbSet<Appeal> Appeals => Set<Appeal>();
 
+    /// <summary>Actions a clip was asked for, and how each ended (clip requests).</summary>
+    public DbSet<ClipRequest> ClipRequests => Set<ClipRequest>();
+
+    /// <summary>How far the clip requests have read the fact log. One row.</summary>
+    public DbSet<ClipRequestCursor> ClipRequestCursors => Set<ClipRequestCursor>();
+
     /// <summary>Short notes moderators leave from the companion for staff in the same instance.</summary>
     public DbSet<HeadsUp> HeadsUps => Set<HeadsUp>();
 
@@ -4025,6 +4031,40 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // A year's appeals, for the list and the report.
             entity.HasIndex(e => e.ReceivedOn).HasDatabaseName("ix_appeal_received_on");
+        });
+
+        builder.Entity<ClipRequest>(entity =>
+        {
+            entity.ToTable("clip_request");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.SubjectId).HasColumnType("text");
+            entity.Property(e => e.WorldId).HasColumnType("text");
+            entity.Property(e => e.InstanceId).HasColumnType("text");
+            entity.Property(e => e.BlobHash).HasMaxLength(64);
+
+            // One request per action: reading the same fact twice must not ask twice.
+            entity.HasIndex(e => e.FactId).IsUnique().HasDatabaseName("ux_clip_request_fact");
+
+            // "What is this device being asked?" -- read on every connect and every poll.
+            entity.HasIndex(e => e.DeviceId)
+                .HasDatabaseName("ix_clip_request_waiting")
+                .HasFilter("status = 0");
+
+            // A moderator's missed clips over a number of days, for the automatic roles.
+            entity.HasIndex(e => new { e.ModeratorUserId, e.CreatedAt })
+                .HasDatabaseName("ix_clip_request_moderator");
+        });
+
+        builder.Entity<ClipRequestCursor>(entity =>
+        {
+            entity.ToTable("clip_request_cursor", t =>
+                t.HasCheckConstraint("ck_clip_request_cursor_singleton", "id = 1"));
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
         });
 
         builder.Entity<HeadsUp>(entity =>

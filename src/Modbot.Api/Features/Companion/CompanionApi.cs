@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Modbot.Api.Features.Companion.Alerts;
+using Modbot.Api.Features.Companion.ClipRequests;
 using Modbot.Api.Features.Companion.Context;
 using Modbot.Api.Features.Companion.Devices;
 using Modbot.Api.Features.Companion.Events;
@@ -67,6 +68,11 @@ public static class CompanionApi
         services.AddSingleton<AlertHub>();
         services.AddSingleton<HeadsUpSignal>();
         services.AddScoped<DeviceAuthenticator>();
+
+        // A clip with every action: the requests, and the watcher that makes them.
+        services.AddScoped<ClipRequestStore>();
+        services.AddScoped<ClipRequestIntake>();
+        services.AddHostedService<ClipRequestWatcher>();
 
         // One count for the life of the process, like sign-in's: wrong pairing codes from one
         // address slow that address down.

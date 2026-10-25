@@ -2154,6 +2154,102 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("case_file", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.ClipRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Action")
+                        .HasColumnType("integer")
+                        .HasColumnName("action");
+
+                    b.Property<DateTimeOffset>("ActionAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("action_at");
+
+                    b.Property<DateTimeOffset?>("AnsweredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("answered_at");
+
+                    b.Property<string>("BlobHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("blob_hash");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("DeviceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("device_id");
+
+                    b.Property<long>("FactId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("fact_id");
+
+                    b.Property<string>("InstanceId")
+                        .HasColumnType("text")
+                        .HasColumnName("instance_id");
+
+                    b.Property<Guid>("ModeratorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("moderator_user_id");
+
+                    b.Property<DateTimeOffset?>("RequestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("requested_at");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<string>("SubjectId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("subject_id");
+
+                    b.Property<string>("WorldId")
+                        .HasColumnType("text")
+                        .HasColumnName("world_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_clip_request");
+
+                    b.HasIndex("DeviceId")
+                        .HasDatabaseName("ix_clip_request_waiting")
+                        .HasFilter("status = 0");
+
+                    b.HasIndex("FactId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_clip_request_fact");
+
+                    b.HasIndex("ModeratorUserId", "CreatedAt")
+                        .HasDatabaseName("ix_clip_request_moderator");
+
+                    b.ToTable("clip_request", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.ClipRequestCursor", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    b.Property<long>("ReadThrough")
+                        .HasColumnType("bigint")
+                        .HasColumnName("read_through");
+
+                    b.HasKey("Id")
+                        .HasName("pk_clip_request_cursor");
+
+                    b.ToTable("clip_request_cursor", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_clip_request_cursor_singleton", "id = 1");
+                        });
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.CompanionDeviceRecord", b =>
                 {
                     b.Property<Guid>("Id")
@@ -9225,6 +9321,18 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("CheckForUpdates")
                         .HasColumnType("boolean")
                         .HasColumnName("check_for_updates");
+
+                    b.Property<bool>("ClipOnBans")
+                        .HasColumnType("boolean")
+                        .HasColumnName("clip_on_bans");
+
+                    b.Property<bool>("ClipOnKicks")
+                        .HasColumnType("boolean")
+                        .HasColumnName("clip_on_kicks");
+
+                    b.Property<bool>("ClipOnWarnings")
+                        .HasColumnType("boolean")
+                        .HasColumnName("clip_on_warnings");
 
                     b.Property<DateTimeOffset?>("CloudLastReportAt")
                         .HasColumnType("timestamp with time zone")
