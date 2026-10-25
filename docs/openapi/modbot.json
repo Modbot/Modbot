@@ -14468,6 +14468,114 @@
         ]
       }
     },
+    "/api/settings/clip-requests": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get which actions ask for a clip",
+        "description": "Whether a ban, a kick or a warning asks the moderator's companion for a clip.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetClipRequestSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClipRequestSettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update which actions ask for a clip",
+        "description": "Save which of bans, kicks and warnings ask the moderator's companion for a clip. Actions taken before the change are not asked about.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetClipRequestSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClipRequestSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClipRequestSettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/report-replies": {
       "get": {
         "tags": [
@@ -49551,6 +49659,44 @@
           "messageId": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "ClipRequestSettingsResponse": {
+        "required": [
+          "bans",
+          "kicks",
+          "warnings"
+        ],
+        "type": "object",
+        "properties": {
+          "bans": {
+            "type": "boolean"
+          },
+          "kicks": {
+            "type": "boolean"
+          },
+          "warnings": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ClipRequestSettingsUpdate": {
+        "required": [
+          "bans",
+          "kicks",
+          "warnings"
+        ],
+        "type": "object",
+        "properties": {
+          "bans": {
+            "type": "boolean"
+          },
+          "kicks": {
+            "type": "boolean"
+          },
+          "warnings": {
+            "type": "boolean"
           }
         }
       },

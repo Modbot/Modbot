@@ -264,6 +264,25 @@ public class ClipRequestTests
     }
 
     [Fact]
+    public async Task ABanInVRChatsMenuWithBansNotTickedStillAsksForTheInstanceKickWhenKicksAre()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var scene = await StartAsync(bans: false, kicks: true, warnings: false, evidence: true, ct);
+
+        scene.Locations.Record(scene.Device, Instance, Noon.AddMinutes(-1), World);
+        var banned = await AddFactAsync(FactType.MemberBanned, FactPlatform.VRChat, scene.ModeratorVRChatId, Noon.AddSeconds(-20), ct);
+        var kick = await AddFactAsync(FactType.GroupInstanceKick, FactPlatform.VRChat, scene.ModeratorVRChatId, Noon.AddSeconds(-20), ct, Instance);
+
+        await IntakeAsync(scene.Clock, scene.Locations, ct);
+
+        Assert.Null(await RequestFor(banned, ct));
+        var request = await RequestFor(kick, ct);
+        Assert.NotNull(request);
+        Assert.Equal(ClipAction.Kick, request.Action);
+        Assert.Equal(ClipStatus.Asked, request.Status);
+    }
+
+    [Fact]
     public async Task AFactReadTwiceAsksOnce()
     {
         var ct = TestContext.Current.CancellationToken;

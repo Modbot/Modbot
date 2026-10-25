@@ -29,7 +29,8 @@ namespace Modbot.Api.Features.Companion.ClipRequests;
 /// <para>
 /// <strong>One decision, one request.</strong> A ban made in VRChat also writes an instance kick
 /// from the same request (<see cref="LinkedActions.Window"/>). That kick is a follower of the ban
-/// and is skipped; the ban's request takes the instance from it.
+/// and is skipped when bans are asked for; the ban's request takes the instance from it. With bans
+/// not ticked the ban asks nothing, so the kick is asked on its own.
 /// </para>
 /// <para>
 /// <strong>Where the person was.</strong> The instance kick names it. Without one, the person's
@@ -114,7 +115,7 @@ public sealed class ClipRequestIntake
             return;
 
         // The instance kick that comes with a ban or a removal is the same decision.
-        if (fact.Type == FactType.GroupInstanceKick && await HasMainFactAsync(fact, ct))
+        if (fact.Type == FactType.GroupInstanceKick && await HasMainFactAsync(fact, settings.ClipOnBans, ct))
             return;
 
         if (await _db.ClipRequests.AnyAsync(r => r.FactId == fact.Id, ct))
@@ -170,13 +171,15 @@ public sealed class ClipRequestIntake
             .FirstOrDefaultAsync(ct);
     }
 
-    private Task<bool> HasMainFactAsync(ModbotEvent kick, CancellationToken ct)
+    private Task<bool> HasMainFactAsync(ModbotEvent kick, bool bansAreAsked, CancellationToken ct)
     {
         var from = kick.OccurredAt - LinkedActions.Window;
         var to = kick.OccurredAt + LinkedActions.Window;
 
+        // The kick is only a follower when the main action will be asked for itself. This kick's own
+        // switch is on (ConsiderAsync checked), so a removal counts; a ban counts only if bans are asked.
         return _db.Events.AsNoTracking().AnyAsync(e =>
-            (e.Type == FactType.MemberBanned || e.Type == FactType.MemberKicked)
+            ((e.Type == FactType.MemberBanned && bansAreAsked) || e.Type == FactType.MemberKicked)
             && e.SubjectId == kick.SubjectId
             && e.OccurredAt >= from
             && e.OccurredAt <= to, ct);
