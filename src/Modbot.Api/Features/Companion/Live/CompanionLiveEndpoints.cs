@@ -53,6 +53,7 @@ public static class CompanionLiveEndpoints
         DeviceAuthenticator authenticator,
         DeviceLocations locations,
         ClipSettingsReports clipSettings,
+        CompanionConnections connections,
         HeadsUpSignal headsUps,
         ClipRequestSignal clipRequests,
         EventSocketOptions options,
@@ -77,6 +78,8 @@ public static class CompanionLiveEndpoints
             KeepAliveInterval = options.PingInterval,
             KeepAliveTimeout = options.PingTimeout,
         });
+
+        using var open = connections.Opened(device.Id);
 
         if (!LiveStreams.TryParseCursor(after, out var cursor))
         {
@@ -127,6 +130,7 @@ public static class CompanionLiveEndpoints
         DeviceAuthenticator authenticator,
         DeviceLocations locations,
         ClipSettingsReports clipSettings,
+        CompanionConnections connections,
         ClipRequestSignal clipRequests,
         ModbotContext database,
         IModbotClock clock,
@@ -141,6 +145,8 @@ public static class CompanionLiveEndpoints
 
         var device = authentication.Device!;
         var tokenHash = DeviceTokens.Hash(DeviceAuthenticator.ReadBearer(context)!);
+
+        connections.Polled(device.Id, clock.UtcNow);
 
         if (instanceId is { Length: > 0 })
             locations.Record(device.Id, instanceId, clock.UtcNow, worldId);

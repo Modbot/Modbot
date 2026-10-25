@@ -67,6 +67,8 @@ public static class CompanionApi
         services.AddSingleton<DeviceLocations>();
         services.AddSingleton<Modbot.VRChat.Sync.ICompanionPresence, CompanionPresence>();
         services.AddSingleton<ClipSettingsReports>();
+        services.AddSingleton<Live.CompanionConnections>();
+        services.AddScoped<Modbot.Api.Features.AutomaticRoles.ModeratorFactsGatherer>();
         services.AddSingleton<AlertHub>();
         services.AddSingleton<HeadsUpSignal>();
         services.AddScoped<DeviceAuthenticator>();

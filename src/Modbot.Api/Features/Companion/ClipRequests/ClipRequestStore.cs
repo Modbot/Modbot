@@ -123,6 +123,24 @@ public sealed class ClipRequestStore
                 && r.CreatedAt >= since
                 && ClipStatusLabels.Missed.Contains(r.Status), ct);
 
+    /// <summary>
+    /// The clips these moderators missed since the given moment, one row each with the moderator and
+    /// when the action was decided: <see cref="MissedCountAsync"/> for many moderators in one query,
+    /// for a caller whose rules each pick their own number of days.
+    /// </summary>
+    public async Task<IReadOnlyList<(Guid ModeratorUserId, DateTimeOffset At)>> MissedSinceAsync(
+        IReadOnlyCollection<Guid> moderatorUserIds, DateTimeOffset since, CancellationToken ct)
+    {
+        var rows = await _db.ClipRequests.AsNoTracking()
+            .Where(r => moderatorUserIds.Contains(r.ModeratorUserId)
+                && r.CreatedAt >= since
+                && ClipStatusLabels.Missed.Contains(r.Status))
+            .Select(r => new { r.ModeratorUserId, r.CreatedAt })
+            .ToListAsync(ct);
+
+        return [.. rows.Select(r => (r.ModeratorUserId, r.CreatedAt))];
+    }
+
     /// <summary>The clip request for an action, for showing its status. Null when none was made.</summary>
     public Task<ClipRequest?> ForFactAsync(long factId, CancellationToken ct)
         => _db.ClipRequests.AsNoTracking().FirstOrDefaultAsync(r => r.FactId == factId, ct)!;

@@ -105,6 +105,21 @@ public sealed class DeviceLocations
         }
     }
 
+    /// <summary>
+    /// The instance this device is believed to be in right now, by the same expiry as
+    /// <see cref="IsIn"/>, or null when it has not said where it is recently. The world is null for
+    /// a client that named the number alone.
+    /// </summary>
+    public (string InstanceId, string? WorldId)? Where(Guid deviceId, DateTimeOffset now)
+    {
+        lock (_gate)
+        {
+            return _known.TryGetValue(deviceId, out var entry) && now - entry.At <= RememberedFor
+                ? (entry.InstanceId, entry.WorldId)
+                : null;
+        }
+    }
+
     private static bool Matches(Entry entry, string instanceId, DateTimeOffset now, string? worldId)
         => now - entry.At <= RememberedFor
             && string.Equals(entry.InstanceId, instanceId, StringComparison.Ordinal)
