@@ -30,6 +30,7 @@
     "reports",
     "automod",
     "flags",
-    "auto-invites"
+    "auto-invites",
+    "automatic-roles"
   ]
 }

@@ -1,0 +1,129 @@
+---
+title: Automatic roles
+description: Having Modbot give your moderators a VRChat group role or a Discord role while they meet your conditions, and take it away when they stop.
+---
+
+Automatic roles tie a role to how a moderator is doing right now. You write a rule: a VRChat group
+role, a Discord role, or one of each, and the conditions a moderator has to meet to hold it. While
+they meet every condition, Modbot gives them the role. When one stops holding, Modbot takes it away.
+
+One rule might give a role to moderators whose companion is running and has Clips ready. Another
+might give a role that can ban to moderators who have passed the staff trial and have not had more
+than two bans overturned in the last 30 days.
+
+<Callout type="warn" title="Nothing happens until you add a rule">
+There are no rules on a new Modbot. A rule that is saved starts working on its next check.
+</Callout>
+
+## Where to find it
+
+**Settings → Automatic roles**. It needs the
+[**Change settings**](/accounts/roles-and-permissions#change-settings) permission.
+
+The page has two cards. **Rules** lists your rules, with **Add rule**, and **Edit** and **Delete** on
+each. **Ask for a clip on** has the switches **Bans**, **Kicks** and **Warnings**; each one saves as
+soon as you press it. Which actions ask for a clip, and what the companion does about it, is on the
+[Clips](/companion/clips) page.
+
+## Making a rule
+
+Press **Add rule** and fill in the form.
+
+| Field | What it does |
+|---|---|
+| **Name** | Your own label for the rule. Optional. |
+| **VRChat role** | The VRChat group role to give. |
+| **Discord role** | The Discord role to give. |
+| **Whole team** / **Chosen roles** | Who the rule is for (below). |
+| Conditions | The switches below. |
+| **Take back from** | People whose hand-given role Modbot may take away (below). |
+
+Pick a VRChat role, a Discord role, or one of each. Any role in the list will do: Modbot does not
+check what the role allows, so look at it before you pick it.
+
+### Who a rule is for
+
+- **Whole team** is every enabled Modbot account that can kick, ban or warn, or pair a companion, and
+  every Administrator.
+- **Chosen roles** is every enabled account that holds any of the Discord roles or VRChat group roles
+  you pick, whether or not they are on the moderator team.
+
+Modbot can only act on someone whose Modbot account has the matching link. A VRChat role needs the
+account's [linked VRChat account](/accounts/staff-accounts) to be in your group. A Discord role needs
+a Discord account the person has proven (see
+[Staff accounts](/accounts/staff-accounts#email-and-discord-account)) to be in your Discord server.
+A role is given on the side where that holds and skipped on the side where it does not.
+
+### The conditions
+
+Switch on the ones you want. **A rule needs at least one switched on to be saved**, and the person
+has to meet every one that is on.
+
+| Condition | What it checks |
+|---|---|
+| **Companion running** | One of their paired [companions](/companion/install) has its live connection to Modbot open. |
+| **Clips ready** | One of their paired companions has reported that Clips is switched on and set up to send clips with their actions. |
+| **In a group instance** | One of their paired companions is in an open instance of your group. |
+| **Minimum level** | They have **Passed the staff trial** (a staff trial that was closed), or hold the **Staff role** you pick (a Discord role), or either. Pick at least one; the person needs only one of them. |
+| **Overturned bans** | They have had at most **At most** bans overturned in the last **In days**. A ban is overturned when its [appeal](/moderation/appeals) is upheld, counted from the day the appeal was decided, and it counts for whoever made that ban. |
+| **Daily ban cap** | They have made at most **Bans a day** bans in the last 24 hours. Bans made in Modbot count, and so do bans made in VRChat's own menu by the person's linked VRChat account. |
+| **Missing clips** | They have at most **At most** missing clips in the last **In days**. A clip is missing when Modbot asked for one with an action and it did not arrive: the companion did not answer, could not cut it, could not upload it, or had Clips off. One still being waited for is not missing yet. |
+
+"At most 3" means three is fine and the fourth takes the role. "At most 0" means the first one takes it.
+
+**Clips ready** and **Missing clips** need evidence storage, because a clip has nowhere to go
+without it. Until it is set up in **Settings → Evidence** (see
+[Storage buckets](/self-hosting/storage-buckets)) the two switches cannot be turned on, and a rule
+that has either on is refused when you save it.
+
+### Take back from
+
+Roles that someone already had, or that you gave them by hand, are left alone. To let a rule take a
+role you gave by hand, add the person to its **Take back from** list. Modbot then treats that role
+like one it gave itself, for that rule only.
+
+## How and when roles change
+
+- **Checks.** Modbot checks the rules when a companion reports something, and again every
+  30 seconds.
+- **Taking away is immediate.** The role goes at the next check after a condition stops holding.
+- **Giving back waits a minute.** A role is not given again until at least a minute after Modbot
+  took it, so switching Clips off and on does not make Modbot change a role every few seconds.
+- **A pause after Modbot starts.** For the first 2 minutes after Modbot starts it takes nothing away,
+  so a restart does not look like every companion going off at once. Giving carries on.
+- **Roles you gave by hand stay.** Modbot remembers the roles it gave. A role a person held before,
+  or that you gave by hand, is never taken unless they are on **Take back from**.
+- **Two rules, one role.** If two rules give the same role, the person keeps it while any one of
+  them holds.
+- **Turned-off accounts.** When an account is turned off or deleted, Modbot takes back the roles it
+  gave that account.
+- **Deleting a rule.** Roles Modbot gave for it are taken back at the next check, as someone who is
+  no longer on the rule's list.
+- **If VRChat refuses.** Modbot makes each change once. If VRChat refuses one, it makes no more
+  VRChat changes until the next check.
+
+VRChat and Discord are asked for the person's roles from Modbot's own copy of your group and server
+members, which can be a little behind. A change you can see on one side can take a short while to
+show up on the other.
+
+## The audit log
+
+Every give and take is written to the [Audit log](/moderation/audit-log) as **Role given
+automatically** or **Role taken away automatically**, with the rule, the role and the reason. In
+Discord's own audit log the reason reads `Modbot: automatic role - <reason>`.
+
+| Reason | Meaning |
+|---|---|
+| Every condition is met | Given. |
+| Companion not running | **Companion running** stopped holding. |
+| Clips turned off | **Clips ready** stopped holding. |
+| Not in a group instance | **In a group instance** stopped holding. |
+| Minimum level not met | **Minimum level** is not met. |
+| Too many overturned bans | **Overturned bans** went over its number. |
+| Daily ban cap reached | **Daily ban cap** went over its number. |
+| Too many missed clips | **Missing clips** went over its number. |
+| A number on the rule is missing | A switched-on condition has no number. The role is not given until it has. |
+| No longer on the rule's list | No rule that gives the role is for this person any more. |
+| Account turned off | The account was turned off or deleted. |
+
+When several conditions fail at once, the reason is the first one in the order of the table above.
