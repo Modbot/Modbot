@@ -196,6 +196,7 @@ public static class ApiSurface
         Core.Supporters.PatreonServices.AddPatreon(services);
         services.TryAddScoped<Core.Supporters.PatreonCatchUp>();
         services.TryAddSingleton<Core.Discord.IDiscordBirthdayActions, Core.Discord.NoDiscordBirthdayActions>();
+        services.TryAddSingleton<Core.Discord.IDiscordAutomaticRoleActions, Core.Discord.NoDiscordAutomaticRoleActions>();
         services.TryAddSingleton<Core.Discord.IDiscordAgeActions, Core.Discord.NoDiscordAgeActions>();
         services.TryAddScoped<Core.Users.IAgeCheck, Features.AgeChecks.AgeCheck>();
         services.TryAddSingleton<Core.Posts.IVRChatPostActions, Core.Posts.NoVRChatPostActions>();

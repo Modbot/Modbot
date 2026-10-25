@@ -989,6 +989,20 @@ public static class FactType
     /// <summary>A Discord role this pairing gave was taken away, because they are no longer in the list.</summary>
     public const string ListRoleTaken = "modbot.list.role.take";
 
+    // ── Automatic roles ────────────────────────────────────────────────────────────────────
+    //
+    // Modbot gave or took a VRChat or Discord role because an automatic role rule said so. The
+    // subject is the Modbot account of the moderator; there is no actor, because nobody pressed
+    // anything at that moment. The payload names the rule, the role, which platform it is on and,
+    // for a take, the plain reason ("Clips turned off", "Daily ban cap reached"). Moderation
+    // retention: a role change is membership history.
+
+    /// <summary>Given a role because every condition of an automatic role rule holds.</summary>
+    public const string AutomaticRoleGiven = "modbot.automatic.role.give";
+
+    /// <summary>A role was taken away because a condition of the automatic role rule stopped holding.</summary>
+    public const string AutomaticRoleTaken = "modbot.automatic.role.take";
+
     // ── Discord role menus ─────────────────────────────────────────────────────────────────
     //
     // Modbot gave or took a Discord role because the member pressed it on a role menu. The subject

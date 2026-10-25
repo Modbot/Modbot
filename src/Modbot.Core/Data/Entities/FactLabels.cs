@@ -259,6 +259,8 @@ public static class FactLabels
         [FactType.ListRoleGiven] = "Discord role given for a list",
         [FactType.ListRoleTaken] = "Discord role taken away for a list",
         [FactType.ListRoleStopped] = "Role from a list stopped",
+        [FactType.AutomaticRoleGiven] = "Role given automatically",
+        [FactType.AutomaticRoleTaken] = "Role taken away automatically",
         [FactType.RoleMenuRoleGiven] = "Discord role given from a role menu",
         [FactType.RoleMenuRoleTaken] = "Discord role taken away from a role menu",
 

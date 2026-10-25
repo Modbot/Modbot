@@ -207,6 +207,10 @@ public static class AuditVisibility
         [FactType.ListRoleTaken] = AuditCategory.Moderation,
         [FactType.ListRoleStopped] = AuditCategory.Operational,
 
+        // A role an automatic role rule gave or took is a role change, member history like the others.
+        [FactType.AutomaticRoleGiven] = AuditCategory.Moderation,
+        [FactType.AutomaticRoleTaken] = AuditCategory.Moderation,
+
         // A role a member picked on a role menu is a role change, member history like the others.
         [FactType.RoleMenuRoleGiven] = AuditCategory.Moderation,
         [FactType.RoleMenuRoleTaken] = AuditCategory.Moderation,

@@ -239,6 +239,10 @@ public static class DiscordServiceCollectionExtensions
         services.AddSingleton<Core.Discord.IDiscordBirthdayActions>(
             p => new Birthdays.DiscordBirthdayActions(() => p.GetRequiredService<DiscordBotService>().ReadyGateway));
 
+        // Automatic roles: the API's job gives and takes a role through the bot's session.
+        services.AddSingleton<Core.Discord.IDiscordAutomaticRoleActions>(
+            p => new AutomaticRoles.DiscordAutomaticRoleActions(() => p.GetRequiredService<DiscordBotService>().ReadyGateway));
+
         // /term and /rule count their own tries too; they read the tables the Terms and rules page writes.
         services.TryAddKeyedSingleton<MemberCommandLimits>(TermCommand.LimitsKey);
         services.AddScoped<TermCommand>();
