@@ -1,3 +1,5 @@
+using Modbot.Api.Features.AutomaticRoles;
+
 namespace Modbot.Api.Features.Companion.Live;
 
 /// <summary>
@@ -21,12 +23,26 @@ public sealed class CompanionConnections
     private readonly Dictionary<Guid, int> _sockets = [];
     private readonly Dictionary<Guid, DateTimeOffset> _polledAt = [];
     private readonly Lock _gate = new();
+    private readonly AutomaticRoleSignal? _signal;
+
+    /// <param name="signal">Told when a device starts or stops running, so the automatic roles job looks at once.</param>
+    public CompanionConnections(AutomaticRoleSignal? signal = null)
+    {
+        _signal = signal;
+    }
 
     /// <summary>Notes that this device has a socket open. Dispose the result when the socket ends.</summary>
     public IDisposable Opened(Guid deviceId)
     {
+        bool wasClosed;
         lock (_gate)
+        {
+            wasClosed = !_sockets.ContainsKey(deviceId);
             _sockets[deviceId] = _sockets.GetValueOrDefault(deviceId) + 1;
+        }
+
+        if (wasClosed)
+            _signal?.Tell();
 
         return new Closer(this, deviceId);
     }
@@ -34,8 +50,16 @@ public sealed class CompanionConnections
     /// <summary>Notes that this device just made a poll.</summary>
     public void Polled(Guid deviceId, DateTimeOffset now)
     {
+        bool wasClosed;
         lock (_gate)
+        {
+            wasClosed = !_sockets.ContainsKey(deviceId)
+                && !(_polledAt.TryGetValue(deviceId, out var at) && now - at <= PollOpenFor);
             _polledAt[deviceId] = now;
+        }
+
+        if (wasClosed)
+            _signal?.Tell();
     }
 
     /// <summary>Whether any of these devices has a socket open, or polled in the last <see cref="PollOpenFor"/>.</summary>
@@ -52,13 +76,22 @@ public sealed class CompanionConnections
 
     private void Closed(Guid deviceId)
     {
+        var lastOne = false;
         lock (_gate)
         {
             if (_sockets.GetValueOrDefault(deviceId) <= 1)
+            {
                 _sockets.Remove(deviceId);
+                lastOne = true;
+            }
             else
+            {
                 _sockets[deviceId]--;
+            }
         }
+
+        if (lastOne)
+            _signal?.Tell();
     }
 
     private sealed class Closer(CompanionConnections owner, Guid deviceId) : IDisposable

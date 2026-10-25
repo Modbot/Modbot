@@ -1,3 +1,4 @@
+using Modbot.Api.Features.AutomaticRoles;
 using Modbot.Shared.Clips;
 
 namespace Modbot.Api.Features.Companion.Alerts;
@@ -19,14 +20,28 @@ public sealed class ClipSettingsReports
 {
     private readonly Dictionary<Guid, ClipSettingsReport> _latest = [];
     private readonly Lock _gate = new();
+    private readonly AutomaticRoleSignal? _signal;
+
+    /// <param name="signal">Told when a device's report changes, so the automatic roles job looks at once.</param>
+    public ClipSettingsReports(AutomaticRoleSignal? signal = null)
+    {
+        _signal = signal;
+    }
 
     /// <summary>Keeps this report as the device's latest, replacing the one before.</summary>
     public void Record(Guid deviceId, ClipSettingsReport report)
     {
         ArgumentNullException.ThrowIfNull(report);
 
+        bool changed;
         lock (_gate)
+        {
+            changed = !_latest.TryGetValue(deviceId, out var before) || !before.Equals(report);
             _latest[deviceId] = report;
+        }
+
+        if (changed)
+            _signal?.Tell();
     }
 
     /// <summary>The device's latest report, or null when it has not sent one since the server started.</summary>

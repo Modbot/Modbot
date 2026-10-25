@@ -1,3 +1,5 @@
+using Modbot.Api.Features.AutomaticRoles;
+
 namespace Modbot.Api.Features.Companion.Alerts;
 
 /// <summary>
@@ -50,6 +52,13 @@ public sealed class DeviceLocations
 
     private readonly Dictionary<Guid, Entry> _known = [];
     private readonly Lock _gate = new();
+    private readonly AutomaticRoleSignal? _signal;
+
+    /// <param name="signal">Told when a device moves to another instance, so the automatic roles job looks at once.</param>
+    public DeviceLocations(AutomaticRoleSignal? signal = null)
+    {
+        _signal = signal;
+    }
 
     /// <summary>
     /// Notes that this device just named this instance in a request it was making anyway.
@@ -69,6 +78,7 @@ public sealed class DeviceLocations
         if (instanceId is not { Length: > 0 })
             return;
 
+        bool moved;
         lock (_gate)
         {
             // Swept here rather than on a timer. The set is bounded by a group's staff list, so
@@ -80,8 +90,13 @@ public sealed class DeviceLocations
                     _known.Remove(id);
             }
 
-            _known[deviceId] = new Entry(instanceId, worldId is { Length: > 0 } ? worldId : null, now);
+            var world = worldId is { Length: > 0 } ? worldId : null;
+            moved = !_known.TryGetValue(deviceId, out var before) || before.InstanceId != instanceId || before.WorldId != world;
+            _known[deviceId] = new Entry(instanceId, world, now);
         }
+
+        if (moved)
+            _signal?.Tell();
     }
 
     /// <summary>
