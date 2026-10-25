@@ -14576,6 +14576,277 @@
         ]
       }
     },
+    "/api/settings/automatic-roles": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "List automatic roles",
+        "description": "Every automatic role rule, oldest first.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "ListAutomaticRoles",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutomaticRoleList"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Add automatic role",
+        "description": "Add a rule. It needs a VRChat role or a Discord role, and at least one condition switched on.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "CreateAutomaticRole",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutomaticRoleInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutomaticRoleView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/automatic-roles/{id}": {
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update automatic role",
+        "description": "Replace a rule's settings.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "UpdateAutomaticRole",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutomaticRoleInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutomaticRoleView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Delete automatic role",
+        "description": "Delete a rule.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "DeleteAutomaticRole",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/report-replies": {
       "get": {
         "tags": [
@@ -44357,6 +44628,310 @@
             "additionalProperties": {
               "type": "boolean"
             }
+          }
+        }
+      },
+      "AutomaticRoleInput": {
+        "required": [
+          "name",
+          "vrChatRoleId",
+          "discordRoleId",
+          "wholeTeam",
+          "whoDiscordRoleIds",
+          "whoVRChatRoleIds",
+          "companionRunning",
+          "clipsReady",
+          "inGroupInstance",
+          "minimumLevel",
+          "minimumLevelPassedTrial",
+          "minimumLevelStaffRoleId",
+          "overturnedBans",
+          "overturnedBansMax",
+          "overturnedBansDays",
+          "dailyBanCap",
+          "dailyBanCapMax",
+          "missedClips",
+          "missedClipsMax",
+          "missedClipsDays",
+          "takeBackUserIds"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "vrChatRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discordRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "wholeTeam": {
+            "type": "boolean"
+          },
+          "whoDiscordRoleIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "whoVRChatRoleIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "companionRunning": {
+            "type": "boolean"
+          },
+          "clipsReady": {
+            "type": "boolean"
+          },
+          "inGroupInstance": {
+            "type": "boolean"
+          },
+          "minimumLevel": {
+            "type": "boolean"
+          },
+          "minimumLevelPassedTrial": {
+            "type": "boolean"
+          },
+          "minimumLevelStaffRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "overturnedBans": {
+            "type": "boolean"
+          },
+          "overturnedBansMax": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "overturnedBansDays": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "dailyBanCap": {
+            "type": "boolean"
+          },
+          "dailyBanCapMax": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "missedClips": {
+            "type": "boolean"
+          },
+          "missedClipsMax": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "missedClipsDays": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "takeBackUserIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "AutomaticRoleList": {
+        "required": [
+          "rules"
+        ],
+        "type": "object",
+        "properties": {
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AutomaticRoleView"
+            }
+          }
+        }
+      },
+      "AutomaticRoleView": {
+        "required": [
+          "id",
+          "name",
+          "vrChatRoleId",
+          "discordRoleId",
+          "wholeTeam",
+          "whoDiscordRoleIds",
+          "whoVRChatRoleIds",
+          "companionRunning",
+          "clipsReady",
+          "inGroupInstance",
+          "minimumLevel",
+          "minimumLevelPassedTrial",
+          "minimumLevelStaffRoleId",
+          "overturnedBans",
+          "overturnedBansMax",
+          "overturnedBansDays",
+          "dailyBanCap",
+          "dailyBanCapMax",
+          "missedClips",
+          "missedClipsMax",
+          "missedClipsDays",
+          "takeBackUserIds",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "vrChatRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discordRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "wholeTeam": {
+            "type": "boolean"
+          },
+          "whoDiscordRoleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "whoVRChatRoleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "companionRunning": {
+            "type": "boolean"
+          },
+          "clipsReady": {
+            "type": "boolean"
+          },
+          "inGroupInstance": {
+            "type": "boolean"
+          },
+          "minimumLevel": {
+            "type": "boolean"
+          },
+          "minimumLevelPassedTrial": {
+            "type": "boolean"
+          },
+          "minimumLevelStaffRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "overturnedBans": {
+            "type": "boolean"
+          },
+          "overturnedBansMax": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "overturnedBansDays": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "dailyBanCap": {
+            "type": "boolean"
+          },
+          "dailyBanCapMax": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "missedClips": {
+            "type": "boolean"
+          },
+          "missedClipsMax": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "missedClipsDays": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "takeBackUserIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },

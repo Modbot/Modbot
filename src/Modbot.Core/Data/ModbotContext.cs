@@ -121,6 +121,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>How far the clip requests have read the fact log. One row.</summary>
     public DbSet<ClipRequestCursor> ClipRequestCursors => Set<ClipRequestCursor>();
 
+    /// <summary>Automatic role rules: a role held only while the rule's conditions hold.</summary>
+    public DbSet<AutomaticRole> AutomaticRoles => Set<AutomaticRole>();
+
     /// <summary>Short notes moderators leave from the companion for staff in the same instance.</summary>
     public DbSet<HeadsUp> HeadsUps => Set<HeadsUp>();
 
@@ -4056,6 +4059,22 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // A moderator's missed clips over a number of days, for the automatic roles.
             entity.HasIndex(e => new { e.ModeratorUserId, e.CreatedAt })
                 .HasDatabaseName("ix_clip_request_moderator");
+        });
+
+        builder.Entity<AutomaticRole>(entity =>
+        {
+            entity.ToTable("automatic_role");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Name).HasMaxLength(100);
+            entity.Property(e => e.VRChatRoleId).HasColumnName("vrchat_role_id").HasColumnType("text");
+            entity.Property(e => e.DiscordRoleId).HasColumnType("text");
+            entity.Property(e => e.WhoDiscordRoleIds).HasColumnType("jsonb");
+            entity.Property(e => e.WhoVRChatRoleIds).HasColumnName("who_vrchat_role_ids").HasColumnType("jsonb");
+            entity.Property(e => e.MinimumLevelStaffRoleId).HasColumnType("text");
+            entity.Property(e => e.TakeBackUserIds).HasColumnType("jsonb");
         });
 
         builder.Entity<ClipRequestCursor>(entity =>

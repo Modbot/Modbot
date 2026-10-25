@@ -625,6 +625,7 @@ public static class ApiSurface
 
         // Which actions ask the moderator's companion for a clip.
         app.MapClipRequestSettings();
+        app.MapAutomaticRoleSettings();
 
         // The ready-made messages staff can send a reporter when they close a report.
         app.MapReportReplySettings();

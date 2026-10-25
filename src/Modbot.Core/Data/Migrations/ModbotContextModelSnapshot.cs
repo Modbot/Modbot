@@ -922,6 +922,114 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("appeal", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.AutomaticRole", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("ClipsReady")
+                        .HasColumnType("boolean")
+                        .HasColumnName("clips_ready");
+
+                    b.Property<bool>("CompanionRunning")
+                        .HasColumnType("boolean")
+                        .HasColumnName("companion_running");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("DailyBanCap")
+                        .HasColumnType("boolean")
+                        .HasColumnName("daily_ban_cap");
+
+                    b.Property<int?>("DailyBanCapMax")
+                        .HasColumnType("integer")
+                        .HasColumnName("daily_ban_cap_max");
+
+                    b.Property<string>("DiscordRoleId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_role_id");
+
+                    b.Property<bool>("InGroupInstance")
+                        .HasColumnType("boolean")
+                        .HasColumnName("in_group_instance");
+
+                    b.Property<bool>("MinimumLevel")
+                        .HasColumnType("boolean")
+                        .HasColumnName("minimum_level");
+
+                    b.Property<bool>("MinimumLevelPassedTrial")
+                        .HasColumnType("boolean")
+                        .HasColumnName("minimum_level_passed_trial");
+
+                    b.Property<string>("MinimumLevelStaffRoleId")
+                        .HasColumnType("text")
+                        .HasColumnName("minimum_level_staff_role_id");
+
+                    b.Property<bool>("MissedClips")
+                        .HasColumnType("boolean")
+                        .HasColumnName("missed_clips");
+
+                    b.Property<int?>("MissedClipsDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("missed_clips_days");
+
+                    b.Property<int?>("MissedClipsMax")
+                        .HasColumnType("integer")
+                        .HasColumnName("missed_clips_max");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<bool>("OverturnedBans")
+                        .HasColumnType("boolean")
+                        .HasColumnName("overturned_bans");
+
+                    b.Property<int?>("OverturnedBansDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("overturned_bans_days");
+
+                    b.Property<int?>("OverturnedBansMax")
+                        .HasColumnType("integer")
+                        .HasColumnName("overturned_bans_max");
+
+                    b.PrimitiveCollection<string>("TakeBackUserIds")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("take_back_user_ids");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("VRChatRoleId")
+                        .HasColumnType("text")
+                        .HasColumnName("vrchat_role_id");
+
+                    b.PrimitiveCollection<string>("WhoDiscordRoleIds")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("who_discord_role_ids");
+
+                    b.PrimitiveCollection<string>("WhoVRChatRoleIds")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("who_vrchat_role_ids");
+
+                    b.Property<bool>("WholeTeam")
+                        .HasColumnType("boolean")
+                        .HasColumnName("whole_team");
+
+                    b.HasKey("Id")
+                        .HasName("pk_automatic_role");
+
+                    b.ToTable("automatic_role", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.BanReason", b =>
                 {
                     b.Property<Guid>("Id")
