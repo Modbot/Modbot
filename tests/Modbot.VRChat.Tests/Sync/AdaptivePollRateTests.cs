@@ -139,6 +139,37 @@ public class AdaptivePollRateTests
         Assert.True(reckless.MaxInterval >= reckless.MinInterval);
     }
 
+    /// <summary>
+    /// 2026-10-24: with a moderator's companion in an instance, the audit log is read at least
+    /// every 60 seconds, so the clip request for an action goes out while the footage exists.
+    /// </summary>
+    [Fact]
+    public void ACompanionInAnInstanceCapsTheWaitAtSixtySeconds()
+    {
+        var pollRate = New();
+
+        Assert.Equal(TimeSpan.FromSeconds(60), pollRate.CapForCompanion(TimeSpan.FromMinutes(5), true));
+        Assert.Equal(TimeSpan.FromSeconds(20), pollRate.CapForCompanion(TimeSpan.FromSeconds(20), true));
+    }
+
+    [Fact]
+    public void WithNoCompanionTheWaitIsUnchanged()
+    {
+        var pollRate = New();
+
+        Assert.Equal(TimeSpan.FromMinutes(5), pollRate.CapForCompanion(TimeSpan.FromMinutes(5), false));
+    }
+
+    /// <summary>The cap never goes under the poll rate's fastest interval, so never under spec 4.2's 8 s floor.</summary>
+    [Fact]
+    public void TheCapNeverGoesBelowTheFastestInterval()
+    {
+        var slower = new AuditLogSyncOptions { MinInterval = TimeSpan.FromMinutes(2), MaxInterval = TimeSpan.FromMinutes(5) };
+        var pollRate = new AdaptivePollRate(slower, new FakeClock(), new Random(7));
+
+        Assert.Equal(TimeSpan.FromMinutes(2), pollRate.CapForCompanion(TimeSpan.FromMinutes(5), true));
+    }
+
     private static AdaptivePollRate New(Random? random = null)
         => new(Options, new FakeClock(), random ?? new Random(7));
 }

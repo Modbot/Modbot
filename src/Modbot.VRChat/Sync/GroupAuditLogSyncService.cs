@@ -34,6 +34,7 @@ public sealed class GroupAuditLogSyncService : BackgroundService
     private readonly ISyncPacingSource? _pacing;
     private readonly IDelayScheduler _delays;
     private readonly ILogger _log;
+    private readonly ICompanionPresence? _companions;
 
     public GroupAuditLogSyncService(
         IServiceScopeFactory scopes,
@@ -42,7 +43,8 @@ public sealed class GroupAuditLogSyncService : BackgroundService
         AuditLogSyncOptions? options = null,
         ISyncPacingSource? pacing = null,
         IDelayScheduler? delays = null,
-        ILogger? log = null)
+        ILogger? log = null,
+        ICompanionPresence? companions = null)
     {
         ArgumentNullException.ThrowIfNull(scopes);
         ArgumentNullException.ThrowIfNull(clock);
@@ -55,6 +57,7 @@ public sealed class GroupAuditLogSyncService : BackgroundService
         _pacing = pacing;
         _delays = delays ?? new RealDelayScheduler();
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Sync);
+        _companions = companions;
     }
 
     /// <summary>The poll rate decision in force, for tests and for the health screen.</summary>
@@ -74,7 +77,7 @@ public sealed class GroupAuditLogSyncService : BackgroundService
             // single-row read per tick, at most once per eight seconds.
             await RefreshPacingAsync(stoppingToken).ConfigureAwait(false);
 
-            if (!await WaitAsync(_pollRate.NextDelay(), stoppingToken).ConfigureAwait(false))
+            if (!await WaitForNextPollAsync(_pollRate.NextDelay(), stoppingToken).ConfigureAwait(false))
                 return;
 
             var result = await RunOnceAsync(stoppingToken).ConfigureAwait(false);
@@ -167,6 +170,34 @@ public sealed class GroupAuditLogSyncService : BackgroundService
 
         _ => result.Message ?? result.Outcome.ToString(),
     };
+
+    /// <summary>
+    /// Waits for the next poll. With a presence source, the wait is cut into slices of at most
+    /// <see cref="AdaptivePollRate.CompanionInstanceCap"/> and the answer is asked again after each,
+    /// so a companion that walks into an instance during a five-minute wait still gets a read
+    /// within a minute. Without one, it is a single wait, as before.
+    /// </summary>
+    private async Task<bool> WaitForNextPollAsync(TimeSpan delay, CancellationToken ct)
+    {
+        if (_companions is null)
+            return await WaitAsync(delay, ct).ConfigureAwait(false);
+
+        var waited = TimeSpan.Zero;
+
+        while (true)
+        {
+            var due = _pollRate.CapForCompanion(delay, _companions.AnyInInstance());
+            var left = due - waited;
+            if (left <= TimeSpan.Zero)
+                return !ct.IsCancellationRequested;
+
+            var slice = left < AdaptivePollRate.CompanionInstanceCap ? left : AdaptivePollRate.CompanionInstanceCap;
+            if (!await WaitAsync(slice, ct).ConfigureAwait(false))
+                return false;
+
+            waited += slice;
+        }
+    }
 
     /// <summary>Waits, reporting whether the wait completed rather than throwing on shutdown.</summary>
     private async Task<bool> WaitAsync(TimeSpan delay, CancellationToken ct)

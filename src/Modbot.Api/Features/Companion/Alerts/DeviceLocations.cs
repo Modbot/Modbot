@@ -128,6 +128,18 @@ public sealed class DeviceLocations
         }
     }
 
+    /// <summary>
+    /// Whether any device is believed to be standing in an instance right now, by the same expiry
+    /// as <see cref="IsIn"/>. For pacing the audit-log read, which needs no instance name.
+    /// </summary>
+    public bool AnyIn(DateTimeOffset now)
+    {
+        lock (_gate)
+        {
+            return _known.Values.Any(entry => now - entry.At <= RememberedFor);
+        }
+    }
+
     /// <summary>Forgets a device. Called when its token is revoked.</summary>
     public void Forget(Guid deviceId)
     {

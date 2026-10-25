@@ -913,7 +913,12 @@ instruction:
 The first blobs to use `origin = Captured` are not profile images but **clips a moderator's
 companion recorded** (clips design spec §16). The bytes still arrive the ordinary way — a signed-in
 moderator, in a browser, through §9.1's three phases — because the companion's device token cannot
-upload and was not given a way to. What makes the file "captured" is that its content address is
+upload and was not given a way to. *(2026-10-24: narrowed. The device token now has one narrow upload
+path: `POST /api/v1/companion/clip-requests/{id}/clip`, accepted only for a clip request the server
+sent to that same device for one ban, kick or warning, within 15 minutes, once, up to the 100 MB
+cap, and only with the moderator's *Send clips for my actions automatically* on. It is stored as
+`origin = Captured`, and a stolen sign-in still cannot upload at will. The hand-attach route in this
+section is unchanged.)* What makes the file "captured" is that its content address is
 one the companion reported when the clip was saved, in a `vrchat.instance.clip-saved` fact, before
 any human chose anything. §5.2 is what lets that mean something: the hash names the exact bytes, so
 a file whose hash matches is that clip and nothing else can pass for it.
@@ -1240,6 +1245,17 @@ Tasks, not changes. Nothing here is implemented by this document.
   SHA-256 is, so the attach that follows can be recognised as that clip. A fingerprint is not bytes,
   and the device token still cannot upload or read evidence. *(The "never records audio" line was
   overtaken on 2026-09-19 too: a clip carries VRChat's sound — clips spec §15.)*
+
+  **And on 2026-10-24 by the same spec's "What changed on 2026-10-24" section.** The first two
+  bullets above are narrowed, not deleted: "the client never uploads anything" and "bytes enter the
+  system only when a human chooses the file" are no longer literally true. The companion has one
+  narrow upload path. It can upload a clip **only as the answer to a clip request the server sent to
+  that same device** for one ban, kick or warning, within 15 minutes, once, up to
+  `EvidenceOptions.MaxFileBytes` (100 MB, not raised), and only if the moderator switched on *Send
+  clips for my actions automatically* (off by default). A stolen device sign-in still cannot upload
+  at will, only answer a request for an action its moderator made, and it still cannot read evidence.
+  The endpoints are `POST /api/v1/companion/clip-requests/{id}/clip` and `/answer`; the request
+  arrives as `clip_request` on `/ws` and in the `/poll` answer. A web upload by a human is unchanged.
 - **No content analysis.** Modbot does not run detection, classification, or recognition over
   evidence. A file is stored and served; it is not interpreted. (M8's flagging works on facts, not on
   media, and that is unchanged.)

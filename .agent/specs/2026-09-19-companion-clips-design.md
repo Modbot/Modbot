@@ -1,8 +1,40 @@
 # Clips: keeping the last few minutes on a moderator's PC
 
-**Status:** built, 2026-09-19. Changed the same day; see below. Narrowed again on 2026-10-01 (§16).
+**Status:** built, 2026-09-19. Changed the same day; see below. Narrowed again on 2026-10-01 (§16)
+and on 2026-10-24 (the next section).
 **Reverses:** M3 client and overlay design §3.1.1 ("Screen capture — forbidden, permanently") and
 §10, and evidence storage design §19 ("No automatic capture of anything").
+
+## What changed on 2026-10-24: the companion now has one narrow upload path
+
+Nothing below is deleted. Earlier text that says a clip "never leaves the PC", that the client "has
+no upload path", or that "no endpoint" lets a companion send one is **narrowed by this section**, and
+each place carries a dated note pointing back here.
+
+The companion can upload a clip **only as the answer to a clip request the server sent to that same
+device**, for one ban, kick or warning that the device's own moderator made. The answer must come:
+
+- to the device the request was sent to, and no other;
+- for that request's id, **once**;
+- within **15 minutes** of the request;
+- no larger than the evidence cap, **100 MB** (`EvidenceOptions.MaxFileBytes`, not raised).
+
+A stolen device sign-in still cannot upload at will. It can answer a request the server made, for an
+action its moderator really took, once, inside the window. It has no endpoint that takes a file
+unprompted, and it still cannot reach the evidence store, a case file or anything else.
+
+| What changed | Where | Why |
+|---|---|---|
+| **A new box on the Clips card, off by default: *Send clips for my actions automatically*.** | the moderator's own choice | Nothing is ever sent unless the moderator who made the action has switched it on. |
+| **The server asks the device for a clip; it does not receive one unasked.** | `clip_request` on `/ws` and in the `/poll` answer | The request is what the upload is the answer to. Without one, there is nothing to answer. |
+| **Two endpoints, `POST /api/v1/companion/clip-requests/{id}/clip` and `/answer`.** | device token | `/clip` takes the file; `/answer` says "attached", "couldn't be cut" or "clips was off" without a file. |
+| **Clips go up to 10 minutes long.** | companion cut | Long enough for the lead-up and the moment, short enough to stay under 100 MB. |
+| **The companion cuts 30 seconds after the action plus as much before it as fits under 100 MB.** | companion cut | The action's aftermath is always wanted; the lead-up gets the rest of the room. |
+| **While a moderator's companion is in one of the group's instances, the audit log is read at least every 60 seconds.** | `AdaptivePollRate.CapForCompanion` | A request can only be sent once the server has read the action, and the footage only exists for the buffer's length. The 8-second floor is unchanged and a slower setting still wins. |
+
+The client's declared outbound senders change with the companion step that adds the upload; the
+source guard tests are updated there, not here.
+
 
 ## What changed on 2026-09-19, later the same day
 
@@ -106,7 +138,11 @@ What survives, unchanged:
   to a paired server, to Modbot Cloud, or anywhere else. The client has no upload path and did not
   gain one (§6). *(2026-10-01: "no fact that a clip exists" is narrowed by §16 — behind a box that is
   off, the group's own server may be told a clip was saved, with its fingerprint. The clip itself
-  still never leaves.)*
+  still never leaves.)* *(2026-10-24: narrowed again. A clip can leave, but only as the answer to a
+  clip request the server sent to this same device for one of its moderator's own bans, kicks or
+  warnings: once, within 15 minutes, up to 100 MB, and only with *Send clips for my actions
+  automatically* switched on, which it is not by default. The client still has no way to send a clip
+  unasked.)*
 - **Attaching evidence to a case is still a deliberate human action** taken in Modbot's web
   interface, in a browser, by choosing a file.
 - **VRChat's screenshot folder, and Pictures, Documents and the Desktop, stay out of bounds.** The
@@ -443,6 +479,14 @@ and never a crash, because the box is clamped to the monitor before it is used (
 fingerprint, now can — to the group's own server, behind a box that is off. Read the rest of this
 section as the reasoning that still decides what the device token can and cannot do.)*
 
+*(2026-10-24: narrowed again, and this heading with it. The clip can now leave, but only as the
+answer to a clip request the server sent to that same device, for one ban, kick or warning, within
+15 minutes, once, up to the 100 MB evidence cap, and only if the moderator switched on *Send clips
+for my actions automatically* (off by default). Point 1 below is no longer literally true: the
+device token has two endpoints for this, `POST /api/v1/companion/clip-requests/{id}/clip` and
+`/answer`, and nothing else. Point 2 still decides the shape: a stolen sign-in cannot upload at will,
+only answer a request for an action its moderator made. The earlier text stays as the reasoning.)*
+
 **No clip, no frame, and no fact that a clip exists is sent anywhere.** Not to a paired server, not
 to Modbot Cloud. The client's eight declared outbound senders are unchanged and no ninth was added;
 `OnlyTheEightDeclaredPlacesMakeOutboundRequests` still passes.
@@ -546,6 +590,9 @@ moves.
 | `.agent/specs/2026-09-10-m3-client-overlay-design.md` §3.1.1, §10 | spec | "forbidden, permanently" | Marked as narrowed by this spec, with the date and what survives |
 | `.agent/specs/2026-09-13-evidence-storage-design.md` §19 | spec | "No automatic capture of anything" | Same, and the half that is still true — nothing uploaded — called out |
 | `src/Modbot.Landing/` | marketing | made the "reads only the log" claim, never the capture one | Left alone: it never made the claim, and it is still true that the companion reads only the log |
+| *(2026-10-24)* this spec §2, §6 | spec | "Nothing recorded ever leaves the PC"; "When anything leaves the machine: never" | Marked as narrowed, not deleted: a clip leaves only as the answer to a server clip request to that device, once, within 15 minutes, up to 100 MB, with *Send clips for my actions automatically* on |
+| *(2026-10-24)* `.agent/specs/2026-09-13-evidence-storage-design.md` §19, §12.4 | spec | "nothing uploaded"; the evidence store has no companion path | Marked as narrowed with the same wording |
+| *(2026-10-24)* `src/Modbot.Companion.App/` class docs and the Clips card, `CompanionSourceGuardTests.cs` "eight declared outbound senders", `docs/content/docs/companion/clips.mdx`, `privacy.mdx`, `security.mdx`, `PRIVACY_POLICY.md` | source, UI text, tests, docs | "no clip leaves the PC" | Not changed by the audit-pacing step. Each moves with the step that builds the part it describes (companion, web, docs) |
 
 The landing site is the one row where the answer is "no change", and it is in the table so that
 somebody checking can see it was looked at rather than missed.

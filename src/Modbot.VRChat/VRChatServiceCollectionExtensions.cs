@@ -244,7 +244,8 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<Core.Time.IModbotClock>(),
             provider.GetRequiredService<SyncDiagnostics>(),
             auditLogOptions,
-            provider.GetRequiredService<ISyncPacingSource>()));
+            provider.GetRequiredService<ISyncPacingSource>(),
+            companions: provider.GetService<ICompanionPresence>()));
 
         services.AddHostedService(provider => new GroupInfoSyncService(
             provider.GetRequiredService<IServiceScopeFactory>(),

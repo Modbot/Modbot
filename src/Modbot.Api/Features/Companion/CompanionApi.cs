@@ -65,6 +65,7 @@ public static class CompanionApi
         // batch arriving on another, and because where each device is standing is shared routing
         // state for that channel rather than anything belonging to a request.
         services.AddSingleton<DeviceLocations>();
+        services.AddSingleton<Modbot.VRChat.Sync.ICompanionPresence, CompanionPresence>();
         services.AddSingleton<AlertHub>();
         services.AddSingleton<HeadsUpSignal>();
         services.AddScoped<DeviceAuthenticator>();

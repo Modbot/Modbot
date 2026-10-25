@@ -127,6 +127,30 @@ public sealed class AdaptivePollRate
             : interval + (interval * _random.NextDouble() * _options.JitterFraction);
     }
 
+    /// <summary>
+    /// The longest the audit log goes unread while a moderator's companion is in one of the
+    /// group's instances (2026-10-24, automatic clips). The companion cuts a clip around an action
+    /// only after the server asks for it, and the server only asks once it has read the action.
+    /// </summary>
+    public static readonly TimeSpan CompanionInstanceCap = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    /// Shortens a wait to <see cref="CompanionInstanceCap"/> while a companion is in an instance;
+    /// with none, the wait is returned unchanged.
+    /// </summary>
+    /// <remarks>
+    /// Never below the poll rate's fastest interval, which is spec 4.2's pacing floor: if an operator
+    /// has made the audit log slower than the cap, that choice wins (spec 4.2.1).
+    /// </remarks>
+    public TimeSpan CapForCompanion(TimeSpan delay, bool companionInInstance)
+    {
+        if (!companionInInstance)
+            return delay;
+
+        var cap = CompanionInstanceCap < _options.MinInterval ? _options.MinInterval : CompanionInstanceCap;
+        return delay > cap ? cap : delay;
+    }
+
     private PollRateDecision Decide(AuditLogRunResult result)
     {
         var now = _clock.UtcNow;
