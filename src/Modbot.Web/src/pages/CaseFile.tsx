@@ -20,6 +20,7 @@ import {
   type BanReasonView,
   type CaseFileView,
   type CaseLift,
+  type ClipRequestStatus,
   type ProfileAtBan,
 } from '@/lib/api'
 import { textList } from '@/lib/caseSnapshot'
@@ -269,8 +270,39 @@ function Header({
             </>
           )
         )}
+        {view.clipStatus && <ClipStatusBadge clip={view.clipStatus} />}
       </CardContent>
     </Card>
+  )
+}
+
+const clipBadgeVariant = {
+  Asked: 'info',
+  Attached: 'ok',
+  NotInInstance: 'outline',
+} as const
+
+/** How the clip asked for with the ban went. An attached clip scrolls to its place in the evidence below. */
+function ClipStatusBadge({ clip }: { clip: ClipRequestStatus }) {
+  const variant = clipBadgeVariant[clip.status as keyof typeof clipBadgeVariant] ?? 'warn'
+  return (
+    <div className="mt-2">
+      {clip.hash ? (
+        <Badge variant={variant} asChild>
+          <a
+            href={`#evidence-${clip.hash}`}
+            onClick={(event) => {
+              event.preventDefault()
+              document.getElementById(`evidence-${clip.hash}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            }}
+          >
+            {clip.label}
+          </a>
+        </Badge>
+      ) : (
+        <Badge variant={variant}>{clip.label}</Badge>
+      )}
+    </div>
   )
 }
 

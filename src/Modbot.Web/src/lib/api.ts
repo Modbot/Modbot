@@ -4259,6 +4259,15 @@ export type CaseFileView = {
   lifted: CaseLift | null
   /** Saved clips this person may be in, not on the case file yet. Null when evidence may not be viewed. */
   clips: SavedClip[] | null
+  /** How the clip asked for with the ban went. Null when none was asked. */
+  clipStatus: ClipRequestStatus | null
+}
+
+/** One action's clip status. `hash` names the clip among the case file's evidence, once attached and only when evidence may be viewed. */
+export type ClipRequestStatus = {
+  status: 'Asked' | 'Attached' | 'UploadFailed' | 'CouldNotCut' | 'DidNotAnswer' | 'ClipsOff' | 'NotInInstance'
+  label: string
+  hash: string | null
 }
 
 /** Why and when a case file's ban was lifted. `unbanFactId` opens the unban's audit log row. */

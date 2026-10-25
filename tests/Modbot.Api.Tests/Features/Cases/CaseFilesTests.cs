@@ -734,4 +734,53 @@ public class CaseFilesTests
         Assert.Equal(HttpStatusCode.NotFound, (await host.PostJsonAsync($"/api/cases/{id}/withdraw", new { note = "x" }, cookie, ct)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await host.PostJsonAsync($"/api/cases/{id}/capture-again", null, cookie, ct)).StatusCode);
     }
+
+    // ── The clip asked for with the ban ────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task TheCaseFile_ShowsHowTheBansClipWent_AndTheHashOnlyToThoseWhoMayViewEvidence()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+        await SeedBanAsync(host, ct);
+
+        var writer = await host.SignedInAsync(ModbotPermissions.Ban | ModbotPermissions.ViewProfile | ModbotPermissions.ViewEvidence, ct);
+        var created = await WriteAsync(host, writer, ct);
+
+        // No clip was asked for: nothing to show.
+        Assert.Null((await host.GetJsonAsync<CaseFileView>($"/api/cases/{created.Id}", writer, ct)).ClipStatus);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            db.ClipRequests.Add(new ClipRequest
+            {
+                FactId = created.BanFactId!.Value,
+                Action = ClipAction.Ban,
+                SubjectId = Banned,
+                ModeratorUserId = Guid.NewGuid(),
+                ActionAt = Day.AddHours(-1),
+                Status = ClipStatus.Attached,
+                CreatedAt = Day.AddHours(-1),
+                BlobHash = new string('a', 64),
+            });
+            await db.SaveChangesAsync(ct);
+        }
+
+        var seen = (await host.GetJsonAsync<CaseFileView>($"/api/cases/{created.Id}", writer, ct)).ClipStatus;
+        Assert.Equal("Attached", seen?.Status);
+        Assert.Equal("Clip attached", seen?.Label);
+        Assert.Equal(new string('a', 64), seen?.Hash);
+
+        // Without ViewEvidence the status still reads, the hash does not.
+        var reader = await host.SignedInAsync(ModbotPermissions.ViewProfile, ct);
+        var withheld = (await host.GetJsonAsync<CaseFileView>($"/api/cases/{created.Id}", reader, ct)).ClipStatus;
+        Assert.Equal("Clip attached", withheld?.Label);
+        Assert.Null(withheld?.Hash);
+
+        // Without ViewProfile nothing reads at all.
+        var outsider = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, ct);
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync($"/api/cases/{created.Id}", outsider, ct)).StatusCode);
+    }
 }

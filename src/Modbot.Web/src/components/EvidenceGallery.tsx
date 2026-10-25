@@ -90,7 +90,7 @@ export function EvidenceGallery({
         // there are two to put side by side; a lone item takes the width.
         <PanelGrid as="ul" className={cn('m-0', held.length > 1 && 'sm:grid-cols-2')}>
           {held.map((item) => (
-            <li key={item.hash} className="p-(--panel-pad)">
+            <li key={item.hash} id={`evidence-${item.hash}`} className="p-(--panel-pad)">
               <Item
                 item={item}
                 caseId={caseId}

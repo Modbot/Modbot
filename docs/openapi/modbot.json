@@ -49702,6 +49702,16 @@
             "items": {
               "$ref": "#/components/schemas/SavedClipView"
             }
+          },
+          "clipStatus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ClipRequestView"
+              }
+            ]
           }
         }
       },
@@ -50302,6 +50312,28 @@
           },
           "warnings": {
             "type": "boolean"
+          }
+        }
+      },
+      "ClipRequestView": {
+        "required": [
+          "status",
+          "label",
+          "hash"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "hash": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

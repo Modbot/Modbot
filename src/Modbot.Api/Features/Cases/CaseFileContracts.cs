@@ -151,7 +151,14 @@ public sealed record CaseFileView(
     DateTimeOffset Now,
     bool CanDestroyEvidence = false,
     CaseLiftView? Lifted = null,
-    IReadOnlyList<SavedClipView>? Clips = null);
+    IReadOnlyList<SavedClipView>? Clips = null,
+    ClipRequestView? ClipStatus = null);
+
+/// <summary>How the clip asked for with a ban went. Absent from the case file when no row was made for the ban.</summary>
+/// <param name="Status">The status name: Asked, Attached, UploadFailed, CouldNotCut, DidNotAnswer, ClipsOff or NotInInstance.</param>
+/// <param name="Label">The words the status shows as.</param>
+/// <param name="Hash">The clip's evidence hash once attached, and only for a caller who may view evidence; else null.</param>
+public sealed record ClipRequestView(string Status, string Label, string? Hash);
 
 /// <summary>The unban that lifted a case file's ban.</summary>
 /// <param name="At">When, on Modbot's clock.</param>

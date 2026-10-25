@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
 using Modbot.Api.Features.Analytics;
 using Modbot.Api.Features.Audit;
+using Modbot.Api.Features.Companion.ClipRequests;
 using Modbot.Api.Features.Evidence;
 using Modbot.Api.Features.Reviews;
 using Modbot.Core.Data;
@@ -520,7 +521,22 @@ public sealed class CaseFileService
             now,
             canViewEvidence && caller.Has(ModbotPermissions.DestroyEvidence),
             await LiftOfAsync(row, ct),
-            clips);
+            clips,
+            await ClipRequestOfAsync(row, canViewEvidence, ct));
+    }
+
+    /// <summary>How the clip asked for with this case file's ban went, or null when none was asked.</summary>
+    private async Task<ClipRequestView?> ClipRequestOfAsync(CaseFile row, bool canViewEvidence, CancellationToken ct)
+    {
+        if (row.BanFactId is not { } factId)
+            return null;
+
+        var request = await new ClipRequestStore(_db).ForFactAsync(factId, ct);
+        if (request is null)
+            return null;
+
+        var hash = canViewEvidence && request.Status == ClipStatus.Attached ? request.BlobHash : null;
+        return new ClipRequestView(request.Status.ToString(), ClipStatusLabels.Of(request.Status), hash);
     }
 
     /// <summary>
