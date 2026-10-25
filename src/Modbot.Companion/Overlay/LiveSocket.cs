@@ -35,7 +35,8 @@ public interface ILiveSocket : IDisposable
 /// <summary>Opens the live WebSocket to one paired server.</summary>
 public interface ILiveSocketFactory
 {
-    Task<LiveConnect> ConnectAsync(ServerPairing pairing, string instanceId, string? worldId, string? after, CancellationToken cancellationToken);
+    /// <summary>Opens the socket. With no instance named (the clip link), the server sends clip requests and no presence.</summary>
+    Task<LiveConnect> ConnectAsync(ServerPairing pairing, string? instanceId, string? worldId, string? after, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -51,7 +52,13 @@ public interface ILiveSocketFactory
 /// no log lines, nothing about the machine, nothing about instances belonging to any other
 /// group.</para>
 /// <para><strong>What comes back is data to display</strong> -- who joined or left the instance --
-/// and never a command. There is nothing in this client that would act on one.</para>
+/// and, since 2026-10-24, one request: <c>clip_request</c>, which asks this companion to send the
+/// clip of an action, and only when the moderator ticked "Send clips for my actions automatically".
+/// Nothing else that comes back is a command, and nothing here acts on the request: it is handed
+/// on as a message, and the clip code decides whether there is anything to send.</para>
+/// <para><strong>With no instance named</strong> (the clip link, open while that switch is on) the
+/// socket opens with only the device token and the cursor, and the server sends it clip requests
+/// and no presence.</para>
 /// <para><strong>Why a WebSocket now.</strong> The protocol first chose a long poll here so that a
 /// proxy that breaks WebSockets degraded it to a slow poll rather than to nothing. That is still
 /// the rule: the link opens this socket first and, when it cannot connect or keeps dropping, falls
@@ -68,7 +75,7 @@ public sealed class ClientLiveSocketFactory : ILiveSocketFactory
 
     public async Task<LiveConnect> ConnectAsync(
         ServerPairing pairing,
-        string instanceId,
+        string? instanceId,
         string? worldId,
         string? after,
         CancellationToken cancellationToken)
@@ -106,7 +113,7 @@ public sealed class ClientLiveSocketFactory : ILiveSocketFactory
         private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
         private readonly ClientWebSocket _socket;
-        private readonly byte[] _buffer = new byte[16 * 1024];
+        private readonly byte[] _buffer = new byte[16 *1024];
 
         // One send at a time: the instance and the Clips settings are sent from different threads.
         private readonly SemaphoreSlim _sending = new(1, 1);
@@ -229,17 +236,29 @@ public sealed class ClientLiveSocketFactory : ILiveSocketFactory
             _sending.Dispose();
         }
 
-        /// <summary>A message the client does not understand is skipped, never fatal.</summary>
-        private static LiveSocketMessage? Parse(byte[] bytes)
+        private static LiveSocketMessage? Parse(byte[] bytes) => ParseMessage(bytes);
+    }
+
+    /// <summary>
+    /// One text message from the server, parsed. A message the client does not understand is skipped
+    /// (null), never fatal.
+    /// </summary>
+    public static LiveSocketMessage? ParseMessage(byte[] bytes)
+    {
+        try
         {
-            try
-            {
-                return JsonSerializer.Deserialize<LiveSocketMessage>(bytes, Json);
-            }
-            catch (JsonException)
-            {
-                return null;
-            }
+            var message = JsonSerializer.Deserialize<LiveSocketMessage>(bytes, MessageJson);
+
+            // A clip request is the whole message, not a field of it.
+            return message is { Kind: ClipRequestWire.Kind }
+                ? message with { ClipRequest = JsonSerializer.Deserialize<ClipRequestMessage>(bytes, MessageJson) }
+                : message;
+        }
+        catch (JsonException)
+        {
+            return null;
         }
     }
+
+    private static readonly JsonSerializerOptions MessageJson = new(JsonSerializerDefaults.Web);
 }

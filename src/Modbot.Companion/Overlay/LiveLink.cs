@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Modbot.Companion.Ingest;
 using Modbot.Core.Time;
+using Modbot.Shared.Clips;
 
 namespace Modbot.Companion.Overlay;
 
@@ -31,7 +32,14 @@ public enum LiveLinkState
 /// <para><strong>What this sends and receives.</strong> Nothing itself: it drives an
 /// <see cref="ILiveSocketFactory"/> and an <see cref="IOverlayReadClient"/>, whose own remarks say
 /// what leaves the machine. What comes back is who joined and left the instance the moderator is
-/// in, which fills the roster and raises the flagged-join card.</para>
+/// in, which fills the roster and raises the flagged-join card. Since 2026-10-24 it can also bring
+/// back a clip request: the server asking this companion to send the clip for one action, which is
+/// acted on only when the moderator ticked "Send clips for my actions automatically". Nothing else
+/// that comes back is a command.</para>
+/// <para><strong>Two kinds of link.</strong> The overlay's follows the instance the moderator is in
+/// and is closed when they are in none; it ignores clip requests. The clip link (<paramref name="clipsOnly"/>,
+/// built by <see cref="ClipLink"/>) names no instance, stays open while the switch is on, and keeps
+/// only the clip requests. Both use this one fallback and backoff.</para>
 /// <para><strong>The fallback rule.</strong> The socket is tried first. When it cannot connect,
 /// or drops, <see cref="DropsBeforePolling"/> times within <see cref="DropWindow"/>, the link
 /// polls for <see cref="PollingSpell"/> and then tries the socket again. A proxy or captive portal
@@ -68,6 +76,8 @@ public sealed class LiveLink : IDisposable
     private readonly ServerPairing _pairing;
     private readonly BackoffPolicy _backoff;
     private readonly ConcurrentQueue<LiveEvent> _events = new();
+    private readonly ConcurrentQueue<ClipRequestMessage> _clipRequests = new();
+    private readonly bool _clipsOnly;
 
     // Held while moderation rows are taken out, so an event received meanwhile cannot land ahead of
     // the presence events put back.
@@ -94,11 +104,13 @@ public sealed class LiveLink : IDisposable
         IOverlayReadClient reads,
         IModbotClock clock,
         ServerPairing pairing,
-        BackoffPolicy? backoff = null)
+        BackoffPolicy? backoff = null,
+        bool clipsOnly = false)
     {
         ArgumentNullException.ThrowIfNull(reads);
         ArgumentNullException.ThrowIfNull(pairing);
 
+        _clipsOnly = clipsOnly;
         _sockets = sockets;
         _reads = reads;
         _clock = clock;
@@ -196,6 +208,19 @@ public sealed class LiveLink : IDisposable
         return drained;
     }
 
+    /// <summary>Every clip request received since the last drain, oldest first. Always empty for the overlay's link, which keeps none. The same request can arrive more than once.</summary>
+    public IReadOnlyList<ClipRequestMessage> DrainClipRequests()
+    {
+        if (_clipRequests.IsEmpty)
+            return [];
+
+        var drained = new List<ClipRequestMessage>();
+        while (_clipRequests.TryDequeue(out var request))
+            drained.Add(request);
+
+        return drained;
+    }
+
     /// <summary>
     /// Whether the server said the heads-ups where the moderator stands changed since the last
     /// ask. Asking clears it. The roster read carries them, so the answer is to read it again.
@@ -212,7 +237,9 @@ public sealed class LiveLink : IDisposable
     /// <summary>One turn: harvest what finished, start what is due. Never waits on the network.</summary>
     public async Task PumpAsync(CancellationToken cancellationToken = default)
     {
-        if (State is LiveLinkState.Stopped || _instanceId is not { } instance)
+        // The overlay's link waits for an instance; the clip link names none and is always on.
+        var instance = _instanceId;
+        if (State is LiveLinkState.Stopped || (instance is null && !_clipsOnly))
             return;
 
         var world = _worldId;
@@ -243,8 +270,9 @@ public sealed class LiveLink : IDisposable
                     StartReceiving(result.Socket);
 
                     // The moderator may have changed instances while the connect was in flight.
-                    if (!string.Equals(_connectingFor, instance, StringComparison.Ordinal)
-                        || !string.Equals(_connectingForWorld, world, StringComparison.Ordinal))
+                    if (instance is not null
+                        && (!string.Equals(_connectingFor, instance, StringComparison.Ordinal)
+                            || !string.Equals(_connectingForWorld, world, StringComparison.Ordinal)))
                     {
                         _ = SubscribeAsync(result.Socket, instance, world);
                     }
@@ -269,8 +297,17 @@ public sealed class LiveLink : IDisposable
             switch (result.Outcome)
             {
                 case ReadOutcome.Fetched when result.Value is not null:
-                    foreach (var @event in result.Value.Events)
-                        Receive(@event);
+                    if (!_clipsOnly)
+                    {
+                        foreach (var @event in result.Value.Events)
+                            Receive(@event);
+                    }
+                    else if (result.Value.ClipRequests is { } requests)
+                    {
+                        foreach (var request in requests)
+                            _clipRequests.Enqueue(request);
+                    }
+
                     Cursor = result.Value.Cursor;
                     _failures = 0;
                     _notBefore = null;
@@ -302,7 +339,9 @@ public sealed class LiveLink : IDisposable
         if (_sockets is null || (_pollUntil is { } spell && now < spell))
         {
             State = LiveLinkState.Polling;
-            _polling ??= _reads.PollLiveAsync(_pairing, instance, world, Cursor, PollWaitSeconds, cancellationToken);
+            _polling ??= instance is null
+                ? _reads.PollRequestsAsync(_pairing, Cursor, PollWaitSeconds, cancellationToken)
+                : _reads.PollLiveAsync(_pairing, instance, world, Cursor, PollWaitSeconds, cancellationToken);
             return;
         }
 
@@ -378,7 +417,8 @@ public sealed class LiveLink : IDisposable
                 switch (message.Kind)
                 {
                     case "event" when message.Event is { } @event:
-                        Receive(@event);
+                        if (!_clipsOnly)
+                            Receive(@event);
                         Cursor = @event.Cursor;
                         break;
 
@@ -388,6 +428,11 @@ public sealed class LiveLink : IDisposable
 
                     case "changed" when message.What == "heads_ups":
                         _headsUpsChanged = true;
+                        break;
+
+                    // Only the clip link keeps these; the overlay's link would never drain them.
+                    case ClipRequestWire.Kind when _clipsOnly && message.ClipRequest is { } request:
+                        _clipRequests.Enqueue(request);
                         break;
                 }
             }

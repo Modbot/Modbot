@@ -50,6 +50,13 @@ public interface IOverlayReadClient
     /// <paramref name="waitSeconds"/>. The backup for the WebSocket, with the same events.
     /// </summary>
     Task<ReadResult<LivePollPage>> PollLiveAsync(ServerPairing pairing, string instanceId, string? worldId, string? after, int waitSeconds, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The same long poll with no instance named, for the clip link: the answer lists the clip requests
+    /// still open and no presence. A client that cannot do this reports <see cref="ReadOutcome.Unreachable"/>.
+    /// </summary>
+    Task<ReadResult<LivePollPage>> PollRequestsAsync(ServerPairing pairing, string? after, int waitSeconds, CancellationToken cancellationToken)
+        => Task.FromResult(new ReadResult<LivePollPage>(ReadOutcome.Unreachable));
 }
 
 /// <summary>
@@ -73,9 +80,13 @@ public interface IOverlayReadClient
 /// on that same server. It is read here and made into the server's whole address, and nothing is
 /// fetched by this class: the window's picture store asks for the picture later, with the same token,
 /// from the same server and from no one else.</para>
-/// <para><strong>Nothing that comes back is a command.</strong> These are reads. The server has no
-/// way to tell this client to do anything, by design, which is what keeps the client's behaviour
-/// fully described by its own source.</para>
+/// <para><strong>Nothing that comes back is a command, with one exception.</strong> These are
+/// reads. The live poll's answer may list clip requests (since 2026-10-24), each asking this client
+/// to send the clip for one action; they are acted on only when the moderator ticked "Send clips for
+/// my actions automatically". The server can ask for nothing else, which is what keeps the client's
+/// behaviour fully described by its own source.</para>
+/// <para><strong>The clip link's poll</strong> (<see cref="IOverlayReadClient.PollRequestsAsync"/>)
+/// names no instance: just the cursor, the wait and the four Clips settings.</para>
 /// <para><strong>The overlay never calls this while drawing.</strong> It renders from the local
 /// cache these responses fill, so a server that is slow or down produces stale data with its age
 /// shown, never a spinner.</para>
@@ -136,6 +147,13 @@ public sealed class HttpOverlayReadClient : IOverlayReadClient
         int waitSeconds,
         CancellationToken cancellationToken)
         => GetAsync<LivePollPage>(pairing, pairing.LivePollEndpoint(instanceId, after, waitSeconds, worldId, _clips?.Current), cancellationToken);
+
+    public Task<ReadResult<LivePollPage>> PollRequestsAsync(
+        ServerPairing pairing,
+        string? after,
+        int waitSeconds,
+        CancellationToken cancellationToken)
+        => GetAsync<LivePollPage>(pairing, pairing.LivePollEndpoint(null, after, waitSeconds, clips: _clips?.Current), cancellationToken);
 
     private async Task<ReadResult<T>> GetAsync<T>(ServerPairing pairing, Uri endpoint, CancellationToken cancellationToken)
     {

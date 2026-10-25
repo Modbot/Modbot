@@ -59,7 +59,7 @@ public class LiveLinkTests
     {
         public Queue<Func<LiveConnect>> Answers { get; } = new();
 
-        public List<(string Instance, string? After)> Connects { get; } = [];
+        public List<(string? Instance, string? After)> Connects { get; } = [];
 
         public List<string?> ConnectWorlds { get; } = [];
 
@@ -73,7 +73,7 @@ public class LiveLinkTests
         public void Refuse(LiveConnectOutcome outcome = LiveConnectOutcome.Unreachable)
             => Answers.Enqueue(() => new LiveConnect(outcome));
 
-        public Task<LiveConnect> ConnectAsync(ServerPairing pairing, string instanceId, string? worldId, string? after, CancellationToken cancellationToken)
+        public Task<LiveConnect> ConnectAsync(ServerPairing pairing, string? instanceId, string? worldId, string? after, CancellationToken cancellationToken)
         {
             Connects.Add((instanceId, after));
             ConnectWorlds.Add(worldId);

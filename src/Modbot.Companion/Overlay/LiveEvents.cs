@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Modbot.Shared.Clips;
 
 namespace Modbot.Companion.Overlay;
 
@@ -117,17 +118,21 @@ public sealed record LiveEvent(
 }
 
 /// <summary>One long-poll answer: the events after the cursor asked for, and where to carry on from.</summary>
+/// <param name="ClipRequests">The clips the server asks this device for that are still open. Null from a server that has none to say.</param>
 public sealed record LivePollPage(
     [property: JsonPropertyName("events")] IReadOnlyList<LiveEvent> Events,
     [property: JsonPropertyName("cursor")] string Cursor,
-    [property: JsonPropertyName("more")] bool More);
+    [property: JsonPropertyName("more")] bool More,
+    [property: JsonPropertyName("clipRequests")] IReadOnlyList<ClipRequestMessage>? ClipRequests = null);
 
 /// <summary>One message from the live WebSocket, already parsed.</summary>
-/// <param name="Kind"><c>hello</c>, <c>event</c>, <c>heartbeat</c>, <c>changed</c>, <c>notice</c>, <c>error</c> or <c>pong</c>.</param>
+/// <param name="Kind"><c>hello</c>, <c>event</c>, <c>heartbeat</c>, <c>changed</c>, <c>notice</c>, <c>error</c>, <c>pong</c> or <c>clip_request</c>.</param>
 /// <param name="Cursor">On <c>hello</c> and <c>heartbeat</c>: where the server is, so a reconnect carries on from there.</param>
 /// <param name="What">On <c>changed</c>: what to read again. <c>heads_ups</c> means the roster read, which carries them.</param>
+/// <param name="ClipRequest">On <c>clip_request</c>: the request, which the server sends as the whole message. Filled in by the socket when it parses; never read from the JSON of the other kinds.</param>
 public sealed record LiveSocketMessage(
     [property: JsonPropertyName("kind")] string Kind,
     [property: JsonPropertyName("event")] LiveEvent? Event = null,
     [property: JsonPropertyName("cursor")] string? Cursor = null,
-    [property: JsonPropertyName("what")] string? What = null);
+    [property: JsonPropertyName("what")] string? What = null,
+    [property: JsonIgnore] ClipRequestMessage? ClipRequest = null);

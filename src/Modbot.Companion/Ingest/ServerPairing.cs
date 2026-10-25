@@ -149,7 +149,7 @@ public sealed record ServerPairing
     /// Live updates over a WebSocket: who joins and leaves the instance the moderator is standing
     /// in, flagged joins included. <paramref name="after"/> is the cursor to carry on from.
     /// </summary>
-    public Uri LiveSocketEndpoint(string instanceId, string? after, string? worldId = null)
+    public Uri LiveSocketEndpoint(string? instanceId, string? after, string? worldId = null)
     {
         var scheme = BaseUri.Scheme == Uri.UriSchemeHttps ? "wss" : "ws";
         var builder = new UriBuilder(BaseUri) { Scheme = scheme, Path = $"/api/v{ApiVersion}/companion/ws", Query = Query(instanceId, worldId, after) };
@@ -160,8 +160,16 @@ public sealed record ServerPairing
     /// The same updates by long polling, the backup for the WebSocket. With <paramref name="clips"/>
     /// the poll also tells the server the Clips settings, the way the socket does.
     /// </summary>
-    public Uri LivePollEndpoint(string instanceId, string? after, int waitSeconds, string? worldId = null, ClipSettingsReport? clips = null)
-        => new(BaseUri, $"/api/v{ApiVersion}/companion/poll?{Query(instanceId, worldId, after)}&wait={waitSeconds}" + ClipsQuery(clips));
+    /// <remarks>
+    /// With no instance named, both live endpoints name none: the clip link (automatic clips,
+    /// 2026-10-24) is open whatever the moderator stands in, and the server then sends it clip
+    /// requests and no presence.
+    /// </remarks>
+    public Uri LivePollEndpoint(string? instanceId, string? after, int waitSeconds, string? worldId = null, ClipSettingsReport? clips = null)
+    {
+        var query = Query(instanceId, worldId, after);
+        return new(BaseUri, $"/api/v{ApiVersion}/companion/poll?" + (query.Length == 0 ? "" : query + "&") + $"wait={waitSeconds}" + ClipsQuery(clips));
+    }
 
     private static string ClipsQuery(ClipSettingsReport? clips)
         => clips is null
@@ -175,11 +183,25 @@ public sealed record ServerPairing
             + (worldId is { Length: > 0 } ? $"&worldId={Uri.EscapeDataString(worldId)}" : "");
 
     /// <summary>
-    /// The live feed's query. Always asks for moderation events (<c>moderation=true</c>): the Audit Log
-    /// tab shows them, and the server sends them only to an owner who may see the audit log.
+    /// The live feed's query. With an instance it always asks for moderation events
+    /// (<c>moderation=true</c>): the Audit Log tab shows them, and the server sends them only to an
+    /// owner who may see the audit log. With no instance there are none to ask for.
     /// </summary>
-    private static string Query(string instanceId, string? worldId, string? after)
-        => Address(instanceId, worldId) + (after is null ? "" : $"&after={Uri.EscapeDataString(after)}") + "&moderation=true";
+    private static string Query(string? instanceId, string? worldId, string? after)
+    {
+        var parts = new List<string>();
+
+        if (instanceId is { Length: > 0 })
+            parts.Add(Address(instanceId, worldId));
+
+        if (after is not null)
+            parts.Add($"after={Uri.EscapeDataString(after)}");
+
+        if (instanceId is { Length: > 0 })
+            parts.Add("moderation=true");
+
+        return string.Join('&', parts);
+    }
 
     public override string ToString() => $"{ServerId} ({BaseUri})";
 }
