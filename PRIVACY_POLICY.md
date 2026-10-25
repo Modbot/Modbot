@@ -86,6 +86,9 @@ It depends on what the group has set up. At most:
   fingerprint (its SHA-256 and size), and which device and Modbot account it came from. Never the
   clip itself. Other moderators see it, with your Modbot username, in the audit log and listed as
   "Clip saved on your PC" on the case files of people who were in that instance.
+- If you moderate with the Windows client and ticked **Send clips for my actions automatically**:
+  when the server asks your client for a clip of a ban, kick or warning you made, the clip itself
+  (see below), and whether it arrived or why not.
 
 This comes from the Windows client some moderators run, which reads the VRChat log file on their PC
 (and from old records a moderator imports). That log names everyone in the instance with them, which
@@ -110,8 +113,10 @@ instance warnings, with the place they happened.
 - Evidence a moderator attached: screenshots, clips, files. Modbot also writes down who attached,
   took off, viewed, downloaded or destroyed each file, and when. It says so here because a file
   may be a picture or a clip of a person: who looked at it is part of the record. A clip attached
-  as one a moderator's client saved also keeps when and in which instance it was saved, and that
-  moderator's VRChat id and name.
+  as one a moderator's client saved, or that the client sent when the server asked for it, also keeps
+  when and in which instance it was saved, and that moderator's VRChat id and name. The clip, which
+  carries VRChat's sound and so the voices of the people in that instance, is kept as the group's
+  evidence storage keeps any evidence.
 - Flags raised by the group's word lists and AI topics: which rule matched, the words that matched
   (up to 1,000 characters) or, for a picture, its address and a label, and where it was. The AI call
   log keeps the whole prompt and answer (each up to 20,000 characters) for a call that produced a flag, and for a call a person
@@ -136,7 +141,8 @@ instance warnings, with the place they happened.
   [What does the companion send?](#what-does-the-companion-send), because both are things that PC
   does rather than things we receive. A moderator can switch on **Clips**, and a clip carries the
   sound VRChat is playing — which in an instance is the voices of the people around them. It stays
-  on their PC. And a moderator can switch on **Listening**, which opens their microphone to hear a
+  on their PC, except that if that moderator ticks a second box, off by default, their group's
+  server can ask for a clip of a ban, kick or warning they made and receive it. And a moderator can switch on **Listening**, which opens their microphone to hear a
   few short phrases; nothing it hears is recorded, kept or sent. Both are off unless that person
   turns them on.
 - If you linked your Discord and VRChat accounts through Modbot, the link between them, with both
@@ -312,7 +318,7 @@ draws.
 - Records where that person was the one acting, such as a moderator's bans. They are somebody else's
   moderation history.
 - Their case files and the evidence attached to them. A clip attached as one a moderator's client
-  saved keeps that moderator's VRChat id and Modbot username with it, and a purge of that moderator
+  saved, or sent when the server asked, keeps that moderator's VRChat id and Modbot username with it, and a purge of that moderator
   does not remove them.
 - The rows Modbot holds about who someone currently is: their VRChat profile, group membership, ban
   list entry, Discord member row and account link. Modbot's next sync can also write a current
@@ -557,7 +563,9 @@ belong to a group, with the same version and clock fields. One more event goes o
 and never to Modbot Cloud, and only if the moderator ticked **Tell the group's Modbot when I save a
 clip**: that they saved a clip in the group's instance, when, and the file's SHA-256 and size. It
 lets the server recognise the clip if they later attach it to a case in a browser. The clip, its
-file name and where it is on their PC are not sent.
+file name and where it is on their PC are not sent by that box. A further box, **Send clips for my
+actions automatically**, off by default, lets the server ask for the clip itself, in the one case
+described below, and the answer goes only to that server.
 
 **The client's window does not mention this backup, which is why it is written down here.** Its
 Events page shows what the client observed and how each event's own group's server took it; it does
@@ -580,19 +588,32 @@ backup off is below, and it is the only thing that stops it.
 | GitHub, for the voice model | Once, when the spoken voice is used | No |
 | Picture addresses | Icons for the group and credits pictures, fetched straight from their own hosts, which see the PC's IP address | The credits pictures stop; the group's icon does not |
 
-**It does not send a recording of anyone's screen or anyone's voice, ever.** Since 19 September 2026
-the client *can* record: if the person using that PC switches **Clips** on in its settings, it keeps
-the last two to five minutes of **VRChat's own window, with VRChat's own sound**, so they can save
+**It does not send a recording of anyone's screen or anyone's voice on its own, ever.** Since 19
+September 2026 the client *can* record: if the person using that PC switches **Clips** on in its
+settings, it keeps the last two to ten minutes of **VRChat's own window, with VRChat's own sound**, so they can save
 those minutes as a video file when something happens. That is off unless they switch it on. It works
 out whether VRChat is running from VRChat's own log, and stops recording once that log has been
 silent for ten minutes. It records nothing outside VRChat's window — while VRChat is closed or they
 are working in another program it holds the last picture of VRChat rather than recording what they
 moved to — but **anything drawn on top of VRChat's window while it is in front, such as a chat
-overlay or a notification, is in the clip**. **The recording never leaves that PC**: not to us, not to Modbot
-Cloud, not to the Modbot server they paired with. There is no way for the client to upload one. A
-saved clip is a file in a folder on their own PC (by default a *Modbot Clips* folder inside Videos),
-and if it ever becomes evidence on a case it is because they chose that file in a browser, the same
-as any other attachment.
+overlay or a notification, is in the clip**. **The recording never leaves that PC on its own**: not
+to us, not to Modbot Cloud. A saved clip is a file in a folder on their own PC (by default a *Modbot
+Clips* folder inside Videos), and if it becomes evidence on a case it is because they chose that
+file in a browser, the same as any other attachment, **or because of the one exception below**.
+
+**The one exception, since 24 October 2026: a clip the Modbot server asked for.** If the person using
+that PC also ticks **Send clips for my actions automatically**, which is off by default, the
+Modbot server they paired with can ask the client for a clip of a ban, kick or warning **that
+person** made. The server asks only if the group chose to ask for a clip on that kind of action and
+that person's client was in the same instance as the person acted on within the last 10 minutes.
+The client then cuts a copy holding 30 seconds after the action and as much before it as fits under
+100 MB, and sends it to that server, and only that server (never Modbot Cloud). The server takes a
+file only as the answer to a request it sent to that one device, for that request, within 15
+minutes, once, and no larger than 100 MB; it refuses anything else. The client writes every clip it
+sends to its Audit Log page. A stolen device sign-in can answer a request the server already sent
+to that device with a file; it cannot upload anything unasked, ask for a clip, or read anything it
+could not read before. With the box unticked the client sends no clip and answers every request
+that Clips was off.
 
 **The desktop overlay, and the small Modbot bubble it puts in VRChat's row of key hints, ask
 Windows where VRChat's window is, how big it is and whether it is minimised.** They use the answer
@@ -610,8 +631,9 @@ recorded** — not music, not a browser, not another chat program, not the opera
 sounds — because Windows is asked for one named program's sound rather than for what the speakers
 are playing, and the route that hands over the speakers does not exist anywhere in the client. **No
 microphone is opened for a clip.** As with everything else on this page about the companion, none of
-it leaves that PC. The one thing about a clip that can leave is that it exists, with its fingerprint,
-to that moderator's own group's server, if they ticked the box for it (above).
+it leaves that PC on its own. What can leave is that a clip exists, with its fingerprint, to that
+moderator's own group's server if they ticked the box for it (above), and the clip itself, to that
+server, in the one case described above.
 
 **Copy crash details** puts text on that PC's clipboard when the moderator presses it: the instance
 they were in, who was in it with the avatar each was last seen wearing, and VRChat's own log lines

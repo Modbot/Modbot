@@ -301,10 +301,15 @@ The companion pairs with your server through the pairing page. See
 - A pairing code can only be made by a signed-in person, never by a device, so one compromised client
   cannot create more.
 - The companion can record VRChat's window **and VRChat's sound** on that person's PC if they switch
-  [Clips](/companion/clips) on, and **a device token reaches none of it**. Nothing recorded is ever
-  uploaded — the client has no upload path, and the evidence endpoints need a signed-in person
-  holding the **Upload evidence** permission, which no device token has. A stolen device token
-  cannot start a recording, cannot read one, cannot hear anything, and cannot attach one to a case.
+  [Clips](/companion/clips) on, and **a device token reaches none of it**. The evidence endpoints
+  need a signed-in person holding the **Upload evidence** permission, which no device token has.
+  The one file a device can send is the answer to a clip request the server sent to that device
+  for a ban, kick or warning its moderator made, and only if the moderator ticked **Send clips for
+  my actions automatically**: the server takes it once, within 15 minutes of the request, up to
+  100 MB, and refuses anything else. A stolen device token **can** answer a request the server
+  already sent it, with a file. It cannot start a recording, cannot read one, cannot hear anything,
+  cannot upload anything nobody asked for, cannot ask for a clip, and cannot attach one to a case
+  of its own choosing.
   The sound in a clip is VRChat's own, with Discord's on a switch of its own that is off; nothing
   else the PC plays can be recorded by anybody, including whoever holds the token. If the moderator
   ticks **Tell the group's Modbot when I save a clip**, the token sends one more kind of event: that
@@ -315,7 +320,7 @@ The companion pairs with your server through the pairing page. See
   "clips" credited to that one moderator, in that group's instances, with any fingerprint — including
   the fingerprint of a file the thief holds. Those show on the case files of people who were in
   those instances, as clips saved on that moderator's PC. It **cannot** credit a clip to anybody
-  else, upload or attach anything, or read any evidence: a file is attached only by a signed-in
+  else, upload anything unasked, or read any evidence: a file chosen in the browser is attached only by a signed-in
   person with **Upload evidence** who may change that case file, and only if its bytes match the
   fingerprint. A thief who also holds such an account could attach their own file and have it shown
   as that moderator's clip, which is why [revoking](/companion/pairing#when-a-token-is-revoked) a

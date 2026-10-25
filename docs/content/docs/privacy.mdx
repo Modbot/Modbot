@@ -352,17 +352,29 @@ wherever you choose to store them. These pages describe what is kept and how it 
   from a moderator's own PC, and how that person turns it off. The client's window does not mention
   this backup, so the policy and that page are where it is written down.
 
-## What stays on a moderator's own PC
+## What a moderator's own PC keeps, and the one clip that can leave it
 
-- [Clips](/companion/clips): the companion can keep the last two to five minutes of **VRChat's own
+- [Clips](/companion/clips): the companion can keep the last two to ten minutes of **VRChat's own
   window and VRChat's own sound**, so a moderator can save those minutes as a video file. It is
   **off unless that person switches it on**, it follows VRChat's own log to know whether VRChat is
-  running, it records nothing outside VRChat's window, and **the recording never leaves their
-  PC** — not to your server, not to Modbot Cloud. There is no upload path in the client. A saved
-  clip becomes evidence on a case only if they choose that file in a browser, the same as any other
-  attachment.
+  running, it records nothing outside VRChat's window, and **a recording never leaves their PC
+  except in the one case below** — never to Modbot Cloud. A clip they save themselves becomes
+  evidence on a case only if they choose that file in a browser, the same as any other attachment.
 
-  **One thing about a clip can reach your server: that it exists.** A second box, **Tell the group's
+  **The one case: a clip your server asked for.** Since 24 October 2026, if that person ticks a
+  further box that is off by default, **Send clips for my actions automatically**, your server can
+  ask their companion for a clip of a ban, kick or warning **they** made, but only if their
+  companion was in the same instance as the person in the last 10 minutes, and only if your group
+  chose to ask for a clip on that kind of action. The companion cuts a copy holding 30 seconds
+  after the action and as much before it as fits under 100 MB, and sends it to your server as the
+  answer to that request. Your server takes a file only as the answer to a request it sent to that
+  one device, for that request, within 15 minutes, once. The clip is kept as evidence on the action,
+  with where and when it was saved, whose PC it came from and its SHA-256, and a status is kept for
+  the request (such as **Clip attached** or **Companion didn't answer**). The companion writes each clip it sends to its own Audit Log page. A stolen
+  device sign-in can answer a request your server already sent to that device; it cannot upload
+  anything unasked, ask for a clip, or read anything new.
+
+  **Separately, that a clip exists can reach your server.** A second box, **Tell the group's
   Modbot when I save a clip**, off unless that person ticks it, sends your server when and where a
   clip was saved in your group's instance, and the file's SHA-256 and size — never the clip. Your
   server keeps that as a presence entry, lists the clip on the case files of people who were there

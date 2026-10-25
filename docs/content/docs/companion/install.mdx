@@ -231,14 +231,19 @@ not running, nothing is sent at all.
 It does not read chat, your friends list, your screenshots folder, the clipboard, the keyboard or
 which other programs are running. (It writes to the clipboard once, when you press
 [**Copy crash details**](#crash-details), and never reads it.) It does not read Steam's settings. It has no way to attach files
-to a case: you do that in the web app, by choosing a file.
+to a case on its own: you do that in the web app, by choosing a file. The one file it can send is
+the answer to a clip request your group's Modbot made, described next.
 
 One thing it **can** do, and only if you switch it on: [**Clips**](/companion/clips) keeps the last
-two to five minutes of **VRChat's window and VRChat's sound** while VRChat is running, so you can
+two to ten minutes of **VRChat's window and VRChat's sound** while VRChat is running, so you can
 save those minutes as a video file. It is **off** unless you turn it on, it records nothing while
-VRChat is not running, and **nothing it records ever leaves your PC**. A separate box, also off,
-tells your group's Modbot when you save a clip in its instance, with the file's fingerprint — never
-the clip — so the clip can be attached to a case later and recognised as yours. Anything drawn on top of
+VRChat is not running, and **a clip leaves your PC only in the one case below**. A separate box, also
+off, tells your group's Modbot when you save a clip in its instance, with the file's fingerprint —
+never the clip — so the clip can be attached to a case later and recognised as yours. A third box,
+also off, **Send clips for my actions automatically**, lets your group's Modbot ask your companion
+for a clip of a ban, kick or warning you made; the companion cuts a clip around the moment and
+sends it as the answer to that one request. The server takes a file only as the answer to a request
+it sent to that device, once, within 15 minutes. Anything drawn on top of
 VRChat while you are in it — a chat overlay, a notification — is inside VRChat's window and so is
 in the clip; the rest of your screen never is.
 
@@ -285,6 +290,10 @@ for up to three days) and go out when it is back.
 
 The client also talks to a paired server in these ways:
 
+- It answers a [clip request](/companion/clips#clips-for-your-own-actions-sent-automatically) the
+  server sent it, for one of your own bans, kicks or warnings, with a clip or with a word saying why
+  there is none (always **Clips was off** unless you ticked **Send clips for my actions
+  automatically**). It sends nothing of the kind unasked.
 - It asks the server's time soon after it starts or pairs, and every two hours after that, so its
   timestamps line up with the server's clock.
 - While you are in that group's instance, the [overlay](/companion/overlay) asks for the
@@ -323,7 +332,7 @@ and how to turn it off, is on
 - **The voice.** The first time the voice is turned on, the client downloads the voice once from
   GitHub, with nothing attached. See [Voice](/companion/settings#voice) for the exact file.
 
-The client does not upload its own log file anywhere.
+The client sends its own log file nowhere.
 
 ## Updates
 

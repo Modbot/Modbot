@@ -1,6 +1,6 @@
 ---
 title: Clips
-description: Keep the last few minutes of VRChat and its sound while it is running, and save them as a video file — from the settings page or from inside your headset. Off unless you switch it on.
+description: Keep the last few minutes of VRChat and its sound while it is running, and save them as a video file — from the settings page or from inside your headset — or let the group's Modbot ask for a clip of a ban, kick or warning you made. Off unless you switch it on.
 ---
 
 Something happens in an instance and it is over before you could have started recording. **Clips**
@@ -18,10 +18,14 @@ the point of it — a silent picture of somebody being abusive shows nothing —
 a recording of a conversation sitting on your disk until you delete it. Worth knowing before you
 turn it on rather than after.
 
-What has **not** changed is the other half of that promise: nothing the companion records ever
-leaves your PC. There is no upload path in the client and it did not gain one. Since 1 October 2026
-a separate box, off until you tick it, can tell your group's Modbot **that** you saved a clip, with
-the file's fingerprint — see [telling your group a clip exists](#telling-your-group-a-clip-exists).
+The other half of that promise — that nothing the companion records leaves your PC — has been
+narrowed twice. Since 1 October 2026 a separate box, off until you tick it, can tell your group's
+Modbot **that** you saved a clip, with the file's fingerprint — see
+[telling your group a clip exists](#telling-your-group-a-clip-exists). Since 24 October 2026 the
+companion has **one** way to send a clip, and only if you tick another box that is off: it can answer
+a request your group's Modbot made for a clip of a ban, kick or warning **you** made — see
+[clips for your own actions](#clips-for-your-own-actions-sent-automatically). It cannot send a file
+any other way.
 
 It records **VRChat's window** and **VRChat's sound**, not your screen and not your speakers. The
 sections below say exactly what that does and does not keep out.
@@ -36,7 +40,8 @@ thread, and nothing written anywhere.
 **Settings** → **Clips** → **Keep the last few minutes, with VRChat's sound** is the whole of the
 consent. **Discord's sound too** is a second box beside it, and it is off as well. **Tell the
 group's Modbot when I save a clip** is the third, and it is off too; it records nothing, and is
-[below](#telling-your-group-a-clip-exists).
+[below](#telling-your-group-a-clip-exists). **Send clips for my actions automatically** is the
+fourth, and it is off as well; it is [below](#clips-for-your-own-actions-sent-automatically).
 
 ## What is recorded
 
@@ -234,8 +239,10 @@ combination taken from every other program, for a control that is already on the
 
 ## How many minutes
 
-Between **2 and 5**, on the slider. Anything else in the settings file is brought inside that range,
-so a typo cannot put an hour and a half of video on your disk.
+Between **2 and 10**, on the slider. Anything else in the settings file is brought inside that range,
+so a typo cannot put an hour and a half of video on your disk. A rule that needs
+[**Clips ready**](#clips-for-your-own-actions-sent-automatically) needs the 10-minute setting, so
+that a clip it saved holds at least five minutes.
 
 A saved clip covers **at least half** the length you chose, and up to all of it. The companion keeps
 two overlapping recordings and hands you the longer one; that is what removes the case where you
@@ -280,7 +287,8 @@ matches when you remember it happening. Underscores between them, and `.mp4` at 
 Video is large, so three things bound it:
 
 1. **The rolling recordings are not clips.** There are only ever two, each replaced as it fills, and
-   all of them deleted when recording stops. At five minutes they come to about 120 MB together,
+   all of them deleted when recording stops. At five minutes they come to about 120 MB together
+   (about 240 MB at ten),
    sound included.
 2. **The clips folder has a limit** — **5 GB** by default. Before a clip is saved, the oldest clips
    are deleted until the folder plus the new one fits. Set it with `keepGigabytes` in
@@ -291,16 +299,20 @@ Video is large, so three things bound it:
 Only `.mp4` files the companion wrote are ever counted or deleted. Your own videos sitting in the
 same folder are not Modbot's to touch.
 
-## What leaves your PC: never the clip
+## What leaves your PC
 
-**No clip, no frame of one and no second of its sound is sent anywhere.** Not to the Modbot server
-you paired with. Not to Modbot Cloud. Not to us.
+**A clip you saved yourself stays a file on your PC** until you choose it in a browser. No frame of
+it and no second of its sound is sent anywhere. Not to Modbot Cloud. Not to us.
 
-The companion has no way to upload a file and did not gain one for this. The token it holds after
-pairing can submit what it observes and read what the overlay needs, and nothing else — it cannot
-attach anything to anything, and it cannot read anything that is attached.
+The one way a clip can leave your PC by itself is the answer to a request your group's Modbot sent
+**to your companion**, for a ban, kick or warning **you** made, and only if you ticked **Send clips
+for my actions automatically**. It goes to that Modbot and nowhere else — [never to Modbot
+Cloud](#clips-for-your-own-actions-sent-automatically). The companion has no way to send a file
+unasked.
 
-So a clip is a file on your PC, and it stays one until you do something with it.
+The token it holds after pairing can submit what it observes, read what the overlay needs, and
+answer a clip request the server already sent to that device with a file. It cannot start an upload
+on its own, it cannot ask for a clip, and it cannot read anything that is attached.
 
 Until 1 October 2026 not even the fact that a clip existed left your PC. It still does not, unless
 you tick the box below.
@@ -344,9 +356,11 @@ What your group gets from it:
 The companion's **Audit Log** page shows the line it sent, the same as every other event. Pausing a
 server stops this too: a paused server hears nothing.
 
-## Attaching a clip to a ban, a kick or a case
+## Attaching a clip you saved yourself to a ban, a kick or a case
 
-In Modbot's web app, in your browser, signed in as yourself — never by the companion.
+In Modbot's web app, in your browser, signed in as yourself. (A clip Modbot asked your companion
+for is attached by that answer, not by you — see
+[the next section](#clips-for-your-own-actions-sent-automatically).)
 
 **If you ticked the box**, open the case file. Under **Evidence**, each clip saved while that
 person was in the instance has a line of its own: *Clip saved on Alex's PC at 9:14 PM (not
@@ -361,14 +375,81 @@ file is refused, and nothing is attached.
 
 Either way the companion writes a line into its own **Audit Log** page saying a clip was saved.
 
-<Callout title="The companion does not do this for you">
-There is no "record automatically when you ban somebody", and the companion never uploads. A ban or
-a kick taken in Modbot never reaches the companion — the only things a server pushes to a client
-are who joined and who left — and giving a background client a credential that could upload video
-into your group's evidence store would make a stolen token far more dangerous than it is. Pressing
-**Save a clip** is the deliberate act, and choosing the file in a browser is the other one. The
-fingerprint only lets Modbot recognise the file once you do.
-</Callout>
+## Clips for your own actions, sent automatically
+
+**Settings** → **Clips** → **Send clips for my actions automatically**. Off until you tick it.
+
+Without a box ticked, nothing here happens. With it ticked, Modbot can ask your companion for a clip
+of a ban, kick or warning **you** made, so the case has the footage without you pressing anything.
+
+### Which actions ask for a clip
+
+Your group's leads choose this in Settings, **Ask for a clip on**: **bans**, **kicks** and
+**warnings**, each on or off, for the whole group. A clip is asked for only when:
+
+- the action is one of those, and **you** made it — in Modbot, or in VRChat's own menu (Modbot sees
+  that in the group's audit log and matches it to the Modbot account with your VRChat account
+  linked);
+- **your** companion was in the same instance as the person the action was taken against, at some
+  point in the last **10 minutes**;
+- your group has evidence storage set up, because that is where the clip is kept.
+
+Otherwise no clip is asked for. When your companion was not there, the action shows
+**Not in the instance**, and that is not counted as a missed clip: nobody could have recorded it.
+Modbot only ever asks the companion of the moderator who made the action, never anybody else's.
+
+While any moderator's companion is in one of your group's instances, Modbot reads the group's audit
+log at least once a minute, so a request does not wait for a slow check.
+
+### What the companion does
+
+The request comes down the connection the companion already holds to your group's Modbot. It names
+the action and the moment it happened, and nothing else.
+
+- **Clips is off, or the box is not ticked:** the companion answers that, and nothing is cut.
+- **Otherwise** it waits until it has 30 seconds recorded after the action, finds the moment in the
+  longer of its two rolling recordings, and cuts a copy: **30 seconds after the action, and as much
+  before it as fits under 100 MB**. It checks the copy opens and is as long as expected, then sends
+  it.
+- **If it cannot cut one,** it sends the whole recording if that is under 100 MB. If it is not, it
+  says **Clip couldn't be cut**.
+
+Each clip it sends is written to the companion's **Audit Log** page, like every other thing it
+sends.
+
+### How the server takes it
+
+A file is accepted **only as the answer to a request the server sent to that same device**, for
+that request's id, **within 15 minutes** of the request, **once**, and no larger than **100 MB**.
+Anything else is refused. The clip is kept as evidence on the action, marked as a clip, with where
+and when it was saved, whose PC it came from and its SHA-256.
+
+### What shows on the action
+
+Each action Modbot asked for a clip shows one of these:
+
+| Status | What happened |
+|---|---|
+| **Clip attached** | The clip arrived and is kept as evidence. |
+| **Clip failed to upload** | The companion had a clip and could not send it. |
+| **Clip couldn't be cut** | The companion could not make a clip of that moment. |
+| **Companion didn't answer** | Nothing came back within 15 minutes. |
+| **Clips was off** | The companion answered that Clips was not recording, or the box was not ticked. |
+| **Not in the instance** | Your companion was not there, so no clip was asked for. |
+
+Every one of those except **Clip attached** and **Not in the instance** counts as a missed clip. A
+group rule can need **Clips ready** — Clips on, the 10-minute setting, and this box ticked — and
+the companion reports those three when it checks in.
+
+### What a stolen sign-in can and cannot do
+
+Somebody who steals your companion's device sign-in **can** answer a request the server already sent
+to that device, with a file, once, inside the 15 minutes. It **cannot** upload anything nobody asked
+for, ask for a clip, start a recording, or read anything it could not read before. It still reaches
+no case file and no other evidence. [Revoking the device](/companion/pairing#when-a-token-is-revoked)
+ends even that.
+
+Untick the box and the companion answers every request with **Clips was off**.
 
 ## What it costs while you are playing
 
