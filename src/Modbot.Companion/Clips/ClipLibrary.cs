@@ -14,10 +14,11 @@ public readonly record struct SavedClip(string Path, long Bytes, DateTimeOffset 
 /// add up how much room they take, and deletes the oldest of them when saving another would put the
 /// folder over the limit in settings. It never opens a clip, never reads any other kind of file, and
 /// never touches anything outside that one folder.</para>
-/// <para><strong>Nothing leaves the machine.</strong> No clip, no file name and no count is sent
-/// anywhere. Attaching a clip to a case is something a moderator does afterwards, in Modbot's web
-/// interface, in a browser, by choosing the file — the client has no way to upload one and does not
-/// gain one here (clips design spec, §6).</para>
+/// <para><strong>Nothing leaves the machine from here.</strong> No clip, no file name and no count
+/// is sent anywhere by this file. Attaching a clip to a case is something a moderator does
+/// afterwards, in Modbot's web interface, in a browser, by choosing the file. The only upload is
+/// <see cref="HttpClipUploader"/>'s, of a copy made for a clip request, never one of these clips
+/// (clips design spec, §6).</para>
 /// <para><strong>Why anything is deleted at all.</strong> Video is large and a rolling recorder that
 /// only ever adds will eventually fill a moderator's disk, which would be Modbot breaking the
 /// machine it was installed to help. The limit is in settings, the oldest go first, and a clip is

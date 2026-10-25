@@ -388,7 +388,8 @@ public class CompanionSourceGuardTests
         // that was the right rule for a client that had no reason to want it. On 2026-09-19 a
         // moderator asked to be able to keep the last few minutes and save them when something
         // happens, and the rule was narrowed rather than dropped: the capability exists, in one
-        // file, off unless a person switches it on, with nothing it records ever leaving the PC.
+        // file, off unless a person switches it on, with nothing it records leaving the PC except
+        // a cut copy for a clip request the server made (HttpClipUploader.cs, 2026-10-24).
         // The clips design spec carries the whole argument.
         //
         // The shape of the narrowing matters as much as the narrowing. A capability in one named
@@ -615,10 +616,10 @@ public class CompanionSourceGuardTests
     }
 
     [Fact]
-    public void OnlyTheTenDeclaredPlacesMakeOutboundRequests()
+    public void OnlyTheElevenDeclaredPlacesMakeOutboundRequests()
     {
         // "What does this program send, and where" should have a short, complete answer findable
-        // by somebody who has never seen the codebase. Ten files, each with a remarks block
+        // by somebody who has never seen the codebase. Eleven files, each with a remarks block
         // saying what it sends: one posts observations, one asks the time, one trades a pairing
         // code for a token, one reads the overlay's context, one holds the overlay's live
         // WebSocket open, one backs the client's events up to Modbot Cloud (cloud event backup
@@ -626,7 +627,10 @@ public class CompanionSourceGuardTests
         // one fetches the phrase model the same way, added on 2026-09-19, and one reads the
         // sponsors, early adopters and contributors the Credits page shows, and one sends a
         // staff heads-up when a moderator presses Place or Clear (HeadsUps.cs, added 2026-10-02,
-        // one POST per press and nothing ahead of it). Nothing else reaches the network.
+        // one POST per press and nothing ahead of it), and one sends the recorded clip for a clip
+        // request the server made (HttpClipUploader.cs, added 2026-10-24: one upload, or one short
+        // answer, per request, only while Send clips for my actions is ticked, to the server that
+        // asked, with the device token). Nothing else reaches the network.
         //
         // The ninth is a download and nothing else. Nothing a microphone hears reaches the network
         // from anywhere in this client, and the file that opens the microphone cannot reach it at
@@ -652,6 +656,7 @@ public class CompanionSourceGuardTests
             [
                 "CloudCredits.cs",
                 "HeadsUps.cs",
+                "HttpClipUploader.cs",
                 "HttpCloudLogClient.cs",
                 "HttpIngestTransport.cs",
                 "HttpOverlayReadClient.cs",

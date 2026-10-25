@@ -74,11 +74,14 @@ namespace Modbot.Companion.App;
 /// <para><strong>What it writes to your disk.</strong> Two files under <c>%APPDATA%\Modbot\clips</c>,
 /// each holding at most the chosen number of minutes, each replaced by a fresh one as it fills, and
 /// both deleted when recording stops or the client quits. Saving a clip moves the older of the two
-/// into the folder named on the settings screen and nothing is copied anywhere else.</para>
-/// <para><strong>What leaves the machine: nothing.</strong> No clip, no frame and no fact that a
-/// clip exists is sent to a paired server, to Modbot Cloud, or anywhere else. This file opens no
-/// socket and there is no upload path in the client to reach. Attaching a clip to a case is still
-/// what it always was — a moderator, in Modbot's web interface, in a browser, choosing a file.</para>
+/// into the folder named on the settings screen. A clip request from a paired server (only while
+/// Send clips for my actions automatically is ticked) takes one of the two the same way, into a
+/// folder of its own, to be cut and sent by <see cref="ClipSender"/>.</para>
+/// <para><strong>What leaves the machine: nothing, from this file.</strong> It opens no socket and
+/// sends no frame, no clip and no fact that a clip exists. The one thing that sends a clip is
+/// <see cref="HttpClipUploader"/>, for a request the paired server made, with that switch ticked.
+/// Otherwise attaching a clip to a case is what it always was — a moderator, in Modbot's web
+/// interface, in a browser, choosing a file.</para>
 /// <para><strong>Its own thread.</strong> Capturing and encoding must never hold up the loop that
 /// reads VRChat's log and reports presence, which is the job that cannot be filled in later. It runs
 /// on one background thread that does nothing else, and every failure it can have ends as a sentence
@@ -94,6 +97,12 @@ internal sealed class ScreenRecording : IDisposable
 
     /// <summary>Bits a second given to the encoder. About 11 MB a minute.</summary>
     private const int Bitrate = 1_500_000;
+
+    /// <summary>Bits a second given to the sound track (AAC), as set up in <see cref="AddSound"/>.</summary>
+    private const int SoundBitrate = 128_000;
+
+    /// <summary>Picture and sound together, in bits a second: what a clip's size is worked out from.</summary>
+    public static long BitsPerSecond => Bitrate + SoundBitrate;
 
     /// <summary>A full frame at least this often, so a saved clip can start near where it was cut.</summary>
     private const int KeyFrameEverySeconds = 2;
@@ -375,6 +384,89 @@ internal sealed class ScreenRecording : IDisposable
         }
     }
 
+    /// <summary>One open rolling file as the rest of the program may see it. Replaced as a whole, never changed.</summary>
+    private sealed record LegSpan(string Path, DateTimeOffset StartedAt, long StartedAtFrame);
+
+    /// <summary>A request to close one rolling file and hand it over, kept apart from Save a clip.</summary>
+    private sealed record CopyRequest(string From, string To, TaskCompletionSource<SavedRecording?> Done);
+
+    private volatile LegSpan[] _spans = [];
+    private CopyRequest? _copy;
+
+    /// <summary>The frame the loop is on. Read from other threads to say how long each open file runs.</summary>
+    private long _frameNow;
+
+    /// <summary>When frame 0 was due, on the machine's clock. Frames are paced in real time, so frame time is wall time.</summary>
+    private DateTimeOffset _loopStartedAt;
+
+    /// <summary>Set by the loop when a rolling file begins or ends, so the list in <see cref="_spans"/> is made again.</summary>
+    private bool _spansChanged;
+
+    /// <summary>The rolling files being written now: which, when each began and how long each runs so far.</summary>
+    public IReadOnlyList<RecordingSpan> Spans()
+    {
+        var now = Volatile.Read(ref _frameNow);
+
+        return
+        [
+            .. _spans.Select(leg => new RecordingSpan(
+                leg.Path,
+                leg.StartedAt,
+                TimeSpan.FromSeconds((now - leg.StartedAtFrame + 1) / (double)FramesPerSecond))),
+        ];
+    }
+
+    /// <summary>
+    /// Closes the rolling file at <paramref name="rollingPath"/> and moves it to
+    /// <paramref name="destination"/>; a fresh one is started in its place. Null when that file is no
+    /// longer being written, when nothing is recording, or when it could not be moved. Apart from the
+    /// moderator's own Save a clip: <see cref="LastSaved"/> and <see cref="LastProblem"/> are left alone.
+    /// </summary>
+    public async Task<SavedRecording?> CopyAsync(string rollingPath, string destination, CancellationToken ct)
+    {
+        var request = new CopyRequest(
+            rollingPath, destination, new TaskCompletionSource<SavedRecording?>(TaskCreationOptions.RunContinuationsAsynchronously));
+
+        lock (_gate)
+        {
+            if (!IsRecording || _copy is not null)
+                return null;
+
+            _copy = request;
+        }
+
+        try
+        {
+            return await request.Done.Task.WaitAsync(TimeSpan.FromSeconds(30), ct).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            return null;
+        }
+    }
+
+    private CopyRequest? TakeCopyRequest()
+    {
+        lock (_gate)
+        {
+            var request = _copy;
+            _copy = null;
+            return request;
+        }
+    }
+
+    private void PublishSpans(Leg[] legs)
+    {
+        _spans =
+        [
+            .. legs
+                .Where(leg => leg.Writer is not null && leg.Path.Length > 0)
+                .Select(leg => new LegSpan(leg.Path, leg.StartedAt, leg.StartedAtFrame)),
+        ];
+
+        _spansChanged = false;
+    }
+
     /// <summary>One rolling file, and the writer filling it.</summary>
     private sealed class Leg
     {
@@ -393,6 +485,9 @@ internal sealed class ScreenRecording : IDisposable
 
         public string Path = string.Empty;
         public long StartedAtFrame;
+
+        /// <summary>When this file's first picture was taken, on the machine's clock.</summary>
+        public DateTimeOffset StartedAt;
         public long RotateAtFrame;
         public int Serial;
         public int Index;
@@ -496,6 +591,7 @@ internal sealed class ScreenRecording : IDisposable
             var soundBytes = _soundRate == 0
                 ? Array.Empty<byte>()
                 : new byte[ClipSoundRule.MostSamplesInAFrame(_soundRate, FramesPerSecond) * ClipSoundRule.BytesPerSample];
+            _loopStartedAt = _clock.UtcNow;
             var clock = Stopwatch.StartNew();
             long frame = 0;
             var lookAgainAt = TimeSpan.Zero;
@@ -621,9 +717,13 @@ internal sealed class ScreenRecording : IDisposable
                 }
 
                 _framesWritten++;
+                Volatile.Write(ref _frameNow, frame);
 
                 if (wanted is not null)
                     Harvest(legs, frame, wanted, width, height, framesPerLeg);
+
+                if (TakeCopyRequest() is { } copyAsked)
+                    CopyOut(legs, frame, copyAsked, width, height, framesPerLeg);
 
                 foreach (var leg in legs)
                 {
@@ -634,6 +734,9 @@ internal sealed class ScreenRecording : IDisposable
                     Finish(leg, discard: true);
                     Recycle(leg, width, height, frame);
                 }
+
+                if (_spansChanged)
+                    PublishSpans(legs);
 
                 frame++;
             }
@@ -650,6 +753,10 @@ internal sealed class ScreenRecording : IDisposable
             IsRecording = false;
             WindowFound = false;
             AnyPictureTaken = false;
+
+            // Nothing is being written any more, so nothing can be handed over.
+            _spans = [];
+            TakeCopyRequest()?.Done.TrySetResult(null);
 
             _log(
                 $"Recording ended: {_picturesCopied} pictures copied, {_framesHeld} frames held, "
@@ -1276,6 +1383,50 @@ internal sealed class ScreenRecording : IDisposable
         }
     }
 
+    /// <summary>
+    /// Hands over one rolling file for a clip request: it is closed, moved to where the request said,
+    /// and started again, the same way <see cref="Harvest"/> does for Save a clip, but without
+    /// touching what Save a clip shows.
+    /// </summary>
+    private void CopyOut(Leg[] legs, long frame, CopyRequest request, int width, int height, long framesPerLeg)
+    {
+        var leg = legs.FirstOrDefault(l => l.Writer is not null && l.Path == request.From);
+        if (leg is null)
+        {
+            request.Done.TrySetResult(null);
+            return;
+        }
+
+        SavedRecording? saved = null;
+
+        try
+        {
+            var startedAt = leg.StartedAt;
+            var length = TimeSpan.FromSeconds((frame - leg.StartedAtFrame + 1) / (double)FramesPerSecond);
+
+            Finish(leg, discard: false);
+
+            if (Path.GetDirectoryName(request.To) is { Length: > 0 } folder)
+                Directory.CreateDirectory(folder);
+
+            File.Move(request.From, request.To, overwrite: true);
+            saved = new SavedRecording(request.To, startedAt, length, new FileInfo(request.To).Length);
+        }
+        catch (Exception ex)
+        {
+            _log("A recording for a clip request could not be taken out", ex);
+        }
+        finally
+        {
+            request.Done.TrySetResult(saved);
+
+            if (leg.RotateAtFrame - frame < framesPerLeg / 4)
+                leg.RotateAtFrame += framesPerLeg;
+
+            Recycle(leg, width, height, frame);
+        }
+    }
+
     /// <summary>Closes a rolling file, and deletes it unless it is about to be saved.</summary>
     private void Finish(Leg leg, bool discard)
     {
@@ -1314,6 +1465,8 @@ internal sealed class ScreenRecording : IDisposable
     {
         leg.Serial++;
         leg.StartedAtFrame = frame;
+        leg.StartedAt = _loopStartedAt + TimeSpan.FromTicks(frame * TimeSpan.TicksPerSecond / FramesPerSecond);
+        _spansChanged = true;
         leg.SoundSamples = 0;
         leg.SoundStream = -1;
         leg.Path = Path.Combine(_temporaryFolder, $"rolling-{leg.Index}-{leg.Serial}{ClipLibrary.ClipExtension}");
@@ -1393,7 +1546,7 @@ internal sealed class ScreenRecording : IDisposable
     {
         // 16,000 bytes a second — 128 kilobits — which is one of the handful of rates Windows'
         // own AAC encoder accepts. A rate it does not accept is not a worse clip; it is no clip.
-        const int BytesASecond = 16_000;
+        const int BytesASecond = SoundBitrate / 8;
 
         // AAC Profile L2, which is what Windows' encoder produces for two channels at these rates.
         const uint ProfileLevel = 0x29;

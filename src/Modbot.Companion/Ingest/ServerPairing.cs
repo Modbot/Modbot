@@ -100,6 +100,14 @@ public sealed record ServerPairing
     public Uri HeadsUpsEndpoint()
         => new(BaseUri, $"/api/v{ApiVersion}/companion/heads-ups");
 
+    /// <summary>Where the clip for one clip request is sent, as the raw file.</summary>
+    public Uri ClipUploadEndpoint(Guid requestId)
+        => new(BaseUri, $"/api/v{ApiVersion}/companion/clip-requests/{requestId:D}/clip");
+
+    /// <summary>Where the answer to one clip request is sent when there is no clip to send.</summary>
+    public Uri ClipAnswerEndpoint(Guid requestId)
+        => new(BaseUri, $"/api/v{ApiVersion}/companion/clip-requests/{requestId:D}/answer");
+
     /// <summary>Where one heads-up is cleared.</summary>
     public Uri ClearHeadsUpEndpoint(string id)
         => new(BaseUri, $"/api/v{ApiVersion}/companion/heads-ups/{Uri.EscapeDataString(id)}/clear");
