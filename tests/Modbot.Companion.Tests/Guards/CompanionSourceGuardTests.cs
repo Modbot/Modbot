@@ -327,6 +327,16 @@ public class CompanionSourceGuardTests
     /// <summary>The one file allowed to record a picture of a screen.</summary>
     private const string RecordingFile = "ScreenRecording.cs";
 
+    /// <summary>The file that cuts a shorter copy out of a recording that already exists.</summary>
+    private const string CutterFile = "WindowsClipCutter.cs";
+
+    /// <summary>The routes to a picture of a screen: <see cref="ScreenCapture"/> without the two names for the video writer.</summary>
+    private static readonly Regex TakesAPictureOfAScreen = new(
+        @"\b(CopyFromScreen|BitBlt|PrintWindow|GetDC|GraphicsCaptureItem|GraphicsCapturePicker"
+        + @"|Direct3D11CaptureFrame|DwmGetWindow|RenderTargetBitmap|CaptureScreen|Screenshot"
+        + @"|DuplicateOutput|IDXGIOutputDuplication|AcquireNextFrame)\b",
+        RegexOptions.Compiled);
+
     /// <summary>The one file allowed to ask Windows about another program's window.</summary>
     private const string WindowLookupFile = "VRChatWindow.cs";
 
@@ -392,7 +402,15 @@ public class CompanionSourceGuardTests
             .Order()
             .ToList();
 
-        Assert.Equal([RecordingFile], recording);
+        // The second name is the clip cutter (2026-10-24): it has to write a video file to make a
+        // shorter copy of one the recorder already wrote, so it names the same video writer. What
+        // keeps it from being a second recorder is that it takes a path, not a picture, and that
+        // none of the routes to a screen below appear in it.
+        Assert.Equal([RecordingFile, CutterFile], recording);
+
+        var cutter = File.ReadAllText(
+            EverythingTheClientShips().Single(f => Path.GetFileName(f) == CutterFile));
+        Assert.DoesNotMatch(TakesAPictureOfAScreen, cutter);
 
         var source = File.ReadAllText(
             EverythingTheClientShips().Single(f => Path.GetFileName(f) == RecordingFile));
