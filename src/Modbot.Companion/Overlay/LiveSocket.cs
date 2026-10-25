@@ -113,7 +113,7 @@ public sealed class ClientLiveSocketFactory : ILiveSocketFactory
         private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
         private readonly ClientWebSocket _socket;
-        private readonly byte[] _buffer = new byte[16 *1024];
+        private readonly byte[] _buffer = new byte[16 * 1024];
 
         // One send at a time: the instance and the Clips settings are sent from different threads.
         private readonly SemaphoreSlim _sending = new(1, 1);
@@ -187,7 +187,7 @@ public sealed class ClientLiveSocketFactory : ILiveSocketFactory
                         continue;
                     }
 
-                    var parsed = Parse(message.ToArray());
+                    var parsed = ParseMessage(message.ToArray());
                     message.SetLength(0);
 
                     if (parsed is not null)
@@ -235,8 +235,6 @@ public sealed class ClientLiveSocketFactory : ILiveSocketFactory
             _socket.Dispose();
             _sending.Dispose();
         }
-
-        private static LiveSocketMessage? Parse(byte[] bytes) => ParseMessage(bytes);
     }
 
     /// <summary>

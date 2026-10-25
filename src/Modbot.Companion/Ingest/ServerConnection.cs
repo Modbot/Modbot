@@ -43,7 +43,8 @@ public enum ConnectionState
 /// <para><strong>What it sends.</strong> Batches of <see cref="CompanionEvent"/>, to one URL, over
 /// HTTPS, with one bearer token. Nothing else. The server never sends anything back that this
 /// client acts on — there is no command channel, by design, so the client's behaviour stays fully
-/// described by its own source.</para>
+/// described by its own source. (The one thing a server can ask for, over the separate clip link, is
+/// a clip of an action the moderator made, and only while they have switched that on.)</para>
 /// <para><strong>What pausing means.</strong> While paused, observations for this server are
 /// discarded rather than queued, and nothing is transmitted. Pausing stops Modbot reporting what
 /// you do; it does not save it up to report later. Anything buffered <em>before</em> the pause is

@@ -636,12 +636,12 @@ public class CompanionSourceGuardTests
         // from anywhere in this client, and the file that opens the microphone cannot reach it at
         // all (NothingTheClientShipsCanKeepOrSendWhatAMicrophoneHeard).
         //
-        // Two of the eight are the overlay's: HttpOverlayReadClient and LiveSocket. The overlay's
+        // Two of the eleven are the overlay's: HttpOverlayReadClient and LiveSocket. The overlay's
         // driver is the only thing that builds them for a panel, so while both overlays are
         // switched off they run for one reason only: the clip link (ClipLinks.cs), which is a
         // second user of the same two and adds no sender of its own. It exists only while Send
         // clips for my actions is on, and it asks for no presence, only clip requests
-        // (TheOverlaysAreOnlyEverBuiltThroughTheirOnOffSwitches). The notification overlay is
+        // (TheClipLinkIsBuiltOnlyInProgramAndOnlyWantedWhileSendClipsIsOn). The notification overlay is
         // fed by the same two, so it is reason enough on its own for them to be running -- which
         // is exactly what a moderator asking to be told about flagged arrivals has asked for.
         var senders = ClientSources()
@@ -1144,7 +1144,8 @@ public class CompanionSourceGuardTests
         // "What does this program start, and when" should stay as answerable as "what does it
         // send". A panel connects to SteamVR and the driver behind it opens a live connection to a
         // paired server, so a moderator who switched an overlay off must not get either by some
-        // second path that forgot to ask. There are three switches now -- the main headset panel,
+        // second path that forgot to ask. (The one other live connection is the clip link, which
+        // only Send clips for my actions starts; its own test says so.) There are three switches now -- the main headset panel,
         // the notification panel and the desktop overlay -- and one place builds each; only its own
         // switch calls that place, and the driver behind them is asked whether anything still
         // wants it rather than being stopped because one switch went off.

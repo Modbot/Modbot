@@ -1135,7 +1135,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         // or no panel. Switching it off lets them go after a short grace (see ClipLinks.CloseDelay).
         _clipLinks?.Want(settings.SendForActions
             ? _state.Connections
-                .Where(c => !c.IsPaused && c.State is not ConnectionState.Stopped)
+                .Where(c => !c.IsPaused && c.State is not (ConnectionState.Stopped or ConnectionState.NeedsRenegotiation))
                 .Select(c => c.Pairing)
             : []);
 

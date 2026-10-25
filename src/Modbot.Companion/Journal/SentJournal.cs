@@ -154,7 +154,7 @@ public sealed record JournalRow(
 /// second copy of it: there are no raw log lines here.</para>
 /// <para><strong>Nothing here is ever transmitted.</strong> The journal is written for the
 /// moderator and read by the moderator. No server, including the ones the events went to, can ask
-/// for it — there is no command channel for it to ask down.</para>
+/// for it — the only thing a server can ask for is a clip of an action, and never this journal.</para>
 /// <para><strong>It survives a restart</strong>, because "what did this thing send yesterday" is a
 /// question people ask after they get suspicious, not before.</para>
 /// </remarks>

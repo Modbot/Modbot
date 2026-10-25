@@ -14,8 +14,9 @@ namespace Modbot.Companion.Overlay;
 /// <para><strong>One thread.</strong> <see cref="Want"/> and <see cref="PumpAsync"/> are called from the
 /// same timer, so nothing here is locked.</para>
 /// <para><strong>A short grace before closing.</strong> A link that is no longer wanted stays open
-/// for <see cref="CloseDelay"/>, so the Clips settings report that says the switch went off is on its
-/// way to the server before the connection goes.</para>
+/// for <see cref="CloseDelay"/>, so the Clips settings report that says the switch went off has a
+/// chance to reach the server before the connection goes. On the poll fallback the next poll may
+/// not come inside that time; the server then learns it from the link going quiet.</para>
 /// </remarks>
 public sealed class ClipLinks : IDisposable
 {

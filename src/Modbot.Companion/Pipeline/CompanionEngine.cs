@@ -29,7 +29,9 @@ public readonly record struct EngineTick(int Observed, int Routed, int Dropped, 
 /// other.</para>
 /// <para><strong>Nothing is pushed to this client.</strong> Every request is client-initiated;
 /// there is no command channel from any server, so what this program does is fully described by
-/// this source and nothing a server sends can change it.</para>
+/// this source and nothing a server sends can change it. The one exception is a clip request for an
+/// action the moderator made, answered only while "Send clips for my actions automatically" is on
+/// (see ClipLinks and ClipSender).</para>
 /// </remarks>
 public sealed class CompanionEngine
 {
