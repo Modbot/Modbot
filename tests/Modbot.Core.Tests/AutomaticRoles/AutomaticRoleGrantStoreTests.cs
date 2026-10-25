@@ -34,6 +34,7 @@ public class AutomaticRoleGrantStoreTests
         var again = await store.OpenAsync(Guid.NewGuid(), user, AutomaticRoleKind.VRChat, role, Noon.AddSeconds(5), ct);
 
         Assert.Equal(grant.Id, again.Id);
+        Assert.Equal(Noon.AddSeconds(5), again.GivenAt);
         Assert.Equal(grant.Id, (await store.FindOpenAsync(user, AutomaticRoleKind.VRChat, role, ct))!.Id);
         Assert.Null(await store.FindOpenAsync(user, AutomaticRoleKind.Discord, role, ct));
 

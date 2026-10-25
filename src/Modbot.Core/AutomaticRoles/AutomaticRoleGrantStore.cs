@@ -25,14 +25,20 @@ public sealed class AutomaticRoleGrantStore
 
     /// <summary>
     /// Notes that Modbot gave the role. If a grant is already open for this person and role (a second
-    /// rule gave the same role), that one is kept and returned.
+    /// rule gave the same role, or Modbot gave it again after someone took it off by hand), that one
+    /// is kept, its given time moved to now, and returned. The giver's wait for the stored roles to
+    /// catch up counts from the given time, so a give again must restart it.
     /// </summary>
     public async Task<AutomaticRoleGrant> OpenAsync(
         Guid ruleId, Guid userId, AutomaticRoleKind kind, string roleId, DateTimeOffset givenAt, CancellationToken ct = default)
     {
         var open = await FindOpenAsync(userId, kind, roleId, ct);
         if (open is not null)
+        {
+            open.GivenAt = givenAt;
+            await _db.SaveChangesAsync(ct);
             return open;
+        }
 
         var grant = new AutomaticRoleGrant
         {
