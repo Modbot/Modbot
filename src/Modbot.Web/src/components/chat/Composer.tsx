@@ -1,6 +1,7 @@
 import { useEffect, type RefObject } from 'react'
-import { ArrowUp, Square } from 'lucide-react'
+import { ArrowUp, Mic, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useDictation } from '@/components/chat/useDictation'
 import { cn } from '@/lib/utils'
 
 /** The message box grows with what is typed, up to this, and then scrolls. */
@@ -27,6 +28,18 @@ export function Composer({
   inputRef: RefObject<HTMLTextAreaElement | null>
 }) {
   const disabled = disabledReason !== null
+  const dictation = useDictation(value, onChange, maxLength)
+  const { cancel } = dictation
+
+  // A box that stops taking messages stops listening too.
+  useEffect(() => {
+    if (disabled) cancel()
+  }, [disabled, cancel])
+
+  const send = () => {
+    cancel()
+    onSend()
+  }
 
   // Grows with the text, never past MAX_HEIGHT.
   useEffect(() => {
@@ -42,7 +55,7 @@ export function Composer({
       className="flex flex-col gap-1.5"
       onSubmit={(e) => {
         e.preventDefault()
-        onSend()
+        send()
       }}
     >
       <div
@@ -64,11 +77,30 @@ export function Composer({
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
               e.preventDefault()
-              onSend()
+              send()
             }
           }}
           className="max-h-[200px] min-h-(--control-h) flex-1 resize-none bg-transparent px-2 py-1.5 text-base outline-none placeholder:text-muted-foreground md:text-(length:--text-base)"
         />
+
+        {dictation.supported && (
+          <Button
+            type="button"
+            variant={dictation.listening ? 'secondary' : 'ghost'}
+            size="icon"
+            aria-label="Dictate"
+            aria-pressed={dictation.listening}
+            disabled={disabled}
+            onClick={dictation.toggle}
+          >
+            <Mic
+              className={cn(
+                'size-4',
+                dictation.listening && 'animate-pulse text-destructive motion-reduce:animate-none',
+              )}
+            />
+          </Button>
+        )}
 
         {busy ? (
           <Button type="button" variant="secondary" size="icon" aria-label="Stop" onClick={onStop}>
@@ -80,6 +112,12 @@ export function Composer({
           </Button>
         )}
       </div>
+
+      {dictation.blocked && (
+        <p role="alert" className="px-1 text-destructive" style={{ fontSize: 'var(--text-small)' }}>
+          Microphone blocked
+        </p>
+      )}
     </form>
   )
 }
