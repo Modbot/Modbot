@@ -143,8 +143,9 @@ instance warnings, with the place they happened.
   sound VRChat is playing — which in an instance is the voices of the people around them. It stays
   on their PC, except that if that moderator ticks a second box, off by default, their group's
   server can ask for a clip of a ban, kick or warning they made and receive it. And a moderator can switch on **Listening**, which opens their microphone to hear a
-  few short phrases; nothing it hears is recorded, kept or sent. Both are off unless that person
-  turns them on.
+  few short phrases; nothing it hears is recorded, kept or sent. A moderator can also use **Dictate**, which opens their microphone between two taps to
+  speak a question to AI Chat; the sound is turned into text on their PC and never saved or sent, and only the written words go to the server they paired with. Clips and Listening are off unless that person
+  turns them on, and Dictate does nothing until they tap its button.
 - If you linked your Discord and VRChat accounts through Modbot, the link between them, with both
   names.
 - If you entered a giveaway, your entry, with your name and account ids.
@@ -586,6 +587,7 @@ backup off is below, and it is the only thing that stops it.
 | Modbot Cloud, for updates | See below | No |
 | GitHub, for the listening model | About 17 MB, once, when **Listening** is switched on | No |
 | GitHub, for the voice model | Once, when the spoken voice is used | No |
+| GitHub, for the Dictate model | About 108 MB, once, the first time **Dictate** is tapped | No |
 | Picture addresses | Icons for the group and credits pictures, fetched straight from their own hosts, which see the PC's IP address | The credits pictures stop; the group's icon does not |
 
 **It does not send a recording of anyone's screen or anyone's voice on its own, ever.** Since 19
@@ -659,6 +661,16 @@ for each device, it is used to fill a list on that PC's own settings screen, and
 anywhere. With **Listening** off, no microphone is listed or opened. The client does always look at
 which speakers and headphones the PC has, for its own notification sounds and spoken announcements;
 that list also stays on the PC.
+
+**Dictate sends the words you speak, never the sound.** On the button panel in the headset, a
+**Dictate** button shows only when AI Chat is on for the server that PC is paired with and the
+person using it is allowed to use AI Chat. Tapping it opens the microphone, shared the way a voice chat
+program shares it, until the second tap or 60 seconds, whichever comes first. The sound is turned into
+text on that PC by a speech model, held in memory only until the words are written out, and then
+dropped. It is never written to a file and never sent to us, Modbot Cloud or anyone else. The written
+words are sent to the Modbot server that PC is paired with, as a message to AI Chat, the same as if
+they had been typed, and are kept the way any other message to AI Chat is kept. The first tap
+downloads the speech model from GitHub, about 108 MB, once.
 
 **How to turn the backup off — on that PC, by the person using it.** Your server cannot do it for
 them. Either:

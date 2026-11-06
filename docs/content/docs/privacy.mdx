@@ -399,6 +399,14 @@ wherever you choose to store them. These pages describe what is kept and how it 
   companion also asks Windows which microphones that PC has, so the person using it can pick one — a
   name and an id for each device, used to fill a list on their own settings screen and never sent
   anywhere. With it off, no microphone is listed or opened.
+- [Dictate](/companion/dictate): on the headset panel, a **Dictate** button opens that person's
+  microphone between two taps so they can speak a question to AI Chat. It only shows when AI Chat is
+  on and that person is allowed to use it. **The sound is turned into text on their own PC, is kept
+  in memory only until the words are written out, and is never saved to disk or sent anywhere.** Only
+  the written words are sent, to the Modbot server they paired with, the same as if they had typed
+  them into [Chat](/ai/chat). A recording stops by itself after 60 seconds. The first tap makes the
+  companion download its speech model, about 108 MB, from GitHub once; nothing about the person
+  goes with that request.
 - [Crash details](/companion/install#crash-details): **Copy crash details** puts the instance, who
   was in it with their avatars' names, and VRChat's own log lines from the last ten minutes on that
   person's clipboard, for a report they write to VRChat themselves. Nothing is sent, and the
