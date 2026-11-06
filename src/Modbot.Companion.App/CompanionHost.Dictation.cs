@@ -118,22 +118,45 @@ internal sealed partial class CompanionHost
     /// <summary>Shows the chat panel and puts the dictated words into the conversation, the open one if the panel was already up.</summary>
     private void AskChat(string text)
     {
-        if (_chatSession is not { } session || _chatHost is not { } host)
+        if (_chatSession is not { } session || (_chatHost is null && _desktopChat is null))
         {
             Log.Information("Dictate: the chat panel is not up, so what was said was not sent");
             return;
         }
 
-        host.Show(new ChatScreen(session.Lines));
+        var screen = new ChatScreen(session.Lines);
+        _chatHost?.Show(screen);
+        _desktopChat?.Show(screen);
 
         _ = CrashGuard.RunAsync("asking AI Chat", () => session.AskAsync(text));
     }
 
-    /// <summary>Draws the conversation on the panel while it is up.</summary>
+    /// <summary>Draws the conversation on the panels while they are up; an ended one puts the window on the monitor away.</summary>
     private void ShowChat()
     {
-        if (_chatSession is { } session && _chatHost is { Hidden: false } host)
-            host.Update(new ChatScreen(session.Lines));
+        if (_chatSession is not { } session)
+            return;
+
+        var screen = new ChatScreen(session.Lines);
+
+        if (_chatHost is { Hidden: false } host)
+            host.Update(screen);
+
+        if (_desktopChat is not { Hidden: false } desktop)
+            return;
+
+        if (session.Lines.Count == 0)
+            desktop.Dismiss();
+        else
+            desktop.Update(screen);
+    }
+
+    /// <summary>The X on the window on the monitor: the conversation ends and both panels go away.</summary>
+    private void CloseChat()
+    {
+        _desktopChat?.Dismiss();
+        _chatHost?.Hide();
+        _chatSession?.Close();
     }
 
     /// <summary>Stops asking, and lets go of the conversation.</summary>

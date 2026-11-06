@@ -333,6 +333,9 @@ internal sealed partial class CompanionHost : IOverlayListener
     /// <summary>The same for the chat panel, which a controller can move and resize too.</summary>
     private readonly DispatcherTimer _chatSpotSave = new() { Interval = TimeSpan.FromMilliseconds(500) };
 
+    /// <summary>The same for the chat window on a monitor, which is moved and resized with the mouse.</summary>
+    private readonly DispatcherTimer _desktopChatSpotSave = new() { Interval = TimeSpan.FromMilliseconds(500) };
+
     /// <summary>
     /// How often the reading half is given a turn.
     /// </summary>
@@ -422,6 +425,9 @@ internal sealed partial class CompanionHost : IOverlayListener
 
     /// <summary>The window that sits over VRChat on a monitor, and the key that brings it up.</summary>
     private DesktopOverlayWindow? _desktopOverlay;
+
+    /// <summary>The chat window beside it, kept put away until Dictate has something to show.</summary>
+    private DesktopChatWindow? _desktopChat;
     private EscapeBubbleWindow? _escapeBubble;
 
     /// <summary>Modbot's bubble in VRChat's HUD row, kept while the desktop overlay is on.</summary>
@@ -2649,6 +2655,11 @@ internal sealed partial class CompanionHost : IOverlayListener
             if (!CompanionSettings.SaveOverlayChatSpot(_settingsPath, spot))
                 Log.Warning("The chat panel's spot could not be saved to {Path}", _settingsPath);
         };
+        _desktopChatSpotSave.Tick += (_, _) =>
+        {
+            _desktopChatSpotSave.Stop();
+            SaveDesktopChatSpot();
+        };
         _notifyPlacementSave.Tick += (_, _) =>
         {
             _notifyPlacementSave.Stop();
@@ -2839,6 +2850,23 @@ internal sealed partial class CompanionHost : IOverlayListener
         _state.Settings = _state.Settings with { OverlayChatSpot = placement };
         _chatSpotSave.Stop();
         _chatSpotSave.Start();
+    }
+
+    /// <summary>The chat window on a monitor was moved or resized: kept, and saved once it settles.</summary>
+    private void DesktopChatSpotChanged(DesktopChatSpot spot)
+    {
+        if (_state is null)
+            return;
+
+        _state.Settings = _state.Settings with { DesktopChatSpot = spot };
+        _desktopChatSpotSave.Stop();
+        _desktopChatSpotSave.Start();
+    }
+
+    private void SaveDesktopChatSpot()
+    {
+        if (_state?.Settings.DesktopChatSpot is { } spot && !CompanionSettings.SaveDesktopChatSpot(_settingsPath, spot))
+            Log.Warning("The chat window's spot could not be saved to {Path}", _settingsPath);
     }
 
     /// <summary>
@@ -3183,6 +3211,9 @@ internal sealed partial class CompanionHost : IOverlayListener
         if (_desktopOverlay is not null)
             _desktopOverlay.EditMode = on;
 
+        if (_desktopChat is not null)
+            _desktopChat.EditMode = on;
+
         ShowOnDashboard();
         Render();
     }
@@ -3233,6 +3264,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         else if (_desktopOverlay is not null)
         {
             _desktopOverlay.Apply(desktopOverlay);
+            _desktopChat?.Apply(desktopOverlay);
             ApplyDictateShortcut();
 
             if (before.ShortcutOrDefault != desktopOverlay.ShortcutOrDefault)
@@ -3318,6 +3350,21 @@ internal sealed partial class CompanionHost : IOverlayListener
             _desktopOverlay.NameTyped += (list, name) => _overlay?.SetName(list, name);
             _desktopOverlay.HeadsUpTyped += words => _overlay?.SetHeadsUpText(words);
 
+            // The chat window for Dictate's answers: put away until something is dictated, in the
+            // look the overlay is in, with the overlay's own lock and hand.
+            var overlay = _desktopOverlay;
+            _desktopChat = new DesktopChatWindow(_state.Settings.DesktopChatSpot)
+            {
+                Beside = overlay,
+                EditMode = _state.Settings.OverlayEditMode,
+            };
+            _desktopChat.Apply(settings);
+            _desktopChat.UseLook(overlay.Look);
+            overlay.LookChanged += () => _desktopChat?.UseLook(overlay.Look);
+            _desktopChat.SwitchPressed += SetDesktopOverlay;
+            _desktopChat.SpotChanged += DesktopChatSpotChanged;
+            _desktopChat.CloseTapped += CloseChat;
+
             _desktopOverlayShortcut = new DesktopOverlayShortcut(ToggleDesktopOverlay);
             _desktopOverlayShortcut.Ask(settings.ShortcutOrDefault);
             _desktopOverlay.DictatePressed += ToggleDictateFromDesktop;
@@ -3341,6 +3388,8 @@ internal sealed partial class CompanionHost : IOverlayListener
             _dictateShortcut = null;
             _escapeBubbleHost?.Stop();
             _escapeBubbleHost = null;
+            _desktopChat?.Close();
+            _desktopChat = null;
             _desktopOverlay?.Close();
             _desktopOverlay = null;
             return;
@@ -3364,6 +3413,20 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         _escapeBubbleHost?.Stop();
         _escapeBubbleHost = null;
+
+        // A move not yet written is written now, so switching the overlay off does not lose it.
+        if (_desktopChatSpotSave.IsEnabled)
+        {
+            _desktopChatSpotSave.Stop();
+            SaveDesktopChatSpot();
+        }
+
+        if (_desktopChat is not null)
+        {
+            _desktopChat.Dismiss();
+            _desktopChat.Close();
+            _desktopChat = null;
+        }
 
         if (_desktopOverlay is not null)
         {
