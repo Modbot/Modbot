@@ -161,6 +161,13 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public OverlayPlacement? OverlayChatSpot { get; init; }
 
     /// <summary>
+    /// Where the chat window on a monitor was last left and how big it was made, saved as the
+    /// <c>desktopChatSpot</c> object. Null when nobody has moved it: the window then opens beside
+    /// the desktop overlay at its default size.
+    /// </summary>
+    public DesktopChatSpot? DesktopChatSpot { get; init; }
+
+    /// <summary>
     /// The stick shortcut for the show and hide button, from the SteamVR page's <strong>Shortcut</strong>
     /// and <strong>Hold time</strong> choices, written as <c>"overlayButtonStick"</c> (<c>"right"</c>,
     /// <c>"left"</c> or <c>"off"</c>), <c>"overlayButtonDirection"</c> (<c>"back"</c>, <c>"forward"</c>,
@@ -311,6 +318,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
 
     public const string OverlayChatSpotField = "overlayChatSpot";
 
+    public const string DesktopChatSpotField = "desktopChatSpot";
+
     public const string OverlayButtonStickField = "overlayButtonStick";
 
     public const string OverlayButtonDirectionField = "overlayButtonDirection";
@@ -388,6 +397,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             OverlayButtonOn = shape?.OverlayButtonOn ?? true,
             OverlayButtonSpots = ButtonSpots.FromJson(shape?.OverlayButtonSpots),
             OverlayChatSpot = shape?.OverlayChatSpot is { } chatSpot ? OverlayPlacement.FromJson(chatSpot) : null,
+            DesktopChatSpot = DesktopChatSpot.FromJson(shape?.DesktopChatSpot),
             OverlayButtonShortcut = new ButtonShortcut(
                 ButtonShortcut.ParseStick(shape?.OverlayButtonStick),
                 ButtonShortcut.ParseDirection(shape?.OverlayButtonDirection),
@@ -563,6 +573,13 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     {
         ArgumentNullException.ThrowIfNull(placement);
         return SaveField(path, OverlayChatSpotField, placement.Clamped().ToJson());
+    }
+
+    /// <summary>Writes where the chat window on a monitor was left and its size as the <c>desktopChatSpot</c> object, keeping every other field.</summary>
+    public static bool SaveDesktopChatSpot(string path, DesktopChatSpot spot)
+    {
+        ArgumentNullException.ThrowIfNull(spot);
+        return SaveField(path, DesktopChatSpotField, spot.ToJson());
     }
 
     /// <summary>
@@ -795,6 +812,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("overlayButtonOn")] bool? OverlayButtonOn = null,
         [property: JsonPropertyName("overlayButtonSpots")] JsonObject? OverlayButtonSpots = null,
         [property: JsonPropertyName("overlayChatSpot")] JsonObject? OverlayChatSpot = null,
+        [property: JsonPropertyName("desktopChatSpot")] JsonObject? DesktopChatSpot = null,
         [property: JsonPropertyName("overlayButtonStick")] string? OverlayButtonStick = null,
         [property: JsonPropertyName("overlayButtonDirection")] string? OverlayButtonDirection = null,
         [property: JsonPropertyName("overlayButtonHold")] int? OverlayButtonHold = null,
