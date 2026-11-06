@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Modbot.AI;
@@ -44,9 +45,9 @@ public static class CompanionChatEndpoints
     public static async Task<IResult> AvailableAsync(
         int apiVersion,
         HttpContext context,
-        DeviceAuthenticator authenticator,
-        UserAccountService accounts,
-        ModbotContext database,
+        [FromServices] DeviceAuthenticator authenticator,
+        [FromServices] UserAccountService accounts,
+        [FromServices] ModbotContext database,
         CancellationToken ct)
     {
         if (!CompanionApiVersion.IsSupported(apiVersion))
@@ -68,19 +69,19 @@ public static class CompanionChatEndpoints
         int apiVersion,
         ChatSendRequest? body,
         HttpContext context,
-        DeviceAuthenticator authenticator,
-        UserAccountService accounts,
-        ModbotContext db,
-        IAiClients ai,
-        ChatToolRegistry registry,
-        ChatLoop loop,
-        AiSpendLimits limits,
-        IAiUsage usage,
-        IAiCallLog calls,
-        IModbotClock clock,
-        IFactWriter facts,
-        EventPartitionMaintainer partitions,
-        IOptions<Microsoft.AspNetCore.Http.Json.JsonOptions> jsonOptions,
+        [FromServices] DeviceAuthenticator authenticator,
+        [FromServices] UserAccountService accounts,
+        [FromServices] ModbotContext db,
+        [FromServices] IAiClients ai,
+        [FromServices] ChatToolRegistry registry,
+        [FromServices] ChatLoop loop,
+        [FromServices] AiSpendLimits limits,
+        [FromServices] IAiUsage usage,
+        [FromServices] IAiCallLog calls,
+        [FromServices] IModbotClock clock,
+        [FromServices] IFactWriter facts,
+        [FromServices] EventPartitionMaintainer partitions,
+        [FromServices] IOptions<Microsoft.AspNetCore.Http.Json.JsonOptions> jsonOptions,
         CancellationToken ct)
     {
         if (!CompanionApiVersion.IsSupported(apiVersion))
