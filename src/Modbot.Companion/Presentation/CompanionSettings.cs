@@ -154,6 +154,13 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public ButtonSpots OverlayButtonSpots { get; init; } = ButtonSpots.None;
 
     /// <summary>
+    /// Where the chat panel was last left, saved as the <c>overlayChatSpot</c> object whenever a
+    /// controller moves or resizes it or presses a switch on its bar. Null when nobody has moved it:
+    /// the panel then opens at its own default spot.
+    /// </summary>
+    public OverlayPlacement? OverlayChatSpot { get; init; }
+
+    /// <summary>
     /// The stick shortcut for the show and hide button, from the SteamVR page's <strong>Shortcut</strong>
     /// and <strong>Hold time</strong> choices, written as <c>"overlayButtonStick"</c> (<c>"right"</c>,
     /// <c>"left"</c> or <c>"off"</c>), <c>"overlayButtonDirection"</c> (<c>"back"</c>, <c>"forward"</c>,
@@ -302,6 +309,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
 
     public const string OverlayButtonSpotsField = "overlayButtonSpots";
 
+    public const string OverlayChatSpotField = "overlayChatSpot";
+
     public const string OverlayButtonStickField = "overlayButtonStick";
 
     public const string OverlayButtonDirectionField = "overlayButtonDirection";
@@ -378,6 +387,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             OverlayButtonPlace = OverlayButton.Parse(shape?.OverlayButtonPlace),
             OverlayButtonOn = shape?.OverlayButtonOn ?? true,
             OverlayButtonSpots = ButtonSpots.FromJson(shape?.OverlayButtonSpots),
+            OverlayChatSpot = shape?.OverlayChatSpot is { } chatSpot ? OverlayPlacement.FromJson(chatSpot) : null,
             OverlayButtonShortcut = new ButtonShortcut(
                 ButtonShortcut.ParseStick(shape?.OverlayButtonStick),
                 ButtonShortcut.ParseDirection(shape?.OverlayButtonDirection),
@@ -546,6 +556,13 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     {
         ArgumentNullException.ThrowIfNull(spots);
         return SaveField(path, OverlayButtonSpotsField, spots.ToJson());
+    }
+
+    /// <summary>Writes where the chat panel was left as the <c>overlayChatSpot</c> object, keeping every other field.</summary>
+    public static bool SaveOverlayChatSpot(string path, OverlayPlacement placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        return SaveField(path, OverlayChatSpotField, placement.Clamped().ToJson());
     }
 
     /// <summary>
@@ -775,6 +792,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("overlayButtonPlace")] string? OverlayButtonPlace = null,
         [property: JsonPropertyName("overlayButtonOn")] bool? OverlayButtonOn = null,
         [property: JsonPropertyName("overlayButtonSpots")] JsonObject? OverlayButtonSpots = null,
+        [property: JsonPropertyName("overlayChatSpot")] JsonObject? OverlayChatSpot = null,
         [property: JsonPropertyName("overlayButtonStick")] string? OverlayButtonStick = null,
         [property: JsonPropertyName("overlayButtonDirection")] string? OverlayButtonDirection = null,
         [property: JsonPropertyName("overlayButtonHold")] int? OverlayButtonHold = null,

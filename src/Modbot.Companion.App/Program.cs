@@ -330,6 +330,9 @@ internal sealed partial class CompanionHost : IOverlayListener
     /// <summary>The same for the show and hide button, which a controller can move too.</summary>
     private readonly DispatcherTimer _buttonSpotSave = new() { Interval = TimeSpan.FromMilliseconds(500) };
 
+    /// <summary>The same for the chat panel, which a controller can move and resize too.</summary>
+    private readonly DispatcherTimer _chatSpotSave = new() { Interval = TimeSpan.FromMilliseconds(500) };
+
     /// <summary>
     /// How often the reading half is given a turn.
     /// </summary>
@@ -376,6 +379,7 @@ internal sealed partial class CompanionHost : IOverlayListener
     private OverlayHost? _overlayHost;
     private NotificationHost? _notifyHost;
     private ButtonHost? _buttonHost;
+    private ChatHost? _chatHost;
     private OverlayPreviewWindow? _preview;
 
     /// <summary>Modbot's tab in the SteamVR dashboard; null where it could not be set up.</summary>
@@ -2200,6 +2204,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             OpenVrSession.Shared.GripTake = CompanionSettings.GripTake(_state?.Settings.OverlayGripSensitivity ?? CompanionSettings.DefaultGripSensitivity);
 
             MakeButtonHost();
+            MakeChatHost();
 
             StartHeadsetPaletteWatch();
             AttachOverlay();
@@ -2268,6 +2273,21 @@ internal sealed partial class CompanionHost : IOverlayListener
     }
 
     /// <summary>
+    /// The chat panel comes up with the panel and goes with it, and stays put away until something
+    /// shows it. It draws nothing and touches no graphics card while it is hidden.
+    /// </summary>
+    private void MakeChatHost()
+    {
+        if (_chatHost is not null)
+            return;
+
+        _chatHost = ChatHost.Create(placement: _state?.Settings.OverlayChatSpot);
+        _chatHost.EditMode = _state?.Settings.OverlayEditMode is true;
+        _chatHost.PushStep = PushStep(_state?.Settings.OverlayPushSpeed);
+        _chatHost.PlacementChanged += ChatPlacementChanged;
+    }
+
+    /// <summary>
     /// The headset panel threw on its way up: logged, put away, shown on the SteamVR page as
     /// <c>Could not start</c>, and tried again in a minute while tries are left. The companion
     /// carries on either way.
@@ -2285,6 +2305,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         _overlayHost?.Dispose();
         _overlayHost = null;
         DisposeButton();
+        DisposeChat();
         _overlayAttachedAt = null;
         StopHeadsetPaletteWatchIfUnused();
 
@@ -2361,6 +2382,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         _overlayHost?.Dispose();
         _overlayHost = null;
         DisposeButton();
+        DisposeChat();
         StopHeadsetPaletteWatchIfUnused();
 
         _overlayAttachedAt = null;
@@ -2603,6 +2625,15 @@ internal sealed partial class CompanionHost : IOverlayListener
             if (!CompanionSettings.SaveOverlayButtonSpots(_settingsPath, _state.Settings.OverlayButtonSpots))
                 Log.Warning("The show and hide button's spot could not be saved to {Path}", _settingsPath);
         };
+        _chatSpotSave.Tick += (_, _) =>
+        {
+            _chatSpotSave.Stop();
+            if (_state?.Settings.OverlayChatSpot is not { } spot)
+                return;
+
+            if (!CompanionSettings.SaveOverlayChatSpot(_settingsPath, spot))
+                Log.Warning("The chat panel's spot could not be saved to {Path}", _settingsPath);
+        };
         _notifyPlacementSave.Tick += (_, _) =>
         {
             _notifyPlacementSave.Stop();
@@ -2619,15 +2650,16 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         // The notification panel first, then the button: both are drawn over the main one, so a
         // hand either is using is left out of the main panel's turn and one press does not land on
-        // both. The pop-ups are over the button too.
+        // both. The pop-ups are over the button too, and the chat panel is between the two.
         _inputLoop.Tick += (_, _) => CrashGuard.Run(
             "reading the controllers",
             () =>
             {
                 var now = System.Diagnostics.Stopwatch.GetElapsedTime(_inputClock);
                 _notifyHost?.PollInput(now);
-                _buttonHost?.PollInput(now, _notifyHost?.Busy, StickInUse);
-                _overlayHost?.PollInput(now, _buttonHost?.Busy ?? _notifyHost?.Busy);
+                _chatHost?.PollInput(now, _notifyHost?.Busy);
+                _buttonHost?.PollInput(now, _chatHost?.Busy ?? _notifyHost?.Busy, StickInUse);
+                _overlayHost?.PollInput(now, _buttonHost?.Busy ?? _chatHost?.Busy ?? _notifyHost?.Busy);
 
                 // Faster while a list is moving, slow again once it stops.
                 var scrolling = _overlayHost?.Scrolling is true;
@@ -2661,6 +2693,9 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         if (_buttonHost is not null)
             _buttonHost.PushStep = PushStep(speed);
+
+        if (_chatHost is not null)
+            _chatHost.PushStep = PushStep(speed);
 
         Render();
     }
@@ -2778,6 +2813,20 @@ internal sealed partial class CompanionHost : IOverlayListener
     }
 
     /// <summary>
+    /// A controller moved or resized the chat panel or pressed a switch on its bar: kept, and saved
+    /// once it settles. The host already has the placement, so it is not placed again from here.
+    /// </summary>
+    private void ChatPlacementChanged(OverlayPlacement placement)
+    {
+        if (_state is null)
+            return;
+
+        _state.Settings = _state.Settings with { OverlayChatSpot = placement };
+        _chatSpotSave.Stop();
+        _chatSpotSave.Start();
+    }
+
+    /// <summary>
     /// What the show and hide button does when it is clicked: hides the headset panel while it is
     /// up and shows it while it is hidden. Only the panel; the button and the connection to the VR
     /// runtime stay.
@@ -2822,8 +2871,10 @@ internal sealed partial class CompanionHost : IOverlayListener
     private bool StickInUse(Hand hand)
         => _overlayHost?.Holding is not null
             || _notifyHost?.Holding is not null
+            || _chatHost?.Holding is not null
             || _overlayHost?.Busy == hand
             || _notifyHost?.Busy == hand
+            || _chatHost?.Busy == hand
             || (hand == Hand.Right
                 && _overlayHost is { OnList: true, Placement: var placement }
                 && placement.Anchor != OverlayAnchor.RightHand);
@@ -2900,6 +2951,45 @@ internal sealed partial class CompanionHost : IOverlayListener
         {
             Log.Warning(ex, "The show and hide button could not start ({Reason}); the panel carries on without it", PanelRetries.ShortReason(ex));
             DisposeButton();
+        }
+    }
+
+    /// <summary>Takes the chat panel down; it goes with the panel it belongs to.</summary>
+    private void DisposeChat()
+    {
+        // A move not yet written is written now, so switching the panel off does not lose it.
+        if (_chatSpotSave.IsEnabled)
+        {
+            _chatSpotSave.Stop();
+            if (_state?.Settings.OverlayChatSpot is { } spot && !CompanionSettings.SaveOverlayChatSpot(_settingsPath, spot))
+                Log.Warning("The chat panel's spot could not be saved to {Path}", _settingsPath);
+        }
+
+        _chatHost?.Dispose();
+        _chatHost = null;
+        _chatAttachTriedAt = DateTimeOffset.MinValue;
+    }
+
+    /// <summary>
+    /// Attaches the chat panel once the headset panel is up, and again after a VR runtime that
+    /// closed is back. Its own attach, because it is an overlay of its own; a failure puts only
+    /// the chat panel away.
+    /// </summary>
+    private void AttachChat()
+    {
+        if (_chatHost is null)
+            return;
+
+        _chatAttachTriedAt = _clock.UtcNow;
+
+        try
+        {
+            _chatHost.Start();
+        }
+        catch (Exception ex) when (PanelRetries.IsPanelFailure(ex))
+        {
+            Log.Warning(ex, "The chat panel could not start ({Reason}); the panel carries on without it", PanelRetries.ShortReason(ex));
+            DisposeChat();
         }
     }
 
@@ -3025,6 +3115,9 @@ internal sealed partial class CompanionHost : IOverlayListener
         if (_buttonHost is not null)
             _buttonHost.Look = _headsetLook;
 
+        if (_chatHost is not null)
+            _chatHost.Look = _headsetLook;
+
         if (_desktopNotify is not null)
             _desktopNotify.Look = _popUpLook;
     }
@@ -3051,6 +3144,9 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         if (_buttonHost is not null)
             _buttonHost.EditMode = on;
+
+        if (_chatHost is not null)
+            _chatHost.EditMode = on;
 
         if (_desktopOverlay is not null)
             _desktopOverlay.EditMode = on;
@@ -3399,6 +3495,8 @@ internal sealed partial class CompanionHost : IOverlayListener
 
     private DateTimeOffset _buttonAttachTriedAt = DateTimeOffset.MinValue;
 
+    private DateTimeOffset _chatAttachTriedAt = DateTimeOffset.MinValue;
+
     /// <summary>
     /// Attaches to SteamVR if it is running, and says so once. Never launches it: a program that
     /// starts with the computer must not start SteamVR too.
@@ -3677,6 +3775,20 @@ internal sealed partial class CompanionHost : IOverlayListener
                 ShowButton();
             }
 
+            // The chat panel follows the panel the same way. Attached it stays put away until
+            // something shows it.
+            if (_chatHost is not null)
+            {
+                _chatHost.Poll();
+
+                if (_overlayHost?.Status.State is OverlayRuntimeState.Running
+                    && _chatHost.Status.State is not OverlayRuntimeState.Running
+                    && _clock.UtcNow - _chatAttachTriedAt >= OverlayAttachInterval)
+                {
+                    AttachChat();
+                }
+            }
+
             if (_notifyHost is not null)
             {
                 var wasRunning = _notifyHost.Status.State is OverlayRuntimeState.Running;
@@ -3868,6 +3980,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         _overlay?.Dispose();
         _overlayHost?.Dispose();
         _buttonHost?.Dispose();
+        _chatHost?.Dispose();
         _notifyHost?.Dispose();
         _dashboardLoop.Stop();
         _dashboard?.Dispose();
