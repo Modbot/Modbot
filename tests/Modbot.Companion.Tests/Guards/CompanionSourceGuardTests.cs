@@ -616,10 +616,10 @@ public class CompanionSourceGuardTests
     }
 
     [Fact]
-    public void OnlyTheElevenDeclaredPlacesMakeOutboundRequests()
+    public void OnlyTheTwelveDeclaredPlacesMakeOutboundRequests()
     {
         // "What does this program send, and where" should have a short, complete answer findable
-        // by somebody who has never seen the codebase. Eleven files, each with a remarks block
+        // by somebody who has never seen the codebase. Twelve files, each with a remarks block
         // saying what it sends: one posts observations, one asks the time, one trades a pairing
         // code for a token, one reads the overlay's context, one holds the overlay's live
         // WebSocket open, one backs the client's events up to Modbot Cloud (cloud event backup
@@ -630,13 +630,15 @@ public class CompanionSourceGuardTests
         // one POST per press and nothing ahead of it), and one sends the recorded clip for a clip
         // request the server made (HttpClipUploader.cs, added 2026-10-24: one upload, or one short
         // answer, per request, only while Send clips for my actions is ticked, to the server that
-        // asked, with the device token). Nothing else reaches the network.
+        // asked, with the device token), and one fetches the speech model for Dictate the same way
+        // as the phrase model (DictationDownload.cs, added 2026-11-05: one download, the first time
+        // somebody taps Dictate, never in a test copy). Nothing else reaches the network.
         //
-        // The ninth is a download and nothing else. Nothing a microphone hears reaches the network
+        // The ninth is a download and nothing else, and so is the twelfth. Nothing a microphone hears reaches the network
         // from anywhere in this client, and the file that opens the microphone cannot reach it at
         // all (NothingTheClientShipsCanKeepOrSendWhatAMicrophoneHeard).
         //
-        // Two of the eleven are the overlay's: HttpOverlayReadClient and LiveSocket. The overlay's
+        // Two of the twelve are the overlay's: HttpOverlayReadClient and LiveSocket. The overlay's
         // driver is the only thing that builds them for a panel, so while both overlays are
         // switched off they run for one reason only: the clip link (ClipLinks.cs), which is a
         // second user of the same two and adds no sender of its own. It stays open while the
@@ -656,6 +658,7 @@ public class CompanionSourceGuardTests
         Assert.Equal(
             [
                 "CloudCredits.cs",
+                "DictationDownload.cs",
                 "HeadsUps.cs",
                 "HttpClipUploader.cs",
                 "HttpCloudLogClient.cs",
@@ -700,12 +703,14 @@ public class CompanionSourceGuardTests
         // it, and none of them is built anywhere else.
         var program = File.ReadAllText(EverythingTheClientShips().Single(f => Path.GetFileName(f) == "Program.cs"));
         var voice = File.ReadAllText(EverythingTheClientShips().Single(f => Path.GetFileName(f) == "VoiceHost.cs"));
+        var dictation = File.ReadAllText(EverythingTheClientShips().Single(f => Path.GetFileName(f) == "CompanionHost.Dictation.cs"));
 
         GuardedFirst(program, "private void StartCloudBackup(", "if (!_data.MayUseCloud)", "new HttpCloudLogClient(");
         GuardedFirst(program, "private void StartCloudBackup(", "if (!_data.MayUseCloud)", "new DpapiCloudInstallStore(");
         GuardedFirst(program, "private void StartCloudBackup(", "if (!_data.MayUseCloud)", "Event backup to Modbot Cloud is on");
         GuardedFirst(program, "private void StartCredits(", "if (!_data.MayUseCloud)", "new CloudCredits(");
         GuardedFirst(program, "private void StartPhraseDownload(", "if (!_data.MayDownload)", "new PhraseDownload(");
+        GuardedFirst(dictation, "private async Task<string?> PrepareDictationModel(", "if (!_data.MayDownload)", "new DictationDownload(");
         GuardedFirst(voice, "private void StartDownload()", "if (!_mayDownload)", "new VoiceDownload(");
         Assert.Contains("mayDownload: _data.MayDownload", program, StringComparison.Ordinal);
         Assert.Contains("Test copy: event backup to Modbot Cloud is off", program, StringComparison.Ordinal);
@@ -716,6 +721,7 @@ public class CompanionSourceGuardTests
                      ("new DpapiCloudInstallStore(", "Program.cs"),
                      ("new CloudCredits(", "Program.cs"),
                      ("new PhraseDownload(", "Program.cs"),
+                     ("new DictationDownload(", "CompanionHost.Dictation.cs"),
                      ("new VoiceDownload(", "VoiceHost.cs"),
                      ("new CloudEventBackup(", "Program.cs"),
                  })
@@ -727,7 +733,12 @@ public class CompanionSourceGuardTests
 
             Assert.Equal([file], building);
 
-            var source = file == "Program.cs" ? program : voice;
+            var source = file switch
+            {
+                "Program.cs" => program,
+                "CompanionHost.Dictation.cs" => dictation,
+                _ => voice,
+            };
             Assert.Equal(source.IndexOf(made, StringComparison.Ordinal), source.LastIndexOf(made, StringComparison.Ordinal));
         }
     }
@@ -758,10 +769,15 @@ public class CompanionSourceGuardTests
     /// used a second time by a second file.</para>
     /// <para>It grew again the same day, with the routes the clip recorder's sound uses — the
     /// per-program activation, its parameter block and the flag that asks for a program's output —
-    /// for exactly the same reason. <strong>Two</strong> files are allowed to match this now, and
+    /// for exactly the same reason. <strong>Two</strong> files were allowed to match this then, and
     /// each is named by its own test: <see cref="TheOnlyFileThatCanListenIsPhraseListeningCs"/> and
-    /// <see cref="TheOnlyFileThatCanRecordAProgramsSoundIsClipSoundCs"/>. Nothing else may name a
-    /// sound-recording API at all.</para>
+    /// <see cref="TheOnlyFileThatCanRecordAProgramsSoundIsClipSoundCs"/>.</para>
+    /// <para>It was narrowed again on 2026-11-05, for Dictate: a third file,
+    /// <c>DictationListening.cs</c>, may match, so that a moderator can speak a message to the AI
+    /// chat. It opens the microphone through the phrase listener's own shared-mode class and holds
+    /// the speech engine (<c>AcceptWaveform</c> is why it matches), keeps nothing it hears and
+    /// sends nothing. Three files, each named, and nothing else may name a sound-recording API at
+    /// all.</para>
     /// </remarks>
     private static readonly Regex SoundCapture = new(
         @"\b(WaveIn|WaveInEvent|WaveInProvider|WasapiCapture|WasapiLoopbackCapture|AudioCaptureClient|IAudioCaptureClient"
@@ -824,8 +840,14 @@ public class CompanionSourceGuardTests
         @"\bGetNamedPipeServerProcessId\b",
         RegexOptions.Compiled);
 
-    /// <summary>The one file allowed to open a microphone.</summary>
+    /// <summary>The file allowed to open a microphone while listening for a phrase.</summary>
     private const string ListeningFile = "PhraseListening.cs";
+
+    /// <summary>
+    /// The file allowed to open a microphone for Dictate, and the only one that writes speech out as
+    /// text. Added 2026-11-05, a narrowing of "one file may open a microphone".
+    /// </summary>
+    private const string DictationFile = "DictationListening.cs";
 
     /// <summary>The one file allowed to record another program's sound.</summary>
     private const string ClipSoundFile = "ClipSound.cs";
@@ -843,6 +865,12 @@ public class CompanionSourceGuardTests
         // on, only while VRChat is running, with nothing recorded, kept or sent. The listening
         // design spec carries the whole argument.
         //
+        // Narrowed again on 2026-11-05 for Dictate (speak a message to the AI chat): a third file,
+        // DictationListening.cs, may match. It opens the microphone only through the class in
+        // PhraseListening.cs that asks for shared mode, only between a tap and the next tap (or
+        // sixty seconds), and writes the sound out as text and drops it. The rules below hold for
+        // it as they do for the first, in its own test.
+        //
         // The shape of the narrowing matters as much as the narrowing. A capability in one named
         // file is answerable -- "show me where this program listens" has a one-word answer. So the
         // ban stands everywhere else, the list of routes above grew to include the ones the new
@@ -859,7 +887,7 @@ public class CompanionSourceGuardTests
             .Order()
             .ToList();
 
-        Assert.Equal([ClipSoundFile, ListeningFile], listening);
+        Assert.Equal([ClipSoundFile, DictationFile, ListeningFile], listening);
 
         var source = File.ReadAllText(
             EverythingTheClientShips().Single(f => Path.GetFileName(f) == ListeningFile));
@@ -888,6 +916,41 @@ public class CompanionSourceGuardTests
         // build time rather than on somebody's PC.
         Assert.Contains("BuildAsync()", source, StringComparison.Ordinal);
         Assert.DoesNotMatch(new Regex(@"\.Build\s*\("), source);
+    }
+
+    [Fact]
+    public void TheDictationFileKeepsAndSendsNothingAndOpensTheMicrophoneOnlyShared()
+    {
+        // The third file allowed to match the sound ban (2026-11-05, see SoundCapture). It is
+        // held to the same promises as the phrase listener: nothing kept, nothing sent, a shared
+        // microphone, never what the PC is playing.
+        var source = File.ReadAllText(
+            EverythingTheClientShips().Single(f => Path.GetFileName(f) == DictationFile));
+
+        Assert.Contains("<remarks>", source, StringComparison.Ordinal);
+        Assert.Matches(Discloses, source);
+        Assert.Contains("Nothing is saved. Nothing is sent.", source, StringComparison.Ordinal);
+        Assert.Contains("What leaves the machine: nothing", source, StringComparison.Ordinal);
+
+        // The microphone comes from the one class that asks for shared mode, so this file has no
+        // way to ask for the exclusive mode that would lock VRChat out, and does not try.
+        Assert.Contains("PhraseListening.SharedMicrophone", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("WithExclusiveMode", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("AudioClientShareMode.Exclusive", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Loopback", source, StringComparison.Ordinal);
+
+        // It asks Windows for no list of devices: the caller hands it the id.
+        Assert.DoesNotContain("MMDeviceEnumerator", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("DataFlow", source, StringComparison.Ordinal);
+
+        // The speech engine is in this file and the phrase listener, which has its own, and nowhere else.
+        var engine = EverythingTheClientShips()
+            .Where(f => File.ReadAllText(f).Contains("AcceptWaveform", StringComparison.Ordinal))
+            .Select(Path.GetFileName)
+            .Order()
+            .ToList();
+
+        Assert.Equal([DictationFile, ListeningFile], engine);
     }
 
     [Fact]
@@ -1130,16 +1193,21 @@ public class CompanionSourceGuardTests
         // open a microphone is held to a second rule: it writes nothing and it sends nothing.
         // Everything else in the client is still barred from a microphone entirely, so this is the
         // whole of the surface that has to be checked.
-        var source = File.ReadAllText(
-            EverythingTheClientShips().Single(f => Path.GetFileName(f) == ListeningFile));
-
-        foreach (var forbidden in new[]
-                 {
-                     "File.", "FileStream", "StreamWriter", "Directory.",
-                     "HttpClient", "ClientWebSocket", "WaveFileWriter",
-                 })
+        // Dictate's file (2026-11-05) is held to the same list: its model paths come in as text from
+        // DictationModel in the library, so it never touches the disk itself.
+        foreach (var name in new[] { ListeningFile, DictationFile })
         {
-            Assert.DoesNotContain(forbidden, source, StringComparison.Ordinal);
+            var source = File.ReadAllText(
+                EverythingTheClientShips().Single(f => Path.GetFileName(f) == name));
+
+            foreach (var forbidden in new[]
+                     {
+                         "File.", "FileStream", "StreamWriter", "Directory.",
+                         "HttpClient", "ClientWebSocket", "WaveFileWriter",
+                     })
+            {
+                Assert.DoesNotContain(forbidden, source, StringComparison.Ordinal);
+            }
         }
     }
 

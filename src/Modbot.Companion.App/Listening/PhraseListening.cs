@@ -166,7 +166,9 @@ internal sealed class PhraseListening : IDisposable
     /// here and nothing is listened to: what comes back is a name and an id for each device, which
     /// is what the settings page's list is made of.</para>
     /// <para>It is asked only while listening is switched on, so the promise that a switched-off
-    /// client asks Windows' audio system nothing at all still holds exactly as it did.</para>
+    /// client asks Windows' audio system nothing at all still holds exactly as it did. The one
+    /// addition, made on 2026-11-05: a tap on Dictate asks once, and only when a microphone is
+    /// picked, to find that one; Dictate is itself a person asking for the microphone.</para>
     /// <para>A machine that will not answer gives an empty list rather than a failure. The picker
     /// then offers the Windows default and nothing else, which is what the client did before there
     /// was a picker at all.</para>
