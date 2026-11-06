@@ -11,7 +11,8 @@ and it tells you whether it worked.
 <Callout type="warn" title="This narrows something the companion used to promise">
 Until 19 September 2026 the companion said, in its own source and on this site, that it **never**
 recorded sound, by any route, and the build failed if any code that could open a microphone
-appeared anywhere in it. That ban is now narrowed by exactly one file, and this page is the honest
+appeared anywhere in it. That ban is now narrowed by one file for Listening (and, since 5 November 2026, by a second one
+for [Dictate](/docs/companion/dictate)), and this page is the honest
 replacement rather than a patch over it.
 
 What has **not** changed: nothing your microphone hears is recorded, kept or sent — not to your
@@ -60,8 +61,8 @@ Sound arrives from Windows in fifths of a second, is checked against the name �
 seconds, against the commands — and is thrown away. That is the whole of it.
 
 - **Nothing is written to disk.** Not a recording, not a transcript, not a log of what you said. The
-  one file allowed to open a microphone cannot open a file for writing, and the build fails if it
-  learns how.
+  files allowed to open a microphone cannot open a file for writing, and the build fails if they
+  learn how.
 - **Nothing is sent.** That file cannot reach the network either. The only thing listening ever
   sends is the one download of the phrase matcher itself, described below.
 - **Nothing is held.** At most a few seconds of sound sit in memory waiting to be checked, and they
@@ -119,8 +120,8 @@ programs. Choosing one means asking for that list, so the promise is narrowed ra
 standing next to code that contradicts it.
 
 It is narrowed in the same shape as everything else here. **One file** in the companion may ask,
-and it is the same file that is allowed to open a microphone; the build fails if a second one
-learns to. The list is only asked for **while Listening is switched on** — with the switch off, no
+and it is one of the files allowed to open a microphone (the other is Dictate's); the build fails
+if a third one learns to. The list is only asked for **while Listening is switched on** — with the switch off, no
 microphone is listed or opened. (The client always looks at which speakers and headphones the PC
 has, for its own sounds and spoken announcements; that is a different list and it stays on the PC.)
 And what comes back is a name and an id for each device. Nothing is opened and nothing is heard by
