@@ -62,6 +62,13 @@ internal sealed partial class CompanionHost
         return screen.WithDictate(controller.State, controller.Percent);
     }
 
+    /// <summary>The desktop overlay's Dictate key and button: a tap, only while the button would be offered.</summary>
+    private void ToggleDictateFromDesktop()
+    {
+        if (DictateAvailable)
+            Dictation.Toggle();
+    }
+
     /// <summary>
     /// Builds the chat client, the conversation behind the panel and the question "is AI Chat on?",
     /// and asks it. Once, after the saved pairings are connected.

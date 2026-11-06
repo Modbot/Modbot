@@ -408,6 +408,7 @@ public sealed partial class MainWindow : Window
         }
 
         CancelTalkCapture();
+        CancelDictateShortcutCapture();
         Hide();
 
         // The client is still running and still reporting, which is the point of the tray icon and
@@ -720,6 +721,7 @@ public sealed partial class MainWindow : Window
             return;
 
         CancelTalkCapture();
+        CancelDictateShortcutCapture();
         _page = page;
         RenderPage();
     }
@@ -2145,6 +2147,12 @@ public sealed record MainWindowActions(
     /// gives the Talk hotkeys back to Windows for that time.
     /// </summary>
     public Action<bool> SetTalkRecording { get; init; } = _ => { };
+
+    /// <summary>
+    /// The Dictate shortcut started (true) or stopped (false) being recorded on the Desktop overlay
+    /// card; the application gives that shortcut back to Windows for that time.
+    /// </summary>
+    public Action<bool> SetDictateRecording { get; init; } = _ => { };
 
     /// <summary>
     /// The text <strong>Copy crash details</strong> puts on the clipboard, made at the moment of

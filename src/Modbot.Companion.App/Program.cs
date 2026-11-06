@@ -428,6 +428,12 @@ internal sealed partial class CompanionHost : IOverlayListener
     private EscapeBubbleHost? _escapeBubbleHost;
     private DesktopOverlayShortcut? _desktopOverlayShortcut;
 
+    /// <summary>The key that starts and stops Dictate, held only while the desktop overlay is on.</summary>
+    private DesktopOverlayShortcut? _dictateShortcut;
+
+    /// <summary>True while the Settings card is waiting for a new Dictate key, which gives the old one back.</summary>
+    private bool _dictateRecording;
+
     /// <summary>
     /// The notification overlay on a monitor: its own window, in a corner, shown when there is
     /// something to say and hidden again when there is not. Nothing to do with the window above.
@@ -3211,6 +3217,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         else if (_desktopOverlay is not null)
         {
             _desktopOverlay.Apply(desktopOverlay);
+            ApplyDictateShortcut();
 
             if (before.ShortcutOrDefault != desktopOverlay.ShortcutOrDefault)
             {
@@ -3222,6 +3229,43 @@ internal sealed partial class CompanionHost : IOverlayListener
         }
 
         Render();
+    }
+
+    /// <summary>
+    /// Makes the Dictate key match the settings: claimed while the desktop overlay is on and no key
+    /// is being recorded, given back otherwise.
+    /// </summary>
+    private void ApplyDictateShortcut()
+    {
+        var wanted = _desktopOverlay is not null && !_dictateRecording
+            ? _state?.Settings.DesktopOverlay.DictateShortcutOrNone
+            : null;
+
+        if (wanted is null)
+        {
+            _dictateShortcut?.Dispose();
+            _dictateShortcut = null;
+            return;
+        }
+
+        _dictateShortcut ??= new DesktopOverlayShortcut(ToggleDictateFromDesktop, what: "starting Dictate");
+
+        if (_dictateShortcut.Registered != wanted)
+            _dictateShortcut.Ask(wanted);
+    }
+
+    /// <summary>A Dictate key started or stopped being recorded on the Settings card.</summary>
+    private void SetDictateRecording(bool recording)
+    {
+        if (_dictateRecording == recording)
+            return;
+
+        _dictateRecording = recording;
+        ApplyDictateShortcut();
+
+        // The claim again may find the key taken in the meantime.
+        if (!recording)
+            Render();
     }
 
     /// <summary>
@@ -3260,6 +3304,7 @@ internal sealed partial class CompanionHost : IOverlayListener
 
             _desktopOverlayShortcut = new DesktopOverlayShortcut(ToggleDesktopOverlay);
             _desktopOverlayShortcut.Ask(settings.ShortcutOrDefault);
+            ApplyDictateShortcut();
 
             // Modbot's bubble in VRChat's HUD row, for as long as the overlay is on. A click on it
             // is the shortcut's own action, not a second copy of it.
@@ -3274,6 +3319,8 @@ internal sealed partial class CompanionHost : IOverlayListener
             Log.Warning(ex, "The desktop overlay could not start ({Reason}); the companion carries on without it", PanelRetries.ShortReason(ex));
             _desktopOverlayShortcut?.Dispose();
             _desktopOverlayShortcut = null;
+            _dictateShortcut?.Dispose();
+            _dictateShortcut = null;
             _escapeBubbleHost?.Stop();
             _escapeBubbleHost = null;
             _desktopOverlay?.Close();
@@ -3294,6 +3341,8 @@ internal sealed partial class CompanionHost : IOverlayListener
     {
         _desktopOverlayShortcut?.Dispose();
         _desktopOverlayShortcut = null;
+        _dictateShortcut?.Dispose();
+        _dictateShortcut = null;
 
         _escapeBubbleHost?.Stop();
         _escapeBubbleHost = null;
@@ -3999,6 +4048,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         // Gives the keyboard shortcut back to Windows rather than leaving it claimed by a process
         // that is going away.
         _desktopOverlayShortcut?.Dispose();
+        _dictateShortcut?.Dispose();
         _desktopNotify?.Clear();
 
         // The bubble's window and its watch go with the client, not with the process's last gasp.
@@ -4209,7 +4259,8 @@ internal sealed partial class CompanionHost : IOverlayListener
         _state.DesktopOverlay = new DesktopOverlayStatus(
             _state.Settings.DesktopOverlay,
             _desktopOverlayShortcut?.State ?? ShortcutState.Off,
-            _desktopOverlay?.IsVisible is true);
+            _desktopOverlay?.IsVisible is true,
+            _dictateShortcut?.State ?? ShortcutState.Off);
 
         var snapshot = _state.Snapshot();
 
@@ -4249,6 +4300,7 @@ internal sealed partial class CompanionHost : IOverlayListener
                 SetListening = SetListening,
                 SetTalk = SetTalk,
                 SetTalkRecording = SetTalkRecording,
+                SetDictateRecording = SetDictateRecording,
 
                 // Made on this PC at the press, from VRChat's log and the companion's own memory of
                 // the instance, in this PC's own timezone offset. Copied, never sent.

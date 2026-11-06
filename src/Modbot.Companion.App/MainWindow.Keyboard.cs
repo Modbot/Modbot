@@ -159,6 +159,12 @@ public sealed partial class MainWindow
             return;
         }
 
+        if (_capturingDictateShortcut)
+        {
+            CaptureDictateShortcut(e);
+            return;
+        }
+
         // The same for the two keys recorded for Discord.
         if (_capturingTalkKey is not null)
         {

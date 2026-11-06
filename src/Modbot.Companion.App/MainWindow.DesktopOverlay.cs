@@ -54,6 +54,15 @@ public sealed partial class MainWindow
     /// <summary>True while the next key press is the new shortcut rather than a shortcut.</summary>
     private bool _capturingShortcut;
 
+    /// <summary>The Dictate shortcut's button, its Clear and its caption, built once like the rest.</summary>
+    private readonly Button _dictateShortcut = Ui.Button("");
+    private readonly Button _dictateShortcutClear = Ui.Button("Clear");
+    private readonly TextBlock _dictateShortcutText = Ui.Text(
+        "", Ui.T.Density.TextSmall, Ui.T.TextBrush, FontWeight.Medium, wrap: false);
+
+    /// <summary>True while the next key press is the new Dictate shortcut.</summary>
+    private bool _capturingDictateShortcut;
+
     private void WireDesktopOverlay()
     {
         if (_desktopOverlayWired)
@@ -87,6 +96,47 @@ public sealed partial class MainWindow
             _capturingShortcut = !_capturingShortcut;
             RenderPage();
         };
+
+        _dictateShortcut.Content = _dictateShortcutText;
+        _dictateShortcut.MinWidth = 140;
+        _dictateShortcut.Click += (_, _) =>
+        {
+            SetCapturingDictateShortcut(!_capturingDictateShortcut);
+            RenderPage();
+        };
+
+        _dictateShortcutClear.Click += (_, _) =>
+        {
+            DesktopOverlayChanged(s => s with { DictateShortcut = null });
+            SetCapturingDictateShortcut(false);
+            RenderPage();
+        };
+
+        Deactivated += (_, _) => CancelDictateShortcutCapture();
+    }
+
+    /// <summary>
+    /// Starts or stops waiting for the Dictate shortcut, and tells the application when waiting
+    /// begins or ends so it can give the combination back to Windows for that time: pressing the
+    /// current one to record it must not also start Dictate.
+    /// </summary>
+    private void SetCapturingDictateShortcut(bool capturing)
+    {
+        if (_capturingDictateShortcut == capturing)
+            return;
+
+        _capturingDictateShortcut = capturing;
+        _actions.SetDictateRecording(capturing);
+    }
+
+    /// <summary>Gives up a Dictate shortcut that is still waiting, the way Escape does.</summary>
+    private void CancelDictateShortcutCapture()
+    {
+        if (!_capturingDictateShortcut)
+            return;
+
+        SetCapturingDictateShortcut(false);
+        RenderPage();
     }
 
     /// <summary>What the card's controls say right now, handed to the application as one record.</summary>
@@ -127,6 +177,26 @@ public sealed partial class MainWindow
         RenderPage();
     }
 
+    /// <summary>One key press while the Dictate shortcut is waiting for it; the same rules as <see cref="CaptureShortcut"/>.</summary>
+    private void CaptureDictateShortcut(KeyEventArgs e)
+    {
+        e.Handled = true;
+
+        if (e.Key is Key.Escape)
+        {
+            SetCapturingDictateShortcut(false);
+            RenderPage();
+            return;
+        }
+
+        if (TokenFor(e) is not { } token || !DesktopOverlayKeys.CanBeUsed(token))
+            return;
+
+        SetCapturingDictateShortcut(false);
+        DesktopOverlayChanged(s => s with { DictateShortcut = token });
+        RenderPage();
+    }
+
     /// <summary>
     /// What the card says right now, put into its controls. Called from the Settings page's own
     /// refresh, which has already stopped the controls answering back, so this one does not.
@@ -148,6 +218,13 @@ public sealed partial class MainWindow
             ? "Press the keys"
             : KeyTokens.Describe(desktop.Settings.ShortcutOrDefault);
 
+        _dictateShortcutText.Text = _capturingDictateShortcut
+            ? "Press the keys"
+            : desktop.Settings.DictateShortcutOrNone is { } dictateKeys ? KeyTokens.Describe(dictateKeys) : "Record";
+        _dictateShortcutClear.IsVisible = desktop.Settings.DictateShortcutOrNone is not null;
+        _dictateShortcut.IsEnabled = desktop.Settings.On;
+        _dictateShortcutClear.IsEnabled = desktop.Settings.On;
+
         _desktopOverlayLine.Text = desktop.Problem ?? "";
         _desktopOverlayLine.IsVisible = desktop.Problem is not null;
 
@@ -166,6 +243,8 @@ public sealed partial class MainWindow
                  {
                      _desktopOverlayOn,
                      _desktopOverlayShortcut,
+                     _dictateShortcut,
+                     _dictateShortcutClear,
                      _desktopOverlayShowButton,
                      _desktopOverlayOpacity,
                      _desktopOverlayOpacityValue,
@@ -183,6 +262,12 @@ public sealed partial class MainWindow
             {
                 _desktopOverlayOn,
                 Ui.Field("Shortcut", _desktopOverlayShortcut),
+                Ui.Field("Dictate", new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    Children = { _dictateShortcut, _dictateShortcutClear },
+                }),
                 _desktopOverlayShowButton,
                 Ui.Field("Opacity", new StackPanel
                 {
