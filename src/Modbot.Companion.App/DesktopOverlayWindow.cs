@@ -132,6 +132,14 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     private readonly Button _throughButton = SwitchButton();
     private readonly Button _closeButton = Ui.Button("Close");
 
+    // The Dictate button next to Close: there only while AI Chat is on. What it shows comes from
+    // the same card the headset's button is drawn from; the picture moves a step every 150 ms
+    // while it has something to show (listening, writing, or getting the speech model).
+    private readonly Button _dictateButton = SwitchButton();
+    private readonly DispatcherTimer _dictateMotion = new() { Interval = TimeSpan.FromMilliseconds(150) };
+    private ButtonScreen _dictate = ButtonScreen.Shown;
+    private int _dictateFrame;
+
     // The Close button's caption, kept so it can stand in for the icon the VRChat look gives it.
     private readonly object? _closeCaption;
 
@@ -178,6 +186,9 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 
     /// <summary>The lock or the hand on the strip, pressed: the settings as they should now be.</summary>
     public event Action<DesktopOverlaySettings>? SwitchPressed;
+
+    /// <summary>The Dictate button on the strip, pressed.</summary>
+    public event Action? DictatePressed;
 
     /// <summary>The wheel, or j and k, as whole roster rows.</summary>
     public event Action<int>? RosterScrolled;
@@ -290,6 +301,12 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         TextInput += OnTextInput;
 
         _throughWatch.Tick += (_, _) => WatchTheMouse();
+        _dictateMotion.Tick += (_, _) =>
+        {
+            _dictateFrame++;
+            PaintDictate();
+        };
+        Closed += (_, _) => _dictateMotion.Stop();
         _followWatch.Tick += (_, _) => FollowVRChatSafely();
         _paletteWatch.Tick += (_, _) => _ = WatchThePaletteAsync();
         _openingWatch.Tick += (_, _) => _ = LookWhileWaitingToOpenAsync();
@@ -423,7 +440,14 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
                 BeginMoveDrag(e);
         };
 
+        _dictateButton.IsVisible = false;
+        _dictateButton.VerticalAlignment = VerticalAlignment.Center;
+        _dictateButton.Click += (_, _) => DictatePressed?.Invoke();
+        ToolTip.SetTip(_dictateButton, "Dictate");
+        DockPanel.SetDock(_dictateButton, Dock.Right);
+
         _buttons.Children.Add(close);
+        _buttons.Children.Add(_dictateButton);
         _buttons.Children.Add(switches);
         PaintClose();
         PaintStrip();
@@ -1005,6 +1029,7 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 
         Paint(_lockButton, _settings.Locked, on => PanelFrame.LockIcon(on, Foreground(on)));
         Paint(_throughButton, _settings.ClickThrough, on => PanelFrame.HandIcon(on, Foreground(on), Background(on)));
+        PaintDictate();
 
         IBrush Foreground(bool on) => v is null
             ? on ? Ui.T.AccentForegroundBrush : Ui.T.TextBrush
@@ -1026,6 +1051,63 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             button.Padding = new Thickness(v is null ? 6 : 9);
             button.Content = new Viewbox { Child = icon(on) };
         }
+    }
+
+    /// <summary>
+    /// What the Dictate button on the strip shows, from the card the controller last gave: off hides
+    /// it, and the picture moves a step each 150 ms while the card says it has something moving.
+    /// </summary>
+    public void SetDictate(DictateState state, int percent)
+    {
+        _dictate = ButtonScreen.Shown with { Dictate = state, Percent = percent };
+        _dictateButton.IsVisible = state is not DictateState.Off;
+
+        if (_dictate.DictateMoves)
+        {
+            _dictateMotion.Start();
+        }
+        else
+        {
+            _dictateMotion.Stop();
+            _dictateFrame = 0;
+        }
+
+        PaintDictate();
+    }
+
+    /// <summary>The Dictate button drawn as the look in use draws the strip's other buttons, with the picture for its state.</summary>
+    private void PaintDictate()
+    {
+        var v = _look.VRChat;
+
+        _dictateButton.Classes.Set("vrchat", v is not null);
+        _dictateButton.Background = v is null ? Ui.T.Surface2Brush : v.Button;
+        _dictateButton.BorderBrush = v is null ? Ui.T.Border2Brush : v.RaisedEdge;
+        _dictateButton.Height = v is null ? Ui.T.Density.ControlHeight : VRChatLook.RoundButton;
+        _dictateButton.Width = double.NaN;
+        _dictateButton.MinWidth = _dictateButton.Height;
+        _dictateButton.CornerRadius = new CornerRadius(v is null ? Ui.T.Density.Radius : VRChatLook.RoundButton / 2);
+        _dictateButton.BorderThickness = new Thickness(v is null ? Ui.T.Density.Hairline : VRChatLook.EdgeWidth);
+        _dictateButton.Padding = new Thickness(v is null ? 6 : 9);
+        _dictateButton.Margin = new Thickness(0, 0, 8, 0);
+
+        var ink = v?.Icon ?? Ui.T.TextBrush;
+        var picture = ButtonView.Dictation(_dictate.Dictate, _dictateFrame, ink, v?.Bright ?? Ui.T.AccentBrush);
+        picture.Width = picture.Height = 24;
+
+        var row = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 6,
+            VerticalAlignment = VerticalAlignment.Center,
+            Children = { picture },
+        };
+
+        // The words only while the speech model comes down.
+        if (_dictate.DictatePercent.Length > 0)
+            row.Children.Add(Ui.Text(_dictate.DictatePercent, Ui.T.Density.TextSmall, ink, FontWeight.Medium, wrap: false));
+
+        _dictateButton.Content = row;
     }
 
     /// <summary>Starts or stops watching the mouse, and lets clicks through again only when it should.</summary>

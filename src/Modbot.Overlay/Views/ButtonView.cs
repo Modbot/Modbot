@@ -191,7 +191,7 @@ public static class ButtonView
     /// The Dictate picture on a 24-unit square: a microphone; with sound arcs that come and go while
     /// listening; a ring of dots that turns while writing or getting ready.
     /// </summary>
-    internal static Control Dictation(DictateState state, int frame, IBrush ink, IBrush bright)
+    public static Control Dictation(DictateState state, int frame, IBrush ink, IBrush bright)
     {
         var canvas = new Canvas { Width = 24, Height = 24 };
 

@@ -2863,6 +2863,8 @@ internal sealed partial class CompanionHost : IOverlayListener
     /// <summary>Hands the button what it should say: Hide while the panel is up, Show while it is down.</summary>
     private void ShowButton()
     {
+        ShowDesktopDictate();
+
         if (_buttonHost is null || _overlayHost is null)
             return;
 
@@ -2870,6 +2872,20 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         // The Dictate row is there only while AI Chat is on and allowed; without it the card is as it was.
         _buttonHost.Update(WithDictateIfOffered(screen, DictateAvailable, () => Dictation));
+    }
+
+    /// <summary>
+    /// What the Dictate button on the desktop overlay's strip says: the same card as the headset's
+    /// button, and off while AI Chat is off or the overlay is not running. Asked before the headset
+    /// button is looked for, since a moderator on a monitor may have no headset button at all.
+    /// </summary>
+    private void ShowDesktopDictate()
+    {
+        if (_desktopOverlay is not { } overlay)
+            return;
+
+        var card = WithDictateIfOffered(ButtonScreen.Shown, DictateAvailable, () => Dictation);
+        overlay.SetDictate(card.Dictate, card.Percent);
     }
 
     /// <summary>The button's stick shortcut as the settings have it.</summary>
@@ -3304,7 +3320,9 @@ internal sealed partial class CompanionHost : IOverlayListener
 
             _desktopOverlayShortcut = new DesktopOverlayShortcut(ToggleDesktopOverlay);
             _desktopOverlayShortcut.Ask(settings.ShortcutOrDefault);
+            _desktopOverlay.DictatePressed += ToggleDictateFromDesktop;
             ApplyDictateShortcut();
+            ShowDesktopDictate();
 
             // Modbot's bubble in VRChat's HUD row, for as long as the overlay is on. A click on it
             // is the shortcut's own action, not a second copy of it.
