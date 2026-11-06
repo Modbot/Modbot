@@ -143,7 +143,8 @@ public static class DesktopOverlayKeys
 /// <param name="Locked">The window cannot be dragged by its strip.</param>
 /// <param name="ClickThrough">Clicks on the panel go through to the game; the strip still answers.</param>
 /// <param name="ShowButton">Modbot's button in VRChat's Esc row is drawn. On unless switched off; the shortcut works either way.</param>
-public sealed record DesktopOverlaySettings(bool On, string Shortcut, int Opacity, bool Locked = false, bool ClickThrough = false, bool ShowButton = true)
+/// <param name="DictateShortcut">The combination that starts and stops Dictate, in <see cref="KeyTokens"/> spelling, or null for none. Unlike <see cref="Shortcut"/> it has no default: it claims a combination across the whole machine, so it is asked for.</param>
+public sealed record DesktopOverlaySettings(bool On, string Shortcut, int Opacity, bool Locked = false, bool ClickThrough = false, bool ShowButton = true, string? DictateShortcut = null)
 {
     /// <summary>
     /// Ctrl+Alt+M. VRChat's desktop keys are bare letters and function keys, Windows keeps the
@@ -170,6 +171,9 @@ public sealed record DesktopOverlaySettings(bool On, string Shortcut, int Opacit
     /// leave the moderator with an overlay and no way to reach it.
     /// </summary>
     public string ShortcutOrDefault => DesktopOverlayKeys.CanBeUsed(Shortcut) ? Shortcut : DefaultShortcut;
+
+    /// <summary>The Dictate shortcut when it can be asked for, otherwise null: one nobody could register is not kept.</summary>
+    public string? DictateShortcutOrNone => DesktopOverlayKeys.CanBeUsed(DictateShortcut) ? DictateShortcut : null;
 
     /// <summary>The background's alpha, from the opacity.</summary>
     public byte Alpha => (byte)(ClampOpacity(Opacity) * 255 / 100);
@@ -216,7 +220,8 @@ public enum ShortcutState
 /// Plain words and no Avalonia, like the rest of this file: the wording a moderator reads when a
 /// shortcut is refused is worth testing without a window.
 /// </remarks>
-public sealed record DesktopOverlayStatus(DesktopOverlaySettings Settings, ShortcutState Shortcut, bool Showing)
+/// <param name="DictateShortcut">How the Dictate shortcut got on with the operating system.</param>
+public sealed record DesktopOverlayStatus(DesktopOverlaySettings Settings, ShortcutState Shortcut, bool Showing, ShortcutState DictateShortcut = ShortcutState.Off)
 {
     /// <summary>Before the client has tried, and when it is switched off.</summary>
     public static DesktopOverlayStatus None { get; } = new(DesktopOverlaySettings.Default, ShortcutState.Off, false);
@@ -230,6 +235,10 @@ public sealed record DesktopOverlayStatus(DesktopOverlaySettings Settings, Short
         ShortcutState.Taken => $"{KeyTokens.Describe(Settings.ShortcutOrDefault)} is already taken by another program.",
         ShortcutState.NotUnderstood => "That shortcut cannot be used.",
         ShortcutState.NotOnThisSystem => "Shortcuts only work on Windows.",
-        _ => null,
+        _ => DictateProblem,
     };
+
+    private string? DictateProblem => DictateShortcut is ShortcutState.Taken && Settings.DictateShortcutOrNone is { } keys
+        ? $"{KeyTokens.Describe(keys)} is already taken by another program."
+        : null;
 }
