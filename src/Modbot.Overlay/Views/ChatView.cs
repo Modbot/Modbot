@@ -52,6 +52,27 @@ public static class ChatView
         };
     }
 
+    /// <summary>How far the log in a laid-out tree from <see cref="Build"/> can be scrolled, in layout pixels; 0 when it has none.</summary>
+    public static double MaxOffset(Control tree)
+    {
+        ArgumentNullException.ThrowIfNull(tree);
+
+        return ScrollingList.In(tree)?.MaxOffset ?? 0;
+    }
+
+    /// <summary>Scrolls the log in a tree from <see cref="Build"/> to <paramref name="offset"/>, held inside its ends.</summary>
+    /// <returns>Where the log now is, in layout pixels.</returns>
+    public static double SetOffset(Control tree, double offset)
+    {
+        ArgumentNullException.ThrowIfNull(tree);
+
+        if (ScrollingList.In(tree) is not { } list)
+            return 0;
+
+        list.Offset = Math.Clamp(offset, 0, list.MaxOffset);
+        return list.Offset;
+    }
+
     private static Control Row(ChatLine line, int frame, DesignTokens t)
     {
         if (line.Mine)
