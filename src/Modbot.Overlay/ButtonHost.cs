@@ -33,6 +33,11 @@ namespace Modbot.Overlay;
 /// chosen time raises <see cref="ShortcutHeld"/>, once, and the button counts the seconds down on its
 /// face while it is held. A stick that is busy moving or scrolling a panel is never counted
 /// (<see cref="StickHold"/>).</para>
+/// <para><strong>A second row, Dictate, inside the same card.</strong> When the screen asks for it
+/// (<see cref="ButtonScreen.Dictate"/>), the card splits in two and a click on the lower row raises
+/// <see cref="DictatePressed"/>. It is the same card, so the bar, the lock, the hand, the grip and the
+/// saved spot work as they did. The moving pictures step every 150 ms, counted from the clock handed to
+/// <see cref="PollInput"/>, and the card is redrawn only when the step changes.</para>
 /// <para><strong>Nothing here makes a network request.</strong> It draws one word and a picture.</para>
 /// <para><strong>And on a machine with no headset it costs nothing.</strong> Like the other panels,
 /// the renderer and the Direct3D texture are made when a runtime actually attaches, and let go when
@@ -54,6 +59,10 @@ public sealed class ButtonHost : IDisposable
     private ButtonShortcut _shortcut = ButtonShortcut.Default;
     private ButtonCountdown? _counting;
     private ButtonCountdown? _drawnCounting;
+
+    // Which of 8 steps the Dictate picture is at, read from the clock in PollInput, and as last drawn.
+    private int _frame;
+    private int _drawnFrame;
 
     // The controllers' side, as on the pop-up panel: the rules for holding it, the tree that drew
     // the current frame (for finding the bar under a ray), the cursor and whether the bar is up.
@@ -299,6 +308,12 @@ public sealed class ButtonHost : IDisposable
     /// <summary>Raised when a controller's trigger clicks the button's face. UI thread.</summary>
     public event Action? Pressed;
 
+    /// <summary>Raised when a controller's trigger clicks the Dictate row. UI thread.</summary>
+    public event Action? DictatePressed;
+
+    /// <summary>How long each step of the moving Dictate picture lasts.</summary>
+    private const double FrameMilliseconds = 150;
+
     /// <summary>
     /// Raised once when the shortcut stick has been held for the whole time. Holding on raises nothing
     /// more until the stick has come back to the middle. UI thread.
@@ -353,6 +368,8 @@ public sealed class ButtonHost : IDisposable
     /// </param>
     public void PollInput(TimeSpan now, Hand? elsewhere = null, Func<Hand, bool>? stickInUse = null)
     {
+        _frame = _drawn.DictateMoves ? (int)(now.TotalMilliseconds / FrameMilliseconds) % 8 : 0;
+
         if (_runtime.Status.State is not OverlayRuntimeState.Running)
         {
             Busy = null;
@@ -402,12 +419,16 @@ public sealed class ButtonHost : IDisposable
         // Looked up before the redraw: a press lands on what was drawn when it was made. The face
         // is a press, the bar's switches are the lock and the hand (edit mode only).
         var pressed = false;
+        var dictatePressed = false;
         foreach (var click in result.Clicks)
         {
             switch (TargetAt(click.Across, click.Down))
             {
                 case OverlayTarget.PanelButton:
                     pressed = true;
+                    break;
+                case OverlayTarget.DictateButton:
+                    dictatePressed = true;
                     break;
                 case OverlayTarget.Lock when EditMode:
                     Switch(Placement with { Locked = !Placement.Locked });
@@ -424,6 +445,9 @@ public sealed class ButtonHost : IDisposable
 
         if (pressed)
             Pressed?.Invoke();
+
+        if (dictatePressed)
+            DictatePressed?.Invoke();
 
         if (held)
             ShortcutHeld?.Invoke();
@@ -553,12 +577,15 @@ public sealed class ButtonHost : IDisposable
     /// <summary>Draws again if the cursor, the count or the bar would change what is on the button.</summary>
     private void Redraw()
     {
-        if (_cursor != _drawnCursor || _counting != _drawnCounting || Bar() != _drawnBar || _lit != _drawnLit)
+        if (_cursor != _drawnCursor || _counting != _drawnCounting || _frame != _drawnFrame || Bar() != _drawnBar || _lit != _drawnLit)
             Draw();
     }
 
     /// <summary>The bar, or null while edit mode is off and the strip under the card is empty.</summary>
     private PanelBar? Bar() => EditMode ? PanelBar.For(_interaction.Placement, _rayOnPanel) : null;
+
+    /// <summary>The screen as it is drawn now: what was handed in, with the count and the step of the moving picture.</summary>
+    private ButtonScreen Screen() => _drawn with { Countdown = _counting ?? _drawn.Countdown, Frame = _frame };
 
     private bool Draw()
     {
@@ -569,7 +596,7 @@ public sealed class ButtonHost : IDisposable
 
         var bar = Bar();
         var root = PanelFrame.Button(
-            ButtonView.Build(_counting is null ? _drawn : _drawn with { Countdown = _counting }, _look),
+            ButtonView.Build(Screen(), _look),
             bar,
             _cursor,
             Width);
@@ -581,6 +608,7 @@ public sealed class ButtonHost : IDisposable
         _drawnCursor = _cursor;
         _drawnLit = _lit;
         _drawnCounting = _counting;
+        _drawnFrame = _frame;
         _everDrawn = true;
 
         if (!_compositor.DrawIfChanged(root))

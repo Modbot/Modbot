@@ -2262,6 +2262,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         _buttonHost.PlacementChanged += ButtonPlacementChanged;
         _buttonHost.Shortcut = ButtonShortcutNow();
         _buttonHost.Pressed += TogglePanel;
+        _buttonHost.DictatePressed += () => Dictation.Toggle();
         _buttonHost.ShortcutHeld += TogglePanel;
         _buttonHost.Shown = _state?.Settings.OverlayButtonOn is not false;
     }
@@ -2801,7 +2802,10 @@ internal sealed partial class CompanionHost : IOverlayListener
         if (_buttonHost is null || _overlayHost is null)
             return;
 
-        _buttonHost.Update(new ButtonScreen(!_overlayHost.Hidden, ButtonShortcutNow().Text));
+        var screen = new ButtonScreen(!_overlayHost.Hidden, ButtonShortcutNow().Text);
+
+        // The Dictate row is there only while the switch is on; without it the card is as it was.
+        _buttonHost.Update(DictateAvailable ? screen.WithDictate(Dictation.State, Dictation.Percent) : screen);
     }
 
     /// <summary>The button's stick shortcut as the settings have it.</summary>

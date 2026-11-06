@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
+using Modbot.Companion.Dictation;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Presentation;
 using Modbot.Overlay.Interaction;
@@ -194,6 +195,111 @@ public class ButtonViewTests
             var root = Laid(ButtonScreen.Shown with { Shortcut = "" }, OverlayLook.Headset);
 
             Assert.Equal(["Hide"], root.GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text).ToArray());
+        });
+    }
+
+    [Fact]
+    public void WithDictateOffTheScreenIsTheOldOneAndHasNoDictateWords()
+    {
+        Assert.Equal(DictateState.Off, ButtonScreen.Shown.Dictate);
+        Assert.Equal(new ButtonScreen(true, OverlayButton.DefaultShortcut), ButtonScreen.Shown);
+        Assert.Equal(ButtonScreen.Shown, ButtonScreen.Shown.WithDictate(null, 40));
+    }
+
+    [Theory]
+    [MemberData(nameof(Looks))]
+    public void WithDictateOffTheCardHoldsOneFaceAndNoDictateWords(bool headset)
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var root = Laid(ButtonScreen.Shown, headset ? OverlayLook.Headset : VRChatLook());
+
+            Assert.DoesNotContain(OverlayTargets.Find(root), p => p.Target is OverlayTarget.DictateButton);
+            Assert.DoesNotContain(root.GetLogicalDescendants().OfType<TextBlock>(), t => t.Text == "Dictate");
+        });
+    }
+
+    [Fact]
+    public void TheControllerStateDecidesTheDictateState()
+    {
+        var shown = ButtonScreen.Shown;
+
+        Assert.Equal(DictateState.Idle, shown.WithDictate(DictationState.Idle, 0).Dictate);
+        Assert.Equal(DictateState.Listening, shown.WithDictate(DictationState.Listening, 0).Dictate);
+        Assert.Equal(DictateState.Writing, shown.WithDictate(DictationState.Writing, 0).Dictate);
+
+        var preparing = shown.WithDictate(DictationState.Preparing, 42);
+        Assert.Equal(DictateState.GettingReady, preparing.Dictate);
+        Assert.Equal(42, preparing.Percent);
+    }
+
+    [Fact]
+    public void TheDictateWordsAreLabelsAndThePercentShowsOnlyWhileGettingReady()
+    {
+        var shown = ButtonScreen.Shown;
+
+        Assert.Equal("Dictate", shown.WithDictate(DictationState.Idle, 0).DictateLabel);
+        Assert.Equal("Listening", shown.WithDictate(DictationState.Listening, 0).DictateLabel);
+        Assert.Equal("Writing", shown.WithDictate(DictationState.Writing, 0).DictateLabel);
+        Assert.Equal("Getting ready", shown.WithDictate(DictationState.Preparing, 7).DictateLabel);
+
+        Assert.Equal("7%", shown.WithDictate(DictationState.Preparing, 7).DictatePercent);
+        Assert.Equal("100%", shown.WithDictate(DictationState.Preparing, 250).DictatePercent);
+        Assert.Equal("", shown.WithDictate(DictationState.Listening, 7).DictatePercent);
+    }
+
+    [Theory]
+    [InlineData(DictateState.Idle, true, "Dictate")]
+    [InlineData(DictateState.Idle, false, "Dictate")]
+    [InlineData(DictateState.Listening, true, "Listening")]
+    [InlineData(DictateState.Writing, false, "Writing")]
+    [InlineData(DictateState.GettingReady, true, "Getting ready")]
+    public void WithDictateOnTheCardHasTwoRowsToPointAtAndTheirWordsFit(DictateState state, bool headset, string label)
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var screen = ButtonScreen.Shown with { Dictate = state, Percent = 30 };
+            var root = Laid(screen, headset ? OverlayLook.Headset : VRChatLook());
+            var targets = OverlayTargets.Find(root);
+
+            var first = Assert.Single(targets, p => p.Target is OverlayTarget.PanelButton);
+            var second = Assert.Single(targets, p => p.Target is OverlayTarget.DictateButton);
+            Assert.Equal(2, targets.Count);
+            Assert.True(first.Bounds.Bottom <= second.Bounds.Top + 1, "The Dictate row is under the show and hide row.");
+
+            foreach (var row in new[] { first, second })
+                Assert.True(row.Bounds.Left >= 0 && row.Bounds.Top >= 0 && row.Bounds.Right <= Size && row.Bounds.Bottom <= Size);
+
+            Assert.NotNull(Words(root, label));
+            Assert.NotNull(Words(root, screen.Label));
+
+            // Every line sits in a box that shrinks it to fit, so the box is what is measured.
+            foreach (var box in root.GetLogicalDescendants().OfType<Viewbox>().Where(b => b.Child is TextBlock))
+            {
+                var at = box.TranslatePoint(new Point(0, 0), root)!.Value;
+                var row = first.Bounds.Contains(at) ? first : second;
+                Assert.True(row.Bounds.Contains(at) && row.Bounds.Contains(new Point(at.X + box.Bounds.Width - 1, at.Y + box.Bounds.Height - 1)),
+                    $"\"{((TextBlock)box.Child!).Text}\" runs off its row.");
+            }
+        });
+    }
+
+    [Fact]
+    public void WhileGettingReadyThePercentShowsAndTheMovingPicturesChangeWithTheFrame()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var preparing = ButtonScreen.Shown with { Dictate = DictateState.GettingReady, Percent = 64 };
+            Assert.NotNull(Words(Laid(preparing, OverlayLook.Headset), "64%"));
+
+            var listening = ButtonScreen.Shown with { Dictate = DictateState.Listening };
+            var quiet = Laid(listening with { Frame = 0 }, OverlayLook.Headset);
+            var loud = Laid(listening with { Frame = 2 }, OverlayLook.Headset);
+
+            static double[] Opacities(Control root)
+                => root.GetLogicalDescendants().OfType<Avalonia.Controls.Shapes.Path>().Select(p => p.Opacity).ToArray();
+
+            Assert.NotEqual(Opacities(quiet), Opacities(loud));
         });
     }
 }

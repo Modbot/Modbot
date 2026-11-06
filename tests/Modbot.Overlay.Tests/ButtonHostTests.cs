@@ -691,6 +691,84 @@ public class ButtonHostTests
         });
     }
 
+    [Fact]
+    public void AClickOnTheDictateRowIsADictatePressAndAClickOnTheFirstRowIsStillAPanelPress()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+            using var button = host;
+            host.Update(ButtonScreen.Shown with { Dictate = DictateState.Idle });
+            var presses = 0;
+            var dictates = 0;
+            host.Pressed += () => presses++;
+            host.DictatePressed += () => dictates++;
+
+            Press(host, runtime, Find(host, t => t is OverlayTarget.DictateButton)!.Value, at: 0);
+
+            Assert.Equal(1, dictates);
+            Assert.Equal(0, presses);
+
+            Press(host, runtime, Find(host, t => t is OverlayTarget.PanelButton)!.Value, at: 2);
+
+            Assert.Equal(1, dictates);
+            Assert.Equal(1, presses);
+        });
+    }
+
+    [Fact]
+    public void WithDictateOffThereIsNoDictateRowToPress()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, _) = Build();
+            using var button = host;
+
+            Assert.Null(Find(host, t => t is OverlayTarget.DictateButton));
+            Assert.NotNull(Find(host, t => t is OverlayTarget.PanelButton));
+        });
+    }
+
+    [Fact]
+    public void ThePictureStepsOnWhileDictateMovesAndDrawsOnlyWhenTheStepChanges()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, _) = Build();
+            using var button = host;
+            host.Update(ButtonScreen.Shown with { Dictate = DictateState.Listening });
+            var drawn = host.FramesDrawn;
+
+            host.PollInput(At(0));
+            Assert.Equal(drawn, host.FramesDrawn);
+
+            // 150 ms is one step.
+            host.PollInput(At(0.16));
+            Assert.Equal(drawn + 1, host.FramesDrawn);
+
+            host.PollInput(At(0.17));
+            Assert.Equal(drawn + 1, host.FramesDrawn);
+        });
+    }
+
+    [Fact]
+    public void WithDictateIdleOrOffNothingIsRedrawnAsTimePasses()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, _) = Build();
+            using var button = host;
+            host.Update(ButtonScreen.Shown with { Dictate = DictateState.Idle });
+            var drawn = host.FramesDrawn;
+
+            host.PollInput(At(0));
+            host.PollInput(At(0.5));
+            host.PollInput(At(3));
+
+            Assert.Equal(drawn, host.FramesDrawn);
+        });
+    }
+
     /// <summary>A ray that points away from every panel.</summary>
     private static Pose AimedAway() => Hands.AimingAt(Vector3.Zero, new Vector3(0f, 5f, -1f));
 

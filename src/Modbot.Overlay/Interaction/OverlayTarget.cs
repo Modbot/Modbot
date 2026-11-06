@@ -169,6 +169,10 @@ public abstract record OverlayTarget
     /// there, not what it shows, and it is not an action on a person.
     /// </remarks>
     public sealed record PanelButton : OverlayTarget;
+
+    /// <summary>The Dictate button under the show and hide button. Tapping it starts or stops dictating.</summary>
+    /// <remarks>Handled by the button's own host, like <see cref="PanelButton"/>.</remarks>
+    public sealed record DictateButton : OverlayTarget;
 }
 
 /// <summary>A target and where it was drawn, in panel pixels.</summary>

@@ -1,3 +1,4 @@
+using Avalonia.Threading;
 using Modbot.Companion.App.Dictation;
 using Modbot.Companion.App.Listening;
 using Modbot.Companion.Dictation;
@@ -49,12 +50,19 @@ internal sealed partial class CompanionHost
         var listening = new DictationListening(model, folder, DictationMicrophoneId, LogDictation);
         _dictationListening = listening;
 
-        return new DictationController(
+        var controller = new DictationController(
             listening,
             listening,
             () => model.IsPresent(folder),
             progress => PrepareDictationModel(model, folder, progress),
             LogDictation);
+
+        // The button follows the controller. It can change on a worker thread, so the redraw is
+        // handed to the window's thread. The text it finishes with is for the chat panel, which
+        // arrives later; until then the button just goes back to idle.
+        controller.Changed += () => Dispatcher.UIThread.Post(ShowButton);
+
+        return controller;
     }
 
     /// <summary>
