@@ -1504,6 +1504,9 @@ export function CalendarEventForm({
               )}
               {active === 'vrchat' && (
                 <Section title={DESTINATION_LABEL.instance}>
+                  <Checkbox checked={input.autoOpen} onChange={(v) => set('autoOpen', v)}>
+                    {DESTINATION_LABEL.instance}
+                  </Checkbox>
                   {input.autoOpen && !isSetUp('instance', ready) && <NotSetUp place="instance" newTab />}
                   <Labelled label="Minutes early">
                     <Input
