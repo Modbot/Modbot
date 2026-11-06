@@ -3897,6 +3897,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         _listener?.Dispose();
         _listener = null;
         StopTalk();
+        StopDictation();
     }
 
     /// <summary>
