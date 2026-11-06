@@ -25,7 +25,9 @@ public readonly record struct DeviceAuthentication(
 /// cannot reach any endpoint outside this feature — a moderator acting on what they see in the
 /// overlay goes through the normal authenticated API as themselves. Stolen, this token can submit
 /// presence facts and read one group's roster context, along with the pictures VRChat already
-/// shows anybody who has an address for one, which is the whole blast radius.</para>
+/// shows anybody who has an address for one, which is the whole blast radius. The one narrowing,
+/// 2026-11-05: Dictate (<c>Companion/Chat</c>) sends a dictated message to AI Chat as the device's
+/// owner, and nothing else of Chat. See <c>CompanionChatEndpoints</c>.</para>
 /// <para><strong>Revoked and unknown are the same answer.</strong> Revocation is server-side and
 /// immediate; a client that could tell "revoked" from "never existed" would learn that its token
 /// had once been valid.</para>

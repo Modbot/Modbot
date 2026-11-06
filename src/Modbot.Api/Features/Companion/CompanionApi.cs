@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Modbot.Api.Features.Companion.Alerts;
+using Modbot.Api.Features.Companion.Chat;
 using Modbot.Api.Features.Companion.ClipRequests;
 using Modbot.Api.Features.Companion.Context;
 using Modbot.Api.Features.Companion.Devices;
@@ -338,6 +339,29 @@ public static class CompanionApi
             .Produces(StatusCodes.Status204NoContent)
             .Produces<CompanionError>(StatusCodes.Status401Unauthorized)
             .Produces<CompanionError>(StatusCodes.Status409Conflict)
+            .AllowAnonymous();
+
+        // Dictate: whether the device's owner may use AI chat, and sending what they dictated as them.
+        companion.MapGet("/chat", CompanionChatEndpoints.AvailableAsync)
+            .WithName("GetClientChat")
+            .WithSummary("Whether the owner may use AI chat")
+            .WithDescription(
+                "`available` is true when Chat answers and the device's owner may use it, as the Chat "
+                + "page decides. The client shows Dictate only then.")
+            .Produces<CompanionChatAvailability>()
+            .Produces<CompanionError>(StatusCodes.Status401Unauthorized)
+            .AllowAnonymous();
+
+        companion.MapPost("/chat/messages", CompanionChatEndpoints.SendAsync)
+            .WithName("SendClientChatMessage")
+            .WithSummary("Send a dictated chat message")
+            .WithDescription(
+                "The Chat page's send, as the device's owner: `text` and, for a follow-up, the "
+                + "`conversationId` the first answer named. The reply streams back as the Chat page's "
+                + "server-sent events. Nothing else of Chat is reachable from a device.")
+            .Produces(StatusCodes.Status200OK, contentType: "text/event-stream")
+            .Produces<CompanionError>(StatusCodes.Status401Unauthorized)
+            .Produces<CompanionError>(StatusCodes.Status403Forbidden)
             .AllowAnonymous();
 
         // The staff side of pairing: a signed-in moderator generating a code, seeing which of

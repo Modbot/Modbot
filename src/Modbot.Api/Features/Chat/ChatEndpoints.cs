@@ -75,6 +75,9 @@ public sealed record ChatConversationView(
 /// </param>
 public sealed record ChatSendRequest(Guid? ConversationId, string? Text, long? ReplaceMessageId, long? RetryAfterMessageId);
 
+/// <summary>Who is asking: the account, its name for the call log, and what it holds right now.</summary>
+internal readonly record struct ChatCaller(Guid UserId, string? Username, ModbotPermissions Permissions);
+
 public sealed record ChatTitleRequest(string? Title);
 
 /// <param name="MessageId">The version to read. Everything after it is the newest run from there.</param>
@@ -291,7 +294,7 @@ public static class ChatEndpoints
         return app;
     }
 
-    private static async Task<IResult> SendAsync(
+    private static Task<IResult> SendAsync(
         HttpContext http,
         [FromBody] ChatSendRequest body,
         [FromServices] ModbotContext db,
@@ -306,12 +309,40 @@ public static class ChatEndpoints
         [FromServices] EventPartitionMaintainer partitions,
         [FromServices] IOptions<Microsoft.AspNetCore.Http.Json.JsonOptions> jsonOptions,
         CancellationToken ct)
+        => SendAsAsync(
+            http,
+            body,
+            new ChatCaller(ModbotAuth.UserIdOf(http.User)!.Value, ModbotAuth.UsernameOf(http.User), ModbotAuth.PermissionsOf(http.User)),
+            db, ai, registry, loop, limits, usage, calls, clock, facts, partitions, jsonOptions, ct);
+
+    /// <summary>
+    /// Sends a message as <paramref name="caller"/>, who the caller's own code has already checked
+    /// for <see cref="ModbotPermissions.UseAiChat"/>: the signed-in session for the Chat page, a
+    /// paired companion's owner for Dictate. Everything after that is the same code, so the limits,
+    /// the stored conversation and the recorded facts are the same too.
+    /// </summary>
+    internal static async Task<IResult> SendAsAsync(
+        HttpContext http,
+        ChatSendRequest body,
+        ChatCaller caller,
+        ModbotContext db,
+        IAiClients ai,
+        ChatToolRegistry registry,
+        ChatLoop loop,
+        AiSpendLimits limits,
+        IAiUsage usage,
+        IAiCallLog calls,
+        IModbotClock clock,
+        IFactWriter facts,
+        EventPartitionMaintainer partitions,
+        IOptions<Microsoft.AspNetCore.Http.Json.JsonOptions> jsonOptions,
+        CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(body);
 
-        var userId = ModbotAuth.UserIdOf(http.User)!.Value;
-        var username = ModbotAuth.UsernameOf(http.User);
-        var held = ModbotAuth.PermissionsOf(http.User);
+        var userId = caller.UserId;
+        var username = caller.Username;
+        var held = caller.Permissions;
 
         AiChatConversation? conversation = null;
         if (body.ConversationId is { } conversationId)
@@ -537,7 +568,7 @@ public static class ChatEndpoints
             facts,
             partitions,
             clock.UtcNow,
-            Actor.Of(http) ?? new Actor(userId, string.Empty),
+            new Actor(userId, username ?? string.Empty),
             conversation.Id,
             people,
             toolsUsed,
