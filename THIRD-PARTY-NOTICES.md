@@ -104,6 +104,20 @@ That archive holds a **3.3M-parameter zipformer keyword model** trained on GigaS
 Five files from it sit in `%APPDATA%\Modbot\phrases` on the moderator's PC and are never
 redistributed by Modbot.
 
+**The speech model for Dictate is not shipped either.** It is downloaded once, the first time a
+moderator taps **Dictate**, from one pinned address — the sherpa-onnx project's `asr-models`
+release on GitHub — and checked against a pinned SHA-256 before it is used
+(`src/Modbot.Companion/Dictation/DictationModel.cs`):
+
+```
+https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-moonshine-tiny-en-int8.tar.bz2
+107,600,538 bytes, SHA-256 d5fe6ec4334fef36255b2a4010412cad4c007e33103fec62fb5d17cad88086f2
+```
+
+That archive holds **Moonshine tiny**, English, 8-bit, made by Useful Sensors (**MIT**, from
+<https://github.com/usefulsensors/moonshine>). Five files from it sit in `%APPDATA%\Modbot\dictation`
+on the moderator's PC and are never redistributed by Modbot.
+
 Until 2026-09-18 this was the Piper voice `en_US-kristin-medium` (MIT, from
 <https://github.com/rhasspy/piper>). It was replaced because it did not sound good enough; the
 voice engine design (`.agent/specs/2026-09-18-voice-engine-design.md`) has the comparison. A client
