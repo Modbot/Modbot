@@ -1,6 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
+using Modbot.AI;
+using Modbot.AI.Chat;
+using Modbot.Api.Tests.Features.Settings;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
@@ -25,6 +29,19 @@ public class CompanionChatTests(PostgresFixture db)
         await context.SaveChangesAsync(Ct);
     }
 
+    /// <summary>
+    /// The send endpoint asks for the Chat page's own services, so the host needs them; none of these
+    /// tests gets as far as a model call, so the client is a fake and the tool list is empty.
+    /// </summary>
+    private static Task<CompanionApiTestHost> StartHostAsync(PostgresFixture db)
+        => CompanionApiTestHost.StartAsync(db, configure: services =>
+        {
+            services.AddModbotAi();
+            services.AddScoped<IAiClients>(_ => new AutoModTests.FakeAi(_ => "ok"));
+            services.AddSingleton(new ChatToolRegistry([]));
+            services.AddSingleton<ChatLoop>();
+        });
+
     private static async Task<bool> AvailableAsync(CompanionApiTestHost host, string? token)
     {
         using var request = host.WithToken(HttpMethod.Get, "/api/v1/companion/chat", token);
@@ -37,7 +54,7 @@ public class CompanionChatTests(PostgresFixture db)
     public async Task WithoutAToken_BothEndpointsAreRefused()
     {
         await CompanionApiTestHost.ResetAsync(db, Ct);
-        await using var host = await CompanionApiTestHost.StartAsync(db);
+        await using var host = await StartHostAsync(db);
 
         using var read = host.WithToken(HttpMethod.Get, "/api/v1/companion/chat", null);
         Assert.Equal(HttpStatusCode.Unauthorized, (await host.Client.SendAsync(read, Ct)).StatusCode);
@@ -70,7 +87,7 @@ public class CompanionChatTests(PostgresFixture db)
     {
         await CompanionApiTestHost.ResetAsync(db, Ct);
         await SetChatAsync(aiOn: false, chatOn: false);
-        await using var host = await CompanionApiTestHost.StartAsync(db);
+        await using var host = await StartHostAsync(db);
 
         var without = await host.CreateOwnerAsync(ModbotPermissions.PairCompanion, Ct);
         var (withoutToken, _) = await host.PairDeviceToAsync(without.Id, Ct);
@@ -92,7 +109,7 @@ public class CompanionChatTests(PostgresFixture db)
     {
         await CompanionApiTestHost.ResetAsync(db, Ct);
         await SetChatAsync(aiOn: true, chatOn: true);
-        await using var host = await CompanionApiTestHost.StartAsync(db);
+        await using var host = await StartHostAsync(db);
 
         var owner = await host.CreateOwnerAsync(ModbotPermissions.PairCompanion | ModbotPermissions.UseAiChat, Ct);
         var (token, _) = await host.PairDeviceToAsync(owner.Id, Ct);

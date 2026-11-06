@@ -112,10 +112,12 @@ public class DictationControllerTests
 
         Assert.Equal(DictationState.Preparing, rig.Controller.State);
         Assert.Equal(0, rig.Recorder.Starts);
-        Assert.Equal(1, rig.PrepareCalls);
 
         rig.Prepared.SetResult(null);
         await rig.Controller.WhenSettled;
+
+        // The fetch starts on another thread, so it is counted once it has run, not straight after the tap.
+        Assert.Equal(1, rig.PrepareCalls);
     }
 
     [Fact]

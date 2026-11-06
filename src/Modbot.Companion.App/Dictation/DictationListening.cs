@@ -21,8 +21,8 @@ namespace Modbot.Companion.App.Dictation;
 /// speech engine as numbers, and dropped the moment the text is out. No file is opened for writing
 /// anywhere in this file, no sound is held after the text is written, and nothing here reaches the
 /// network: this file opens no socket and has no upload path to reach. The only thing that goes
-/// anywhere afterwards is the text, and that is the caller's to send, not this file's. What leaves
-/// the machine: nothing.</para>
+/// anywhere afterwards is the text, and that is the caller's to send, not this file's.
+/// What leaves the machine: nothing.</para>
 /// <para><strong>Only while asked.</strong> The microphone is opened by a tap and closed by the
 /// next one, by the one-minute limit, or by the client quitting. It is never open to wait for
 /// something to be said. The speech engine is loaded to write one recording out and let go of
