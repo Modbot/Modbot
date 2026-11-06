@@ -574,7 +574,7 @@ internal sealed class PhraseListening : IDisposable
         _wake.Set();
     }
 
-    private static float One(ReadOnlySpan<byte> sample, int bits, bool isFloat)
+    internal static float One(ReadOnlySpan<byte> sample, int bits, bool isFloat)
     {
         if (isFloat)
             return BitConverter.ToSingle(sample);
@@ -589,7 +589,7 @@ internal sealed class PhraseListening : IDisposable
     }
 
     /// <summary>Sound as Windows hands it over, before anything has been done to it.</summary>
-    private delegate void SoundArrived(ReadOnlySpan<byte> bytes, int sampleRate, int channels, int bits, bool isFloat);
+    internal delegate void SoundArrived(ReadOnlySpan<byte> bytes, int sampleRate, int channels, int bits, bool isFloat);
 
     /// <summary>
     /// One microphone, opened shared.
@@ -601,7 +601,7 @@ internal sealed class PhraseListening : IDisposable
     /// out of the callback and is gone.
     /// </remarks>
     [SupportedOSPlatform("windows")]
-    private sealed class SharedMicrophone : IDisposable
+    internal sealed class SharedMicrophone : IDisposable
     {
         private readonly WasapiRecorder _recorder;
         private readonly MMDevice? _picked;
