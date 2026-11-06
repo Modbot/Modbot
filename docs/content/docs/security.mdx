@@ -295,9 +295,10 @@ The companion pairs with your server through the pairing page. See
   of a guess was right.
 - On the moderator's PC, the token is encrypted with Windows' own data protection for that Windows
   user, so copying the file to another machine or user account does not give a working token.
-- A device token identifies a client, not a person. It can send what the client observes and read
-  the context the overlay needs, and nothing else: it cannot ban, kick, read the member list or reach
-  any other part of Modbot.
+- A device token identifies a client, not a person. It can send what the client observes, read the
+  context the overlay needs, and ask AI Chat a question as the person who paired it (Dictate does
+  this), under that person's own permission to use AI Chat and their spending limit, and nothing else:
+  it cannot ban, kick, read the member list or reach any other part of Modbot.
 - A pairing code can only be made by a signed-in person, never by a device, so one compromised client
   cannot create more.
 - The companion can record VRChat's window **and VRChat's sound** on that person's PC if they switch
