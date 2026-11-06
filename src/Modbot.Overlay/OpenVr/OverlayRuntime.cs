@@ -128,6 +128,9 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime, IOverlayKeyboard
     /// <summary>The show and hide button's own key, for the same reason and with the same promise.</summary>
     public const string ButtonOverlayKey = "moe.bin.modbot.button";
 
+    /// <summary>The chat panel's own key, for the same reason and with the same promise.</summary>
+    public const string ChatOverlayKey = "moe.bin.modbot.chat";
+
     /// <summary>
     /// Where the panel sits relative to the headset, in metres: right of centre, below the eye
     /// line, and an arm's length forward. Out of the middle of the view, where the instance is,
@@ -146,6 +149,9 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime, IOverlayKeyboard
 
     /// <summary>Above the main panel too, so the button is never hidden behind it; below the pop-ups.</summary>
     private const uint ButtonSortOrder = 50;
+
+    /// <summary>Above the main panel and the button: an answer on its way in is not hidden behind the roster. Below the pop-ups.</summary>
+    private const uint ChatSortOrder = 75;
 
     private readonly OverlayKind _kind;
     private readonly OpenVrSession _session;
@@ -183,6 +189,7 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime, IOverlayKeyboard
         {
             OverlayKind.Notification => "Modbot notifications",
             OverlayKind.Button => "Modbot button",
+            OverlayKind.Chat => "Modbot chat",
             _ => "Modbot",
         };
         _widthInMetres = widthInMetres;
@@ -197,6 +204,7 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime, IOverlayKeyboard
     {
         OverlayKind.Notification => NotificationOverlayKey,
         OverlayKind.Button => ButtonOverlayKey,
+        OverlayKind.Chat => ChatOverlayKey,
         _ => OverlayKey,
     };
 
@@ -507,6 +515,8 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime, IOverlayKeyboard
             ((delegate* unmanaged[Stdcall]<ulong, uint, int>)Slot(OverlaySlot.SetOverlaySortOrder))(handle, NotificationSortOrder);
         else if (_kind is OverlayKind.Button)
             ((delegate* unmanaged[Stdcall]<ulong, uint, int>)Slot(OverlaySlot.SetOverlaySortOrder))(handle, ButtonSortOrder);
+        else if (_kind is OverlayKind.Chat)
+            ((delegate* unmanaged[Stdcall]<ulong, uint, int>)Slot(OverlaySlot.SetOverlaySortOrder))(handle, ChatSortOrder);
 
         // Shown from the start. The idle screen is drawn when there is nothing to say, so the
         // panel is a fixture of the headset rather than something that appears and vanishes.

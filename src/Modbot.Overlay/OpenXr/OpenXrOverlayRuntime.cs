@@ -67,14 +67,16 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
     private static XR? _xrApi;
     private static Vulkan.Vk? _vkApi;
 
-    /// <summary>The main panel, the notification panel and the show and hide button, in that order.</summary>
-    internal const int PanelCount = 3;
+    /// <summary>The main panel, the notification panel, the show and hide button and the chat panel, in that order.</summary>
+    internal const int PanelCount = 4;
 
     private const int MainPanel = 0;
 
     private const int NotifyPanel = 1;
 
     private const int ButtonPanelIndex = 2;
+
+    private const int ChatPanelIndex = 3;
 
     private readonly float _widthInMetres;
     private readonly ILogger _log;
@@ -96,16 +98,19 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
     /// gives it a smaller one, because a pop-up is three lines.
     /// </param>
     /// <param name="buttonResolution">The show and hide button's texture. Null takes <see cref="OverlayButton.PanelPixels"/>.</param>
+    /// <param name="chatResolution">The chat panel's texture. Null takes <see cref="ChatHost.TexturePixels"/>.</param>
     public OpenXrOverlayRuntime(
         int resolution = OverlayHost.DefaultResolution,
         float widthInMetres = OpenVrOverlayRuntime.DefaultWidthInMetres,
         ILogger? log = null,
         int? notificationResolution = null,
-        int? buttonResolution = null)
+        int? buttonResolution = null,
+        int? chatResolution = null)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(resolution, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(notificationResolution ?? 1, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(buttonResolution ?? 1, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(chatResolution ?? 1, 1);
 
         _widthInMetres = widthInMetres;
         _log = log ?? Log.ForContext<OpenXrOverlayRuntime>();
@@ -117,9 +122,11 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
             new PanelState(resolution),
             new PanelState(notificationResolution ?? resolution),
             new PanelState(buttonResolution ?? OverlayButton.PanelPixels),
+            new PanelState(chatResolution ?? ChatHost.TexturePixels),
         ];
         NotificationPanel = new PanelRuntime(this, NotifyPanel);
         ButtonPanel = new PanelRuntime(this, ButtonPanelIndex);
+        ChatPanel = new PanelRuntime(this, ChatPanelIndex);
     }
 
     /// <summary>
@@ -133,6 +140,12 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
     /// placement and its own on and off.
     /// </summary>
     public IOverlayRuntime ButtonPanel { get; }
+
+    /// <summary>
+    /// The chat panel, as a runtime of its own: the same session, its own layer, its own
+    /// placement and its own on and off.
+    /// </summary>
+    public IOverlayRuntime ChatPanel { get; }
 
     private static readonly Lock SharedGate = new();
 
@@ -152,10 +165,11 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
     public static OpenXrOverlayRuntime Shared(
         int resolution = OverlayHost.DefaultResolution,
         int notificationResolution = OverlayHost.NotificationTexture,
-        int buttonResolution = OverlayButton.PanelPixels)
+        int buttonResolution = OverlayButton.PanelPixels,
+        int chatResolution = ChatHost.TexturePixels)
     {
         lock (SharedGate)
-            return _shared ??= new OpenXrOverlayRuntime(resolution, notificationResolution: notificationResolution, buttonResolution: buttonResolution);
+            return _shared ??= new OpenXrOverlayRuntime(resolution, notificationResolution: notificationResolution, buttonResolution: buttonResolution, chatResolution: chatResolution);
     }
 
     public OverlayRuntimeStatus Status => _status;

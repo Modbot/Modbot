@@ -27,4 +27,10 @@ public enum OverlayKind
     /// clicked, never grabbed, and shown even when the main panel is hidden.
     /// </summary>
     Button,
+
+    /// <summary>
+    /// The chat panel: your dictated message and the AI's answer streaming in. Hidden until a
+    /// dictation opens it, grabbed, moved, resized and closed with the X, like the others.
+    /// </summary>
+    Chat,
 }

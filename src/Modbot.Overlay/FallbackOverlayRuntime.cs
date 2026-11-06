@@ -62,13 +62,15 @@ public sealed class FallbackOverlayRuntime : IOverlayRuntime, IOverlayKeyboard, 
     /// <param name="resolution">The main panel's texture, square.</param>
     /// <param name="notificationResolution">The notification panel's. Smaller: a pop-up is three lines.</param>
     /// <param name="buttonResolution">The show and hide button's. Smaller still.</param>
+    /// <param name="chatResolution">The chat panel's.</param>
     public static FallbackOverlayRuntime CreateFor(
         OverlayKind kind,
         int resolution = OverlayHost.DefaultResolution,
         int notificationResolution = OverlayHost.NotificationTexture,
-        int buttonResolution = OverlayButton.PanelPixels)
+        int buttonResolution = OverlayButton.PanelPixels,
+        int chatResolution = ChatHost.TexturePixels)
     {
-        var openXr = OpenXrOverlayRuntime.Shared(resolution, notificationResolution, buttonResolution);
+        var openXr = OpenXrOverlayRuntime.Shared(resolution, notificationResolution, buttonResolution, chatResolution);
 
         return new FallbackOverlayRuntime(
             new OpenVrOverlayRuntime(kind),
@@ -76,6 +78,7 @@ public sealed class FallbackOverlayRuntime : IOverlayRuntime, IOverlayKeyboard, 
             {
                 OverlayKind.Notification => openXr.NotificationPanel,
                 OverlayKind.Button => openXr.ButtonPanel,
+                OverlayKind.Chat => openXr.ChatPanel,
                 _ => openXr,
             });
     }

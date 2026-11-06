@@ -136,6 +136,14 @@ public sealed class ListScroll
             Velocity = 0;
     }
 
+    /// <summary>Straight to the end and still: a list that follows its last row as it grows.</summary>
+    public void ToEnd(double max)
+    {
+        Velocity = 0;
+        _samples.Clear();
+        Offset = Math.Max(0, max);
+    }
+
     /// <summary>Back to the top and still: another list, or the same one with other things in it.</summary>
     public void Reset()
     {

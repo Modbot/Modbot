@@ -26,7 +26,7 @@ public sealed class Lit
     /// </summary>
     public static bool Lights(OverlayTarget? target, bool editMode) => target switch
     {
-        null or OverlayTarget.Roster or OverlayTarget.Events or OverlayTarget.PopUpBox or OverlayTarget.Bar => false,
+        null or OverlayTarget.Roster or OverlayTarget.Events or OverlayTarget.PopUpBox or OverlayTarget.ChatLog or OverlayTarget.Bar => false,
         OverlayTarget.Lock or OverlayTarget.ClickThrough or OverlayTarget.ResizeCorner => editMode,
         _ => true,
     };

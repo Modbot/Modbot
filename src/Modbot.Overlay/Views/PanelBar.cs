@@ -440,6 +440,128 @@ public static class PanelFrame
         return WithCursor(column, cursor);
     }
 
+    /// <summary>The share of the chat panel's square its box takes: the same as the pop-up panel's.</summary>
+    public const double ChatBoxShare = 0.88;
+
+    /// <summary>The X on the chat panel, in panel pixels.</summary>
+    private const double CloseSide = 36;
+
+    /// <summary>
+    /// The chat panel: a solid box with a heading and an X at the top and the messages under them,
+    /// with the bar under the box and the resize corner at its foot in edit mode.
+    /// </summary>
+    /// <remarks>
+    /// The box is solid and always there while the panel is up, so it can be taken anywhere on it. The X
+    /// works whether or not edit mode is on.
+    /// </remarks>
+    /// <param name="log">What <see cref="ChatView.Build"/> made.</param>
+    /// <param name="side">The panel's design size in pixels before it is made wider or taller.</param>
+    /// <param name="wide">How many times wider than ordinary the box is.</param>
+    /// <param name="tall">How many times taller than ordinary the box is.</param>
+    public static Control Chat(Control log, PanelBar bar, PanelCursor? cursor, double side, double wide = 1, double tall = 1)
+    {
+        ArgumentNullException.ThrowIfNull(log);
+
+        var boxSide = side * ChatBoxShare;
+        var canvas = side * Math.Max(wide, tall);
+        var size = BarFor(bar, canvas, ChatHost.DefaultWidth, canvas - (boxSide * tall));
+        var boxWide = boxSide * wide;
+
+        var heading = new TextBlock
+        {
+            Text = "Chat",
+            VerticalAlignment = VerticalAlignment.Center,
+            FontSize = T.Density.TextBase,
+            FontFamily = new FontFamily(DesignTokens.FontFamily),
+            FontWeight = FontWeight.SemiBold,
+            Foreground = T.TextDimBrush,
+        };
+
+        var close = new Border
+        {
+            Tag = new OverlayTarget.CloseChat(),
+            Width = CloseSide,
+            Height = CloseSide,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            CornerRadius = new CornerRadius(CloseSide / 2),
+            Background = T.Surface2Brush,
+            BorderBrush = T.Border2Brush,
+            BorderThickness = new Thickness(T.Density.Hairline),
+            Child = new Viewbox
+            {
+                Width = CloseSide * 0.4,
+                Height = CloseSide * 0.4,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Child = new Path
+                {
+                    Data = Geometry.Parse("M0,0 L10,10 M10,0 L0,10"),
+                    Stroke = T.TextBrush,
+                    StrokeThickness = 1.6,
+                    StrokeLineCap = PenLineCap.Round,
+                },
+            },
+        };
+
+        var top = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 0, 0, 6) };
+        Grid.SetColumn(close, 1);
+        top.Children.Add(heading);
+        top.Children.Add(close);
+
+        var inside = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), Margin = new Thickness(10) };
+        Grid.SetRow(log, 1);
+        inside.Children.Add(top);
+        inside.Children.Add(log);
+
+        var box = new Panel
+        {
+            Width = boxWide,
+            Height = boxSide * tall,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
+            ClipToBounds = true,
+            Children =
+            {
+                new Border
+                {
+                    Background = T.SurfaceBrush,
+                    BorderBrush = T.Border2Brush,
+                    BorderThickness = new Thickness(T.Density.Hairline),
+                    CornerRadius = new CornerRadius(T.Density.Radius * 2),
+                    Child = inside,
+                },
+            },
+        };
+
+        if (bar.Hints is { } hints)
+            box.Children.Add(BoxHints(hints, boxWide, HintScale(bar, canvas)));
+
+        if (bar.Corner)
+        {
+            var grip = Grip(NotificationGrip);
+            grip.HorizontalAlignment = HorizontalAlignment.Right;
+            grip.VerticalAlignment = VerticalAlignment.Bottom;
+            grip.Margin = new Thickness(0, 0, NotificationGripMargin, NotificationGripMargin);
+            box.Children.Add(grip);
+        }
+
+        var column = new StackPanel
+        {
+            VerticalAlignment = VerticalAlignment.Top,
+            Children = { box, Bar(bar, size) },
+        };
+
+        // Narrower than the square it sits in: the box keeps its margin, and the column is the rectangle.
+        var across = boxWide + (side - boxSide);
+        if (across < canvas)
+        {
+            column.Width = across;
+            column.HorizontalAlignment = HorizontalAlignment.Left;
+        }
+
+        return WithCursor(column, cursor);
+    }
+
     /// <summary>
     /// The show and hide button: its card in the middle of the picture, and the bar in a strip of its
     /// own under the card while the bar is there at all (edit mode).

@@ -76,6 +76,13 @@ public abstract record OverlayTarget
     /// </remarks>
     public sealed record PopUpBox : OverlayTarget;
 
+    /// <summary>The X at the top right of the chat panel. A tap here closes the panel.</summary>
+    /// <remarks>Handled by the chat panel's own host, never by the drive loop.</remarks>
+    public sealed record CloseChat : OverlayTarget;
+
+    /// <summary>The chat panel's messages: the list a drag or the right stick scrolls. A tap here does nothing.</summary>
+    public sealed record ChatLog : OverlayTarget;
+
     /// <summary>One of the two buttons on a pop-up that asks: the update prompt's Update and Later.</summary>
     /// <remarks>
     /// Handled by the notification panel's own host, never by the drive loop: it answers the
