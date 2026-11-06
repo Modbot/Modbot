@@ -680,6 +680,8 @@ internal sealed partial class CompanionHost : IOverlayListener
                 _state.UnusablePairings.Add(pairing);
         }
 
+        StartChat();
+
         // Off in settings means a panel is never built in the first place, and its own switch
         // brings it up or takes it down without a restart. Four panels -- the main headset one,
         // the notification one, the window over VRChat on a monitor and the notification overlay
@@ -2267,7 +2269,11 @@ internal sealed partial class CompanionHost : IOverlayListener
         _buttonHost.PlacementChanged += ButtonPlacementChanged;
         _buttonHost.Shortcut = ButtonShortcutNow();
         _buttonHost.Pressed += TogglePanel;
-        _buttonHost.DictatePressed += () => Dictation.Toggle();
+        _buttonHost.DictatePressed += () =>
+        {
+            if (DictateAvailable)
+                Dictation.Toggle();
+        };
         _buttonHost.ShortcutHeld += TogglePanel;
         _buttonHost.Shown = _state?.Settings.OverlayButtonOn is not false;
     }
@@ -2285,6 +2291,9 @@ internal sealed partial class CompanionHost : IOverlayListener
         _chatHost.EditMode = _state?.Settings.OverlayEditMode is true;
         _chatHost.PushStep = PushStep(_state?.Settings.OverlayPushSpeed);
         _chatHost.PlacementChanged += ChatPlacementChanged;
+
+        // The X ends the conversation: the next dictation starts a new one.
+        _chatHost.Closed += () => _chatSession?.Close();
     }
 
     /// <summary>
@@ -2853,8 +2862,8 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         var screen = new ButtonScreen(!_overlayHost.Hidden, ButtonShortcutNow().Text);
 
-        // The Dictate row is there only while the switch is on; without it the card is as it was.
-        _buttonHost.Update(DictateAvailable ? screen.WithDictate(Dictation.State, Dictation.Percent) : screen);
+        // The Dictate row is there only while AI Chat is on and allowed; without it the card is as it was.
+        _buttonHost.Update(WithDictateIfOffered(screen, DictateAvailable, () => Dictation));
     }
 
     /// <summary>The button's stick shortcut as the settings have it.</summary>
@@ -2967,6 +2976,7 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         _chatHost?.Dispose();
         _chatHost = null;
+        _chatSession?.Close();
         _chatAttachTriedAt = DateTimeOffset.MinValue;
     }
 
@@ -4015,6 +4025,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         _listener = null;
         StopTalk();
         StopDictation();
+        StopChat();
     }
 
     /// <summary>
@@ -4603,6 +4614,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         var removed = _pairing.UnpairAsync(serverId);
         Disconnect(serverId);
         _state.UnusablePairings.RemoveAll(p => p.ServerId == serverId);
+        ChatPairingChanged();
         Render();
 
         _ = removed.ContinueWith(
@@ -4668,6 +4680,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             _state.UnusablePairings.RemoveAll(p => p.ServerId == pairing.ServerId);
             Connect(pairing);
             _overlay?.Add(pairing, pairing.OverlayLabel);
+            ChatPairingChanged();
         }
 
         _state.LastPairing = new PairingNotice(

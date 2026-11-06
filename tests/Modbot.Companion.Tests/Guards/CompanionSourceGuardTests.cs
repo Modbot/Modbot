@@ -1217,6 +1217,29 @@ public class CompanionSourceGuardTests
     }
 
     [Fact]
+    public void WhatDictateWritesOutGoesToTheChatAsTextAndTheMicrophoneFileKnowsNothingOfTheChat()
+    {
+        // Dictate's words go to AI Chat as a typed message would; the sound never does. The chat
+        // client is built in one place, which wires the controller's text (not the recorder, not
+        // the samples) to the conversation, and the file that opens the microphone cannot reach it.
+        var host = File.ReadAllText(EverythingTheClientShips().Single(f => Path.GetFileName(f) == "CompanionHost.Dictation.cs"));
+        var microphone = File.ReadAllText(EverythingTheClientShips().Single(f => Path.GetFileName(f) == DictationFile));
+
+        Assert.Contains("controller.Finished += text =>", host, StringComparison.Ordinal);
+        Assert.Contains("session.AskAsync(text)", host, StringComparison.Ordinal);
+        Assert.DoesNotContain("float[]", host, StringComparison.Ordinal);
+        Assert.DoesNotContain("ChatClient", microphone, StringComparison.Ordinal);
+        Assert.DoesNotContain("ChatSession", microphone, StringComparison.Ordinal);
+
+        var building = EverythingTheClientShips()
+            .Where(f => File.ReadAllText(f).Contains("new HttpChatClient(", StringComparison.Ordinal))
+            .Select(Path.GetFileName)
+            .ToList();
+
+        Assert.Equal(["CompanionHost.Dictation.cs"], building);
+    }
+
+    [Fact]
     public void TheOverlaysAreOnlyEverBuiltThroughTheirOnOffSwitches()
     {
         // "What does this program start, and when" should stay as answerable as "what does it

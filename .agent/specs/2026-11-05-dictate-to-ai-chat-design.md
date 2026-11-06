@@ -24,8 +24,9 @@ turned into text on the moderator's own PC. Nothing is sent to a speech service.
 | A3 | The button on the headset panel: mic icon, animated while listening, spinner while writing, percent while the model is fetched | to do |
 | B | The chat panel, its size, the text arriving as the AI writes it, and the real switch for whether Dictate is offered | to do |
 
-Until phase B the button is hidden behind a developer switch: the environment variable
-`MODBOT_DICTATE=1`. Phase B replaces it with "AI Chat is on and I am allowed to use it".
+The button is offered only while AI Chat is on for the paired server and the device's owner is
+allowed to use it. The companion asks the server at start, every five minutes and when the pairing
+changes. The developer switch that stood in for this (an environment variable) is gone.
 
 ## 3. How it behaves
 
@@ -76,6 +77,6 @@ Until phase B the button is hidden behind a developer switch: the environment va
 - The chat panel on the headset, and its resize.
 - The AI's answer arriving as it is written.
 - The text from Dictate going into the message box, and sending.
-- The real gating, replacing `MODBOT_DICTATE`.
+- The real gating: AI Chat on and allowed (replaced the developer switch).
 - Docs: a page for the feature, a line on the section's overview page, a line in the Introduction,
   and the privacy policy.
