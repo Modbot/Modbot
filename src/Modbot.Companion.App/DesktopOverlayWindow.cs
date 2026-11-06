@@ -181,6 +181,12 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     /// </summary>
     public Func<string?>? LocalUserId { get; set; }
 
+    /// <summary>How the window is drawn now, which the chat window beside it is drawn in as well.</summary>
+    public OverlayLook Look => _look;
+
+    /// <summary>The window changed to another look (<see cref="Look"/>).</summary>
+    public event Action? LookChanged;
+
     /// <summary>A click on the panel, as the target under it. Null is a click on nothing.</summary>
     public event Action<OverlayTarget?>? PanelTapped;
 
@@ -651,7 +657,7 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     }
 
     /// <summary>A cross on a 24-unit square, for the Close button's round icon.</summary>
-    private static Control CloseIcon(IBrush brush)
+    internal static Control CloseIcon(IBrush brush)
     {
         var canvas = new Canvas { Width = 24, Height = 24 };
 
@@ -923,6 +929,7 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         PaintGround();
         PaintSwitches();
         DrawScreen();
+        LookChanged?.Invoke();
     }
 
     /// <summary>The screen last drawn, or null before the first. For the test remote's <c>state</c>.</summary>
@@ -1003,7 +1010,7 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             Dismiss();
     }
 
-    private static Button SwitchButton() => new()
+    internal static Button SwitchButton() => new()
     {
         Width = Ui.T.Density.ControlHeight,
         Height = Ui.T.Density.ControlHeight,
