@@ -616,10 +616,10 @@ public class CompanionSourceGuardTests
     }
 
     [Fact]
-    public void OnlyTheTwelveDeclaredPlacesMakeOutboundRequests()
+    public void OnlyTheThirteenDeclaredPlacesMakeOutboundRequests()
     {
         // "What does this program send, and where" should have a short, complete answer findable
-        // by somebody who has never seen the codebase. Twelve files, each with a remarks block
+        // by somebody who has never seen the codebase. Thirteen files, each with a remarks block
         // saying what it sends: one posts observations, one asks the time, one trades a pairing
         // code for a token, one reads the overlay's context, one holds the overlay's live
         // WebSocket open, one backs the client's events up to Modbot Cloud (cloud event backup
@@ -632,13 +632,17 @@ public class CompanionSourceGuardTests
         // answer, per request, only while Send clips for my actions is ticked, to the server that
         // asked, with the device token), and one fetches the speech model for Dictate the same way
         // as the phrase model (DictationDownload.cs, added 2026-11-05: one download, the first time
-        // somebody taps Dictate, never in a test copy). Nothing else reaches the network.
+        // somebody taps Dictate, never in a test copy), and one asks AI Chat whether the owner may use it and
+        // sends the text that was dictated (HttpChatClient.cs, added 2026-11-05: a GET with no body, and
+        // one POST of text per message, to the paired server only, with the device token). Nothing else
+        // reaches the network.
         //
-        // The ninth is a download and nothing else, and so is the twelfth. Nothing a microphone hears reaches the network
+        // The ninth is a download and nothing else, and so is the twelfth. The thirteenth sends text and
+        // never a sound. Nothing a microphone hears reaches the network
         // from anywhere in this client, and the file that opens the microphone cannot reach it at
         // all (NothingTheClientShipsCanKeepOrSendWhatAMicrophoneHeard).
         //
-        // Two of the twelve are the overlay's: HttpOverlayReadClient and LiveSocket. The overlay's
+        // Two of the thirteen are the overlay's: HttpOverlayReadClient and LiveSocket. The overlay's
         // driver is the only thing that builds them for a panel, so while both overlays are
         // switched off they run for one reason only: the clip link (ClipLinks.cs), which is a
         // second user of the same two and adds no sender of its own. It stays open while the
@@ -660,6 +664,7 @@ public class CompanionSourceGuardTests
                 "CloudCredits.cs",
                 "DictationDownload.cs",
                 "HeadsUps.cs",
+                "HttpChatClient.cs",
                 "HttpClipUploader.cs",
                 "HttpCloudLogClient.cs",
                 "HttpIngestTransport.cs",

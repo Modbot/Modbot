@@ -96,6 +96,14 @@ public sealed record ServerPairing
     public Uri ContextEndpoint(string instanceId, string? worldId = null)
         => new(BaseUri, $"/api/v{ApiVersion}/companion/context?{Address(instanceId, worldId)}");
 
+    /// <summary>Whether this device's owner may use AI Chat on the paired server right now.</summary>
+    public Uri ChatEndpoint()
+        => new(BaseUri, $"/api/v{ApiVersion}/companion/chat");
+
+    /// <summary>Where a dictated message is sent to AI Chat; the answer comes back as a stream.</summary>
+    public Uri ChatMessagesEndpoint()
+        => new(BaseUri, $"/api/v{ApiVersion}/companion/chat/messages");
+
     /// <summary>Where a heads-up is placed, in the instance the moderator is standing in.</summary>
     public Uri HeadsUpsEndpoint()
         => new(BaseUri, $"/api/v{ApiVersion}/companion/heads-ups");
