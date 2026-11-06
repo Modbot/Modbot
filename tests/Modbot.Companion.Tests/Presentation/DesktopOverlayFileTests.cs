@@ -134,6 +134,32 @@ public class DesktopOverlayFileTests : IDisposable
     }
 
     [Fact]
+    public void TheDictateShortcutIsKept()
+    {
+        var saved = new DesktopOverlaySettings(true, "mod+alt+m", 90, DictateShortcut: "mod+alt+d");
+
+        Assert.True(CompanionSettings.SaveDesktopOverlay(Path_, saved));
+        Assert.Equal("mod+alt+d", CompanionSettings.Load(Path_, NoEnvironment).DesktopOverlay.DictateShortcut);
+    }
+
+    [Fact]
+    public void AFileWithoutTheDictateShortcutLeavesNone()
+    {
+        Write("""{ "desktopOverlay": { "on": true, "shortcut": "mod+alt+m", "opacity": 90 } }""");
+
+        Assert.Null(CompanionSettings.Load(Path_, NoEnvironment).DesktopOverlay.DictateShortcut);
+    }
+
+    [Fact]
+    public void ADictateShortcutNobodyCouldRegisterIsNotWrittenToTheFile()
+    {
+        Assert.True(CompanionSettings.SaveDesktopOverlay(Path_, new DesktopOverlaySettings(true, "mod+alt+m", 90, DictateShortcut: "wibble")));
+
+        Assert.DoesNotContain("wibble", Read(), StringComparison.Ordinal);
+        Assert.Null(CompanionSettings.Load(Path_, NoEnvironment).DesktopOverlay.DictateShortcut);
+    }
+
+    [Fact]
     public void SavingItKeepsEverythingElseInTheFile()
     {
         Write("""

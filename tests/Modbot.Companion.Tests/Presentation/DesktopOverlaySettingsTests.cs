@@ -152,6 +152,21 @@ public class DesktopOverlaySettingsTests
     }
 
     [Fact]
+    public void ThereIsNoDictateShortcutUntilSomebodyRecordsOne()
+        => Assert.Null(DesktopOverlaySettings.Default.DictateShortcutOrNone);
+
+    [Fact]
+    public void ADictateShortcutThatCouldBeRegisteredIsTheOneUsed()
+        => Assert.Equal("mod+alt+d", (DesktopOverlaySettings.Default with { DictateShortcut = "mod+alt+d" }).DictateShortcutOrNone);
+
+    [Theory]
+    [InlineData("wibble")]
+    [InlineData("d")]
+    [InlineData("mod+escape")]
+    public void ADictateShortcutNobodyCouldRegisterIsNotKept(string shortcut)
+        => Assert.Null((DesktopOverlaySettings.Default with { DictateShortcut = shortcut }).DictateShortcutOrNone);
+
+    [Fact]
     public void ItIsOffUntilSomebodyTurnsItOn()
     {
         Assert.False(DesktopOverlaySettings.Default.On);
@@ -187,6 +202,33 @@ public class DesktopOverlayStatusTests
         var status = new DesktopOverlayStatus(DesktopOverlaySettings.Default, state, Showing: false);
 
         Assert.False(string.IsNullOrWhiteSpace(status.Problem));
+    }
+
+    [Fact]
+    public void ATakenDictateShortcutIsNamedInTheWordsAPersonReadsIt()
+    {
+        var settings = DesktopOverlaySettings.Default with { DictateShortcut = "mod+alt+d" };
+        var status = new DesktopOverlayStatus(settings, ShortcutState.Registered, Showing: false, DictateShortcut: ShortcutState.Taken);
+
+        Assert.Equal("Ctrl Alt D is already taken by another program.", status.Problem);
+    }
+
+    [Fact]
+    public void ARegisteredDictateShortcutHasNothingToSay()
+    {
+        var settings = DesktopOverlaySettings.Default with { DictateShortcut = "mod+alt+d" };
+        var status = new DesktopOverlayStatus(settings, ShortcutState.Registered, Showing: false, DictateShortcut: ShortcutState.Registered);
+
+        Assert.Null(status.Problem);
+    }
+
+    [Fact]
+    public void TheShowAndHideShortcutBeingTakenIsSaidBeforeTheDictateOne()
+    {
+        var settings = DesktopOverlaySettings.Default with { DictateShortcut = "mod+alt+d" };
+        var status = new DesktopOverlayStatus(settings, ShortcutState.Taken, Showing: false, DictateShortcut: ShortcutState.Taken);
+
+        Assert.Equal("Ctrl Alt M is already taken by another program.", status.Problem);
     }
 
     [Fact]
