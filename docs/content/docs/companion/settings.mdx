@@ -245,6 +245,7 @@ the file:
 | `notifyOverlay.tall` | `1` | How many times taller, 1 to 2. A taller panel shows more pop-ups at once. |
 | `desktopOverlay.on` | `false` | Whether the window over VRChat is available. See [Desktop overlay](#desktop-overlay). |
 | `desktopOverlay.shortcut` | `mod+alt+m` | The keys that bring it up, `mod` meaning Ctrl. A combination the client cannot ask Windows for falls back to the default. |
+| `desktopOverlay.dictateShortcut` | absent | The keys that start and stop [Dictate](/companion/dictate#on-the-desktop), written the same way. Absent means none; a combination the client cannot ask Windows for is read as none. |
 | `desktopOverlay.opacity` | `90` | 20 to 100. |
 | `desktopOverlay.locked` | `false` | The lock in its strip: the window cannot be dragged. |
 | `desktopOverlay.clickThrough` | `false` | The hand in its strip: clicks on the panel go to VRChat. |
@@ -448,6 +449,10 @@ page says so and the **Open** button on that card is the way in.
 
 Write the shortcut with `mod` for Ctrl, `alt` for Alt, then the key: `mod+alt+m`. Shift is not
 written for a key that prints a character.
+
+The **Dictate** row on the same card records a second shortcut, one that starts and stops
+[Dictate](/companion/dictate#on-the-desktop). It has no default and is written the same way, as
+`dictateShortcut`.
 
 ```json
 "desktopOverlay": {

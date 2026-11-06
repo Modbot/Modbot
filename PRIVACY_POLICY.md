@@ -662,8 +662,8 @@ anywhere. With **Listening** off, no microphone is listed or opened. The client 
 which speakers and headphones the PC has, for its own notification sounds and spoken announcements;
 that list also stays on the PC.
 
-**Dictate sends the words you speak, never the sound.** On the button panel in the headset, a
-**Dictate** button shows only when AI Chat is on for the server that PC is paired with and the
+**Dictate sends the words you speak, never the sound.** On the button panel in the headset and on the desktop overlay, a
+**Dictate** button (or a key the person records) shows only when AI Chat is on for the server that PC is paired with and the
 person using it is allowed to use AI Chat. Tapping it opens the microphone, shared the way a voice chat
 program shares it, until the second tap or 60 seconds, whichever comes first. The sound is turned into
 text on that PC by a speech model, held in memory only until the words are written out, and then

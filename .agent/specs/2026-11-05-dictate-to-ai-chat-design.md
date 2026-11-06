@@ -3,7 +3,7 @@
 **Status:** built on the headset 2026-11-05: phase A (the microphone, the speech engine, the
 download, the controller and the guard change), the button on the headset panel (A3) and the chat
 panel (B). The docs page, the overview and Introduction lines and the privacy policy are written.
-The desktop overlay version is not built. Approved 2026-11-04, split into phases 2026-11-05.
+The desktop overlay version (phase C) is built too. Approved 2026-11-04, split into phases 2026-11-05.
 **Narrows:** the listening design (2026-09-19) §3, which let **one** file open a microphone. It is
 now two. See §4.
 
@@ -24,7 +24,7 @@ turned into text on the moderator's own PC. Nothing is sent to a speech service.
 | A2 | The microphone and the speech engine (`DictationListening.cs`), the host wiring (`CompanionHost.Dictation.cs`), the guard change, the notice | built |
 | A3 | The button on the headset panel: mic icon, animated while listening, spinner while writing, percent while the model is fetched | built |
 | B | The chat panel, its size, the text arriving as the AI writes it, and the real switch for whether Dictate is offered | built |
-| C | The same on the desktop overlay | to do |
+| C | The same on the desktop overlay: a Dictate button on its strip, a Dictate shortcut set on the Desktop overlay card, and the Chat panel as its own window | built |
 
 The button is offered only while AI Chat is on for the paired server and the device's owner is
 allowed to use it. The companion asks the server at start, every five minutes and when the pairing
@@ -82,9 +82,9 @@ changes. The developer switch that stood in for this (an environment variable) i
   streams into the panel.
 - The real gating: AI Chat on and allowed (replaced the developer switch).
 - Docs: `docs/content/docs/companion/dictate.mdx`, a line on the companion overview page, a line in
-  the Introduction, `privacy.mdx` and `PRIVACY_POLICY.md`, and an entry in `not-built-yet.mdx` for
-  the desktop overlay. If the desktop version lands, take that entry off.
+  the Introduction, `privacy.mdx` and `PRIVACY_POLICY.md`. The `not-built-yet.mdx` entry for the
+  desktop overlay was taken off when phase C landed.
 
-## 6. Phase C, not built yet
+## 6. Phase C, built
 
 - Dictate and the Chat panel on the desktop overlay.
