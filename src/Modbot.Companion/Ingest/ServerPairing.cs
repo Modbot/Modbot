@@ -120,7 +120,7 @@ public sealed record ServerPairing
     public Uri ClearHeadsUpEndpoint(string id)
         => new(BaseUri, $"/api/v{ApiVersion}/companion/heads-ups/{Uri.EscapeDataString(id)}/clear");
 
-    /// <summary>One person's profile summary — prior actions, roles, join date, current flags.</summary>
+    /// <summary>One person's profile summary — prior actions, roles, join date, times seen, notes, current flags.</summary>
     public Uri UserEndpoint(string subjectId)
         => new(BaseUri, $"/api/v{ApiVersion}/companion/user/{Uri.EscapeDataString(subjectId)}");
 

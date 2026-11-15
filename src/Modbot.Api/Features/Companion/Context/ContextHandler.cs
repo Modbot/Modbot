@@ -79,7 +79,7 @@ public sealed record UserSummaryDto(
 /// </summary>
 /// <remarks>
 /// <para><strong>Small on purpose.</strong> The profile summary is deliberately not the full web
-/// profile — an overlay card shows prior actions, roles, join date and current flags, and nothing
+/// profile — an overlay card shows prior actions, roles, join date, times seen, notes and current flags, and nothing
 /// that needs scrolling in a headset.</para>
 /// <para><strong>Everything here is derived from this deployment's own records</strong>: the fact
 /// log, the trust rank and the 18+ mark off the stored profile row, and the member list and roles

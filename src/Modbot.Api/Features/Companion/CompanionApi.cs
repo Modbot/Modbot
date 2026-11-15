@@ -193,7 +193,7 @@ public static class CompanionApi
             .WithName("GetClientUserSummary")
             .WithSummary("Get person summary")
             .WithDescription(
-                "Deliberately not the full web profile: prior actions, roles, join date and "
+                "Deliberately not the full web profile: prior actions, roles, join date, times seen, notes and "
                 + "current flags, and nothing that needs scrolling in a headset.\n\n"
                 + "Somebody with nothing on record is a successful, empty answer rather than a "
                 + "404.")

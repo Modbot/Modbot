@@ -71,7 +71,7 @@ public sealed record InstanceContext(
 /// One person's profile summary: deliberately not the full web profile.
 /// </summary>
 /// <remarks>
-/// An overlay card shows prior actions, roles, join date and current flags, and nothing that needs
+/// An overlay card shows prior actions, roles, join date, times seen, notes and current flags, and nothing that needs
 /// scrolling in a headset. Reading is fine in VR; scrolling and typing are hostile.
 /// </remarks>
 /// <param name="TimesSeen">How many times a moderator's client saw them arrive. Null when never, or when the server is too old to send it.</param>
