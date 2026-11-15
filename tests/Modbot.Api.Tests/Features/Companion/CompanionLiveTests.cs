@@ -351,7 +351,7 @@ public class CompanionLiveTests
     }
 
     [Fact]
-    public async Task ThePollQuery_IsKeptAsTheDevicesReport_OnlyWhenAllFourAreThere()
+    public async Task ThePollQuery_IsKeptAsTheDevicesReport_OnlyWhenAllFirstFourAreThere()
     {
         var (host, token) = await ReadyAsync();
         await using var keep = host;
