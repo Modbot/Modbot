@@ -120,6 +120,13 @@ public abstract record OverlayTarget
     public sealed record ResizeCorner : OverlayTarget;
 
     /// <summary>
+    /// The Filters button above a list. Tapping it shows the list's filters in the row, or hides them
+    /// (and any choices open under them) when they are showing.
+    /// </summary>
+    /// <param name="List">The list it filters: <see cref="Views.OverlayPage.Instance"/> or <see cref="Views.OverlayPage.Events"/>.</param>
+    public sealed record FiltersToggle(Views.OverlayPage List) : OverlayTarget;
+
+    /// <summary>
     /// One of a list's filters in the row above it. Tapping it shows its choices under the row, or
     /// hides them when they are showing.
     /// </summary>

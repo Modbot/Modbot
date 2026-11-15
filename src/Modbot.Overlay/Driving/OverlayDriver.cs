@@ -507,7 +507,7 @@ public sealed class OverlayDriver : IDisposable
             var before = _eventFilters;
             _eventFilters = change(_eventFilters);
 
-            if (before with { Open = null } != _eventFilters with { Open = null })
+            if (before.Picks != _eventFilters.Picks)
             {
                 _eventSkip = 0;
                 _eventListId++;
@@ -518,7 +518,7 @@ public sealed class OverlayDriver : IDisposable
             var before = _rosterFilters;
             _rosterFilters = change(_rosterFilters);
 
-            if (before with { Open = null } != _rosterFilters with { Open = null })
+            if (before.Picks != _rosterFilters.Picks)
             {
                 _rosterSkip = 0;
                 _rosterListId++;
@@ -533,12 +533,18 @@ public sealed class OverlayDriver : IDisposable
     {
         switch (target)
         {
-            case OverlayTarget.Filter chip:
-                Change(chip.List, filters => filters with { Open = filters.Open == chip.Part ? null : chip.Part });
+            // Closing takes any open choices with it, so the list is in view again.
+            case OverlayTarget.FiltersToggle toggle:
+                Change(toggle.List, filters => filters.IsExpanded ? filters with { Open = null, Shown = false } : filters with { Shown = true });
                 break;
 
+            case OverlayTarget.Filter chip:
+                Change(chip.List, filters => filters with { Open = filters.Open == chip.Part ? null : chip.Part, Shown = true });
+                break;
+
+            // The filters stay as open as they were; only what they pick goes back.
             case OverlayTarget.ClearFilters clear:
-                Change(clear.List, _ => ListFilters.None);
+                Change(clear.List, filters => ListFilters.None with { Shown = filters.IsExpanded });
                 break;
 
             case OverlayTarget.Pick pick:
@@ -620,7 +626,7 @@ public sealed class OverlayDriver : IDisposable
                 else
                     _rosterSkip = 0;
                 break;
-            case OverlayTarget.Filter or OverlayTarget.Pick or OverlayTarget.ClearFilters:
+            case OverlayTarget.FiltersToggle or OverlayTarget.Filter or OverlayTarget.Pick or OverlayTarget.ClearFilters:
                 // A filter's choices and a heads-up being written share the space under the tabs.
                 _draft = _draft is { Sending: true } ? _draft : null;
                 Filter(target);
@@ -663,7 +669,7 @@ public sealed class OverlayDriver : IDisposable
         var member = server.Cache.Context(_instance.InstanceId, _instance.WorldId).Value?.Members
             .FirstOrDefault(m => string.Equals(m.SubjectId, subjectId, StringComparison.Ordinal));
 
-        _rosterFilters = _rosterFilters with { Open = null };
+        _rosterFilters = _rosterFilters with { Open = null, Shown = false };
         _page = OverlayPage.Instance;
         _draft = new HeadsUpDraft(subjectId, member?.DisplayName);
     }

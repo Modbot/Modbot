@@ -181,6 +181,7 @@ public readonly record struct KindPick(int Bits)
 /// loop, and gone when the moderator moves to another instance.</para>
 /// </remarks>
 /// <param name="Open">The filter whose choices are showing under the row, or null.</param>
+/// <param name="Shown">The Filters button is open, so every filter in the row is showing.</param>
 public sealed record ListFilters(
     Who Who = Who.All,
     RankPick Ranks = default,
@@ -189,10 +190,27 @@ public sealed record ListFilters(
     EighteenPlusPick EighteenPlus = EighteenPlusPick.Any,
     RosterOrder Order = RosterOrder.Standing,
     KindPick Kinds = default,
-    FilterPart? Open = null)
+    FilterPart? Open = null,
+    bool Shown = false)
 {
     /// <summary>Nothing picked and nothing open: the whole list, as it always was.</summary>
     public static ListFilters None { get; } = new();
+
+    /// <summary>Whether the filters are showing: the Filters button is open, or one of them has its choices open.</summary>
+    public bool IsExpanded => Shown || Open is not null;
+
+    /// <summary>These filters with the open and closed state taken off, so two picks compare by what they show.</summary>
+    public ListFilters Picks => this with { Open = null, Shown = false };
+
+    /// <summary>How many filters are on, one for each of the filters in the row: the count on the Filters button.</summary>
+    public int PickedCount =>
+        (Who != Who.All ? 1 : 0)
+        + (!Ranks.IsEmpty ? 1 : 0)
+        + (EighteenPlus != EighteenPlusPick.Any ? 1 : 0)
+        + (Time != TimeWindow.Any ? 1 : 0)
+        + (Name is { Length: > 0 } ? 1 : 0)
+        + (!Kinds.IsEmpty ? 1 : 0)
+        + (Order != RosterOrder.Standing ? 1 : 0);
 
     /// <summary>The longest name a search keeps.</summary>
     public const int LongestName = 32;

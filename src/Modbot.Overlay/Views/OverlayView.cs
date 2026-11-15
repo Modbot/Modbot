@@ -217,20 +217,12 @@ public sealed partial class OverlayView
             if (!screen.Clips.IsVisible && !screen.Talk.IsVisible)
                 return new Border { Background = Brushes.Transparent };
 
-            var alone = new StackPanel { Spacing = 12 };
-
-            if (screen.Clips.IsVisible)
-                alone.Children.Add(SaveClipBar(screen.Clips));
-
-            if (screen.Talk.IsVisible)
-                alone.Children.Add(TalkBar(screen.Talk));
-
             return new Border
             {
                 Background = Brushes.Transparent,
                 Padding = new Thickness(20),
                 HorizontalAlignment = HorizontalAlignment.Left,
-                Child = alone,
+                Child = ClipsAndTalk(screen.Clips, screen.Talk),
             };
         }
 
@@ -267,18 +259,15 @@ public sealed partial class OverlayView
         stack.Children.Add(Backed(Tabs(screen), fill: V is not null));
 
         // Under the tabs, above whichever screen is showing, so it is one press away from all
-        // three rather than behind a page (clips design spec §11).
-        if (screen.Clips.IsVisible)
-            stack.Children.Add(SaveClipBar(screen.Clips));
-
-        // Next to it: where the microphone is, and the two Discord switches.
-        if (screen.Talk.IsVisible)
-            stack.Children.Add(TalkBar(screen.Talk));
+        // three rather than behind a page (clips design spec §11). Next to it, as small icons on
+        // the same row: where the microphone is, and the two Discord switches.
+        if (screen.Clips.IsVisible || screen.Talk.IsVisible)
+            stack.Children.Add(ClipsAndTalk(screen.Clips, screen.Talk));
 
         // The list's own filters, between the tabs and the list, and the open one's choices under
         // them. Each list keeps its own. Not over an empty list, where they would have nothing to
         // filter, unless something is picked and has to be seen to be cleared.
-        if (screen.ShownFilters is { } filters && (HasRows(screen) || filters.AnyPicked || filters.Open is not null))
+        if (screen.ShownFilters is { } filters && (HasRows(screen) || filters.AnyPicked || filters.IsExpanded))
         {
             var row = FilterRow(screen, screen.Page, filters);
 
@@ -727,8 +716,9 @@ public sealed partial class OverlayView
     }
 
     /// <summary>
-    /// A list's filters in one row: each names itself until something is picked, then says what
-    /// is. Clear is there only while something is picked.
+    /// A list's filters behind one Filters button, which says how many are on. Opened, each filter
+    /// names itself until something is picked, then says what is. Clear is there only while something
+    /// is picked.
     /// </summary>
     /// <remarks>
     /// <para>Taps, not typing, because typing is hostile in a headset: every filter but the name is
@@ -736,10 +726,26 @@ public sealed partial class OverlayView
     /// running off the panel when every filter is saying something long.</para>
     /// <para>Name is left off a headset that has no keyboard, unless a name was typed on the
     /// desktop window, because then it is hiding people and has to say so.</para>
+    /// <para>Shut, the row is one line, so the list gets the room the filters would take.</para>
     /// </remarks>
     private Control FilterRow(OverlayScreen screen, OverlayPage list, ListFilters filters)
     {
         var row = new WrapPanel { Orientation = Orientation.Horizontal, ItemSpacing = 8, LineSpacing = 8 };
+
+        var count = filters.PickedCount;
+        row.Children.Add(Chip(
+            count == 0 ? "Filters" : "Filters (" + count + ")",
+            set: count > 0,
+            open: filters.IsExpanded,
+            new OverlayTarget.FiltersToggle(list)));
+
+        if (!filters.IsExpanded)
+        {
+            if (filters.AnyPicked)
+                row.Children.Add(Choice("Clear", false, new OverlayTarget.ClearFilters(list)));
+
+            return row;
+        }
 
         // Who is a member or staff, and what rank somebody holds, are things a group's server says.
         // A list made from this PC's log has neither, so a filter on them would only ever be empty.
@@ -792,14 +798,25 @@ public sealed partial class OverlayView
     /// <param name="picked">What is picked, in words, or null while nothing is.</param>
     private Control FilterChip(OverlayPage list, FilterPart part, ListFilters filters, string? picked)
     {
-        var open = filters.Open == part;
         var set = picked is not null;
 
+        return Chip(
+            set ? PartName(list, part) + ": " + picked : PartName(list, part),
+            set,
+            filters.Open == part,
+            new OverlayTarget.Filter(list, part));
+    }
+
+    /// <summary>A button in the filter row: the Filters button and each filter in it.</summary>
+    /// <param name="set">Something is picked behind it.</param>
+    /// <param name="open">Its choices are showing.</param>
+    private Control Chip(string words, bool set, bool open, OverlayTarget target)
+    {
         // In VRChat's look a chip nobody has picked is an ordinary button in the full text colour,
         // not dim words on a flat grey that read as switched off; one that is picked is the selected
         // colour. Both stand up like the tabs do.
         var label = Text(
-            (set ? PartName(list, part) + ": " + picked : PartName(list, part)) + (open ? "  ▴" : "  ▾"),
+            words + (open ? "  ▴" : "  ▾"),
             T.Density.TextSmall,
             V is { } look
                 ? set ? look.SelectedText : look.Text
@@ -811,7 +828,7 @@ public sealed partial class OverlayView
 
         var chip = new Border
         {
-            Tag = new OverlayTarget.Filter(list, part),
+            Tag = target,
             Background = set ? T.AccentDimBrush : T.Surface2Brush,
             BorderBrush = open ? T.AccentForegroundBrush : set ? T.AccentBrush : T.Border2Brush,
             BorderThickness = new Thickness(T.Density.Hairline),
@@ -2075,7 +2092,8 @@ public sealed partial class OverlayView
     /// <para><strong>And it says when a clip landed</strong>, for a few seconds, because that is
     /// the only way to find out from inside VR.</para>
     /// </remarks>
-    private Control SaveClipBar(ClipButton clip)
+    /// <param name="shared">The Talk icons are on the same row, so the bar takes the room they leave and a long caption wraps.</param>
+    private Control SaveClipBar(ClipButton clip, bool shared = false)
     {
         var label = Text(
             clip.Caption ?? string.Empty,
@@ -2090,6 +2108,13 @@ public sealed partial class OverlayView
             FontWeight.SemiBold);
         label.VerticalAlignment = VerticalAlignment.Center;
         label.HorizontalAlignment = HorizontalAlignment.Center;
+
+        if (shared)
+        {
+            label.TextWrapping = TextWrapping.Wrap;
+            label.TextAlignment = TextAlignment.Center;
+            label.MaxLines = 2;
+        }
 
         return new Border
         {
@@ -2108,7 +2133,7 @@ public sealed partial class OverlayView
             CornerRadius = T.CornerRadius,
 
             // A target a hand in a headset can land on without aiming.
-            MinWidth = 240,
+            MinWidth = shared ? 120 : 240,
             MinHeight = T.Density.RowHeight,
             Padding = new Thickness(16, 8),
             Child = label,
