@@ -156,7 +156,7 @@ public class NotSyncedViewTests
     [Fact]
     public void TheFiltersForWhoAndRankAreLeftOffTheList()
     {
-        var parts = Targets(Screen(notSynced: true)).OfType<OverlayTarget.Filter>().Select(f => f.Part).ToList();
+        var parts = Targets(Screen(notSynced: true) with { RosterFilters = new ListFilters(Shown: true) }).OfType<OverlayTarget.Filter>().Select(f => f.Part).ToList();
 
         Assert.DoesNotContain(FilterPart.Who, parts);
         Assert.DoesNotContain(FilterPart.Rank, parts);
@@ -168,7 +168,7 @@ public class NotSyncedViewTests
     [Fact]
     public void AGroupInstanceKeepsTheWhoAndRankFilters()
     {
-        var parts = Targets(Screen(notSynced: false)).OfType<OverlayTarget.Filter>().Select(f => f.Part).ToList();
+        var parts = Targets(Screen(notSynced: false) with { RosterFilters = new ListFilters(Shown: true) }).OfType<OverlayTarget.Filter>().Select(f => f.Part).ToList();
 
         Assert.Contains(FilterPart.Who, parts);
         Assert.Contains(FilterPart.Rank, parts);

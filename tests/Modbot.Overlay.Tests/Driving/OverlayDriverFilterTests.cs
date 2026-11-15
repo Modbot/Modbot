@@ -171,6 +171,50 @@ public class OverlayDriverFilterTests
     }
 
     [Fact]
+    public async Task TheFiltersButtonOpensTheRowAndClosingItDropsAnOpenFilter()
+    {
+        var (driver, _, _) = await Build();
+
+        driver.Tap(new OverlayTarget.FiltersToggle(OverlayPage.Instance));
+        Assert.True(driver.RosterFilters.Shown);
+        Assert.Null(driver.RosterFilters.Open);
+
+        driver.Tap(new OverlayTarget.Filter(OverlayPage.Instance, FilterPart.Rank));
+        Assert.Equal(FilterPart.Rank, driver.RosterFilters.Open);
+
+        driver.Tap(new OverlayTarget.FiltersToggle(OverlayPage.Instance));
+        Assert.False(driver.RosterFilters.IsExpanded);
+        Assert.Null(driver.RosterFilters.Open);
+    }
+
+    [Fact]
+    public async Task TheFiltersButtonCountsOneForEachFilterOn()
+    {
+        var (driver, _, _) = await Build();
+
+        Assert.Equal(0, driver.RosterFilters.PickedCount);
+
+        driver.Tap(new OverlayTarget.Pick(OverlayPage.Instance, FilterPart.Who, (int)Who.Flagged));
+        driver.Tap(new OverlayTarget.Pick(OverlayPage.Instance, FilterPart.Sort, (int)RosterOrder.Name));
+        driver.SetName(OverlayPage.Instance, "ri");
+
+        Assert.Equal(3, driver.RosterFilters.PickedCount);
+    }
+
+    [Fact]
+    public async Task ClearLeavesTheFiltersRowOpen()
+    {
+        var (driver, _, _) = await Build();
+
+        driver.Tap(new OverlayTarget.FiltersToggle(OverlayPage.Instance));
+        driver.Tap(new OverlayTarget.Pick(OverlayPage.Instance, FilterPart.Who, (int)Who.Flagged));
+        driver.Tap(new OverlayTarget.ClearFilters(OverlayPage.Instance));
+
+        Assert.Equal(0, driver.RosterFilters.PickedCount);
+        Assert.True(driver.RosterFilters.Shown);
+    }
+
+    [Fact]
     public async Task AnotherInstanceStartsWithTheWholeListAgain()
     {
         var (driver, _, _) = await Build();

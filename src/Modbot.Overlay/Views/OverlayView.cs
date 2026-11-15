@@ -1457,28 +1457,22 @@ public sealed partial class OverlayView
         }
         else
         {
-            var head = new DockPanel
-            {
-                LastChildFill = false,
-                Children =
-                {
-                    Dock(
-                        new StackPanel
-                        {
-                            Orientation = Orientation.Horizontal,
-                            Spacing = 8,
-                            Children =
-                            {
-                                Text(count, T.Density.TextSmall, T.TextDimBrush, FontWeight.SemiBold),
-                                Text("· " + string.Join(" · ", ListFiltering.HereCounts(present)), T.Density.TextSmall, T.TextDimBrush, FontWeight.SemiBold),
-                            },
-                        },
-                        Avalonia.Controls.Dock.Left),
-                },
-            };
+            // Each count is one item, so a heading wider than the room wraps instead of running under the freshness.
+            var left = new WrapPanel { Orientation = Orientation.Horizontal, ItemSpacing = 8, HorizontalAlignment = HorizontalAlignment.Left };
+            left.Children.Add(Text(count, T.Density.TextSmall, T.TextDimBrush, FontWeight.SemiBold));
+            foreach (var part in ListFiltering.HereCounts(present))
+                left.Children.Add(Text("· " + part, T.Density.TextSmall, T.TextDimBrush, FontWeight.SemiBold));
+
+            var head = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+            head.Children.Add(left);
 
             if (freshness is not null)
-                head.Children.Add(Dock(Text(freshness, T.Density.TextSmall, freshnessBrush), Avalonia.Controls.Dock.Right));
+            {
+                var age = Text(freshness, T.Density.TextSmall, freshnessBrush);
+                age.Margin = new Thickness(8, 0, 0, 0);
+                Grid.SetColumn(age, 1);
+                head.Children.Add(age);
+            }
 
             rows.Children.Add(head);
 

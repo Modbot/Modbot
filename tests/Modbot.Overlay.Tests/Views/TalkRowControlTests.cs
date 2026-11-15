@@ -1,6 +1,8 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
+using Modbot.Companion.Clips;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Talk;
 using Modbot.Overlay.Interaction;
@@ -9,7 +11,7 @@ using Modbot.Overlay.Views;
 namespace Modbot.Overlay.Tests.Views;
 
 /// <summary>
-/// The row of Talk buttons on the panel: where it is, when it is there at all, what each button
+/// The Talk icons beside Save a clip on the panel: where they are, when they are there at all, what each
 /// is called, and that a hand in a headset can hit each one.
 /// </summary>
 public class TalkRowControlTests
@@ -75,8 +77,25 @@ public class TalkRowControlTests
     {
         Assert.All(Buttons(Screen(Showing)), placed =>
         {
-            Assert.True(placed.Bounds.Width >= 100, $"Too narrow to hit in VR: {placed.Bounds.Width}");
+            Assert.True(placed.Bounds.Width >= 56, $"Too narrow to hit in VR: {placed.Bounds.Width}");
             Assert.True(placed.Bounds.Height >= 40, $"Too short to hit in VR: {placed.Bounds.Height}");
+        });
+    }
+
+    [Fact]
+    public void TheIconsSitOnTheSameRowAsSaveAClip()
+    {
+        var screen = Screen(Showing) with { Clips = new ClipButton(ClipButtonState.Ready, "Save a clip", CanPress: true) };
+        var targets = Targets(screen);
+
+        var save = Assert.Single(targets, t => t.Target is OverlayTarget.SaveClip);
+        var icons = targets.Where(t => t.Target is OverlayTarget.Talk).ToList();
+
+        Assert.Equal(3, icons.Count);
+        Assert.All(icons, icon =>
+        {
+            Assert.True(save.Bounds.Right <= icon.Bounds.Left, "An icon is not to the right of Save a clip.");
+            Assert.True(icon.Bounds.Center.Y > save.Bounds.Top && icon.Bounds.Center.Y < save.Bounds.Bottom, "An icon is not on Save a clip's row.");
         });
     }
 
@@ -95,12 +114,14 @@ public class TalkRowControlTests
     [Fact]
     public void ItSaysWhereThingsStand()
     {
-        var texts = AvaloniaTestHost.Run(() => LaidOut(Screen(new TalkRow(true, TalkSide.VRChat, true, true, null)))
-            .GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList());
+        // The icons carry the words they used to say as their automation names.
+        var names = AvaloniaTestHost.Run(() => LaidOut(Screen(new TalkRow(true, TalkSide.VRChat, true, true, null)))
+            .GetVisualDescendants().OfType<Border>().Where(b => b.Tag is OverlayTarget.Talk)
+            .Select(b => AutomationProperties.GetName(b)).ToList());
 
-        Assert.Contains("Talking in VRChat", texts);
-        Assert.Contains("Discord Muted", texts);
-        Assert.Contains("Discord Deafened", texts);
+        Assert.Contains("Talking in VRChat", names);
+        Assert.Contains("Discord Muted", names);
+        Assert.Contains("Discord Deafened", names);
     }
 
     [Fact]

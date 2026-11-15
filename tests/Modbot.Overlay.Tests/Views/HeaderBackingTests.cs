@@ -81,7 +81,14 @@ public class HeaderBackingTests
     [InlineData(OverlayPage.Events, false)]
     [InlineData(OverlayPage.Events, true)]
     public void TheCursorStaysBetweenTheFilters(OverlayPage page, bool inVRChatLook)
-        => Assert.True(GapIsDrawn(Screen(page), inVRChatLook, t => t is OverlayTarget.Filter));
+        => Assert.True(GapIsDrawn(
+            Screen(page) with
+            {
+                RosterFilters = page is OverlayPage.Instance ? new ListFilters(Shown: true) : null,
+                EventFilters = page is OverlayPage.Events ? new ListFilters(Shown: true) : null,
+            },
+            inVRChatLook,
+            t => t is OverlayTarget.Filter));
 
     [Fact]
     public void TheBackingIsAsWideAsTheTabsAndNoWiderInTheHeadsetLook()

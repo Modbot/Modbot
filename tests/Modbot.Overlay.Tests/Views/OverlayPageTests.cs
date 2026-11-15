@@ -1,3 +1,5 @@
+using Avalonia.Controls;
+using Avalonia.VisualTree;
 using Modbot.Companion.Overlay;
 using Modbot.Overlay.Interaction;
 using Modbot.Overlay.Rendering;
@@ -164,7 +166,7 @@ public class OverlayPageTests
             or OverlayTarget.RefreshPerson or OverlayTarget.OpenPersonPage or OverlayTarget.CopyName
             or OverlayTarget.Roster or OverlayTarget.Events
             or OverlayTarget.DismissAlert
-            or OverlayTarget.Filter or OverlayTarget.Pick or OverlayTarget.ClearFilters or OverlayTarget.TypeName
+            or OverlayTarget.Filter or OverlayTarget.FiltersToggle or OverlayTarget.Pick or OverlayTarget.ClearFilters or OverlayTarget.TypeName
             or OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough;
 
     [Theory]
@@ -216,17 +218,30 @@ public class OverlayPageTests
     {
         Assert.Equal(
             [FilterPart.Who, FilterPart.Rank, FilterPart.EighteenPlus, FilterPart.Time, FilterPart.Name, FilterPart.Sort],
-            Parts(Screen(OverlayPage.Instance)));
+            Parts(Screen(OverlayPage.Instance) with { RosterFilters = new ListFilters(Shown: true) }));
 
         Assert.Equal(
             [FilterPart.Who, FilterPart.Rank, FilterPart.Kind, FilterPart.Time, FilterPart.Name],
-            Parts(Screen(OverlayPage.Events, null, Event("e1", LiveEventKinds.PersonJoined))));
+            Parts(Screen(OverlayPage.Events, null, Event("e1", LiveEventKinds.PersonJoined)) with { EventFilters = new ListFilters(Shown: true) }));
+    }
+
+    [Fact]
+    public void AClosedFilterRowIsOneFiltersButtonThatCountsTheFiltersOn()
+    {
+        var screen = Screen(OverlayPage.Instance) with { RosterFilters = new ListFilters(Who: Who.Flagged, Name: "ri") };
+
+        var targets = Targets(screen).Select(t => t.Target).ToList();
+        var texts = AvaloniaTestHost.Run(() => OverlayView.Build(screen).GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList());
+
+        Assert.Single(targets.OfType<OverlayTarget.FiltersToggle>());
+        Assert.Empty(targets.OfType<OverlayTarget.Filter>());
+        Assert.Contains("Filters (2)", texts);
     }
 
     [Fact]
     public void AFilterRowTapIsForTheListItIsOver()
     {
-        var lists = Targets(Screen(OverlayPage.Events, null, Event("e1", LiveEventKinds.PersonJoined)))
+        var lists = Targets(Screen(OverlayPage.Events, null, Event("e1", LiveEventKinds.PersonJoined)) with { EventFilters = new ListFilters(Shown: true) })
             .Select(t => t.Target)
             .OfType<OverlayTarget.Filter>()
             .Select(f => f.List)
@@ -247,7 +262,7 @@ public class OverlayPageTests
         // Otherwise a list the filters emptied would have no way back but to leave the instance.
         var screen = Screen(OverlayPage.Instance) with { RosterFilters = new ListFilters(Name: "nobody by this name") };
 
-        Assert.NotEmpty(Parts(screen));
+        Assert.Contains(Targets(screen), t => t.Target is OverlayTarget.FiltersToggle);
         Assert.Contains(Targets(screen), t => t.Target is OverlayTarget.ClearFilters);
         Assert.DoesNotContain(Targets(screen), t => t.Target is OverlayTarget.Person);
     }

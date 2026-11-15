@@ -54,7 +54,7 @@ public class PanelFrameTests
                 or OverlayTarget.RefreshPerson or OverlayTarget.Roster or OverlayTarget.Events
                 or OverlayTarget.DismissAlert or OverlayTarget.SaveClip
                 or OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough
-                or OverlayTarget.Filter or OverlayTarget.Pick or OverlayTarget.ClearFilters
+                or OverlayTarget.Filter or OverlayTarget.FiltersToggle or OverlayTarget.Pick or OverlayTarget.ClearFilters
                 or OverlayTarget.TypeName,
             $"Unexpected overlay target {t.Target.GetType().Name}."));
     }

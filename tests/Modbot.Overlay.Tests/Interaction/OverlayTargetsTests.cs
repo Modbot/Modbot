@@ -124,7 +124,7 @@ public class OverlayTargetsTests
             var found = OverlayTargets.Find(root);
             return (
                 found.Where(t => t.Target is OverlayTarget.Person).OrderBy(t => t.Bounds.Top).ToList(),
-                found.Where(t => t.Target is OverlayTarget.Filter).Max(t => t.Bounds.Bottom));
+                found.Where(t => t.Target is OverlayTarget.Filter or OverlayTarget.FiltersToggle).Max(t => t.Bounds.Bottom));
         });
 
         var (atTop, _) = Laid(0);

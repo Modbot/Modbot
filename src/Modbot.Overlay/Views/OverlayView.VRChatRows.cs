@@ -65,7 +65,8 @@ public sealed partial class OverlayView
     {
         var v = V!;
 
-        var left = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        // Each count is one item, so a heading wider than the room moves its last counts to a second line.
+        var left = new WrapPanel { Orientation = Orientation.Horizontal, ItemSpacing = 8 };
 
         var heading = Text(words, 20, v.Text, FontWeight.Bold);
         heading.VerticalAlignment = VerticalAlignment.Center;
@@ -75,11 +76,16 @@ public sealed partial class OverlayView
         {
             var dot = Text("•", 20, v.Heading, FontWeight.Bold);
             dot.VerticalAlignment = VerticalAlignment.Center;
-            left.Children.Add(dot);
 
             var part = Text(count, 20, v.Text, FontWeight.Bold);
             part.VerticalAlignment = VerticalAlignment.Center;
-            left.Children.Add(part);
+
+            left.Children.Add(new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 8,
+                Children = { dot, part },
+            });
         }
 
         var chevron = new Viewbox
@@ -99,15 +105,14 @@ public sealed partial class OverlayView
             },
         };
 
-        // The counts get the room the freshness and the chevron leave; a heading too long for it is cut
-        // off at the end instead of running under them.
+        // The counts get the room the freshness and the chevron leave; a heading too long for it wraps
+        // onto a second line instead of running under them.
         var head = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("*,Auto"),
             Margin = new Thickness(2, 2, 2, 0),
         };
 
-        left.ClipToBounds = true;
         left.HorizontalAlignment = HorizontalAlignment.Left;
         Grid.SetColumn(left, 0);
         head.Children.Add(left);

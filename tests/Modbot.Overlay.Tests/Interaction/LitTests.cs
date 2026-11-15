@@ -29,6 +29,7 @@ public class LitControlTests
             new OverlayTarget.ResizeCorner(),
             new OverlayTarget.BackToTop(OverlayPage.Instance),
             new OverlayTarget.GoTo(OverlayPage.Events),
+            new OverlayTarget.FiltersToggle(OverlayPage.Instance),
             new OverlayTarget.Filter(OverlayPage.Instance, FilterPart.Name),
             new OverlayTarget.Pick(OverlayPage.Instance, FilterPart.Name, 0),
             new OverlayTarget.ClearFilters(OverlayPage.Instance),
@@ -309,7 +310,7 @@ public class LitMainPanelTests
             var kinds = new Func<OverlayTarget?, bool>[]
             {
                 t => t is OverlayTarget.GoTo,
-                t => t is OverlayTarget.Filter,
+                t => t is OverlayTarget.FiltersToggle,
                 t => t is OverlayTarget.Person,
                 t => t is OverlayTarget.Lock,
                 t => t is OverlayTarget.ClickThrough,

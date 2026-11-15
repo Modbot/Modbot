@@ -116,7 +116,7 @@ public class OverlayHostKeyboardTests
         AvaloniaTestHost.Run(() =>
         {
             var runtime = new TypingRuntime();
-            var host = Build(runtime, Roster(new ListFilters(Name: "ri")));
+            var host = Build(runtime, Roster(new ListFilters(Name: "ri", Shown: true)));
             var typed = new List<(OverlayPage List, string Name)>();
             host.NameTyped += (list, name) => typed.Add((list, name));
 
@@ -185,7 +185,7 @@ public class OverlayHostKeyboardTests
         AvaloniaTestHost.Run(() =>
         {
             var runtime = new AttachedRuntime();
-            var host = Build(runtime, Roster());
+            var host = Build(runtime, Roster(new ListFilters(Shown: true)));
 
             Assert.False(host.CanType);
             Assert.True(host.Showing.NoKeyboard);
@@ -201,7 +201,7 @@ public class OverlayHostKeyboardTests
         // has to say so, keyboard or not.
         AvaloniaTestHost.Run(() =>
         {
-            var host = Build(new AttachedRuntime(), Roster(new ListFilters(Name: "ri")));
+            var host = Build(new AttachedRuntime(), Roster(new ListFilters(Name: "ri", Shown: true)));
 
             Assert.True(Has(host, t => t is OverlayTarget.Filter { Part: FilterPart.Name }));
         });
