@@ -170,14 +170,17 @@ public sealed record VRChatHudLayout
 
     /// <summary>
     /// Where the overlay goes: in the free strip beside the Esc menu, a gap away from the menu and
-    /// from the client's edge, under the top-right column, as big as fits at the panel's own shape.
-    /// Null when nothing fits (the strip or the space under the column is not even a pixel).
+    /// from the client's edge, under the top-right column, and the whole way down to the gap above
+    /// the client's bottom. Null when nothing fits (the strip or the space under the column is not
+    /// even a pixel).
     /// </summary>
     /// <remarks>
-    /// The width is the strip's less a gap either side, and the height follows from the panel's
-    /// shape. When that is taller than the space from just under the corner column to the client's
-    /// bottom less a gap, the scale shrinks until it fits. It sits right-aligned and starts just
-    /// under the column.
+    /// The width is the strip's less a gap either side, and the scale follows from it, so the text
+    /// is as big as the panel's own shape allows. The height is all the space from just under the
+    /// corner column to the client's bottom less a gap: the panel is laid out that much taller than
+    /// its design height, so its lists show more rows, rather than stopping at its own shape with
+    /// empty space below. When the width would make the panel's design height more than that space,
+    /// the scale shrinks until it fits. It sits right-aligned and starts just under the column.
     /// </remarks>
     public OverlayFit? Overlay()
     {
@@ -192,20 +195,22 @@ public sealed record VRChatHudLayout
         var scale = Math.Min(width / OverlayDesignWidth, room / OverlayDesignHeight);
 
         // Whole pixels, rounded down so it never grows past the room it was given. The scale is
-        // then the one the width came out at, so the content fills what is drawn.
+        // then the one the width came out at, so the content fills the width that is drawn.
         var drawnWidth = (int)Math.Floor(OverlayDesignWidth * scale);
         if (drawnWidth < 1)
             return null;
 
         var drawnScale = drawnWidth / OverlayDesignWidth;
-        var drawnHeight = (int)Math.Floor(OverlayDesignHeight * drawnScale);
-        if (drawnHeight < 1)
-            return null;
 
         // The margin to the client's edge is rounded down and the top up, so the gaps are at
-        // least what was asked for.
+        // least what was asked for. The bottom is rounded down, and the height is what is between:
+        // never less than the panel's own height at this scale.
         var x = ClientWidth - (int)Math.Floor(gap) - drawnWidth;
         var y = (int)Math.Ceiling(top);
+        var ownHeight = (int)Math.Floor(OverlayDesignHeight * drawnScale);
+        var drawnHeight = Math.Max(ownHeight, (int)Math.Floor(ClientHeight - gap) - y);
+        if (drawnHeight < 1)
+            return null;
 
         return new OverlayFit(x, y, drawnWidth, drawnHeight, drawnScale);
     }

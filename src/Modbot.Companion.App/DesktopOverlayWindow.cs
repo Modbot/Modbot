@@ -48,8 +48,9 @@ namespace Modbot.Companion.App;
 /// of it, so the window watches where the mouse is and lets clicks through everywhere but the
 /// strip.</para>
 /// <para><strong>Beside VRChat's menu.</strong> When VRChat's window is there, it sits in the free
-/// strip to the right of VRChat's Esc menu, under its top-right column, and is drawn as big as that
-/// strip allows: the panel is laid out at its own size and scaled, so it follows VRChat's window
+/// strip to the right of VRChat's Esc menu, under its top-right column, as wide as that strip allows and
+/// the whole way down to VRChat's bottom edge: the panel is laid out at its own width, taller than its own
+/// height where the strip is, and scaled, so it follows VRChat's window
 /// when that is resized or moved (<see cref="VRChatHudLayout"/>). With no VRChat window, or a
 /// minimised one, it is where it always was, down the screen's right-hand side. Looking at
 /// VRChat's window is <c>VRChatWindow.cs</c>'s one question, asked four times a second only while
@@ -1631,17 +1632,13 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         Height = _ordinaryHeight * _tall;
         PaintFrameWidth();
 
-        // A panel dragged bigger than the fit grows from the fit's top left and is moved back onto the
-        // screen's work area where that takes it off. At the ordinary size it is where the fit puts it.
-        if (_wide > 1 || _tall > 1)
+        // The fit is the whole free height, and a panel dragged bigger grows from the fit's top left. Either is
+        // moved back onto the screen's work area where it would leave it, and made no taller than that.
+        if (screen?.WorkingArea is { } box)
         {
-            var area = screen?.WorkingArea;
-
-            if (area is { } box)
-            {
-                left = Math.Max(box.X, Math.Min(left, box.Right - (int)(Width * scaling)));
-                top = Math.Max(box.Y, Math.Min(top, box.Bottom - (int)(Height * scaling)));
-            }
+            Height = Math.Min(Height, box.Height / scaling);
+            left = Math.Max(box.X, Math.Min(left, box.Right - (int)(Width * scaling)));
+            top = Math.Max(box.Y, Math.Min(top, box.Bottom - (int)(Height * scaling)));
         }
 
         Position = new PixelPoint(left, top);

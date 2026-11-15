@@ -79,24 +79,37 @@ public sealed class VRChatHudLayoutTests
     }
 
     [Theory]
-    [InlineData(1918, 1008, 443, 613)]
-    [InlineData(1920, 1009, 444, 614)]
-    [InlineData(1920, 1080, 407, 563)]
-    [InlineData(2560, 1440, 543, 751)]
-    [InlineData(1280, 720, 271, 375)]
-    public void TheOverlayTakesTheStripLessAGapEitherSideAtThePanelsOwnShape(int width, int height, int overlayWidth, int overlayHeight)
+    [InlineData(1918, 1008, 443, 786)]
+    [InlineData(1920, 1009, 444, 787)]
+    [InlineData(1920, 1080, 407, 842)]
+    [InlineData(2560, 1440, 543, 1122)]
+    [InlineData(1280, 720, 271, 561)]
+    public void TheOverlayTakesTheStripLessAGapEitherSideAndTheWholeHeightBelowTheCornerColumn(int width, int height, int overlayWidth, int overlayHeight)
     {
         var fit = VRChatHudLayout.For(width, height)!.Overlay()!.Value;
 
         Assert.InRange(fit.Width, overlayWidth - 1, overlayWidth + 1);
         Assert.InRange(fit.Height, overlayHeight - 1, overlayHeight + 1);
 
-        // The scale is how much the 520 by 720 panel is drawn bigger or smaller.
+        // The scale is how much the 520 wide panel is drawn bigger or smaller, and the panel is laid
+        // out as tall as the height allows, never shorter than its own 720.
         Assert.Equal(fit.Width / VRChatHudLayout.OverlayDesignWidth, fit.Scale, 6);
-        Assert.InRange(
-            fit.Height / (double)fit.Width,
-            (VRChatHudLayout.OverlayDesignHeight / VRChatHudLayout.OverlayDesignWidth) - 0.01,
-            (VRChatHudLayout.OverlayDesignHeight / VRChatHudLayout.OverlayDesignWidth) + 0.01);
+        Assert.True(fit.Height / fit.Scale >= VRChatHudLayout.OverlayDesignHeight - 1);
+    }
+
+    [Theory]
+    [InlineData(1918, 1008)]
+    [InlineData(1920, 1009)]
+    [InlineData(1920, 1080)]
+    [InlineData(2560, 1440)]
+    [InlineData(1280, 720)]
+    public void TheOverlayReachesDownToTheGapAboveTheWindowsBottomEdge(int width, int height)
+    {
+        var layout = VRChatHudLayout.For(width, height)!;
+        var fit = layout.Overlay()!.Value;
+        var gap = VRChatHudLayout.Gap * layout.Scale;
+
+        Assert.True(height - fit.Box.Bottom <= gap + 1, "stops short of the bottom gap");
     }
 
     [Theory]
