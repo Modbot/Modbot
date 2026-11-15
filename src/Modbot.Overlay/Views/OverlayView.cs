@@ -1229,18 +1229,23 @@ public sealed partial class OverlayView
         if (person.JoinedAt is { } joined)
             lines.Children.Add(Text("Joined " + joined.ToString("yyyy-MM-dd"), T.Density.TextSmall, T.TextDimBrush));
 
-        // The only two things this panel can honestly do about a person: go back, and read their
-        // summary again. There is no ban, kick or warn here and there will not be one — the
-        // client's device token is ingest-scoped and could not carry one.
-        lines.Children.Add(new StackPanel
+        // What this panel can honestly do about a person: go back, read their summary again, open
+        // their page in Modbot on this PC's browser, and copy their name. None of them changes
+        // anything about the person: there is no ban, kick or warn here and there will not be one —
+        // the client's device token is ingest-scoped and could not carry one. They wrap, so four
+        // buttons still fit a narrow headset panel.
+        lines.Children.Add(new WrapPanel
         {
             Orientation = Orientation.Horizontal,
-            Spacing = 10,
+            ItemSpacing = 10,
+            LineSpacing = 10,
             Margin = new Thickness(0, 8, 0, 0),
             Children =
             {
                 Press("Back", new OverlayTarget.BackFromPerson()),
                 Press("Refresh", new OverlayTarget.RefreshPerson()),
+                Press("Open in Modbot", new OverlayTarget.OpenPersonPage()),
+                Press("Copy name", new OverlayTarget.CopyName()),
             },
         });
 

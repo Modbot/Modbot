@@ -124,6 +124,17 @@ public sealed record ServerPairing
     public Uri UserEndpoint(string subjectId)
         => new(BaseUri, $"/api/v{ApiVersion}/companion/user/{Uri.EscapeDataString(subjectId)}");
 
+    /// <summary>
+    /// The address of one person's page in the server's web app: its audit page with that person's
+    /// popup open, which is what the links Modbot posts to Discord open.
+    /// </summary>
+    /// <remarks>
+    /// Built from this pairing's own address and the person's id alone, with the id escaped. Nothing
+    /// the server sends, and no display name, ever takes part in an address that is opened.
+    /// </remarks>
+    public Uri PersonPage(string subjectId)
+        => new(BaseUri, $"/audit?subject={Uri.EscapeDataString(subjectId)}");
+
     /// <summary>The start of every path the server's own picture route has, one person's id after it.</summary>
     public string PictureRoutePrefix => $"/api/v{ApiVersion}/companion/picture/";
 

@@ -25,6 +25,8 @@ public static class RemoteTaps
             => "That row is a real person; the remote only taps test people.",
         OverlayTarget.RefreshPerson when !TestPeople.IsTest(personShown)
             => "Refresh asks a server about a real person; the remote never does.",
+        OverlayTarget.OpenPersonPage
+            => "Open in Modbot opens a server's page in this PC's browser; the remote never does.",
         OverlayTarget.PlaceHeadsUp or OverlayTarget.ClearHeadsUp
             => "Place and Clear send a heads-up to a server; the remote never sends anything.",
         _ => null,

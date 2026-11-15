@@ -146,6 +146,8 @@ public class OverlayPageTests
 
         Assert.Contains(targets, t => t is OverlayTarget.BackFromPerson);
         Assert.Contains(targets, t => t is OverlayTarget.RefreshPerson);
+        Assert.Contains(targets, t => t is OverlayTarget.OpenPersonPage);
+        Assert.Contains(targets, t => t is OverlayTarget.CopyName);
 
         // The whole list of target kinds the panel has. Anything new has to be added here on
         // purpose, which is the point.
@@ -159,10 +161,33 @@ public class OverlayPageTests
     /// </summary>
     private static bool Allowed(OverlayTarget target) =>
         target is OverlayTarget.GoTo or OverlayTarget.Person or OverlayTarget.BackFromPerson
-            or OverlayTarget.RefreshPerson or OverlayTarget.Roster or OverlayTarget.Events
+            or OverlayTarget.RefreshPerson or OverlayTarget.OpenPersonPage or OverlayTarget.CopyName
+            or OverlayTarget.Roster or OverlayTarget.Events
             or OverlayTarget.DismissAlert
             or OverlayTarget.Filter or OverlayTarget.Pick or OverlayTarget.ClearFilters or OverlayTarget.TypeName
             or OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough;
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ThePersonCardOffersOpenInModbotAndCopyNameInEveryLook(bool inVRChatLook)
+    {
+        // One card is drawn for the desktop window and for the headset, in the headset's own look
+        // or in VRChat's; every way of drawing it carries both buttons.
+        var person = new UserSummary("usr_rin", "Rin", RosterStanding.Flagged, 2, DateTimeOffset.UnixEpoch, [], []);
+        var look = inVRChatLook ? AuditLogRowsTests.VRChatLook() : OverlayLook.Headset;
+
+        var targets = AvaloniaTestHost.Run(() =>
+        {
+            using var renderer = new AvaloniaFrameRenderer(Size, Size);
+            var root = OverlayView.Build(Screen(OverlayPage.Person, person), null, look);
+            renderer.Render(root);
+            return OverlayTargets.Find(root);
+        }).Select(t => t.Target).ToList();
+
+        Assert.Contains(targets, t => t is OverlayTarget.OpenPersonPage);
+        Assert.Contains(targets, t => t is OverlayTarget.CopyName);
+    }
 
     [Fact]
     public void EveryFilterStateStillOffersNothingThatActsOnAPerson()

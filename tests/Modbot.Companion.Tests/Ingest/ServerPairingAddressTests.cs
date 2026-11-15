@@ -33,6 +33,23 @@ public class ServerPairingAddressTests
     }
 
     [Fact]
+    public void APersonsPageIsThePairingsOwnAddressAndTheIdAlone()
+    {
+        Assert.Equal("https://modbot.example/audit?subject=usr_Kai", Pairing.PersonPage("usr_Kai").AbsoluteUri);
+    }
+
+    [Fact]
+    public void APersonsPageEscapesAnIdThatCouldChangeTheAddress()
+    {
+        var page = Pairing.PersonPage("usr_a&b=c/../#x?y");
+
+        Assert.Equal("modbot.example", page.Host);
+        Assert.Equal("/audit", page.AbsolutePath);
+        Assert.Equal("?subject=usr_a%26b%3Dc%2F..%2F%23x%3Fy", page.Query);
+        Assert.Equal("", page.Fragment);
+    }
+
+    [Fact]
     public void AWorldWithSpecialCharactersIsEscaped()
     {
         Assert.Equal("?instanceId=a%26b&worldId=w%20x", Pairing.ContextEndpoint("a&b", "w x").Query);

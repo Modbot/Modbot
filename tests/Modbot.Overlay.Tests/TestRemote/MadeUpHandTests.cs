@@ -252,6 +252,13 @@ public class MadeUpHandTests
     }
 
     [Fact]
+    public void OpenInModbotIsNeverTappedButCopyNameIs()
+    {
+        Assert.NotNull(RemoteTaps.Refusal(new OverlayTarget.OpenPersonPage(), TestPeople.Prefix + "rin"));
+        Assert.Null(RemoteTaps.Refusal(new OverlayTarget.CopyName(), "usr_1"));
+    }
+
+    [Fact]
     public void NothingThatSendsAHeadsUpIsTapped()
     {
         Assert.NotNull(RemoteTaps.Refusal(new OverlayTarget.PlaceHeadsUp(), null));

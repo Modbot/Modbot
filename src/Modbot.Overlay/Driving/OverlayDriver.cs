@@ -208,6 +208,18 @@ public sealed class OverlayDriver : IDisposable
     /// </summary>
     public event Action<TalkButton>? TalkAsked;
 
+    /// <summary>
+    /// Open in Modbot was pressed on a person's card, on either panel. The address is the paired
+    /// server's own page for that person. The loop opens nothing: the browser is the companion's.
+    /// </summary>
+    public event Action<Uri>? OpenPageAsked;
+
+    /// <summary>
+    /// Copy name was pressed on a person's card, on either panel. The loop touches no clipboard: it
+    /// hands over the name exactly as the card has it, and the clipboard is the companion's.
+    /// </summary>
+    public event Action<string>? CopyTextAsked;
+
     /// <param name="listener">Told when an alert becomes a card and when a server rejects the token. Optional.</param>
     /// <param name="sockets">
     /// Opens the live WebSocket. Null means the link only ever long-polls, which is what the tests
@@ -562,8 +574,9 @@ public sealed class OverlayDriver : IDisposable
     /// <summary>
     /// A tap on the panel. The alert card dismisses, a tab shows that screen, a roster or event
     /// row opens that person, Back returns to the screen the person was opened from (the person
-    /// stays open as a tab), Refresh reads that person again, and Save a clip asks the companion
-    /// to keep the last few minutes.
+    /// stays open as a tab), Refresh reads that person again, Open in Modbot and Copy name ask the
+    /// companion to open that person's page and to copy their name, and Save a clip asks the
+    /// companion to keep the last few minutes.
     /// </summary>
     public void Tap(OverlayTarget? target)
     {
@@ -592,6 +605,14 @@ public sealed class OverlayDriver : IDisposable
                 break;
             case OverlayTarget.BackFromPerson:
                 _page = _personFrom;
+                break;
+            // Somebody the Debug page made up has no page on any server, so there is nothing to open.
+            case OverlayTarget.OpenPersonPage when _person is { } open && !TestPeople.IsTest(open.SubjectId)
+                && (Current() ?? (NotSynced ? SyncServer() : null)) is { } server:
+                OpenPageAsked?.Invoke(server.Pairing.PersonPage(open.SubjectId));
+                break;
+            case OverlayTarget.CopyName when _person is { } named:
+                CopyTextAsked?.Invoke(named.DisplayName ?? named.SubjectId);
                 break;
             case OverlayTarget.BackToTop top:
                 if (top.List is OverlayPage.Events)

@@ -36,6 +36,18 @@ public abstract record OverlayTarget
     /// </remarks>
     public sealed record RefreshPerson : OverlayTarget;
 
+    /// <summary>The open person card's Open in Modbot: that person's page on the paired server's web app, in this PC's default browser.</summary>
+    /// <remarks>
+    /// Not an action on a person: it shows a page. The loop hands the address straight back to the
+    /// companion, which owns the browser. The address is built from the pairing's own base address and
+    /// the person's id, never from anything a server or a display name supplies.
+    /// </remarks>
+    public sealed record OpenPersonPage : OverlayTarget;
+
+    /// <summary>The open person card's Copy name: the person's display name goes on this PC's clipboard.</summary>
+    /// <remarks>Not an action on a person. The loop hands the name straight back to the companion, which owns the clipboard.</remarks>
+    public sealed record CopyName : OverlayTarget;
+
     /// <summary>The events list. Scrolling while pointing here moves the list.</summary>
     public sealed record Events : OverlayTarget;
 

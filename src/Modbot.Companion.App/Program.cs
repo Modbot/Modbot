@@ -2589,6 +2589,11 @@ internal sealed partial class CompanionHost : IOverlayListener
         // The Talk buttons on either panel. The loop presses nothing; the controller is this half's.
         _overlay.TalkAsked += PressTalk;
 
+        // Open in Modbot and Copy name on a person's card, on either panel. The browser and the
+        // clipboard are this half's.
+        _overlay.OpenPageAsked += OpenPersonPage;
+        _overlay.CopyTextAsked += CopyToClipboard;
+
         foreach (var connection in _state?.Connections ?? [])
             _overlay.Add(connection.Pairing, connection.Pairing.OverlayLabel);
 

@@ -285,6 +285,61 @@ public class OverlayDriverTapTests
     }
 
     [Fact]
+    public async Task OpenInModbotAsksForThePersonsPageOnThePairedServer()
+    {
+        var (driver, _, _) = Build();
+        var asked = new List<Uri>();
+        driver.OpenPageAsked += asked.Add;
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        // With nobody open there is no page to ask for.
+        driver.Tap(new OverlayTarget.OpenPersonPage());
+        Assert.Empty(asked);
+
+        await driver.OpenPersonAsync("usr_Kai");
+        driver.Tap(new OverlayTarget.OpenPersonPage());
+
+        Assert.Equal(["https://cats.example/audit?subject=usr_Kai"], asked.Select(a => a.AbsoluteUri));
+    }
+
+    [Fact]
+    public async Task OpenInModbotNeverAsksForAMadeUpPersonsPage()
+    {
+        var (driver, _, _) = Build();
+        var asked = new List<Uri>();
+        driver.OpenPageAsked += asked.Add;
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        await driver.OpenPersonAsync(TestPeople.Prefix + "rin");
+        driver.Tap(new OverlayTarget.OpenPersonPage());
+
+        Assert.Empty(asked);
+    }
+
+    [Fact]
+    public async Task CopyNameHandsOverTheDisplayNameExactlyAsTheServerSaidIt()
+    {
+        // Nothing is trimmed, escaped or cut on the way: the moderator pastes what the person is called.
+        const string hostile = "  \u202ERin\u200B <b>\"x\"</b> [a](https://evil.example) `&`\n\t";
+        var (driver, _, reads) = Build();
+        var copied = new List<string>();
+        driver.CopyTextAsked += copied.Add;
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        // With nobody open there is no name to copy.
+        driver.Tap(new OverlayTarget.CopyName());
+        Assert.Empty(copied);
+
+        reads.Users["usr_Kai"] = new ReadResult<UserSummary>(
+            ReadOutcome.Fetched,
+            new UserSummary("usr_Kai", hostile, RosterStanding.Member, 0, null, [], []));
+        await driver.OpenPersonAsync("usr_Kai");
+        driver.Tap(new OverlayTarget.CopyName());
+
+        Assert.Equal([hostile], copied);
+    }
+
+    [Fact]
     public async Task WithNoBannerOrAModeratorWhoIsNotOnTheListEveryRowCounts()
     {
         var (driver, _, _) = Build();

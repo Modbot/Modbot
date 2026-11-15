@@ -255,6 +255,20 @@ being kept it says why instead — *Waiting for VRChat*, *The folder cannot be u
 pressed; after a clip is written it says **Clip saved** for a few seconds. With Clips switched off
 there is no control at all.
 
+### The person card
+
+Tapping a person opens their card, on the desktop overlay and on the headset panel alike. It has four
+buttons, the same on both:
+
+- **Back** returns to the screen you opened the person from.
+- **Refresh** reads that person's summary again.
+- **Open in Modbot** opens that person's page in the Modbot web app on your PC, in your default
+  browser. In a headset you can still press it: the page opens on the PC, and you see it through
+  your overlay tool or SteamVR's desktop view. The address is your paired server's own address and
+  the person's id, and nothing a server or a display name says.
+- **Copy name** puts the person's display name on your PC's clipboard, exactly as the card shows it,
+  for pasting into Discord or a ban reason.
+
 ### Outside group instances
 
 In a public, friends-only or private instance, or in an instance of a group none of your servers
@@ -301,7 +315,7 @@ The panel can be moved with a controller:
 | Squeeze the other grip on the panel while holding | Pull your hands apart to make it bigger, bring them together to make it smaller. |
 | Grip twice quickly on the panel | Puts it back in front of your head, at a readable size. |
 | Any of the above, with the hand the panel is [worn on](#on-your-wrist) | Nothing. That hand ignores the panel it is carrying; use the other one. |
-| Pull the trigger on the panel | Taps what you are pointing at: the alert card to dismiss it, a person's row to open their card, **Back** on the card to return to the Instance or Audit Log screen you opened it from (the person stays open as a tab), **Save a clip** to keep the last few minutes. On a list a tap counts when the trigger comes up without your hand having moved much. |
+| Pull the trigger on the panel | Taps what you are pointing at: the alert card to dismiss it, a person's row to open their card, **Back** on the card to return to the Instance or Audit Log screen you opened it from (the person stays open as a tab), **Open in Modbot** or **Copy name** on the card, **Save a clip** to keep the last few minutes. On a list a tap counts when the trigger comes up without your hand having moved much. |
 | Hold the trigger on a list and move your hand up or down | Drags the Instance list or the Audit Log with your hand, as a finger drags a phone's list, a pixel at a time. The whole list moves, your own row too. Letting go while your hand is still moving flings the list on, and it slows down by itself and stops at the ends; touching it stops it. Letting go after a drag taps nothing. |
 | Right thumbstick up or down over a list | Scrolls the Instance list or the Audit Log smoothly, faster the further you push. Only the right thumbstick scrolls, whichever hand is pointing; the left one is left for moving in VRChat. It does nothing while the panel is [worn on](#on-your-wrist) the right hand. |
 
@@ -498,7 +512,8 @@ server or quit the client.
   [live connection](/api/live-updates) to that group's server; a join or a leave re-reads the
   roster at once, and it is re-read every 20 seconds regardless.
 - **Nothing on the panel moderates.** The trigger dismisses a card, opens a person's card, goes back
-  from it, and — if you have [Clips](/companion/clips) switched on — saves a clip to your own PC.
+  from it, refreshes it, opens the person's page in Modbot on your PC's browser, copies their name to
+  your clipboard, and — if you have [Clips](/companion/clips) switched on — saves a clip to your own PC.
   That is all: there are no ban, kick or warn buttons, and the client's token could not do those
   things anyway. To act on something, use the web app.
 - **The panel starts 0.45 metres wide** in the headset, 0.16 metres on a wrist, and is drawn at
