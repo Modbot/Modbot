@@ -21,7 +21,7 @@ namespace Modbot.Companion.Talk;
 /// The announcement is withdrawn when this is disposed.</para>
 /// <para>It takes no fixed port, so other OSC programs (face tracking, chatbox tools) keep their
 /// own. If the service cannot start, <see cref="Problem"/> says so and the taps still go out; only
-/// hearing back is lost.</para>
+/// hearing back is lost. The start is tried again every half minute until it works.</para>
 /// </remarks>
 public sealed class VRChatOsc : IVRChatMic, IDisposable
 {
@@ -37,34 +37,56 @@ public sealed class VRChatOsc : IVRChatMic, IDisposable
 
     private const string VRChatServicePrefix = "VRChat-Client-";
 
+    /// <summary>What <see cref="Problem"/> says while the start has failed; the reason goes to the log, not to the panel.</summary>
+    public const string StartProblem = "Modbot could not start listening for VRChat. Trying again.";
+
     private readonly TimeSpan _hold;
     private readonly TimeSpan _wait;
+    private readonly TimeSpan _retry;
+    private readonly Action<Exception>? _startFailed;
+    private readonly Func<int, OSCQueryService> _startQuery;
     private readonly object _gate = new();
     private readonly CancellationTokenSource _stopping = new();
 
     private OSCQueryService? _query;
     private UdpClient? _listener;
     private Task? _listening;
+    private Task? _retrying;
     private TaskCompletionSource<bool>? _waiter;
     private string? _problem;
     private int _vrchatPort = VRChatDefaultPort;
     private int _muted = -1;
     private bool _started;
     private bool _disposed;
+    private bool _failureReported;
 
     /// <param name="hold">How long the voice button is held down in a tap.</param>
     /// <param name="wait">How long a tap waits for VRChat to say what the microphone is now.</param>
-    public VRChatOsc(TimeSpan hold, TimeSpan wait)
+    /// <param name="retry">How long after a failed start the next try comes, again and again until one works.</param>
+    /// <param name="startFailed">Told about the first failed start, with its exception, so it can be logged.</param>
+    /// <param name="startQuery">Starts the announcement for a UDP port. Tests give one that fails.</param>
+    public VRChatOsc(
+        TimeSpan hold,
+        TimeSpan wait,
+        TimeSpan retry,
+        Action<Exception>? startFailed = null,
+        Func<int, OSCQueryService>? startQuery = null)
     {
         _hold = hold;
         _wait = wait;
+        _retry = retry;
+        _startFailed = startFailed;
+        _startQuery = startQuery ?? StartQuery;
     }
 
-    /// <summary>The usual hold (about a sixth of a second) and wait (a second and a half).</summary>
-    public VRChatOsc()
-        : this(TimeSpan.FromMilliseconds(150), TimeSpan.FromMilliseconds(1500))
+    /// <summary>The usual hold (about a sixth of a second), wait (a second and a half) and retry (half a minute).</summary>
+    public VRChatOsc(Action<Exception>? startFailed = null)
+        : this(TimeSpan.FromMilliseconds(150), TimeSpan.FromMilliseconds(1500), TimeSpan.FromSeconds(30), startFailed)
     {
     }
+
+    /// <summary>Raised, on a background thread, when a start that had failed works and <see cref="Problem"/> goes.</summary>
+    public event Action? ProblemCleared;
 
     /// <inheritdoc />
     public bool? Muted => Volatile.Read(ref _muted) switch { 0 => false, 1 => true, _ => null };
@@ -79,7 +101,10 @@ public sealed class VRChatOsc : IVRChatMic, IDisposable
         }
     }
 
-    /// <summary>Starts listening and announcing. Never throws: a failure is left in <see cref="Problem"/>.</summary>
+    /// <summary>
+    /// Starts listening and announcing. Never throws: a failure is left in <see cref="Problem"/>, handed
+    /// once to the <c>startFailed</c> callback, and tried again every <c>retry</c> until it works.
+    /// </summary>
     public void Start()
     {
         lock (_gate)
@@ -90,38 +115,71 @@ public sealed class VRChatOsc : IVRChatMic, IDisposable
             _started = true;
         }
 
+        if (!TryStart())
+            _retrying = Task.Run(() => RetryStartAsync(_stopping.Token));
+    }
+
+    /// <summary>One go at starting. True if it is now listening; false if it failed or was stopped meanwhile.</summary>
+    private bool TryStart()
+    {
+        UdpClient? listener = null;
+        OSCQueryService? query = null;
+
         try
         {
             // Port 0 lets the system hand out a free one; the announcement then names the port that
             // is really open, so there is no gap in which another program could take it.
-            var listener = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
+            listener = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
             var udpPort = ((IPEndPoint)listener.Client.LocalEndPoint!).Port;
 
-            _listener = listener;
-            _listening = Task.Run(() => ListenAsync(listener, _stopping.Token));
+            query = _startQuery(udpPort);
+            query.AddEndpoint<string>("/avatar/change", Attributes.AccessValues.WriteOnly);
+            query.AddEndpoint<bool>(MuteSelfAddress, Attributes.AccessValues.WriteOnly);
+            query.OnOscServiceAdded += OnServiceAdded;
+            RememberVRChatPort(query.GetOSCServices());
 
-            _query = new OSCQueryServiceBuilder()
-                .WithServiceName(ServiceName)
-                .WithHostIP(IPAddress.Loopback)
-                .WithUdpPort(udpPort)
-                .WithTcpPort(Extensions.GetAvailableTcpPort())
-                .WithDiscovery(new MeaModDiscovery(null!))
-                .StartHttpServer()
-                .AdvertiseOSC()
-                .AdvertiseOSCQuery()
-                .Build();
+            lock (_gate)
+            {
+                if (!_disposed)
+                {
+                    var open = listener;
+                    (_listener, _query, _problem) = (listener, query, null);
+                    _listening = Task.Run(() => ListenAsync(open, _stopping.Token));
+                    return true;
+                }
+            }
 
-            _query.AddEndpoint<string>("/avatar/change", Attributes.AccessValues.WriteOnly);
-            _query.AddEndpoint<bool>(MuteSelfAddress, Attributes.AccessValues.WriteOnly);
-            _query.OnOscServiceAdded += OnServiceAdded;
-            RememberVRChatPort(_query.GetOSCServices());
+            Discard(query, listener);
+            return false;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            Discard(query, listener);
+
             lock (_gate)
-                _problem = $"Modbot could not start listening for VRChat: {ex.Message}";
+                _problem = StartProblem;
+
+            if (!_failureReported)
+            {
+                _failureReported = true;
+                _startFailed?.Invoke(ex);
+            }
+
+            return false;
         }
     }
+
+    private static OSCQueryService StartQuery(int udpPort)
+        => new OSCQueryServiceBuilder()
+            .WithServiceName(ServiceName)
+            .WithHostIP(IPAddress.Loopback)
+            .WithUdpPort(udpPort)
+            .WithTcpPort(Extensions.GetAvailableTcpPort())
+            .WithDiscovery(new MeaModDiscovery(null!))
+            .StartHttpServer()
+            .AdvertiseOSC()
+            .AdvertiseOSCQuery()
+            .Build();
 
     /// <inheritdoc />
     public async Task<MicTap> TapAsync(CancellationToken cancellationToken)
@@ -175,17 +233,39 @@ public sealed class VRChatOsc : IVRChatMic, IDisposable
     /// <summary>Stops listening and withdraws the announcement.</summary>
     public void Dispose()
     {
+        OSCQueryService? query;
+        UdpClient? listener;
+        Task? listening;
+
         lock (_gate)
         {
             if (_disposed)
                 return;
 
             _disposed = true;
+            (query, listener, listening) = (_query, _listener, _listening);
         }
 
         _stopping.Cancel();
 
-        if (_query is { } query)
+        Discard(query, listener);
+
+        try
+        {
+            listening?.Wait(TimeSpan.FromSeconds(1));
+            _retrying?.Wait(TimeSpan.FromSeconds(1));
+        }
+        catch (AggregateException)
+        {
+            // The listening task ends by being cancelled or by its socket closing.
+        }
+
+        _stopping.Dispose();
+    }
+
+    private void Discard(OSCQueryService? query, UdpClient? listener)
+    {
+        if (query is not null)
         {
             query.OnOscServiceAdded -= OnServiceAdded;
             try
@@ -198,18 +278,7 @@ public sealed class VRChatOsc : IVRChatMic, IDisposable
             }
         }
 
-        _listener?.Dispose();
-
-        try
-        {
-            _listening?.Wait(TimeSpan.FromSeconds(1));
-        }
-        catch (AggregateException)
-        {
-            // The listening task ends by being cancelled or by its socket closing.
-        }
-
-        _stopping.Dispose();
+        listener?.Dispose();
     }
 
     private async Task ListenAsync(UdpClient listener, CancellationToken cancellationToken)
@@ -255,6 +324,27 @@ public sealed class VRChatOsc : IVRChatMic, IDisposable
     }
 
     private void OnServiceAdded(OSCQueryServiceProfile profile) => RememberVRChatPort([profile]);
+
+    private async Task RetryStartAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (true)
+            {
+                await Task.Delay(_retry, cancellationToken).ConfigureAwait(false);
+
+                if (TryStart())
+                {
+                    ProblemCleared?.Invoke();
+                    return;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Stopped before it started.
+        }
+    }
 
     private void RefreshVRChatPort()
     {

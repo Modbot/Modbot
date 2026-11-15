@@ -57,7 +57,16 @@ internal sealed partial class CompanionHost
             return;
         }
 
-        var osc = new VRChatOsc();
+        var osc = new VRChatOsc(ex => Log.Warning(ex, "Modbot could not start listening for VRChat; trying again every 30 seconds"));
+        osc.ProblemCleared += () =>
+        {
+            Log.Information("Listening for VRChat started");
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (ReferenceEquals(_talkOsc, osc))
+                    ShowTalkProblem();
+            });
+        };
         osc.Start();
 
         var talk = new TalkController(
