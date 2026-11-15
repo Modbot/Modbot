@@ -51,6 +51,24 @@ public class OverlayContextJsonTests
     }
 
     [Fact]
+    public void ARosterRowCarriesWhetherTheyAreAMemberAndAnOlderServerLeavesItNull()
+    {
+        const string roster = """
+            {"instanceId":"39911","members":[
+              {"subjectId":"usr_a","displayName":"Rin","standing":"Staff","priorActions":0,"flags":[],"isMember":true},
+              {"subjectId":"usr_b","displayName":"Mei","standing":"Ordinary","priorActions":0,"flags":[],"isMember":false},
+              {"subjectId":"usr_c","displayName":"Kai","standing":"Member","priorActions":0,"flags":[]}
+            ]}
+            """;
+
+        var context = JsonSerializer.Deserialize<InstanceContext>(roster, Json)!;
+
+        Assert.True(context.Members[0].IsMember);
+        Assert.False(context.Members[1].IsMember);
+        Assert.Null(context.Members[2].IsMember);
+    }
+
+    [Fact]
     public void ARosterRowCarriesThePicturePathAndAServerThatSendsNoneLeavesItNull()
     {
         const string roster = """

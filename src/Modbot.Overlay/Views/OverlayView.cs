@@ -1512,7 +1512,7 @@ public sealed partial class OverlayView
                     continue;
                 }
 
-                list.Children.Add(RosterRow(member, joined, HeadsUpOn(screen.HeadsUpsOrNone, member.SubjectId), screen.CanPlaceHeadsUps));
+                list.Children.Add(RosterRow(member, joined, HeadsUpOn(screen.HeadsUpsOrNone, member.SubjectId), screen.CanPlaceHeadsUps, null, JoinedJustNow(screen, arrivals, member)));
             }
         }
 
@@ -1550,6 +1550,18 @@ public sealed partial class OverlayView
     }
 
     /// <summary>
+    /// Whether somebody joined in the last two minutes, from this PC's own log and the drive loop's clock. Never the
+    /// moderator themself: their own arrival is not news to them.
+    /// </summary>
+    private static bool JoinedJustNow(OverlayScreen screen, IReadOnlyDictionary<string, DateTimeOffset?> arrivals, RosterMember member)
+    {
+        if (screen.ModeratorId is { Length: > 0 } me && string.Equals(member.SubjectId, me, StringComparison.Ordinal))
+            return false;
+
+        return arrivals.TryGetValue(member.SubjectId, out var at) && ListFiltering.IsNew(at, screen.Now);
+    }
+
+    /// <summary>
     /// A card in VRChat's look that says one thing large: "Nothing yet", or why the list is empty.
     /// </summary>
     private Control InfoCard(string big)
@@ -1577,7 +1589,8 @@ public sealed partial class OverlayView
     /// Set for somebody who has just left: the row is greyed, carries a "Left" tag, and says how many
     /// seconds it stays. Null for somebody who is here.
     /// </param>
-    private Control RosterRow(RosterMember member, string? joined, HeadsUpKind? headsUp = null, bool canAdd = false, int? secondsLeft = null)
+    /// <param name="isNew">They joined in the last two minutes: the row carries "New".</param>
+    private Control RosterRow(RosterMember member, string? joined, HeadsUpKind? headsUp = null, bool canAdd = false, int? secondsLeft = null, bool isNew = false)
     {
         var left = secondsLeft is not null;
 
@@ -1614,6 +1627,13 @@ public sealed partial class OverlayView
         if (member.EighteenPlus == true)
             line.Children.Add(EighteenPlusChip());
 
+        // Somebody who just left is on the way out, so neither "New" nor "Not in group" is the news about them.
+        if (!left)
+        {
+            foreach (var mark in ArrivalMarks(member, isNew))
+                line.Children.Add(mark);
+        }
+
         if (member.Flags.Count > 0)
             line.Children.Add(FlagChip(string.Join(" · ", member.Flags)));
 
@@ -1634,6 +1654,42 @@ public sealed partial class OverlayView
         }
 
         return Row(line, member.SubjectId, joined, canAdd ? AddHeadsUpPress(member.SubjectId) : null);
+    }
+
+    /// <summary>
+    /// The marks a roster row carries for who the person is to the group and how long they have been here:
+    /// "Not in group" when the server says they are not a member (nothing from a server too old to say), and
+    /// "New" when they joined in the last two minutes.
+    /// </summary>
+    private List<Control> ArrivalMarks(RosterMember member, bool isNew)
+    {
+        var marks = new List<Control>();
+
+        if (member.IsMember == false)
+            marks.Add(TagChip("Not in group", T.Palette.Warn, T.WarnBrush));
+
+        if (isNew)
+            marks.Add(TagChip("New", T.Palette.Ok, T.OkBrush));
+
+        return marks;
+    }
+
+    /// <summary>A small tinted word on a roster row, drawn the way the "Left" tag is.</summary>
+    private Control TagChip(string caption, Color colour, IBrush brush)
+    {
+        var label = Text(caption, V is null ? T.Density.TextSmall : T.Density.TextTiny, brush, V is null ? FontWeight.SemiBold : FontWeight.Bold);
+        label.VerticalAlignment = VerticalAlignment.Center;
+
+        return new Border
+        {
+            Background = new SolidColorBrush(colour, 0.16),
+            BorderBrush = brush,
+            BorderThickness = new Thickness(T.Density.Hairline),
+            CornerRadius = SmallCorner,
+            Padding = new Thickness(8, 2),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = label,
+        };
     }
 
     /// <summary>How much of its strength a row keeps once somebody has left.</summary>

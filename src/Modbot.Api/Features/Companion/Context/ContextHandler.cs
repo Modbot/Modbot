@@ -27,6 +27,11 @@ namespace Modbot.Api.Features.Companion.Context;
 /// has switched VRChat pictures off. Never a VRChat address: the companion asks this server for the
 /// picture and never VRChat. Older companions ignore it.
 /// </param>
+/// <param name="IsMember">
+/// Whether they are a member of the group now, by the rule the Member standing uses. Sent apart from
+/// <paramref name="Standing"/> because that holds one word, and Staff and Flagged hide it. Older
+/// companions ignore it.
+/// </param>
 public sealed record RosterMemberDto(
     [property: JsonPropertyName("subjectId")] string SubjectId,
     [property: JsonPropertyName("displayName")] string? DisplayName,
@@ -35,7 +40,8 @@ public sealed record RosterMemberDto(
     [property: JsonPropertyName("flags")] IReadOnlyList<string> Flags,
     [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null,
     [property: JsonPropertyName("eighteenPlus")] bool? EighteenPlus = null,
-    [property: JsonPropertyName("pictureUrl")] string? PictureUrl = null);
+    [property: JsonPropertyName("pictureUrl")] string? PictureUrl = null,
+    [property: JsonPropertyName("isMember")] bool? IsMember = null);
 
 /// <param name="HeadsUps">
 /// What stands in this instance (heads-ups, 2026-10-03), oldest first. Sent only with this
@@ -479,7 +485,8 @@ public static class ContextHandler
             match.Reasons,
             trustRank,
             eighteenPlus,
-            pictureUrl);
+            pictureUrl,
+            belonging.IsMember(subjectId));
     }
 
     /// <summary>

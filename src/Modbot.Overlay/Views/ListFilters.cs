@@ -385,6 +385,16 @@ public static class ListFiltering
     public static TrustRank? RankOf(LivePerson person)
         => person.TrustRank is { Length: > 0 } word ? TrustRanks.Parse(word) : null;
 
+    /// <summary>How long a person counts as new, from the moment they joined.</summary>
+    public static readonly TimeSpan NewFor = TimeSpan.FromMinutes(2);
+
+    /// <summary>
+    /// Whether somebody joined in the last two minutes, which is when their row carries the "New" mark. False for
+    /// somebody already here when the moderator arrived (<paramref name="arrived"/> null) and while the clock is not set.
+    /// </summary>
+    public static bool IsNew(DateTimeOffset? arrived, DateTimeOffset now)
+        => arrived is { } at && now != default && now - at < NewFor;
+
     /// <summary>How long somebody has been here, in the fewest words that still say it.</summary>
     /// <param name="arrived">When they got here, or null for somebody already here when the moderator arrived.</param>
     /// <param name="moderatorArrived">

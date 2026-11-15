@@ -278,6 +278,7 @@ public sealed record OverlayScreen(
             && SameMinute(other)
             && SameArrivals(ArrivalsOrNone, other.ArrivalsOrNone)
             && SameLeft(other)
+            && SameNew(other)
             && SameEvents(EventsOrNone, other.EventsOrNone)
             && Person?.SubjectId == other.Person?.SubjectId
             && Person?.DisplayName == other.Person?.DisplayName
@@ -328,6 +329,25 @@ public sealed record OverlayScreen(
         return true;
     }
 
+    /// <summary>
+    /// Whether the same people carry the "New" mark on both screens. The mark ends two minutes after somebody joined,
+    /// which is finer than <see cref="SameMinute"/>, so a screen is redrawn when somebody stops being new rather than
+    /// when the minute changes. Only the Instance list draws it.
+    /// </summary>
+    private bool SameNew(OverlayScreen other)
+    {
+        if (Page is not OverlayPage.Instance)
+            return true;
+
+        foreach (var (_, at) in ArrivalsOrNone)
+        {
+            if (ListFiltering.IsNew(at, Now) != ListFiltering.IsNew(at, other.Now))
+                return false;
+        }
+
+        return true;
+    }
+
     private static bool SameArrivals(IReadOnlyDictionary<string, DateTimeOffset?> a, IReadOnlyDictionary<string, DateTimeOffset?> b)
     {
         if (ReferenceEquals(a, b))
@@ -370,6 +390,7 @@ public sealed record OverlayScreen(
                 || left.TrustRank != right.TrustRank
                 || left.EighteenPlus != right.EighteenPlus
                 || left.PictureUrl != right.PictureUrl
+                || left.IsMember != right.IsMember
                 || !left.Flags.SequenceEqual(right.Flags, StringComparer.Ordinal))
             {
                 return false;

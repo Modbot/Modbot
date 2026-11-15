@@ -159,6 +159,10 @@ public class OverlayReadTests
         var member = Assert.Single(roster.Members, m => m.SubjectId != moderator.VRChatUserId);
         Assert.Equal("usr_stay", member.SubjectId);
         Assert.Equal("Staying", member.DisplayName);
+
+        // Nobody here is on a member list or has joined the group, so the row says so for the overlay's
+        // "Not in group" mark.
+        Assert.False(member.IsMember);
     }
 
     /// <summary>
@@ -373,6 +377,11 @@ public class OverlayReadTests
 
         // Flagged still beats Staff.
         Assert.Equal("Flagged", StandingOf(roster, "usr_modflag"));
+
+        // The one word above hides membership for staff and flagged people, so it travels beside it:
+        // all of these are members, and only those who are not get the overlay's "Not in group" mark.
+        Assert.All(["usr_founder", "usr_unworded", "usr_fan", "usr_mod", "usr_modflag", "usr_roster_owner"],
+            id => Assert.True(Assert.Single(roster.Members, m => m.SubjectId == id).IsMember, id));
 
         // The card reads the same answer as the row it opens from.
         Assert.Equal("Staff", (await GetAsync<UserSummaryDto>(host, token, "/api/v1/companion/user/usr_mod", ct)).Standing);

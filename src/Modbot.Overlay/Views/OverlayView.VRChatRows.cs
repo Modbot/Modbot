@@ -198,7 +198,7 @@ public sealed partial class OverlayView
             // a heads-up is placed on somebody present. Nor is the moderator's own card given one.
             return justLeft(member)
                 ? VRChatRosterRow(member, null, HeadsUpOn(screen.HeadsUpsOrNone, member.SubjectId), false, secondsLeft[member.SubjectId], banner)
-                : VRChatRosterRow(member, joined, HeadsUpOn(screen.HeadsUpsOrNone, member.SubjectId), screen.CanPlaceHeadsUps && !banner, null, banner);
+                : VRChatRosterRow(member, joined, HeadsUpOn(screen.HeadsUpsOrNone, member.SubjectId), screen.CanPlaceHeadsUps && !banner, null, banner, JoinedJustNow(screen, arrivals, member));
         }
 
         if (mine is not null)
@@ -228,18 +228,23 @@ public sealed partial class OverlayView
     /// <param name="canAdd">Draw the square "+" at the end that starts a heads-up from this card.</param>
     /// <param name="secondsLeft">Set for somebody who has just left; null for somebody who is here.</param>
     /// <param name="banner">The moderator's own card: in the highlights colour, and never with a "+".</param>
-    private Control VRChatRosterRow(RosterMember member, string? joined, HeadsUpKind? headsUp, bool canAdd, int? secondsLeft, bool banner)
+    /// <param name="isNew">They joined in the last two minutes: the card carries "New".</param>
+    private Control VRChatRosterRow(RosterMember member, string? joined, HeadsUpKind? headsUp, bool canAdd, int? secondsLeft, bool banner, bool isNew = false)
     {
         var v = V!;
 
         var marks = new List<Control>();
 
-        // The rank in its VRChat colour, then the 18+ mark, the flags and the heads-up, as they have always run.
+        // The rank in its VRChat colour, then the 18+ mark, "Not in group" and "New", the flags and the heads-up.
         if (member.TrustRank is { } rank)
             marks.Add(RankPill(rank, T.Density.TextSmall));
 
         if (member.EighteenPlus == true)
             marks.Add(EighteenPlusChip());
+
+        // Somebody who just left is on the way out, so neither "New" nor "Not in group" is the news about them.
+        if (secondsLeft is null)
+            marks.AddRange(ArrivalMarks(member, isNew));
 
         if (member.Flags.Count > 0)
             marks.Add(FlagChip(string.Join(" · ", member.Flags)));

@@ -37,6 +37,11 @@ public enum RosterStanding
 /// <see cref="HttpOverlayReadClient"/> makes it whole, and only for a path of the form the server's
 /// picture route has, so what is fetched from it is always from the paired server.
 /// </param>
+/// <param name="IsMember">
+/// Whether they are a member of the group now. Apart from <paramref name="Standing"/>, which holds one word and
+/// shows Staff or Flagged for somebody who is also a member. Null when the server is too old to say, and for a
+/// list made from this PC's log: then no mark is drawn, since nobody can say they are not in the group.
+/// </param>
 public sealed record RosterMember(
     [property: JsonPropertyName("subjectId")] string SubjectId,
     [property: JsonPropertyName("displayName")] string? DisplayName,
@@ -45,7 +50,8 @@ public sealed record RosterMember(
     [property: JsonPropertyName("flags")] IReadOnlyList<string> Flags,
     [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null,
     [property: JsonPropertyName("eighteenPlus")] bool? EighteenPlus = null,
-    [property: JsonPropertyName("pictureUrl")] string? PictureUrl = null);
+    [property: JsonPropertyName("pictureUrl")] string? PictureUrl = null,
+    [property: JsonPropertyName("isMember")] bool? IsMember = null);
 
 /// <summary>
 /// What one server knows about the instance the moderator is standing in.
