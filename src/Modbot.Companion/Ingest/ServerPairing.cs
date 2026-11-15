@@ -190,7 +190,7 @@ public sealed record ServerPairing
     private static string ClipsQuery(ClipSettingsReport? clips)
         => clips is null
             ? ""
-            : $"&clipsOn={Bool(clips.On)}&clipsRecording={Bool(clips.Recording)}&clipsMinutes={clips.Minutes}&clipsSendForActions={Bool(clips.SendForActions)}";
+            : $"&clipsOn={Bool(clips.On)}&clipsRecording={Bool(clips.Recording)}&clipsMinutes={clips.Minutes}&clipsSendForActions={Bool(clips.SendForActions)}&clipsDiscordSound={Bool(clips.DiscordSound)}";
 
     private static string Bool(bool value) => value ? "true" : "false";
 

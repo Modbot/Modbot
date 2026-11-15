@@ -10,13 +10,14 @@ namespace Modbot.Api.Tests.Features.Companion;
 public class ClipSettingsReportsTests
 {
     [Theory]
-    [InlineData(true, true, 10, true, true)]
-    [InlineData(true, true, 9, true, false)]
-    [InlineData(false, true, 10, true, false)]
-    [InlineData(true, false, 10, true, false)]
-    [InlineData(true, true, 10, false, false)]
-    public void IsReady_NeedsAllFour(bool on, bool recording, int minutes, bool sendForActions, bool expected)
-        => Assert.Equal(expected, new ClipSettingsReport(on, recording, minutes, sendForActions).IsReady);
+    [InlineData(true, true, 10, true, true, true)]
+    [InlineData(true, true, 9, true, true, false)]
+    [InlineData(false, true, 10, true, true, false)]
+    [InlineData(true, false, 10, true, true, false)]
+    [InlineData(true, true, 10, false, true, false)]
+    [InlineData(true, true, 10, true, false, false)]
+    public void IsReady_NeedsAllFive(bool on, bool recording, int minutes, bool sendForActions, bool discordSound, bool expected)
+        => Assert.Equal(expected, new ClipSettingsReport(on, recording, minutes, sendForActions, discordSound).IsReady);
 
     [Fact]
     public void ADeviceThatNeverReported_HasNoReport_AndIsNotReady()
@@ -34,8 +35,8 @@ public class ClipSettingsReportsTests
         var reports = new ClipSettingsReports();
         var device = Guid.NewGuid();
 
-        reports.Record(device, new ClipSettingsReport(true, true, 10, true));
-        reports.Record(device, new ClipSettingsReport(true, true, 10, false));
+        reports.Record(device, new ClipSettingsReport(true, true, 10, true, true));
+        reports.Record(device, new ClipSettingsReport(true, true, 10, true, false));
 
         Assert.False(reports.IsReady([device]));
     }
@@ -48,8 +49,8 @@ public class ClipSettingsReportsTests
         var notReady = Guid.NewGuid();
         var silent = Guid.NewGuid();
 
-        reports.Record(ready, new ClipSettingsReport(true, true, 10, true));
-        reports.Record(notReady, new ClipSettingsReport(true, false, 10, true));
+        reports.Record(ready, new ClipSettingsReport(true, true, 10, true, true));
+        reports.Record(notReady, new ClipSettingsReport(true, false, 10, true, true));
 
         Assert.True(reports.IsReady([silent, notReady, ready]));
         Assert.False(reports.IsReady([silent, notReady]));

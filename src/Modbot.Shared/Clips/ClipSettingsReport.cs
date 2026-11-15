@@ -7,10 +7,11 @@ namespace Modbot.Shared.Clips;
 /// <remarks>
 /// <para>
 /// Sent over the live connection the companion already holds: once when it opens, and again
-/// whenever one of the four values changes, as <c>{"op":"clips","on":...}</c> on the WebSocket and
-/// as the <c>clipsOn</c>, <c>clipsRecording</c>, <c>clipsMinutes</c> and <c>clipsSendForActions</c>
-/// query values on a long poll. Nothing else about the clips is told: not a file, not a name, not a
-/// folder.
+/// whenever one of the five values changes, as <c>{"op":"clips","on":...}</c> on the WebSocket and
+/// as the <c>clipsOn</c>, <c>clipsRecording</c>, <c>clipsMinutes</c>, <c>clipsSendForActions</c> and
+/// <c>clipsDiscordSound</c> query values on a long poll. A companion older than the fifth value
+/// leaves it out, and the server counts it as off. Nothing else about the clips is told: not a
+/// file, not a name, not a folder.
 /// </para>
 /// <para>
 /// The server keeps the latest report per device in memory and asks one question of it,
@@ -21,7 +22,8 @@ namespace Modbot.Shared.Clips;
 /// <param name="Recording">The recorder is running right now and has a picture.</param>
 /// <param name="Minutes">The length setting, in minutes.</param>
 /// <param name="SendForActions">"Send clips for my actions automatically" is ticked.</param>
-public sealed record ClipSettingsReport(bool On, bool Recording, int Minutes, bool SendForActions)
+/// <param name="DiscordSound">"Discord's sound too" is ticked. The box alone counts; Discord need not be running.</param>
+public sealed record ClipSettingsReport(bool On, bool Recording, int Minutes, bool SendForActions, bool DiscordSound)
 {
     /// <summary>
     /// The length a rule's clip condition needs. A clip cut from it holds at least five minutes
@@ -34,7 +36,7 @@ public sealed record ClipSettingsReport(bool On, bool Recording, int Minutes, bo
 
     /// <summary>
     /// Whether this device can be counted on to send a clip for its owner's actions: Clips on,
-    /// recording now, the ten-minute setting, and the switch ticked.
+    /// recording now, the ten-minute setting, the switch ticked, and Discord's sound ticked.
     /// </summary>
-    public bool IsReady => On && Recording && Minutes >= ReadyMinutes && SendForActions;
+    public bool IsReady => On && Recording && Minutes >= ReadyMinutes && SendForActions && DiscordSound;
 }

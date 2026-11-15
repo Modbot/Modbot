@@ -7,7 +7,7 @@ namespace Modbot.Companion.Tests.Overlay;
 /// <summary>The Clips settings the companion tells its server (automatic roles, 2026-10-24).</summary>
 public class ClipSettingsFeedTests
 {
-    private static readonly ClipSettingsReport Ready = new(true, true, 10, true);
+    private static readonly ClipSettingsReport Ready = new(true, true, 10, true, true);
 
     [Fact]
     public void Set_ReportsAChange_OnlyWhenTheReportDiffers()
@@ -26,13 +26,13 @@ public class ClipSettingsFeedTests
     }
 
     [Fact]
-    public void TheLivePoll_CarriesTheFourValues_OnlyWhenThereIsAReport()
+    public void TheLivePoll_CarriesTheFiveValues_OnlyWhenThereIsAReport()
     {
         var pairing = new ServerPairing("cats", new Uri("https://modbot.example"), "token", "grp_cats");
 
         Assert.DoesNotContain("clips", pairing.LivePollEndpoint("Main", null, 20).Query);
         Assert.EndsWith(
-            "&wait=20&clipsOn=true&clipsRecording=false&clipsMinutes=10&clipsSendForActions=true",
-            pairing.LivePollEndpoint("Main", null, 20, null, new ClipSettingsReport(true, false, 10, true)).Query);
+            "&wait=20&clipsOn=true&clipsRecording=false&clipsMinutes=10&clipsSendForActions=true&clipsDiscordSound=true",
+            pairing.LivePollEndpoint("Main", null, 20, null, new ClipSettingsReport(true, false, 10, true, true)).Query);
     }
 }

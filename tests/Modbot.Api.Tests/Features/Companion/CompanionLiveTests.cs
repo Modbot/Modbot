@@ -315,6 +315,29 @@ public class CompanionLiveTests
         await NextOfKindAsync(socket, "hello");
 
         await socket.SendAsync(
+            JsonSerializer.SerializeToUtf8Bytes(new { op = "clips", on = true, recording = true, minutes = 10, sendForActions = true, discordSound = true }),
+            WebSocketMessageType.Text, true, Ct);
+
+        var reports = host.Services.GetRequiredService<ClipSettingsReports>();
+
+        for (var attempt = 0; attempt < 50 && reports.For(deviceId) is null; attempt++)
+            await Task.Delay(100, Ct);
+
+        Assert.Equal(new ClipSettingsReport(true, true, 10, true, true), reports.For(deviceId));
+        Assert.True(reports.IsReady([deviceId]));
+    }
+
+    [Fact]
+    public async Task TheClipsOp_WithoutDiscordSound_CountsItAsOff()
+    {
+        var (host, token) = await ReadyAsync();
+        await using var keep = host;
+        var deviceId = await DeviceIdAsync(host);
+
+        using var socket = await ConnectAsync(host, token);
+        await NextOfKindAsync(socket, "hello");
+
+        await socket.SendAsync(
             JsonSerializer.SerializeToUtf8Bytes(new { op = "clips", on = true, recording = true, minutes = 10, sendForActions = true }),
             WebSocketMessageType.Text, true, Ct);
 
@@ -323,8 +346,8 @@ public class CompanionLiveTests
         for (var attempt = 0; attempt < 50 && reports.For(deviceId) is null; attempt++)
             await Task.Delay(100, Ct);
 
-        Assert.Equal(new ClipSettingsReport(true, true, 10, true), reports.For(deviceId));
-        Assert.True(reports.IsReady([deviceId]));
+        Assert.Equal(new ClipSettingsReport(true, true, 10, true, false), reports.For(deviceId));
+        Assert.False(reports.IsReady([deviceId]));
     }
 
     [Fact]
@@ -345,7 +368,16 @@ public class CompanionLiveTests
                 $"/api/v1/companion/poll?instanceId={Instance}&wait=0&clipsOn=true&clipsRecording=false&clipsMinutes=5&clipsSendForActions=true",
                 token),
             Ct);
-        Assert.Equal(new ClipSettingsReport(true, false, 5, true), reports.For(deviceId));
+        Assert.Equal(new ClipSettingsReport(true, false, 5, true, false), reports.For(deviceId));
+
+        await host.Client.SendAsync(
+            host.WithToken(
+                HttpMethod.Get,
+                $"/api/v1/companion/poll?instanceId={Instance}&wait=0&clipsOn=true&clipsRecording=true&clipsMinutes=10&clipsSendForActions=true&clipsDiscordSound=true",
+                token),
+            Ct);
+        Assert.Equal(new ClipSettingsReport(true, true, 10, true, true), reports.For(deviceId));
+        Assert.True(reports.IsReady([deviceId]));
     }
 
     [Fact]

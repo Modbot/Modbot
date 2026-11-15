@@ -126,6 +126,7 @@ public static class CompanionLiveEndpoints
         bool? clipsRecording,
         int? clipsMinutes,
         bool? clipsSendForActions,
+        bool? clipsDiscordSound,
         HttpContext context,
         DeviceAuthenticator authenticator,
         DeviceLocations locations,
@@ -152,9 +153,10 @@ public static class CompanionLiveEndpoints
             locations.Record(device.Id, instanceId, clock.UtcNow, worldId);
 
         // A companion that is polling, not holding the socket, tells us its Clips settings in the
-        // query of every poll. All four, or none: a half-told report is not kept.
+        // query of every poll. The first four, or none: a half-told report is not kept. A companion
+        // older than the fifth value leaves it out, and that counts as off.
         if (clipsOn is { } on && clipsRecording is { } recording && clipsMinutes is { } minutes && clipsSendForActions is { } send)
-            clipSettings.Record(device.Id, new ClipSettingsReport(on, recording, minutes, send));
+            clipSettings.Record(device.Id, new ClipSettingsReport(on, recording, minutes, send, clipsDiscordSound ?? false));
 
         return await LiveStreams.PollAsync(
             context,
