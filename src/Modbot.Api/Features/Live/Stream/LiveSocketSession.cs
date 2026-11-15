@@ -407,7 +407,10 @@ internal sealed class LiveSocketSession
         }
     }
 
-    /// <summary>The four values of a clip settings message, or null when any is missing or of the wrong kind.</summary>
+    /// <summary>
+    /// The values of a clip settings message, or null when any of the first four is missing or of the
+    /// wrong kind. A missing <c>discordSound</c> (an older companion) counts as off.
+    /// </summary>
     private static ClipSettingsReport? ParseClipSettings(JsonElement root)
     {
         if (root.ValueKind == JsonValueKind.Object
@@ -418,7 +421,7 @@ internal sealed class LiveSocketSession
             && m.ValueKind == JsonValueKind.Number
             && m.TryGetInt32(out var minutes))
         {
-            return new ClipSettingsReport(on, recording, minutes, send);
+            return new ClipSettingsReport(on, recording, minutes, send, Flag(root, "discordSound") ?? false);
         }
 
         return null;

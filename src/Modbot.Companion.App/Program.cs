@@ -1129,7 +1129,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             ScreenRecording.Supported);
 
         _clipSettingsFeed.Set(new ClipSettingsReport(
-            settings.On, wanted == ClipRecordingState.Recording, settings.Minutes, settings.SendForActions));
+            settings.On, wanted == ClipRecordingState.Recording, settings.Minutes, settings.SendForActions, settings.DiscordSound));
 
         // Each live paired server gets its own link the whole time the companion runs, panel or no
         // panel, so the server sees it as open. A clip request on it is acted on only while the

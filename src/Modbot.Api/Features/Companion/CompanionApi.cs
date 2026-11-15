@@ -249,7 +249,7 @@ public static class CompanionApi
                 + "`moderation=true` also asks for the audit log's events about the instance and the people seen in it "
                 + "(each with a `sentence` and an `origin`), sent only when the device's owner may read the audit log. "
                 + "Send `{\"op\":\"subscribe\",\"instanceId\":\"...\",\"worldId\":\"...\"}` on walking into another. "
-                + "Send `{\"op\":\"clips\",\"on\":true,\"recording\":true,\"minutes\":10,\"sendForActions\":true}` on connecting and whenever the Clips settings change.")
+                + "Send `{\"op\":\"clips\",\"on\":true,\"recording\":true,\"minutes\":10,\"sendForActions\":true,\"discordSound\":true}` on connecting and whenever the Clips settings change.")
             .Produces<CompanionError>(StatusCodes.Status400BadRequest)
             .Produces<CompanionError>(StatusCodes.Status401Unauthorized)
             .AllowAnonymous();
@@ -261,8 +261,8 @@ public static class CompanionApi
                 "The same events as the WebSocket, for the same `instanceId` and optional `worldId`: "
                 + "those after `after`, at once when there are any, "
                 + "otherwise after waiting up to `wait` seconds for one. Send the returned `cursor` "
-                + "back as `after`. `clipsOn`, `clipsRecording`, `clipsMinutes` and `clipsSendForActions` "
-                + "tell the server the device's Clips settings, all four or none.")
+                + "back as `after`. `clipsOn`, `clipsRecording`, `clipsMinutes`, `clipsSendForActions` and `clipsDiscordSound` "
+                + "tell the server the device's Clips settings, the first four or none; a missing `clipsDiscordSound` counts as off.")
             .Produces<LivePollResponse>()
             .Produces<CompanionError>(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status429TooManyRequests)

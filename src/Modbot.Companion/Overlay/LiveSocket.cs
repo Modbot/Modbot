@@ -140,7 +140,7 @@ public sealed class ClientLiveSocketFactory : ILiveSocketFactory
                 try
                 {
                     var bytes = JsonSerializer.SerializeToUtf8Bytes(
-                        new { op = ClipSettingsReport.Op, on = report.On, recording = report.Recording, minutes = report.Minutes, sendForActions = report.SendForActions },
+                        new { op = ClipSettingsReport.Op, on = report.On, recording = report.Recording, minutes = report.Minutes, sendForActions = report.SendForActions, discordSound = report.DiscordSound },
                         Json);
                     await SendAsync(bytes, CancellationToken.None).ConfigureAwait(false);
                 }

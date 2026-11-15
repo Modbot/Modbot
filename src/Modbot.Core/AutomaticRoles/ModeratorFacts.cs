@@ -19,7 +19,7 @@ namespace Modbot.Core.AutomaticRoles;
 /// <param name="Now">When the facts were gathered. The rule counts back from here.</param>
 /// <param name="IsModerator">The account may kick, ban or warn, or pair a companion: the Modbot moderator team.</param>
 /// <param name="CompanionRunning">One of their paired, unrevoked companions has its live connection open now.</param>
-/// <param name="ClipsReady">One of their paired companions last reported Clips on, the 10-minute setting and sending clips for their actions.</param>
+/// <param name="ClipsReady">One of their paired companions last reported Clips on, the 10-minute setting, sending clips for their actions and Discord's sound.</param>
 /// <param name="InGroupInstance">One of their paired companions is in an instance of the managed group.</param>
 /// <param name="PassedTrial">They have a staff trial that was closed.</param>
 /// <param name="DiscordRoleIds">The Discord roles they hold, empty when they have no counted Discord account.</param>

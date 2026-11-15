@@ -241,13 +241,14 @@ public class ClipLinkTests
     public void WithNoInstanceTheLiveEndpointsNameNoneAndThePollStillCarriesTheClipSettings()
     {
         var socket = Pairing.LiveSocketEndpoint(null, "7").Query;
-        var poll = Pairing.LivePollEndpoint(null, "7", 20, clips: new ClipSettingsReport(true, true, 10, true)).Query;
+        var poll = Pairing.LivePollEndpoint(null, "7", 20, clips: new ClipSettingsReport(true, true, 10, true, true)).Query;
 
         Assert.DoesNotContain("instanceId", socket, StringComparison.Ordinal);
         Assert.DoesNotContain("moderation", socket, StringComparison.Ordinal);
         Assert.DoesNotContain("instanceId", poll, StringComparison.Ordinal);
         Assert.DoesNotContain("moderation", poll, StringComparison.Ordinal);
         Assert.Contains("clipsSendForActions=true", poll, StringComparison.Ordinal);
+        Assert.Contains("clipsDiscordSound=true", poll, StringComparison.Ordinal);
         Assert.Contains("wait=20", poll, StringComparison.Ordinal);
     }
 
