@@ -67,7 +67,6 @@ internal sealed class DesktopChatWindow : Window
     private OverlayLook _look = OverlayLook.Headset;
     private bool _editMode;
     private bool _everDrawn;
-    private bool _placed;
     private bool _styled;
     private bool _passingClicks;
     private int _drawnFrame;
@@ -78,6 +77,10 @@ internal sealed class DesktopChatWindow : Window
 
     private DesktopChatSpot? _spot;
     private PixelPoint? _placedAt;
+
+    // VRChat's window as last found, and whether asking where it is has already failed (logged once).
+    private nint _vrchat;
+    private bool _followFailing;
     private (PixelPoint Pointer, double Width, double Height)? _resizing;
 
     public DesktopChatWindow(DesktopChatSpot? spot)
@@ -165,7 +168,7 @@ internal sealed class DesktopChatWindow : Window
         Paint();
     }
 
-    /// <summary>Which window it is placed beside the first time it comes up when it has no saved spot, and which screen it lands on.</summary>
+    /// <summary>Which window it is placed beside when it comes up with no saved spot, and the screen it falls back to when VRChat's cannot be found.</summary>
     public Window? Beside { get; set; }
 
     /// <summary>The X, pressed.</summary>
@@ -217,7 +220,10 @@ internal sealed class DesktopChatWindow : Window
         Draw();
     }
 
-    /// <summary>Brings the window up, at the end of the conversation, without taking the keyboard.</summary>
+    /// <summary>
+    /// Brings the window up, at the end of the conversation, without taking the keyboard. Every time
+    /// it comes up from being put away it is placed again, on a screen that exists now.
+    /// </summary>
     public void Show(ChatScreen screen)
     {
         ArgumentNullException.ThrowIfNull(screen);
@@ -228,8 +234,10 @@ internal sealed class DesktopChatWindow : Window
         if (!IsVisible)
         {
             Place();
+            WindowState = WindowState.Normal;
             Show();
             _typing.Start();
+            Serilog.Log.Information("Dictate: the chat window opened at {X},{Y}, visible: {Visible}", Position.X, Position.Y, IsVisible);
         }
 
         Draw();
@@ -440,23 +448,19 @@ internal sealed class DesktopChatWindow : Window
     }
 
     /// <summary>
-    /// Where it was left, brought onto a screen that still exists; otherwise to the left of the
-    /// window it is placed beside, and otherwise down the right-hand side of the screen.
+    /// Where it was left, if that is on a screen that still exists; otherwise on the screen VRChat's
+    /// window is on (see <see cref="ScreenToUse"/>): to the left of the window it is placed beside when
+    /// that is on the same screen, and otherwise down the right-hand side. Always inside the screen.
     /// </summary>
     private void Place()
     {
-        if (_placed)
-            return;
-
         if (_spot is { } spot && Screens.ScreenFromPoint(new PixelPoint(spot.Left, spot.Top)) is { } kept)
         {
             Put(kept.WorkingArea, spot.Left, spot.Top, (int)(Width * kept.Scaling), (int)(Height * kept.Scaling));
             return;
         }
 
-        var screen = (Beside is not null ? Screens.ScreenFromVisual(Beside) : null)
-            ?? Screens.Primary
-            ?? Screens.All.FirstOrDefault();
+        var screen = ScreenToUse();
 
         if (screen is null)
             return;
@@ -465,10 +469,42 @@ internal sealed class DesktopChatWindow : Window
         var width = (int)(Width * screen.Scaling);
         var height = (int)(Height * screen.Scaling);
 
-        if (Beside is { IsVisible: true } beside)
+        if (Beside is { IsVisible: true } beside && Screens.ScreenFromVisual(beside)?.Bounds == screen.Bounds)
             Put(area, beside.Position.X - width - EdgeMargin, beside.Position.Y, width, height);
         else
             Put(area, area.Right - width - EdgeMargin, area.Y + ((area.Height - height) / 2), width, height);
+    }
+
+    /// <summary>
+    /// The screen the window comes up on when it has no saved place: the one VRChat's window is on
+    /// while there is a VRChat window to look at, as the pop-ups do (<see cref="DesktopNotifyWindow"/>),
+    /// and otherwise the one Modbot's own window is on, then the main screen.
+    /// </summary>
+    /// <remarks>
+    /// All that is asked of VRChat is where its window is (<see cref="VRChatWindow.Look"/>). Nothing of
+    /// it is moved, resized, read or sent keys. A minimised window has no picture and does not count.
+    /// </remarks>
+    private Avalonia.Platform.Screen? ScreenToUse()
+    {
+        try
+        {
+            var look = VRChatWindow.Look(_vrchat);
+            _vrchat = look.Handle;
+
+            if (look.Window.HasPicture && Screens.ScreenFromPoint(new PixelPoint(look.CentreX, look.CentreY)) is { } onVRChat)
+                return onVRChat;
+        }
+        catch (Exception ex)
+        {
+            if (!_followFailing)
+                Serilog.Log.Warning(ex, "The chat window could not ask where VRChat's window is ({Reason}); it goes on Modbot's screen", ex.Message);
+
+            _followFailing = true;
+        }
+
+        return (Beside is not null ? Screens.ScreenFromVisual(Beside) : null)
+            ?? Screens.Primary
+            ?? Screens.All.FirstOrDefault();
     }
 
     private void Put(PixelRect area, int left, int top, int width, int height)
@@ -479,7 +515,6 @@ internal sealed class DesktopChatWindow : Window
 
         _placedAt = at;
         Position = at;
-        _placed = true;
     }
 
     /// <summary>Starts or stops watching the mouse, and lets clicks through again only when it should.</summary>
