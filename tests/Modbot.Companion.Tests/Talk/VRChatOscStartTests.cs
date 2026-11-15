@@ -18,7 +18,7 @@ public class VRChatOscStartTests
             if (condition())
                 return true;
 
-            await Task.Delay(10);
+            await Task.Delay(10, TestContext.Current.CancellationToken);
         }
 
         return condition();
