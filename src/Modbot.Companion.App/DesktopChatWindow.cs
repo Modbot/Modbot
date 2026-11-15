@@ -27,15 +27,13 @@ namespace Modbot.Companion.App;
 /// <para><strong>Its own strip.</strong> Grab it to move the window unless it is locked; the X at the
 /// top right ends the conversation and puts the headset panel away too. In edit mode the strip also
 /// has the lock and the hand, which are the desktop overlay's own two switches (one setting,
-/// <see cref="DesktopOverlaySettings"/>), and a corner grip makes the window bigger, up to twice its
-/// first size. With the hand on, clicks go through to the game everywhere but the strip and the grip.</para>
+/// <see cref="DesktopOverlaySettings"/>), and the shared resize corner (<see cref="ResizeCorner"/>) makes the window bigger, up to twice its
+/// first size, while the window is neither locked nor click-through. With the hand on, clicks go through to the game everywhere but the strip.</para>
 /// </remarks>
 internal sealed class DesktopChatWindow : Window
 {
     /// <summary>How far one click of the wheel scrolls the log, in layout pixels.</summary>
     private const double WheelStep = 48;
-
-    private const double GripSize = 22;
 
     /// <summary>The gap kept between this window and the one it is placed beside, in screen pixels.</summary>
     private const int EdgeMargin = 12;
@@ -50,7 +48,7 @@ internal sealed class DesktopChatWindow : Window
     private readonly Border _frame = new();
     private readonly Border _strip = new();
     private readonly ContentControl _log = new();
-    private readonly Border _grip = new() { Background = Brushes.Transparent, Cursor = new Cursor(StandardCursorType.BottomRightCorner) };
+    private readonly Border _grip = ResizeCorner.Create();
     private readonly Button _lockButton = DesktopOverlayWindow.SwitchButton();
     private readonly Button _throughButton = DesktopOverlayWindow.SwitchButton();
     private readonly Button _closeButton = DesktopOverlayWindow.SwitchButton();
@@ -128,9 +126,6 @@ internal sealed class DesktopChatWindow : Window
         DockPanel.SetDock(_strip, Dock.Top);
         _frame.Child = new DockPanel { Children = { _strip, _log } };
 
-        _grip.Width = _grip.Height = GripSize;
-        _grip.HorizontalAlignment = HorizontalAlignment.Right;
-        _grip.VerticalAlignment = VerticalAlignment.Bottom;
         _grip.PointerPressed += GripPressed;
         _grip.PointerMoved += GripMoved;
         _grip.PointerReleased += GripReleased;
@@ -186,7 +181,7 @@ internal sealed class DesktopChatWindow : Window
     public bool Hidden => !IsVisible;
 
     /// <summary>
-    /// Whether the strip shows the lock and the hand, and the corner grip is there. Set from the
+    /// Whether the strip shows the lock and the hand, and the resize corner is there. Set from the
     /// Edit mode switch, as for the other panels.
     /// </summary>
     public bool EditMode
@@ -387,27 +382,12 @@ internal sealed class DesktopChatWindow : Window
         }
     }
 
-    /// <summary>The lock, the hand and the grip, only in edit mode; the grip only while the window is not locked.</summary>
+    /// <summary>The lock, the hand and the corner, only in edit mode; the corner only while the window is neither locked nor click-through.</summary>
     private void PaintEdit()
     {
         _switches.IsVisible = _editMode;
-        _grip.IsVisible = _editMode && !_settings.Locked;
-        _grip.Child = _grip.IsVisible ? Grip() : null;
-    }
-
-    /// <summary>Two short diagonal strokes in the bottom right corner.</summary>
-    private Control Grip()
-    {
-        IBrush ink = _look.VRChat?.Icon ?? Ui.T.TextDimBrush;
-
-        return new Avalonia.Controls.Shapes.Path
-        {
-            Data = Geometry.Parse("M16,6 L6,16 M16,11 L11,16"),
-            Stroke = ink,
-            StrokeThickness = 2,
-            StrokeLineCap = PenLineCap.Round,
-            Margin = new Thickness(0, 0, 3, 3),
-        };
+        _grip.IsVisible = _editMode && !_settings.Locked && !_settings.ClickThrough;
+        ResizeCorner.Ink(_grip, _look.VRChat?.Icon ?? Ui.T.TextDimBrush);
     }
 
     private void GripPressed(object? sender, PointerPressedEventArgs e)
@@ -516,15 +496,13 @@ internal sealed class DesktopChatWindow : Window
         PassClicks(false);
     }
 
-    /// <summary>Clicks go through everywhere but the strip and the grip: over those the window takes them.</summary>
+    /// <summary>Clicks go through everywhere but the strip: over it the window takes them (the corner is not shown while click-through).</summary>
     private void WatchTheMouse()
     {
         if (!GetCursorPos(out var mouse))
             return;
 
-        var overIt = Over(_strip, mouse) || (_grip.IsVisible && Over(_grip, mouse));
-
-        PassClicks(!overIt);
+        PassClicks(!Over(_strip, mouse));
     }
 
     private static bool Over(Control control, MousePoint mouse)
