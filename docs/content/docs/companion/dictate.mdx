@@ -9,25 +9,32 @@ monitor it works the same way from the [desktop overlay](#on-the-desktop).
 
 ## Using it
 
-1. Tap **Dictate** on the small button panel, under **Hide** or **Show**. The microphone picture moves
-   and the button reads **Listening**.
+1. Tap **Dictate** on the small button panel, under **Hide** or **Show**. The button reads
+   **Listening** and a row of bars rises and falls with your voice.
 2. Say your question.
-3. Tap the button again. It reads **Writing** while your words are written out as text.
-4. Your words are sent to AI Chat, and the answer appears in the **Chat** panel as it is written.
+3. Tap the button again. It reads **Writing** while your words are written out as text, then
+   **Sending** while they go to AI Chat.
+4. The **Chat** panel opens as soon as your words are sent. It shows them with **Waiting for an
+   answer** under them, and the answer appears there as it is written. The button goes back to
+   **Dictate**.
 
 To ask a follow-up, tap **Dictate** again. The new question goes into the same conversation.
 
 The conversation is the same one you see on the website's [Chat page](/ai/chat), so you can carry on
 there with a keyboard, or read it again later.
 
-If nothing was said, or nothing could be made out, nothing is sent and the button goes back to
-**Dictate**.
+If nothing was said, or nothing could be made out, nothing is sent and the button says **Nothing heard**
+for a few seconds, then goes back to **Dictate**.
+
+When something fails the button says so for a few seconds: **Could not listen**, **Could not write**,
+**Could not get ready** or **Could not send**. A failed send also shows its reason in the Chat panel.
 
 ## On the desktop
 
 The [desktop overlay](/companion/settings#desktop-overlay) has a **Dictate** button in the strip along
 its top, next to **Close**. It works the way the headset button does: click it, say your question,
-click it again. The answer shows in a Chat panel next to the overlay.
+click it again. The button shows the same words, **Listening**, **Writing**, **Sending**, and the same
+bars. The answer shows in a Chat window.
 
 You can also start and stop Dictate with a key, which is useful while VRChat has the keyboard. The
 key is set in the app's **Settings**, on the **Desktop overlay** card, in the **Dictate** row: press
@@ -59,15 +66,17 @@ same way as the other panels:
 In the headset, where you put it is remembered, and two quick grips send it back to its own spot. See
 [the bar under the panel](/companion/overlay#the-bar-under-the-panel) for what the buttons do.
 
-On the desktop the Chat panel is its own window beside the overlay. Drag its top strip to move it and
+On the desktop the Chat panel is its own window. It opens on the screen VRChat is on, in front of it,
+and never off the screen. Drag its top strip to move it and
 its bottom-right corner to resize it. The **Lock** and the **Hand** are in the strip when **Edit mode**
 is on, the same switch as for the other panels. Its place and size are remembered, and the **X**
 closes it until the next time Dictate has an answer to show.
 
 ## The first time
 
-The first tap downloads a speech model of about 108 MB, once. The button shows how much has come.
-When it is done the button goes back to **Dictate**, and you tap it again to start speaking, so you
+The first tap downloads a speech model of about 108 MB, once. The button reads **Getting ready** with
+how much has come, as a percentage. Nothing you say is heard until it is done. When it is done the
+button says **Ready**, then goes back to **Dictate**, and you tap it again to start speaking, so you
 are never recorded the moment a download ends.
 
 Dictate understands English only.

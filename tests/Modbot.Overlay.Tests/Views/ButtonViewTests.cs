@@ -241,6 +241,9 @@ public class ButtonViewTests
         Assert.Equal("Dictate", shown.WithDictate(DictationState.Idle, 0).DictateLabel);
         Assert.Equal("Listening", shown.WithDictate(DictationState.Listening, 0).DictateLabel);
         Assert.Equal("Writing", shown.WithDictate(DictationState.Writing, 0).DictateLabel);
+        Assert.Equal("Sending", shown.WithDictate(DictationState.Sending, 0).DictateLabel);
+        Assert.Equal("Nothing heard", shown.WithDictate(DictationState.Idle, 0, 0, "Nothing heard").DictateLabel);
+        Assert.Equal("Listening", shown.WithDictate(DictationState.Listening, 0, 5, "Nothing heard").DictateLabel);
         Assert.Equal("Getting ready", shown.WithDictate(DictationState.Preparing, 7).DictateLabel);
 
         Assert.Equal("7%", shown.WithDictate(DictationState.Preparing, 7).DictatePercent);
@@ -253,6 +256,7 @@ public class ButtonViewTests
     [InlineData(DictateState.Idle, false, "Dictate")]
     [InlineData(DictateState.Listening, true, "Listening")]
     [InlineData(DictateState.Writing, false, "Writing")]
+    [InlineData(DictateState.Sending, true, "Sending")]
     [InlineData(DictateState.GettingReady, true, "Getting ready")]
     public void WithDictateOnTheCardHasTwoRowsToPointAtAndTheirWordsFit(DictateState state, bool headset, string label)
     {

@@ -34,6 +34,33 @@ public class ChatSessionTests
     }
 
     [Fact]
+    public async Task AClientThatThrowsLeavesAnErrorLineInsteadOfTheTypingDots()
+    {
+        var session = new ChatSession(new ThrowingClient(), () => Pairing);
+
+        await session.AskAsync("hello");
+
+        Assert.Equal(ChatLineState.Error, session.Lines[1].State);
+        Assert.False(session.Busy);
+    }
+
+    [Fact]
+    public async Task TheLogNamesEachStepAndNeverTheWords()
+    {
+        var client = new FakeClient { Immediate = new ChatSendResult(null, Guid.NewGuid()) };
+        var lines = new List<string>();
+        var session = new ChatSession(client, () => Pairing, (line, _) => lines.Add(line));
+        var started = 0;
+        session.AnswerStarted += _ => started++;
+
+        await session.AskAsync("a secret question");
+
+        Assert.NotEmpty(lines);
+        Assert.DoesNotContain(lines, l => l.Contains("secret", StringComparison.Ordinal));
+        Assert.Equal(1, started);
+    }
+
+    [Fact]
     public async Task ASecondMessageWhileOpenGoesIntoTheSameConversation()
     {
         var client = new FakeClient { Immediate = new ChatSendResult(null, Guid.NewGuid()) };
@@ -179,6 +206,16 @@ public class ChatSessionTests
         Assert.False(availability.Available);
 
         Assert.Equal(4, changes);
+    }
+
+    private sealed class ThrowingClient : IChatClient
+    {
+        public Task<bool?> GetAvailableAsync(ServerPairing pairing, CancellationToken cancellationToken)
+            => Task.FromResult<bool?>(true);
+
+        public Task<ChatSendResult> SendAsync(
+            ServerPairing pairing, string text, Guid? conversationId, Action<string> onAnswer, CancellationToken cancellationToken)
+            => throw new InvalidOperationException("boom");
     }
 
     private sealed class FakeClient : IChatClient

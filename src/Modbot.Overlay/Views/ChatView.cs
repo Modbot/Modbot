@@ -80,7 +80,7 @@ public static class ChatView
 
         return line.State switch
         {
-            ChatLineState.Typing => Bubble(Dots(frame, t), t.Surface2Brush, HorizontalAlignment.Left, t),
+            ChatLineState.Typing => Bubble(Waiting(frame, t), t.Surface2Brush, HorizontalAlignment.Left, t),
             ChatLineState.Error => Words(line.Text, t.DangerBrush, t),
             _ => Bubble(Words(line.Text, t.TextBrush, t), t.Surface2Brush, HorizontalAlignment.Left, t),
         };
@@ -104,6 +104,18 @@ public static class ChatView
         Foreground = brush,
         TextWrapping = TextWrapping.Wrap,
     };
+
+    /// <summary>The dots with their label.</summary>
+    private static StackPanel Waiting(int frame, DesignTokens t)
+    {
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        row.Children.Add(Dots(frame, t));
+        var label = Words("Waiting for an answer", t.TextFaintBrush, t);
+        label.TextWrapping = TextWrapping.NoWrap;
+        label.VerticalAlignment = VerticalAlignment.Center;
+        row.Children.Add(label);
+        return row;
+    }
 
     /// <summary>Three dots, each lit in its turn.</summary>
     private static StackPanel Dots(int frame, DesignTokens t)

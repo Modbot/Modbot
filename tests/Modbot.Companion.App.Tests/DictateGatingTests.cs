@@ -44,6 +44,8 @@ public class DictateGatingTests
             remove { }
         }
 
+        public float Level => 0;
+
         public string? Start() => null;
 
         public float[] Stop() => [];

@@ -32,6 +32,8 @@ public class DictationControllerTests
         await rig.Controller.WhenSettled;
 
         Assert.Equal(["hello there"], said);
+        Assert.Equal(DictationState.Sending, rig.Controller.State);
+        rig.Controller.SendEnded(null);
         Assert.Equal(DictationState.Idle, rig.Controller.State);
         Assert.Null(rig.Controller.Problem);
         Assert.Equal(1, rig.Recorder.Stops);
@@ -52,6 +54,51 @@ public class DictationControllerTests
         Assert.Equal(0, rig.Recognizer.Calls);
         Assert.Equal(DictationState.Idle, rig.Controller.State);
     }
+
+    [Fact]
+    public async Task ARecordingNobodySpokeInLeavesTheNoticeNothingHeard()
+    {
+        var rig = new Rig { Recorder = { Heard = Silence } };
+
+        rig.Controller.Toggle();
+        rig.Controller.Toggle();
+        await rig.Controller.WhenSettled;
+
+        Assert.Equal("Nothing heard", rig.Controller.Notice);
+    }
+
+    [Fact]
+    public async Task ASendThatFailsLeavesTheNoticeCouldNotSendAndGoesBackToIdle()
+    {
+        var rig = new Rig { Recorder = { Heard = Speech }, Recognizer = { Says = "hello" } };
+
+        rig.Controller.Toggle();
+        rig.Controller.Toggle();
+        await rig.Controller.WhenSettled;
+        rig.Controller.SendEnded("The server could not be reached");
+
+        Assert.Equal(DictationState.Idle, rig.Controller.State);
+        Assert.Equal("Could not send", rig.Controller.Notice);
+    }
+
+    [Fact]
+    public async Task ATapWhileSendingActsLikeIdleAndStartsListening()
+    {
+        var rig = new Rig { Recorder = { Heard = Speech }, Recognizer = { Says = "hello" } };
+
+        rig.Controller.Toggle();
+        rig.Controller.Toggle();
+        await rig.Controller.WhenSettled;
+        rig.Controller.Toggle();
+
+        Assert.Equal(DictationState.Listening, rig.Controller.State);
+    }
+
+    [Theory]
+    [InlineData(0f, 0)]
+    [InlineData(1f, DictationController.LevelSteps)]
+    public void TheLevelStepRunsFromSilenceToFull(float peak, int step) =>
+        Assert.Equal(step, DictationController.StepOf(peak));
 
     [Fact]
     public async Task ARecordingTheEngineHeardNothingInSendsNothing()
@@ -240,6 +287,8 @@ public class DictationControllerTests
         public event Action? LimitReached;
 
         public float[] Heard { get; set; } = [];
+
+        public float Level => 0;
 
         public string? StartProblem { get; set; }
 

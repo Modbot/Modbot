@@ -736,7 +736,7 @@ public class ButtonHostTests
         {
             var (host, _) = Build();
             using var button = host;
-            host.Update(ButtonScreen.Shown with { Dictate = DictateState.Listening });
+            host.Update(ButtonScreen.Shown with { Dictate = DictateState.Writing });
             var drawn = host.FramesDrawn;
 
             host.PollInput(At(0));

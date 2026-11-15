@@ -76,6 +76,8 @@ public class DictationToChatTests
 
     private sealed class Recorder : IDictationRecorder
     {
+        public float Level => 0;
+
         private static readonly float[] Speech = Enumerable.Repeat(0.3f, 16_000).ToArray();
 
         public event Action? LimitReached
