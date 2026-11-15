@@ -441,8 +441,12 @@ pixels: the work area rather than the whole screen, so it does not sit on the ta
 margin applied on every side so it never touches an edge. It is plain integers and no window, which
 is what lets "which corner lands where" be tested without a screen.
 
-The monitor is the one **Modbot's own window is on**, worked out again each time the window is
-shown — the same rule, and the same reason, as §3.2. The window is as tall as what is in it, so its
+The monitor is the one **VRChat's window is on** while there is a VRChat window to look at (found
+the way the main panel finds it, one question to Windows about where it is, never anything of
+VRChat's changed or read), because that is where the moderator is looking; the window follows VRChat
+to another screen while it is up (changed 2026-11-14). With no VRChat window it is the one
+**Modbot's own window is on**, worked out again each time the window is shown — the same rule, and
+the same reason, as §3.2. The window is as tall as what is in it, so its
 position is worked out again whenever that changes; otherwise a bottom corner would drift as cards
 come and go.
 

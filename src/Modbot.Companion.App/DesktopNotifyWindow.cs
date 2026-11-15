@@ -31,7 +31,10 @@ namespace Modbot.Companion.App;
 /// activated, so VRChat keeps the keyboard, and it is click-through again the moment the prompt is
 /// answered (update checking design §10).</para>
 /// <para><strong>It sits where it was put.</strong> One of the six corners from settings, on the
-/// screen Modbot's own window is on. It is not dragged, and nothing it shows can move it.</para>
+/// screen VRChat's window is on while there is one, so it is where the moderator is looking, and
+/// otherwise on the screen Modbot's own window is on. It follows VRChat's window from screen to
+/// screen while it is up. It is not dragged, and nothing it shows can move it. All it asks of
+/// VRChat's window is where it is.</para>
 /// <para><strong>It can be made bigger.</strong> In edit mode, while pop-ups are up, a corner at the
 /// bottom right takes the mouse (the rest of the window still lets it through) and drags the window
 /// up to twice its ordinary size. The text keeps its size; the extra room is room for more
@@ -97,6 +100,12 @@ internal sealed class DesktopNotifyWindow : Window
     private readonly DispatcherTimer _cornerWatch = new() { Interval = TimeSpan.FromMilliseconds(50) };
     private (PixelPoint Pointer, double Width, double Height)? _resizing;
     private bool _editMode;
+
+    // The screen it was last placed on, and the VRChat window it asks about to choose one.
+    private readonly DispatcherTimer _followWatch = new() { Interval = TimeSpan.FromMilliseconds(250) };
+    private nint _vrchat;
+    private PixelRect _placedOn;
+    private bool _followFailing;
     private double _wide = 1;
     private double _tall = 1;
 
@@ -125,6 +134,7 @@ internal sealed class DesktopNotifyWindow : Window
         _corner.PointerMoved += CornerMoved;
         _corner.PointerReleased += CornerReleased;
         _cornerWatch.Tick += (_, _) => WatchTheCorner();
+        _followWatch.Tick += (_, _) => FollowVRChat();
         PaintCorner();
 
         Content = new Grid { Children = { _cards, _corner } };
@@ -179,7 +189,8 @@ internal sealed class DesktopNotifyWindow : Window
 
     /// <summary>
     /// Which visual the window is placed beside, so it lands on the monitor Modbot's own window is
-    /// on. Null puts it on the main screen.
+    /// on when there is no VRChat window to follow (<see cref="ScreenToUse"/>). Null puts it on the
+    /// main screen.
     /// </summary>
     public Visual? PlaceNear { get; set; }
 
@@ -272,6 +283,7 @@ internal sealed class DesktopNotifyWindow : Window
 
         ApplySize();
         WatchTheCornerWhileNeeded();
+        FollowVRChatWhileUp();
         return true;
     }
 
@@ -294,6 +306,7 @@ internal sealed class DesktopNotifyWindow : Window
         }
 
         _cornerWatch.Stop();
+        _followWatch.Stop();
         SetOverCorner(false);
 
         if (IsVisible)
@@ -301,7 +314,59 @@ internal sealed class DesktopNotifyWindow : Window
     }
 
     /// <summary>
-    /// Puts the window in its corner of the work area, on the screen Modbot's own window is on.
+    /// The screen the pop-ups go on: the one VRChat's window is on while there is a VRChat window
+    /// to look at, so they are where the moderator is looking, and otherwise the one Modbot's own
+    /// window is on, then the main screen.
+    /// </summary>
+    /// <remarks>
+    /// All that is asked of VRChat is where its window is (<see cref="VRChatWindow.Look"/>, the
+    /// same question the desktop overlay asks). Nothing of it is moved, resized, read or sent keys.
+    /// A minimised window has no picture and does not count: it is not a screen anybody is looking at.
+    /// </remarks>
+    private Avalonia.Platform.Screen? ScreenToUse()
+    {
+        try
+        {
+            var look = VRChatWindow.Look(_vrchat);
+            _vrchat = look.Handle;
+
+            if (look.Window.HasPicture && Screens.ScreenFromPoint(new PixelPoint(look.CentreX, look.CentreY)) is { } onVRChat)
+                return onVRChat;
+        }
+        catch (Exception ex)
+        {
+            if (!_followFailing)
+                Serilog.Log.Warning(ex, "The pop-ups could not ask where VRChat's window is ({Reason}); they go on Modbot's screen", ex.Message);
+
+            _followFailing = true;
+        }
+
+        return (PlaceNear is not null ? Screens.ScreenFromVisual(PlaceNear) : null)
+            ?? Screens.Primary
+            ?? Screens.All.FirstOrDefault();
+    }
+
+    /// <summary>
+    /// One tick of the follow watch: when VRChat's window has gone to another screen (or come back,
+    /// or gone), the pop-ups go with it.
+    /// </summary>
+    private void FollowVRChat()
+    {
+        if (ScreenToUse() is { } screen && screen.Bounds != _placedOn)
+            Place();
+    }
+
+    /// <summary>Watches for VRChat changing screen, only while the window is up.</summary>
+    private void FollowVRChatWhileUp()
+    {
+        if (IsVisible && OperatingSystem.IsWindows())
+            _followWatch.Start();
+        else
+            _followWatch.Stop();
+    }
+
+    /// <summary>
+    /// Puts the window in its corner of the work area of <see cref="ScreenToUse"/>'s screen.
     /// </summary>
     /// <remarks>
     /// The work area rather than the whole screen, so it does not sit on the taskbar. Which corner
@@ -314,12 +379,12 @@ internal sealed class DesktopNotifyWindow : Window
         if (!IsVisible)
             return;
 
-        var screen = (PlaceNear is not null ? Screens.ScreenFromVisual(PlaceNear) : null)
-            ?? Screens.Primary
-            ?? Screens.All.FirstOrDefault();
+        var screen = ScreenToUse();
 
         if (screen is null)
             return;
+
+        _placedOn = screen.Bounds;
 
         var area = screen.WorkingArea;
         var scaling = screen.Scaling <= 0 ? 1 : screen.Scaling;
