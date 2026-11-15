@@ -311,4 +311,132 @@ public class ListScrollTests
         scroll.Release(At(205));
         Assert.False(scroll.Flinging);
     }
+
+    [Fact]
+    public void GlideByAddsUpNotchesAndHoldsThemInsideTheEnds()
+    {
+        var scroll = new ListScroll();
+
+        scroll.GlideBy(100, Max);
+        scroll.GlideBy(100, Max);
+        Assert.Equal(200, scroll.Goal);
+        Assert.True(scroll.Gliding);
+        Assert.Equal(0, scroll.Offset);
+
+        scroll.GlideBy(5000, Max);
+        Assert.Equal(Max, scroll.Goal);
+
+        scroll.GlideBy(-9000, Max);
+        Assert.Equal(0, scroll.Goal);
+    }
+
+    [Fact]
+    public void AGlideMovesTowardsItsGoalAndNeverPastIt()
+    {
+        var scroll = new ListScroll();
+        scroll.GlideBy(300, Max);
+
+        var last = 0.0;
+        for (var i = 0; i < 200 && scroll.Gliding; i++)
+        {
+            Assert.True(scroll.Glide(0.016));
+            Assert.InRange(scroll.Offset, last, 300);
+            last = scroll.Offset;
+        }
+
+        Assert.False(scroll.Gliding);
+        Assert.Equal(300, scroll.Offset);
+    }
+
+    [Fact]
+    public void AGlideUpStopsExactlyAtTheTop()
+    {
+        var scroll = new ListScroll();
+        scroll.Drag(400, Max, At(10));
+        scroll.GlideBy(-1000, Max);
+
+        while (scroll.Gliding)
+            scroll.Glide(0.016);
+
+        Assert.Equal(0, scroll.Offset);
+    }
+
+    [Fact]
+    public void AGlideDownStopsExactlyAtTheEnd()
+    {
+        var scroll = new ListScroll();
+        scroll.GlideBy(5000, Max);
+
+        while (scroll.Gliding)
+            scroll.Glide(0.016);
+
+        Assert.Equal(Max, scroll.Offset);
+    }
+
+    [Theory]
+    [InlineData(0.004)]
+    [InlineData(0.016)]
+    [InlineData(0.032)]
+    public void AGlideCoversTheSameDistanceInTheSameTimeWhateverTheLengthOfItsSteps(double step)
+    {
+        var scroll = new ListScroll();
+        scroll.GlideBy(400, Max);
+
+        // 0.128 s is a whole number of steps of each length.
+        for (var i = 0; i < Math.Round(0.128 / step); i++)
+            scroll.Glide(step);
+
+        var expected = 400 * (1 - Math.Exp(-0.128 / ListScroll.GlideTime));
+        Assert.Equal(expected, scroll.Offset, 1);
+    }
+
+    [Fact]
+    public void ATouchOrAResetStopsAGlideWhereItIs()
+    {
+        var scroll = new ListScroll();
+        scroll.GlideBy(400, Max);
+        scroll.Glide(0.05);
+        var where = scroll.Offset;
+
+        scroll.Touch();
+
+        Assert.False(scroll.Gliding);
+        Assert.False(scroll.Glide(0.05));
+        Assert.Equal(where, scroll.Offset);
+
+        scroll.GlideBy(400, Max);
+        scroll.Reset();
+
+        Assert.False(scroll.Gliding);
+        Assert.Equal(0, scroll.Offset);
+    }
+
+    [Fact]
+    public void ADragAStickAndAnEndStopAGlide()
+    {
+        var scroll = new ListScroll();
+
+        scroll.GlideBy(400, Max);
+        scroll.Drag(10, Max, At(10));
+        Assert.False(scroll.Gliding);
+
+        scroll.GlideBy(400, Max);
+        scroll.Push(1, 0.1, Max);
+        Assert.False(scroll.Gliding);
+
+        scroll.GlideBy(400, Max);
+        scroll.ToEnd(Max);
+        Assert.False(scroll.Gliding);
+    }
+
+    [Fact]
+    public void ClampBringsAGoalBackInsideAListThatGotShorter()
+    {
+        var scroll = new ListScroll();
+        scroll.GlideBy(800, Max);
+
+        scroll.Clamp(300);
+
+        Assert.Equal(300, scroll.Goal);
+    }
 }
