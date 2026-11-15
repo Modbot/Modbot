@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.VisualTree;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Presentation;
 using Modbot.Overlay.Interaction;
@@ -453,8 +454,41 @@ public class VRChatPeopleRowsTests
         Assert.Equal(3, cards.Count);
         Assert.All(cards, card => Assert.Equal(cards[0].Bounds.Height, card.Bounds.Height));
         Assert.Equal(cards[1].Bounds.Top - cards[0].Bounds.Bottom, cards[2].Bounds.Top - cards[1].Bounds.Bottom, 0.5);
-        Assert.InRange(cards[1].Bounds.Top - cards[0].Bounds.Bottom, 6, 8);
-        Assert.InRange(cards[0].Bounds.Height, 60, 80);
+        Assert.InRange(cards[1].Bounds.Top - cards[0].Bounds.Bottom, 3, 5);
+        Assert.InRange(cards[0].Bounds.Height, 38, 42);
+    }
+
+    [Fact]
+    public void ACardIsOneLineWithTheTimeAtTheEndAndThePlusInsideIt()
+    {
+        var kai = Kai with { TrustRank = Modbot.Core.Users.TrustRank.KnownUser, EighteenPlus = true };
+        var screen = Screen([kai, Jo]) with
+        {
+            ModeratorArrived = Now.AddMinutes(-5),
+            Arrivals = new Dictionary<string, DateTimeOffset?> { ["usr_Kai"] = null, ["usr_Jo"] = Now.AddMinutes(-3) },
+        };
+
+        var (card, name, time, plus) = Draw(screen, root =>
+        {
+            var placed = OverlayTargets.Find(root);
+            var card = placed.Single(p => p.Target is OverlayTarget.Person { SubjectId: "usr_Kai" }).Bounds;
+            var plus = placed.Single(p => p.Target is OverlayTarget.AddHeadsUp { SubjectId: "usr_Kai" }).Bounds;
+
+            Rect Of(string text)
+            {
+                var block = root.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == text);
+                return new Rect(block.TranslatePoint(new Point(0, 0), root) ?? default, block.Bounds.Size);
+            }
+
+            return (card, Of("Kai"), Of("(here before you) ~5m+"), plus);
+        });
+
+        Assert.InRange(card.Height, 38, 42);
+        Assert.True(card.Contains(name) && card.Contains(time) && card.Contains(plus), "Something is outside the card.");
+        Assert.True(name.Right <= time.Left + 0.5, "The time is not after the name.");
+        Assert.True(time.Right <= plus.Left + 0.5, "The time is not before the plus.");
+        Assert.True(Math.Abs(name.Center.Y - time.Center.Y) < 3, "The time is not on the name's line.");
+        Assert.InRange(plus.Height, 30, 40);
     }
 
     [Theory]

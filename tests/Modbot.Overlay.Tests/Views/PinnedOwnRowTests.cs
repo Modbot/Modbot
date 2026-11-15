@@ -125,7 +125,7 @@ public class PinnedOwnRowTests
     [Fact]
     public void AWheelNotchIsRowsOfTheLooksOwnPitch()
     {
-        Assert.Equal(68 + 7, OverlayView.RowPitch(VRChatLook()));
+        Assert.Equal(40 + 4, OverlayView.RowPitch(VRChatLook()));
         Assert.Equal(40 + 4, OverlayView.RowPitch(OverlayLook.Headset));
     }
 

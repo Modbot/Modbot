@@ -181,12 +181,15 @@ public sealed partial class OverlayView
         return list.Offset;
     }
 
-    /// <summary>How far one row of a list is from the next, in layout pixels: a row and the gap under it.</summary>
+    /// <summary>
+    /// How far one row of a list is from the next, in layout pixels: a row and the gap under it. The Instance
+    /// list's row, the one a wheel notch is counted in; the Audit Log's cards are taller.
+    /// </summary>
     public static double RowPitch(OverlayLook look)
     {
         ArgumentNullException.ThrowIfNull(look);
 
-        return look.VRChat is null ? 40 + 4 : CardHeight + CardGap;
+        return look.VRChat is null ? 40 + 4 : RosterCardHeight + RosterCardGap;
     }
 
     private Control Draw(OverlayScreen screen, Func<string?, IImage?>? icon)
@@ -1411,10 +1414,10 @@ public sealed partial class OverlayView
 
     private Control RosterPanel(OverlayScreen screen)
     {
-        var rows = new StackPanel { Spacing = RowGap };
+        var rows = new StackPanel { Spacing = RosterGap };
 
         // The people go in a list of their own, under the heading, when the headset scrolls it by pixels.
-        var list = Scrolled ? new StackPanel { Spacing = RowGap } : rows;
+        var list = Scrolled ? new StackPanel { Spacing = RosterGap } : rows;
 
         // Who is here: only the people present. The rows of people who just left are drawn among
         // them, greyed, and are never part of the count.
@@ -1963,7 +1966,7 @@ public sealed partial class OverlayView
 
     /// <summary>
     /// How tall one roster or events row of the headset's look is, and one heads-up in either look, in
-    /// panel pixels. The desktop window's people rows are cards of <see cref="CardHeight"/>.
+    /// panel pixels. The desktop window's Instance rows are cards of <see cref="RosterCardHeight"/>.
     /// </summary>
     /// <remarks>
     /// Tighter than the density's row height, which left more air than name between two rows.
@@ -1975,6 +1978,9 @@ public sealed partial class OverlayView
 
     /// <summary>The gap between two rows' boxes.</summary>
     private double RowGap => V is null ? 4 : CardGap;
+
+    /// <summary>The gap between two cards of the Instance list.</summary>
+    private double RosterGap => V is null ? 4 : RosterCardGap;
 
     /// <summary>
     /// One row of a list in the headset's look: a box that opens a person's card when

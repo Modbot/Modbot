@@ -34,8 +34,23 @@ public sealed partial class OverlayView
     /// <summary>The gap between two cards.</summary>
     private const double CardGap = 7;
 
-    /// <summary>How wide and tall the square button at the end of a card is.</summary>
-    private const double SquareButton = 40;
+    /// <summary>
+    /// How tall a person's card on the Instance list is: one line, so about twice as many people fit. As tall
+    /// as a headset row, which a controller's ray lands on easily.
+    /// </summary>
+    private const double RosterCardHeight = 40;
+
+    /// <summary>The gap between two cards on the Instance list.</summary>
+    private const double RosterCardGap = 4;
+
+    /// <summary>How big the picture on the Instance list's one-line card is, in panel pixels.</summary>
+    private const double RosterAvatarSize = 30;
+
+    /// <summary>How wide and tall the square "+" at the end of an Instance list card is.</summary>
+    private const double SquareButton = 32;
+
+    /// <summary>The most room the words at the end of an Instance list card (how long somebody has been here) may take.</summary>
+    private const double RosterEndWords = 190;
 
     /// <summary>The picture address of each person a screen carries one for, by their id.</summary>
     private static Dictionary<string, string> PicturesOn(OverlayScreen screen)
@@ -205,8 +220,8 @@ public sealed partial class OverlayView
     }
 
     /// <summary>
-    /// One person on the Instance list: their picture, their name in bold with their marks at the end
-    /// of the line, and under it when they came, or the "Left" tag and the seconds the card has left.
+    /// One person on the Instance list, on one line: their picture, their name in bold with their marks
+    /// after it, then when they came at the end, or the "Left" tag and the seconds the card has left.
     /// </summary>
     /// <param name="joined">How long they have been here, in words, or null when it is not known.</param>
     /// <param name="headsUp">The kind of heads-up standing on this person, or null.</param>
@@ -233,9 +248,9 @@ public sealed partial class OverlayView
             marks.Add(HeadsUpChip(HeadsUpRules.Name(kind)));
 
         var top = NameLine(member.DisplayName ?? member.SubjectId, banner ? v.BannerText : v.Text, marks);
-        var avatar = VRChatAvatar(member.SubjectId, StandingDot(member, 14));
+        var avatar = VRChatAvatar(member.SubjectId, StandingDot(member, 11), RosterAvatarSize);
 
-        Control? under = null;
+        Control? end = null;
 
         if (secondsLeft is { } seconds)
         {
@@ -247,14 +262,16 @@ public sealed partial class OverlayView
             var countdown = Text(seconds + "s", T.Density.TextSmall, v.Text, FontWeight.Bold);
             countdown.VerticalAlignment = VerticalAlignment.Center;
 
-            under = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { LeftChip(), countdown } };
+            end = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { LeftChip(), countdown } };
         }
         else if (joined is not null)
         {
-            under = SubLine(joined, banner);
+            end = SubLine(joined, banner);
+            end.VerticalAlignment = VerticalAlignment.Center;
+            end.MaxWidth = RosterEndWords;
         }
 
-        return VRChatCard(avatar, top, under, null, canAdd ? AddHeadsUpPress(member.SubjectId) : null, member.SubjectId, banner);
+        return VRChatCard(avatar, top, null, end, canAdd ? AddHeadsUpPress(member.SubjectId) : null, member.SubjectId, banner, oneLine: true);
     }
 
     /// <summary>
@@ -431,7 +448,8 @@ public sealed partial class OverlayView
     /// <param name="subjectId">Whose card a press opens, or null when there is nobody to open.</param>
     /// <param name="banner">Drawn as the moderator's own: in the highlights colour.</param>
     /// <param name="framed">Has the edge although there is no one to open.</param>
-    private Control VRChatCard(Control? avatar, Control top, Control? under, Control? trailing, Control? press, string? subjectId, bool banner, bool framed = false)
+    /// <param name="oneLine">The Instance list's card: everything on one line, so it is shorter and no line goes under the name.</param>
+    private Control VRChatCard(Control? avatar, Control top, Control? under, Control? trailing, Control? press, string? subjectId, bool banner, bool framed = false, bool oneLine = false)
     {
         var v = V!;
 
@@ -445,7 +463,7 @@ public sealed partial class OverlayView
 
         if (avatar is not null)
         {
-            avatar.Margin = new Thickness(0, 0, 12, 0);
+            avatar.Margin = new Thickness(0, 0, oneLine ? 10 : 12, 0);
             Grid.SetColumn(avatar, 0);
             grid.Children.Add(avatar);
         }
@@ -469,8 +487,8 @@ public sealed partial class OverlayView
 
         var card = new Border
         {
-            Height = CardHeight,
-            Padding = new Thickness(10, 0),
+            Height = oneLine ? RosterCardHeight : CardHeight,
+            Padding = new Thickness(oneLine ? 8 : 10, 0),
             CornerRadius = new CornerRadius(VRChatLook.CardRadius),
             Child = grid,
         };
@@ -505,7 +523,7 @@ public sealed partial class OverlayView
     /// address (somebody in an instance no group owns, or whom the server holds no picture of), and
     /// when it will not load.
     /// </remarks>
-    private Control VRChatAvatar(string? subjectId, Ellipse? standing)
+    private Control VRChatAvatar(string? subjectId, Ellipse? standing, double size = AvatarSize)
     {
         var v = V!;
 
@@ -514,11 +532,11 @@ public sealed partial class OverlayView
             : null;
 
         Control face = picture is not null
-            ? new Image { Source = picture, Stretch = Stretch.UniformToFill, Width = AvatarSize, Height = AvatarSize }
+            ? new Image { Source = picture, Stretch = Stretch.UniformToFill, Width = size, Height = size }
             : new Viewbox
             {
-                Width = AvatarSize * 0.62,
-                Height = AvatarSize * 0.62,
+                Width = size * 0.62,
+                Height = size * 0.62,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
                 Child = new Avalonia.Controls.Shapes.Path
@@ -540,8 +558,8 @@ public sealed partial class OverlayView
 
         var grid = new Grid
         {
-            Width = AvatarSize,
-            Height = AvatarSize,
+            Width = size,
+            Height = size,
             VerticalAlignment = VerticalAlignment.Center,
             Children = { square },
         };
