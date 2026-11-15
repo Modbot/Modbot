@@ -77,8 +77,9 @@ public class SharedOverlayTests
     {
         var texts = AvaloniaTestHost.Run(() => Texts(OverlayView.Build(Instance(), null, VRChatLook())));
 
-        // Jo's row says it, Kai's own row does not.
-        Assert.Single(texts, t => t is not null && t.Contains("here before you", StringComparison.Ordinal));
+        // Jo's row gives the time they have been here at least, Kai's own row gives none; no row has the words.
+        Assert.Single(texts, t => t == "~1h 4m+");
+        Assert.DoesNotContain(texts, t => t is not null && t.Contains("here before you", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -86,7 +87,7 @@ public class SharedOverlayTests
     {
         var texts = AvaloniaTestHost.Run(() => Texts(OverlayView.Build(Instance(moderatorId: null), null, VRChatLook())));
 
-        Assert.Equal(2, texts.Count(t => t is not null && t.Contains("here before you", StringComparison.Ordinal)));
+        Assert.Equal(2, texts.Count(t => t == "~1h 4m+"));
     }
 
     [Fact]

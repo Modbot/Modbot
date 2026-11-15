@@ -209,11 +209,11 @@ public class ListFilteringTests
     }
 
     [Theory]
-    [InlineData(5.0, "(here before you) ~5m+")]
-    [InlineData(59.0, "(here before you) ~59m+")]
-    [InlineData(60.0, "(here before you) ~1hr 0m+")]
-    [InlineData(64.0, "(here before you) ~1hr 4m+")]
-    [InlineData(135.0, "(here before you) ~2hr 15m+")]
+    [InlineData(5.0, "~5m+")]
+    [InlineData(59.0, "~59m+")]
+    [InlineData(60.0, "~1h 0m+")]
+    [InlineData(64.0, "~1h 4m+")]
+    [InlineData(135.0, "~2h 15m+")]
     public void SomebodyAlreadyHereSaysHowLongTheModeratorHasBeenThere(double minutesAgo, string words)
     {
         // Their own arrival is not known (null), so they were here before the moderator.
@@ -227,11 +227,20 @@ public class ListFilteringTests
     public void SomebodyAlreadyHereSaysNoTimeWhenThereIsNoneToSay(double? minutesAgo)
     {
         // The moderator's arrival is not known (switched on mid-instance), or is under a minute ago: the
-        // words stand alone, and no time is guessed.
+        // row says nothing, and no time is guessed. The Audit Log's words stand alone.
         DateTimeOffset? moderator = minutesAgo is { } m ? Now.AddMinutes(-m) : null;
 
-        Assert.Equal("(here before you)", ListFiltering.JoinedWords(null, Now, moderator));
+        Assert.Null(ListFiltering.JoinedWords(null, Now, moderator));
+        Assert.Null(ListFiltering.HereBeforeYouTime(moderator, Now));
         Assert.Equal("(here before you)", ListFiltering.HereBeforeYouWords(moderator, Now));
+    }
+
+    [Theory]
+    [InlineData(5.0, "(here before you) ~5m+")]
+    [InlineData(64.0, "(here before you) ~1hr 4m+")]
+    public void TheAuditLogKeepsItsWordsAndItsOwnHourFormat(double minutesAgo, string words)
+    {
+        Assert.Equal(words, ListFiltering.HereBeforeYouWords(Now.AddMinutes(-minutesAgo), Now));
     }
 
     [Fact]
@@ -241,9 +250,9 @@ public class ListFilteringTests
         // minute behind what it says.
         var arrived = new DateTimeOffset(2026, 9, 26, 20, 55, 40, TimeSpan.Zero);
 
-        Assert.Equal("(here before you) ~4m+", ListFiltering.HereBeforeYouWords(arrived, Now.AddSeconds(10)));
-        Assert.Equal("(here before you) ~4m+", ListFiltering.HereBeforeYouWords(arrived, Now.AddSeconds(59)));
-        Assert.Equal("(here before you) ~5m+", ListFiltering.HereBeforeYouWords(arrived, Now.AddMinutes(1)));
+        Assert.Equal("~4m+", ListFiltering.HereBeforeYouTime(arrived, Now.AddSeconds(10)));
+        Assert.Equal("~4m+", ListFiltering.HereBeforeYouTime(arrived, Now.AddSeconds(59)));
+        Assert.Equal("~5m+", ListFiltering.HereBeforeYouTime(arrived, Now.AddMinutes(1)));
     }
 
     [Fact]

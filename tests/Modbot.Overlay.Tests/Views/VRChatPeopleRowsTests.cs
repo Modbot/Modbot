@@ -352,8 +352,81 @@ public class VRChatPeopleRowsTests
         var long_ = new string('W', 80);
         var e = Draw(WithThreeLabels(long_), root => NameLineEdges(root, long_), width: 340);
 
-        Assert.True(e.NameWidth >= 48, $"The name is only {e.NameWidth} wide.");
+        Assert.True(e.NameWidth >= 80, $"The name is only {e.NameWidth} wide.");
         Assert.True(e.LastLabelRight > e.StripRight, "The labels were expected to be cut at this width.");
+    }
+
+    /// <summary>A person with the rank, the 18+ mark and "Not in group" after the name, who was here before the moderator.</summary>
+    private static OverlayScreen HereBeforeWithMarks(string name)
+    {
+        var who = Person(name) with
+        {
+            TrustRank = Modbot.Core.Users.TrustRank.KnownUser,
+            EighteenPlus = true,
+            IsMember = false,
+        };
+
+        return Screen([who]) with
+        {
+            ModeratorArrived = Now.AddMinutes(-64),
+            Arrivals = new Dictionary<string, DateTimeOffset?> { [who.SubjectId] = null },
+        };
+    }
+
+    /// <summary>The name, the marks that are never cut and the marks that are cut first, and where the line ends, with the width the never-cut marks want.</summary>
+    private static (Rect Name, Rect Whole, double WholeWanted, Rect More, double LineRight, Rect Time) RowEdges(Control root, string name, string time)
+    {
+        var words = root.GetLogicalDescendants().OfType<TextBlock>().First(t => t.Text == name);
+        var line = (Control)words.GetLogicalParent()!;
+        var parts = line.GetLogicalChildren().OfType<Control>().ToList();
+
+        Rect Of(Control c) => new(c.TranslatePoint(new Point(0, 0), root) ?? default, c.Bounds.Size);
+
+        var timeBlock = root.GetLogicalDescendants().OfType<TextBlock>().First(t => t.Text == time);
+
+        return (Of(parts[0]), Of(parts[1]), parts[1].DesiredSize.Width, Of(parts[2]), Of(line).Right, Of(timeBlock));
+    }
+
+    [Fact]
+    public void AHereBeforeYouRowShowsTwelveLettersOfTheNameAndWholeChipsAtTheDefaultWidth()
+    {
+        var name = "Cobaltfoxxlive";
+        var (blockWidth, twelve, e) = Draw(HereBeforeWithMarks(name), root =>
+        {
+            var block = root.GetLogicalDescendants().OfType<TextBlock>().First(t => t.Text == name);
+            var first = new TextBlock { Text = name[..12], FontSize = block.FontSize, FontFamily = block.FontFamily, FontWeight = block.FontWeight, TextWrapping = TextWrapping.NoWrap };
+            first.Measure(Size.Infinity);
+
+            return (block.Bounds.Width, first.DesiredSize.Width, RowEdges(root, name, "~1h 4m+"));
+        });
+
+        Assert.True(blockWidth >= twelve - 0.5, $"The name is {blockWidth} wide, twelve letters of it need {twelve}.");
+        Assert.True(e.Whole.Width >= e.WholeWanted - 0.5, $"The rank and the 18+ mark are {e.Whole.Width} wide of {e.WholeWanted}.");
+        Assert.True(e.Whole.Right <= e.LineRight + 0.5, "The rank and the 18+ mark run past the line.");
+        Assert.True(e.Whole.Right <= e.Time.Left + 0.5, "The time is not after the marks.");
+    }
+
+    [Theory]
+    [InlineData(380)]
+    [InlineData(420)]
+    [InlineData(520)]
+    public void ALongNameIsCutBeforeTheRankAndTheEighteenPlusMark(double width)
+    {
+        var name = new string('W', 80);
+        var (blockWidth, natural, e) = Draw(HereBeforeWithMarks(name), root =>
+        {
+            var block = root.GetLogicalDescendants().OfType<TextBlock>().First(t => t.Text == name);
+            var untrimmed = new TextBlock { Text = name, FontSize = block.FontSize, FontFamily = block.FontFamily, FontWeight = block.FontWeight, TextWrapping = TextWrapping.NoWrap };
+            untrimmed.Measure(Size.Infinity);
+
+            return (block.Bounds.Width, untrimmed.DesiredSize.Width, RowEdges(root, name, "~1h 4m+"));
+        }, width: width);
+
+        Assert.True(blockWidth < natural - 1, "The name was not cut.");
+        Assert.True(e.Whole.Width >= e.WholeWanted - 0.5, $"The rank and the 18+ mark are {e.Whole.Width} wide of {e.WholeWanted}.");
+        Assert.True(e.Name.Right <= e.Whole.Left + 0.5, "The name runs into the marks.");
+        Assert.True(e.Whole.Right <= e.More.Left + 0.5, "The cut marks start before the never-cut ones end.");
+        Assert.True(e.More.Right <= e.LineRight + 0.5, "The cut marks run past the line.");
     }
 
     [Fact]
@@ -480,7 +553,7 @@ public class VRChatPeopleRowsTests
                 return new Rect(block.TranslatePoint(new Point(0, 0), root) ?? default, block.Bounds.Size);
             }
 
-            return (card, Of("Kai"), Of("(here before you) ~5m+"), plus);
+            return (card, Of("Kai"), Of("~5m+"), plus);
         });
 
         Assert.InRange(card.Height, 38, 42);

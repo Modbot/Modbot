@@ -7,9 +7,9 @@ using Modbot.Overlay.Views;
 namespace Modbot.Overlay.Tests.Views;
 
 /// <summary>
-/// Somebody who was already here when the moderator arrived: their row says so, and how long the
-/// moderator has been here, which is the least long they have been. Wherever it was "already here"
-/// before, on every panel and in both looks, and kept up to date a minute at a time.
+/// Somebody who was already here when the moderator arrived: their row says how long the moderator has
+/// been here, which is the least long they have been, as a short time and not in words; their card and
+/// the Audit Log's row say the words. On every panel and in both looks, kept up to date a minute at a time.
 /// </summary>
 public class HereBeforeYouRowsTests
 {
@@ -84,28 +84,48 @@ public class HereBeforeYouRowsTests
     {
         var texts = Texts(Instance(Now.AddMinutes(-5)), inVRChatLook ? VRChatLook() : null);
 
-        Assert.Contains("(here before you) ~5m+", texts);
+        Assert.Contains("~5m+", texts);
         Assert.Contains("3m", texts);
+        Assert.DoesNotContain(texts, t => t is not null && t.Contains("here before you", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain("already here", texts);
-    }
-
-    [Fact]
-    public void AnHourOrMoreReadsInHoursAndMinutes()
-    {
-        var texts = Texts(Instance(Now.AddMinutes(-64)));
-
-        Assert.Contains("(here before you) ~1hr 4m+", texts);
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void WithNoRecordOfTheModeratorsArrivalTheWordsStandAlone(bool notSynced)
+    public void AnHourOrMoreReadsInHoursAndMinutes(bool inVRChatLook)
+    {
+        var texts = Texts(Instance(Now.AddMinutes(-64)), inVRChatLook ? VRChatLook() : null);
+
+        Assert.Contains("~1h 4m+", texts);
+        Assert.DoesNotContain(texts, t => t is not null && t.Contains("here before you", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void WithNoRecordOfTheModeratorsArrivalTheRowSaysNothingAtAll(bool notSynced)
     {
         var texts = Texts(Instance(null, notSynced));
 
-        Assert.Contains("(here before you)", texts);
-        Assert.DoesNotContain(texts, t => t is not null && t.StartsWith("(here before you) ~", StringComparison.Ordinal));
+        Assert.DoesNotContain(texts, t => t is not null && t.Contains("here before you", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(texts, t => t is not null && t.StartsWith('~'));
+        Assert.Contains("3m", texts);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ThePersonsCardSaysTheyWereHereBeforeYou(bool inVRChatLook)
+    {
+        var kai = new UserSummary("usr_Kai", "Kai", RosterStanding.Ordinary, 0, null, [], []);
+        var jo = new UserSummary("usr_Jo", "Jo", RosterStanding.Ordinary, 0, null, [], []);
+
+        var before = Texts(Instance(Now.AddMinutes(-5)) with { Page = OverlayPage.Person, Person = kai }, inVRChatLook ? VRChatLook() : null);
+        var after = Texts(Instance(Now.AddMinutes(-5)) with { Page = OverlayPage.Person, Person = jo }, inVRChatLook ? VRChatLook() : null);
+
+        Assert.Contains("Here before you", before);
+        Assert.DoesNotContain("Here before you", after);
     }
 
     [Fact]

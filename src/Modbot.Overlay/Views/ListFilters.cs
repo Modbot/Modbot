@@ -399,12 +399,13 @@ public static class ListFiltering
     /// <param name="arrived">When they got here, or null for somebody already here when the moderator arrived.</param>
     /// <param name="moderatorArrived">
     /// When the moderator got here, or null when that is not known. Only used for somebody already here
-    /// when the moderator arrived, whose row then says so (<see cref="HereBeforeYouWords"/>).
+    /// when the moderator arrived, whose row then says at least how long (<see cref="HereBeforeYouTime"/>).
     /// </param>
-    public static string JoinedWords(DateTimeOffset? arrived, DateTimeOffset now, DateTimeOffset? moderatorArrived = null)
+    /// <returns>The words, or null for somebody already here when there is no time worth writing.</returns>
+    public static string? JoinedWords(DateTimeOffset? arrived, DateTimeOffset now, DateTimeOffset? moderatorArrived = null)
     {
         if (arrived is not { } at)
-            return HereBeforeYouWords(moderatorArrived, now);
+            return HereBeforeYouTime(moderatorArrived, now);
 
         var here = now - at;
         return here < TimeSpan.FromMinutes(1) ? "<1m" : TimeWords.Length(here);
@@ -413,38 +414,60 @@ public static class ListFiltering
     /// <summary>The words for somebody who was here before the moderator arrived.</summary>
     public const string HereBeforeYou = "(here before you)";
 
+    /// <summary>The words for it on a person's card, where there is room to say it.</summary>
+    public const string HereBeforeYouLabel = "Here before you";
+
     /// <summary>
-    /// "(here before you) ~5m+": somebody who was already here when the moderator arrived has been here at
-    /// least as long as the moderator has, so that is what it says, with a plus because it is a floor.
-    /// An hour or more reads "~1hr 4m+", which is its own format and not the "1h 4m" the join times use.
+    /// How many whole minutes the moderator has been here, counted to the start of the minute it is now, or null
+    /// when that is under a minute or the moderator's arrival is not known (the overlay was switched on
+    /// mid-instance and the log has no record of it): a floor of nothing is not worth writing, and a time that is
+    /// not known is not guessed.
     /// </summary>
     /// <remarks>
-    /// <para>The time is counted to the start of the minute it is now, so the words change on the minute
-    /// the panel is redrawn on (<c>OverlayScreen.LooksTheSameAs</c> redraws once a minute) and never in
-    /// between, and are never more than the moderator has really been here.</para>
-    /// <para>Under a minute in, or when the moderator's arrival is not known (the overlay was switched on
-    /// mid-instance and the log has no record of it), it says only "(here before you)": a floor of nothing
-    /// is not worth writing, and a time that is not known is not guessed.</para>
+    /// The figure changes on the minute the panel is redrawn on (<c>OverlayScreen.LooksTheSameAs</c> redraws once
+    /// a minute) and never in between, and is never more than the moderator has really been here.
     /// </remarks>
-    /// <param name="moderatorArrived">When the moderator got here, or null when that is not known.</param>
-    /// <param name="now">The drive loop's clock.</param>
-    public static string HereBeforeYouWords(DateTimeOffset? moderatorArrived, DateTimeOffset now)
+    private static long? MinutesModeratorHere(DateTimeOffset? moderatorArrived, DateTimeOffset now)
     {
         if (moderatorArrived is not { } arrived || now == default)
-            return HereBeforeYou;
+            return null;
 
-        // From the start of the minute it is now, so the figure changes on the minute and never early,
-        // and is never more than the moderator has really been here.
         var minuteStart = new DateTimeOffset(now.UtcTicks - (now.UtcTicks % TimeSpan.TicksPerMinute), TimeSpan.Zero);
         var minutes = (long)(minuteStart - arrived).TotalMinutes;
 
-        if (minutes < 1)
-            return HereBeforeYou;
-
-        return minutes < 60
-            ? HereBeforeYou + " ~" + minutes + "m+"
-            : HereBeforeYou + " ~" + (minutes / 60) + "hr " + (minutes % 60) + "m+";
+        return minutes < 1 ? null : minutes;
     }
+
+    /// <summary>
+    /// "~5m+" or "~1h 4m+", or null when there is no time to say: what the Instance list's row says of somebody who
+    /// was already here when the moderator arrived. They have been here at least as long as the moderator has, so
+    /// that is the figure, with a plus because it is a floor. The row does not carry the words "here before you"; the
+    /// person's card does (<see cref="HereBeforeYouLabel"/>).
+    /// </summary>
+    /// <param name="moderatorArrived">When the moderator got here, or null when that is not known.</param>
+    /// <param name="now">The drive loop's clock.</param>
+    public static string? HereBeforeYouTime(DateTimeOffset? moderatorArrived, DateTimeOffset now)
+        => MinutesModeratorHere(moderatorArrived, now) switch
+        {
+            null => null,
+            < 60 and long minutes => "~" + minutes + "m+",
+            long minutes => "~" + (minutes / 60) + "h " + (minutes % 60) + "m+",
+        };
+
+    /// <summary>
+    /// "(here before you) ~5m+": the Audit Log's row for somebody who was already here when the moderator arrived.
+    /// An hour or more reads "~1hr 4m+", which is its own format and not the "1h 4m" the join times use. Under a
+    /// minute in, or when the moderator's arrival is not known, it says only "(here before you)".
+    /// </summary>
+    /// <param name="moderatorArrived">When the moderator got here, or null when that is not known.</param>
+    /// <param name="now">The drive loop's clock.</param>
+    public static string HereBeforeYouWords(DateTimeOffset? moderatorArrived, DateTimeOffset now)
+        => MinutesModeratorHere(moderatorArrived, now) switch
+        {
+            null => HereBeforeYou,
+            < 60 and long minutes => HereBeforeYou + " ~" + minutes + "m+",
+            long minutes => HereBeforeYou + " ~" + (minutes / 60) + "hr " + (minutes % 60) + "m+",
+        };
 
     /// <summary>The name in plain letters, else the name, else the id: what a row sorts by.</summary>
     public static string SortName(RosterMember member)

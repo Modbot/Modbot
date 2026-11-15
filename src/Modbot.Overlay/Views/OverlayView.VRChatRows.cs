@@ -233,26 +233,29 @@ public sealed partial class OverlayView
     {
         var v = V!;
 
+        // The rank in its VRChat colour, then the 18+ mark: always drawn whole.
         var marks = new List<Control>();
 
-        // The rank in its VRChat colour, then the 18+ mark, "Not in group" and "New", the flags and the heads-up.
         if (member.TrustRank is { } rank)
             marks.Add(RankPill(rank, T.Density.TextSmall));
 
         if (member.EighteenPlus == true)
             marks.Add(EighteenPlusChip());
 
+        // After them "Not in group" and "New", the flags and the heads-up: cut when the room is short.
+        var more = new List<Control>();
+
         // Somebody who just left is on the way out, so neither "New" nor "Not in group" is the news about them.
         if (secondsLeft is null)
-            marks.AddRange(ArrivalMarks(member, isNew));
+            more.AddRange(ArrivalMarks(member, isNew));
 
         if (member.Flags.Count > 0)
-            marks.Add(FlagChip(string.Join(" · ", member.Flags)));
+            more.Add(FlagChip(string.Join(" · ", member.Flags)));
 
         if (headsUp is { } kind)
-            marks.Add(HeadsUpChip(HeadsUpRules.Name(kind)));
+            more.Add(HeadsUpChip(HeadsUpRules.Name(kind)));
 
-        var top = NameLine(member.DisplayName ?? member.SubjectId, banner ? v.BannerText : v.Text, marks);
+        var top = NameLine(member.DisplayName ?? member.SubjectId, banner ? v.BannerText : v.Text, marks, more);
         var avatar = VRChatAvatar(member.SubjectId, StandingDot(member, 11), RosterAvatarSize);
 
         Control? end = null;
@@ -348,83 +351,100 @@ public sealed partial class OverlayView
     }
 
     /// <summary>
-    /// A person's name in bold, with their marks at the end of the line. The marks take the room they
-    /// need and the name gives way first, cut with an ellipsis. Only when the name is down to a short
-    /// stub are the marks cut, so a wider panel shows them whole.
+    /// A person's name in bold, with their marks at the end of the line. Room goes first to the
+    /// <paramref name="marks"/> (the rank and the 18+ mark, always whole), then to the name, down to the
+    /// least a name keeps; what is left goes to the <paramref name="more"/> marks, cut when it is short, and the
+    /// name takes whatever they do not, cut with an ellipsis only when it must. The time at the end of the row
+    /// is outside this and has been given its room already.
     /// </summary>
-    private Control NameLine(string name, IBrush brush, IReadOnlyList<Control> marks)
+    /// <param name="marks">The marks that are never cut: the rank, then the 18+ mark.</param>
+    /// <param name="more">The marks after those, cut before the name is cut any further.</param>
+    private Control NameLine(string name, IBrush brush, IReadOnlyList<Control> marks, IReadOnlyList<Control>? more = null)
     {
         var words = Text(name, T.Density.TextBase, brush, FontWeight.Bold);
         words.VerticalAlignment = VerticalAlignment.Center;
 
-        if (marks.Count == 0)
+        if (marks.Count == 0 && (more is null || more.Count == 0))
             return words;
 
-        var strip = new StackPanel
+        Panel Strip(IReadOnlyList<Control> these)
         {
-            Orientation = Orientation.Horizontal,
-            Spacing = 6,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(8, 0, 0, 0),
-            ClipToBounds = true,
-        };
+            var strip = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = these.Count == 0 ? new Thickness(0) : new Thickness(8, 0, 0, 0),
+                ClipToBounds = true,
+            };
 
-        foreach (var mark in marks)
-        {
-            mark.VerticalAlignment = VerticalAlignment.Center;
-            strip.Children.Add(mark);
+            foreach (var mark in these)
+            {
+                mark.VerticalAlignment = VerticalAlignment.Center;
+                strip.Children.Add(mark);
+            }
+
+            return strip;
         }
 
-        return new NameAndMarks { Children = { words, strip } };
+        // Twelve letters of a bold name at this size: what a name keeps while the other marks are cut.
+        return new NameAndMarks(T.Density.TextBase * 7) { Children = { words, Strip(marks), Strip(more ?? []) } };
     }
 
     /// <summary>
-    /// A name and the marks after it on one line: the marks get the room they ask for, the name the
-    /// rest, and never less than a short stub of itself while the marks are cut to leave that.
+    /// A name and the marks after it on one line: the first marks are always whole, the name gets the
+    /// room it needs down to a stub of twelve letters, the other marks get what that leaves (cut when it is
+    /// short), and the name takes the rest, cut with an ellipsis only when it must.
     /// </summary>
     /// <remarks>
-    /// A dock gives the name whatever the marks leave, which can be nothing; this keeps a few letters
-    /// of it. The first child is the name, the second the marks.
+    /// A dock gives the name whatever the marks leave, which can be nothing; this keeps a stub of it. The
+    /// children are the name, the marks that are never cut, and the marks that are cut first.
     /// </remarks>
-    private sealed class NameAndMarks : Panel
+    /// <param name="leastName">The least of the name kept while the other marks are cut, in panel pixels.</param>
+    private sealed class NameAndMarks(double leastName) : Panel
     {
-        /// <summary>The least of the name kept while the marks are cut, in panel pixels.</summary>
-        private const double LeastName = 64;
+        private double _wholeWidth;
+        private double _moreWidth;
 
         protected override Size MeasureOverride(Size availableSize)
         {
             var name = Children[0];
-            var marks = Children[1];
+            var whole = Children[1];
+            var more = Children[2];
+
+            whole.Measure(new Size(double.PositiveInfinity, availableSize.Height));
+            _wholeWidth = Math.Min(whole.DesiredSize.Width, availableSize.Width);
+
+            var room = Math.Max(0, availableSize.Width - _wholeWidth);
 
             name.Measure(new Size(double.PositiveInfinity, availableSize.Height));
-            var kept = Math.Min(name.DesiredSize.Width, LeastName);
+            var kept = Math.Min(name.DesiredSize.Width, leastName);
 
-            marks.Measure(new Size(Math.Max(0, availableSize.Width - kept), availableSize.Height));
-            var markWidth = Math.Min(marks.DesiredSize.Width, Math.Max(0, availableSize.Width - kept));
+            more.Measure(new Size(Math.Max(0, room - kept), availableSize.Height));
+            _moreWidth = Math.Min(more.DesiredSize.Width, Math.Max(0, room - kept));
 
-            name.Measure(new Size(Math.Max(0, availableSize.Width - markWidth), availableSize.Height));
+            name.Measure(new Size(Math.Max(0, room - _moreWidth), availableSize.Height));
 
             return new Size(
-                name.DesiredSize.Width + markWidth,
-                Math.Max(name.DesiredSize.Height, marks.DesiredSize.Height));
+                name.DesiredSize.Width + _wholeWidth + _moreWidth,
+                Math.Max(name.DesiredSize.Height, Math.Max(whole.DesiredSize.Height, more.DesiredSize.Height)));
         }
 
         protected override Size ArrangeOverride(Size finalSize)
         {
-            var name = Children[0];
-            var marks = Children[1];
+            var wholeWidth = Math.Min(_wholeWidth, finalSize.Width);
+            var moreWidth = Math.Min(_moreWidth, Math.Max(0, finalSize.Width - wholeWidth));
+            var marksAt = Math.Max(0, finalSize.Width - wholeWidth - moreWidth);
 
-            var kept = Math.Min(name.DesiredSize.Width, LeastName);
-            var markWidth = Math.Min(marks.DesiredSize.Width, Math.Max(0, finalSize.Width - kept));
-
-            name.Arrange(new Rect(0, 0, Math.Max(0, finalSize.Width - markWidth), finalSize.Height));
-            marks.Arrange(new Rect(Math.Max(0, finalSize.Width - markWidth), 0, markWidth, finalSize.Height));
+            Children[0].Arrange(new Rect(0, 0, marksAt, finalSize.Height));
+            Children[1].Arrange(new Rect(marksAt, 0, wholeWidth, finalSize.Height));
+            Children[2].Arrange(new Rect(marksAt + wholeWidth, 0, moreWidth, finalSize.Height));
 
             return finalSize;
         }
     }
 
-    /// <summary>The small line of words under a name: when somebody came, or the words that say they were here before.</summary>
+    /// <summary>The small line of words under a name: when somebody came, as a short time such as "14m" or "~1h 4m+".</summary>
     private Control SubLine(string words, bool banner)
     {
         var line = Text(words, T.Density.TextSmall, banner ? V!.BannerText : V!.Subtext);

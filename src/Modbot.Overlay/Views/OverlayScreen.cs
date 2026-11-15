@@ -123,7 +123,7 @@ public enum OverlayPage
 /// <param name="ModeratorArrived">
 /// When the moderator got into this instance, from this PC's own copy of VRChat's log, or null when it
 /// has no record of it (the overlay was switched on mid-instance). Somebody who was already here has
-/// been here at least this long, which is what their row says (<see cref="ListFiltering.HereBeforeYouWords"/>).
+/// been here at least this long, which is what their row says (<see cref="ListFiltering.HereBeforeYouTime"/>).
 /// </param>
 /// <param name="ModeratorId">
 /// The moderator's own VRChat id as this PC's log reading last said, or null while it is not known. The

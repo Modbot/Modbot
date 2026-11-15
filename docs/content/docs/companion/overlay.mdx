@@ -165,12 +165,13 @@ VRChat's **Users** list:
   than the room, the last counts move to a second line rather than being cut off.
 - Your own row comes first, in a banner in your palette's highlight colour, with **Other users (11)**
   under it. It has no **+**. If Modbot does not know who you are yet, or your row is filtered out,
-  there is no banner and no label. Your own row never says `(here before you)`: when your log has
+  there is no banner and no label. Your own row never shows a time for being here before you: when your log has
   no record of when you arrived, it shows no time at all.
 - Every person is a one-line card, so about twice as many people fit at once: a small rounded
   square picture on the left, their name in bold, their rank, 18+ mark, **Not in group** and **New**
-  tags, flags and heads-up after the name, and at the right end when they came (or `(here before you) ~5m+`, or **Left** and the
-  seconds). A long name is cut with an ellipsis before anything else is. The **+** that starts a
+  tags, flags and heads-up after the name, and at the right end when they came (or `~5m+` for somebody
+  who was here before you, or **Left** and the seconds). The rank and the 18+ mark are always whole, then
+  the time; the name takes the room that is left and is cut with an ellipsis only when it must be. The **+** that starts a
   [heads-up](/companion/heads-ups) is a square button at the right end. The whole card is the
   target, so tapping it opens the person's card. On the headset panel your banner and **Other users**
   scroll away with the rest of the list; on the desktop overlay they stay at the top and the rows
@@ -179,8 +180,8 @@ VRChat's **Users** list:
   right. A moderation row has no picture: the sentence takes the place of the name, with **VRChat**,
   **Discord** or **Modbot** under it.
 - The desktop panel is always the same width, whichever tab it is on, however long a name is, and whatever
-  is filtered; long names are cut with an ellipsis first; the rank, 18+ mark, tags, flags and heads-up
-  after them are only cut once the name is down to a few letters, so a wider panel shows them whole. The group's name at the top is in a light
+  is filtered; long names are cut with an ellipsis first; the rank and 18+ mark are never cut, and the
+  tags, flags and heads-up after them are only cut once the name is down to about twelve letters, so a wider panel shows them whole. The group's name at the top is in a light
   version of the palette's highlight colour, as VRChat's own title is.
 
 The picture is the person's VRChat picture, when the server's own copy of it is already saved and the
@@ -231,12 +232,15 @@ another avatar and **Actions** for the rest of them, and **Name** also finds a n
 Without that permission the tab is as above. A row appears only once it has happened while you are in the instance; nothing from
 before you arrived is added.
 
-Somebody who was already in the instance when you arrived reads `(here before you) ~5m+` on the
-Instance list, the Audit Log and the wrist panel: they have been there at least as long as you have,
-so the time is how long you have been in the instance, in whole minutes (`~1hr 4m+` from an hour on).
+Somebody who was already in the instance when you arrived reads `~5m+` on the Instance list, in both
+looks, with no words: they have been there at least as long as you have, so the time is how long you
+have been in the instance, in whole minutes (`~1h 4m+` from an hour on), and the `~` and `+` say it is
+at least that long. Open their card and it says **Here before you**. The Audit Log and the wrist panel
+say it in words, `(here before you) ~5m+` (`~1hr 4m+` from an hour on).
 If your log has no record of when you arrived, for example because the overlay was switched on after
-you got there, it says `(here before you)` alone rather than guessing. Your own row never says it,
-in either look: with no record of your arrival it shows no time under your name.
+you got there, the Instance list shows no time rather than guessing, and the Audit Log says
+`(here before you)` alone. Your own row never shows it, in either look: with no record of your
+arrival it shows no time on your row.
 
 ### Flagged user card
 

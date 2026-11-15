@@ -298,7 +298,7 @@ public sealed partial class OverlayView
         stack.Children.Add(screen.Page switch
         {
             OverlayPage.Events => EventsPanel(screen),
-            OverlayPage.Person when screen.Person is { } person => PersonCard(person),
+            OverlayPage.Person when screen.Person is { } person => PersonCard(person, WasHereBefore(screen, person.SubjectId)),
             _ => RosterPanel(screen),
         });
 
@@ -1249,7 +1249,8 @@ public sealed partial class OverlayView
     /// One person, opened from their roster row: what the roster already knew and what the
     /// server's profile read added, with Back and Refresh under it.
     /// </summary>
-    private Control PersonCard(UserSummary person)
+    /// <param name="hereBefore">They were already here when the moderator arrived: the card says so.</param>
+    private Control PersonCard(UserSummary person, bool hereBefore = false)
     {
         var lines = new StackPanel { Spacing = 6 };
 
@@ -1277,6 +1278,10 @@ public sealed partial class OverlayView
 
         if (person.JoinedAt is { } joined)
             lines.Children.Add(Text("Joined " + joined.ToString("yyyy-MM-dd"), T.Density.TextSmall, T.TextDimBrush));
+
+        // The list's row carries only the time; the words for it are here.
+        if (hereBefore)
+            lines.Children.Add(Text(ListFiltering.HereBeforeYouLabel, T.Density.TextSmall, T.TextDimBrush));
 
         // What the server holds about them, a label and a value each, three short lines at most so
         // a headset needs no scrolling. Whatever it did not send, or has nothing on, is left out.
@@ -1535,19 +1540,33 @@ public sealed partial class OverlayView
 
     /// <summary>
     /// How long somebody has been here, from this PC's own log, in words; null when the log never
-    /// mentioned them, rather than a guess. Also null for the moderator themself when they were here
-    /// before the log began: "(here before you)" is not a thing to say to the person it is about.
+    /// mentioned them, rather than a guess. Somebody who was here before the moderator reads only the time
+    /// ("~1h 4m+"), never the words for it, which are on their card. Null for the moderator themself when they
+    /// were here before the log began: "here before you" is not a thing to say to the person it is about.
     /// </summary>
     private static string? JoinedWordsFor(OverlayScreen screen, IReadOnlyDictionary<string, DateTimeOffset?> arrivals, RosterMember member)
     {
         if (!arrivals.TryGetValue(member.SubjectId, out var at) || screen.Now == default)
             return null;
 
-        if (at is null && screen.ModeratorId is { Length: > 0 } me && string.Equals(member.SubjectId, me, StringComparison.Ordinal))
+        if (at is null && IsModerator(screen, member.SubjectId))
             return null;
 
         return ListFiltering.JoinedWords(at, screen.Now, screen.ModeratorArrived);
     }
+
+    /// <summary>
+    /// Whether somebody was already here when the moderator arrived, from this PC's own log. Never the moderator
+    /// themself: "here before you" is not a thing to say to the person it is about.
+    /// </summary>
+    private static bool WasHereBefore(OverlayScreen screen, string subjectId)
+        => screen.Now != default
+            && screen.ArrivalsOrNone.TryGetValue(subjectId, out var at)
+            && at is null
+            && !IsModerator(screen, subjectId);
+
+    private static bool IsModerator(OverlayScreen screen, string subjectId)
+        => screen.ModeratorId is { Length: > 0 } me && string.Equals(subjectId, me, StringComparison.Ordinal);
 
     /// <summary>
     /// Whether somebody joined in the last two minutes, from this PC's own log and the drive loop's clock. Never the
