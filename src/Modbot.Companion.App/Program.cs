@@ -2918,7 +2918,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             return;
 
         var card = WithDictateIfOffered(ButtonScreen.Shown, DictateAvailable, () => Dictation);
-        overlay.SetDictate(card.Dictate, card.Percent);
+        overlay.SetDictate(card);
     }
 
     /// <summary>The button's stick shortcut as the settings have it.</summary>

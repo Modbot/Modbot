@@ -18,11 +18,14 @@ public enum DictateState
     /// <summary>Ready to listen: a microphone.</summary>
     Idle,
 
-    /// <summary>Listening: the microphone with sound arcs that move.</summary>
+    /// <summary>Listening: the microphone, with sound arcs and a meter that follow how loud the voice is.</summary>
     Listening,
 
     /// <summary>Writing out what was said: a ring of dots that turns.</summary>
     Writing,
+
+    /// <summary>The words are on their way to AI Chat and the answer has not begun: the same ring, labelled Sending.</summary>
+    Sending,
 
     /// <summary>Fetching the speech model the first time: the ring and how far it has got.</summary>
     GettingReady,
@@ -40,6 +43,8 @@ public enum DictateState
 /// <param name="Countdown">Set while the stick is held, which puts the seconds left and a filling bar on the face.</param>
 /// <param name="Dictate">The Dictate button under the show and hide button. <see cref="DictateState.Off"/> leaves the card as it was.</param>
 /// <param name="Percent">How much of the speech model has come, 0 to 100, while <paramref name="Dictate"/> is getting ready.</param>
+/// <param name="Level">How loud the voice is, 0 to <see cref="DictationController.LevelSteps"/>, while <paramref name="Dictate"/> is listening.</param>
+/// <param name="Notice">A few words that take the place of the Dictate label for a few seconds ("Nothing heard", "Could not send"), or null.</param>
 /// <param name="Frame">Which of 8 steps the moving picture is at. Set by the button's host while something moves, never by the caller.</param>
 public sealed record ButtonScreen(
     bool PanelShown,
@@ -47,7 +52,9 @@ public sealed record ButtonScreen(
     ButtonCountdown? Countdown = null,
     DictateState Dictate = DictateState.Off,
     int Percent = 0,
-    int Frame = 0)
+    int Frame = 0,
+    int Level = 0,
+    string? Notice = null)
 {
     /// <summary>The panel is up: the button offers to hide it.</summary>
     public static ButtonScreen Shown { get; } = new(true, OverlayButton.DefaultShortcut);
@@ -68,27 +75,37 @@ public sealed record ButtonScreen(
     /// The screen with the Dictate row set from where the controller is. A <paramref name="state"/> of
     /// null leaves the row off.
     /// </summary>
-    public ButtonScreen WithDictate(DictationState? state, int percent) => state switch
+    public ButtonScreen WithDictate(DictationState? state, int percent, int level = 0, string? notice = null) => state switch
     {
-        null => this with { Dictate = DictateState.Off, Percent = 0 },
-        DictationState.Listening => this with { Dictate = DictateState.Listening, Percent = 0 },
-        DictationState.Writing => this with { Dictate = DictateState.Writing, Percent = 0 },
-        DictationState.Preparing => this with { Dictate = DictateState.GettingReady, Percent = percent },
-        _ => this with { Dictate = DictateState.Idle, Percent = 0 },
+        null => this with { Dictate = DictateState.Off, Percent = 0, Level = 0, Notice = null },
+        DictationState.Listening => this with
+        {
+            Dictate = DictateState.Listening, Percent = 0, Level = Math.Clamp(level, 0, DictationController.LevelSteps), Notice = null,
+        },
+        DictationState.Writing => this with { Dictate = DictateState.Writing, Percent = 0, Level = 0, Notice = null },
+        DictationState.Sending => this with { Dictate = DictateState.Sending, Percent = 0, Level = 0, Notice = null },
+        DictationState.Preparing => this with { Dictate = DictateState.GettingReady, Percent = percent, Level = 0, Notice = null },
+        _ => this with { Dictate = DictateState.Idle, Percent = 0, Level = 0, Notice = notice },
     };
 
-    /// <summary>What the Dictate button says: what it is doing, or what a tap will do.</summary>
-    public string DictateLabel => Dictate switch
-    {
-        DictateState.Listening => "Listening",
-        DictateState.Writing => "Writing",
-        DictateState.GettingReady => "Getting ready",
-        _ => "Dictate",
-    };
+    /// <summary>What the Dictate button says: what it is doing, or what a tap will do. A notice takes its place while there is one.</summary>
+    public string DictateLabel => Notice is { Length: > 0 } notice && Dictate is DictateState.Idle
+        ? notice
+        : Dictate switch
+        {
+            DictateState.Listening => "Listening",
+            DictateState.Writing => "Writing",
+            DictateState.Sending => "Sending",
+            DictateState.GettingReady => "Getting ready",
+            _ => "Dictate",
+        };
 
     /// <summary>The words beside the Dictate label while the model comes down, or empty.</summary>
     public string DictatePercent => Dictate is DictateState.GettingReady ? $"{Math.Clamp(Percent, 0, 100)}%" : "";
 
-    /// <summary>Whether the Dictate button has something that moves, which the host redraws each step.</summary>
-    public bool DictateMoves => Dictate is DictateState.Listening or DictateState.Writing or DictateState.GettingReady;
+    /// <summary>
+    /// Whether the Dictate button has a picture that turns on its own, which the host redraws each step.
+    /// Listening is not one: it changes only as the voice does, when the screen itself changes.
+    /// </summary>
+    public bool DictateMoves => Dictate is DictateState.Writing or DictateState.Sending or DictateState.GettingReady;
 }

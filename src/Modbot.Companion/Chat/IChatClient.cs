@@ -8,7 +8,8 @@ namespace Modbot.Companion.Chat;
 /// <param name="Problem">Null when the answer came whole; otherwise one short line saying what went wrong.</param>
 /// <param name="ConversationId">The conversation the server put the message in, when it said so, even if the answer then failed.</param>
 /// <param name="ConversationGone">The server no longer has the conversation that was named, so the next message starts a new one.</param>
-public sealed record ChatSendResult(string? Problem, Guid? ConversationId = null, bool ConversationGone = false);
+/// <param name="Detail">Why, for the log only (a status, an error's name): never shown, never any of the words sent.</param>
+public sealed record ChatSendResult(string? Problem, Guid? ConversationId = null, bool ConversationGone = false, string? Detail = null);
 
 /// <summary>The lines the chat panel shows when something goes wrong. One short line each, never more.</summary>
 public static class ChatProblems

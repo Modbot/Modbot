@@ -93,7 +93,8 @@ public sealed class HttpChatClient : IChatClient
                 return new ChatSendResult(
                     ProblemFor(response.StatusCode, error),
                     known,
-                    ConversationGone: response.StatusCode is HttpStatusCode.NotFound);
+                    ConversationGone: response.StatusCode is HttpStatusCode.NotFound,
+                    Detail: $"the server answered {(int)response.StatusCode}");
             }
 
             await using var body = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
@@ -141,19 +142,22 @@ public sealed class HttpChatClient : IChatClient
             }
 
             if (!done)
-                return new ChatSendResult(ChatProblems.Unreachable, known);
+                return new ChatSendResult(ChatProblems.Unreachable, known, Detail: "the answer ended before it was finished");
 
             return finished switch
             {
-                "Answered" => new ChatSendResult(answer.Length > 0 ? null : ChatProblems.Failed, known),
-                "Cancelled" => new ChatSendResult(ChatProblems.Unreachable, known),
-                _ => new ChatSendResult(ChatProblems.Failed, known),
+                "Answered" => new ChatSendResult(
+                    answer.Length > 0 ? null : ChatProblems.Failed,
+                    known,
+                    Detail: answer.Length > 0 ? null : "the answer was empty"),
+                "Cancelled" => new ChatSendResult(ChatProblems.Unreachable, known, Detail: "the server cancelled the answer"),
+                _ => new ChatSendResult(ChatProblems.Failed, known, Detail: $"the server ended the answer as {finished ?? "unknown"}"),
             };
         }
         catch (Exception e) when (e is HttpRequestException or IOException or JsonException
                                       || (e is TaskCanceledException && !cancellationToken.IsCancellationRequested))
         {
-            return new ChatSendResult(ChatProblems.Unreachable, known);
+            return new ChatSendResult(ChatProblems.Unreachable, known, Detail: $"{e.GetType().Name}: {e.Message}");
         }
     }
 

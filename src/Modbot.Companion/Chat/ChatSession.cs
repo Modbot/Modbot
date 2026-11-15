@@ -42,20 +42,32 @@ public sealed class ChatSession
     private readonly Func<ServerPairing?> _pairing;
     private readonly object _lock = new();
     private readonly SemaphoreSlim _oneAtATime = new(1, 1);
+    private readonly Action<string, Exception?>? _log;
     private readonly List<Entry> _entries = [];
 
     private CancellationTokenSource _cancel = new();
     private int _generation;
     private Guid? _conversationId;
 
-    public ChatSession(IChatClient client, Func<ServerPairing?> pairing)
+    /// <param name="client">The way to AI Chat.</param>
+    /// <param name="pairing">The server the messages go to.</param>
+    /// <param name="log">One-line notes for the log: a message sent, the answer started, finished or failed. Never the words.</param>
+    public ChatSession(IChatClient client, Func<ServerPairing?> pairing, Action<string, Exception?>? log = null)
     {
         _client = client;
         _pairing = pairing;
+        _log = log;
     }
 
     /// <summary>Something on the panel changed. Raised on whichever thread caused it.</summary>
     public event Action? Changed;
+
+    /// <summary>
+    /// Raised once for each message when it is no longer waiting for the answer to begin: with null when
+    /// the first words came (or the panel was closed, so nothing is waiting), with the one short line
+    /// when the message could not be answered. Raised on whichever thread caused it.
+    /// </summary>
+    public event Action<string?>? AnswerStarted;
 
     /// <summary>The lines, oldest first, as they stand now.</summary>
     public IReadOnlyList<ChatLine> Lines
@@ -113,26 +125,42 @@ public sealed class ChatSession
 
         Changed?.Invoke();
 
-        try
-        {
-            await _oneAtATime.WaitAsync(token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            return;
-        }
+        Note("sent");
 
         try
         {
-            await SendAsync(text, answer, generation, token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            // The panel was closed while the answer was coming: nothing is left to show.
+            try
+            {
+                await _oneAtATime.WaitAsync(token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            try
+            {
+                await SendAsync(text, answer, generation, token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // The panel was closed while the answer was coming: nothing is left to show.
+            }
+            catch (Exception ex)
+            {
+                // Whatever it was, the line must not stay on the typing animation for good.
+                Note("the answer failed unexpectedly", ex);
+                Set(answer, generation, ChatProblems.Failed, ChatLineState.Error);
+            }
+            finally
+            {
+                _oneAtATime.Release();
+            }
         }
         finally
         {
-            _oneAtATime.Release();
+            // Closed, or ended some way not covered above: nothing is waiting any more.
+            Report(answer, null);
         }
     }
 
@@ -165,6 +193,7 @@ public sealed class ChatSession
         var pairing = _pairing();
         if (pairing is null)
         {
+            Note("the message was not sent: this device is not paired");
             Set(answer, generation, ChatProblems.Unreachable, ChatLineState.Error);
             return;
         }
@@ -189,9 +218,15 @@ public sealed class ChatSession
         }
 
         if (result.Problem is { } problem)
+        {
+            Note($"the answer failed: {problem}" + (result.Detail is { } detail ? $" ({detail})" : string.Empty));
             Set(answer, generation, problem, ChatLineState.Error);
+        }
         else
+        {
             Set(answer, generation, null, ChatLineState.Done);
+            Note("answer finished");
+        }
     }
 
     /// <summary>Changes the line, unless the panel was closed since the message was sent. A null text keeps the words.</summary>
@@ -213,7 +248,28 @@ public sealed class ChatSession
         }
 
         Changed?.Invoke();
+
+        Report(entry, state is ChatLineState.Error ? text : null, began: state is not ChatLineState.Error);
     }
+
+    /// <summary>Says once, for each answer line, that its message is no longer waiting to be answered.</summary>
+    private void Report(Entry entry, string? problem, bool began = false)
+    {
+        lock (_lock)
+        {
+            if (entry.Reported)
+                return;
+
+            entry.Reported = true;
+        }
+
+        if (began)
+            Note("answer started");
+
+        AnswerStarted?.Invoke(problem);
+    }
+
+    private void Note(string line, Exception? ex = null) => _log?.Invoke(line, ex);
 
     private sealed class Entry(bool mine, string text, ChatLineState state)
     {
@@ -222,5 +278,7 @@ public sealed class ChatSession
         public string Text { get; set; } = text;
 
         public ChatLineState State { get; set; } = state;
+
+        public bool Reported { get; set; }
     }
 }

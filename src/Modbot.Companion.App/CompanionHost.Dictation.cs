@@ -42,6 +42,9 @@ internal sealed partial class CompanionHost
     private readonly DispatcherTimer _chatAsk = new() { Interval = ChatAskEvery };
     private readonly CancellationTokenSource _chatStop = new();
 
+    /// <summary>Redraws the button ten times a second while listening, so the level follows the voice.</summary>
+    private readonly DispatcherTimer _dictateLevel = new() { Interval = TimeSpan.FromMilliseconds(100) };
+
     /// <summary>
     /// Whether the Dictate button is offered at all: AI Chat is on and this device's owner may use it,
     /// as the server last said.
@@ -59,7 +62,7 @@ internal sealed partial class CompanionHost
 
         var controller = dictation();
 
-        return screen.WithDictate(controller.State, controller.Percent);
+        return screen.WithDictate(controller.State, controller.Percent, controller.Level, controller.Notice);
     }
 
     /// <summary>The desktop overlay's Dictate key and button: a tap, only while the button would be offered.</summary>
@@ -78,11 +81,14 @@ internal sealed partial class CompanionHost
         var client = new HttpChatClient(_http!);
 
         _chatAvailability = new ChatAvailability(client, () => _chatPairing);
-        _chatSession = new ChatSession(client, () => _chatPairing);
+        _chatSession = new ChatSession(client, () => _chatPairing, LogDictation);
 
         // Both can change on a worker thread, so what they draw is handed to the window's thread.
         _chatAvailability.Changed += () => Dispatcher.UIThread.Post(ChatAvailabilityChanged);
         _chatSession.Changed += () => Dispatcher.UIThread.Post(ShowChat);
+
+        // The button says Sending until the answer begins, or says why it could not.
+        _chatSession.AnswerStarted += problem => _dictation?.SendEnded(problem);
 
         _chatAsk.Tick += (_, _) => RefreshChatAvailability();
         _chatAsk.Start();
@@ -120,15 +126,25 @@ internal sealed partial class CompanionHost
     {
         if (_chatSession is not { } session || (_chatHost is null && _desktopChat is null))
         {
-            Log.Information("Dictate: the chat panel is not up, so what was said was not sent");
+            LogDictation("the chat panel is not up, so what was said was not sent", null);
+            _dictation?.SendEnded("The chat panel is not up");
             return;
         }
 
-        var screen = new ChatScreen(session.Lines);
-        _chatHost?.Show(screen);
-        _desktopChat?.Show(screen);
-
+        // The words go onto the conversation at once (the first part of asking runs here), so the panel
+        // opens already showing them and the waiting line under them.
         _ = CrashGuard.RunAsync("asking AI Chat", () => session.AskAsync(text));
+
+        try
+        {
+            var screen = new ChatScreen(session.Lines);
+            _chatHost?.Show(screen);
+            _desktopChat?.Show(screen);
+        }
+        catch (Exception ex)
+        {
+            LogDictation("the chat panel could not be shown", ex);
+        }
     }
 
     /// <summary>Draws the conversation on the panels while they are up; an ended one puts the window on the monitor away.</summary>
@@ -179,7 +195,7 @@ internal sealed partial class CompanionHost
         var model = DictationModel.Default;
         var folder = DictationModel.DictationFolder(_directory);
 
-        var listening = new DictationListening(model, folder, DictationMicrophoneId, LogDictation);
+        var listening = new DictationListening(model, folder, DictationMicrophone, LogDictation);
         _dictationListening = listening;
 
         var controller = new DictationController(
@@ -191,7 +207,22 @@ internal sealed partial class CompanionHost
 
         // The button follows the controller. It can change on a worker thread, so the redraw is
         // handed to the window's thread. The text it finishes with goes to the chat panel.
-        controller.Changed += () => Dispatcher.UIThread.Post(ShowButton);
+        controller.Changed += () => Dispatcher.UIThread.Post(() =>
+        {
+            if (controller.State is DictationState.Listening)
+                _dictateLevel.Start();
+
+            ShowButton();
+        });
+
+        _dictateLevel.Tick += (_, _) =>
+        {
+            if (controller.State is not DictationState.Listening)
+                _dictateLevel.Stop();
+
+            ShowButton();
+        };
+
         controller.Finished += text => Dispatcher.UIThread.Post(() => AskChat(text));
 
         return controller;
@@ -201,13 +232,13 @@ internal sealed partial class CompanionHost
     /// The saved microphone for listening if one is picked and plugged in, otherwise null, which is
     /// the Windows default. Asked at every start, so a microphone plugged in since is found.
     /// </summary>
-    private string? DictationMicrophoneId()
+    private Microphone? DictationMicrophone()
     {
         var wanted = _state?.Settings.Listening.MicrophoneId;
         if (string.IsNullOrWhiteSpace(wanted))
             return null;
 
-        return MicrophoneChoice.Resolve(wanted, PhraseListening.Microphones()).Microphone?.Id;
+        return MicrophoneChoice.Resolve(wanted, PhraseListening.Microphones()).Microphone;
     }
 
     /// <summary>
@@ -241,6 +272,7 @@ internal sealed partial class CompanionHost
     /// <summary>Closes the microphone and drops what it heard. Safe to call when Dictate never started.</summary>
     private void StopDictation()
     {
+        _dictateLevel.Stop();
         _dictation?.Abandon();
         _dictationListening?.Dispose();
     }

@@ -46,41 +46,45 @@ internal sealed class DictationListening : IDictationRecorder, IDictationRecogni
 
     private readonly DictationModel _model;
     private readonly string _folder;
-    private readonly Func<string?> _microphoneId;
+    private readonly Func<Microphone?> _microphone;
     private readonly Action<string, Exception?> _log;
 
     private readonly Lock _gate = new();
     private readonly Resampler _resampler;
     private readonly List<float> _heard = [];
 
-    private IDisposable? _microphone;
+    private IDisposable? _open;
+    private volatile float _level;
     private float[] _mono = new float[4_096];
     private bool _limitRaised;
 
     /// <param name="model">The pinned model.</param>
     /// <param name="folder">The companion's <c>dictation</c> folder.</param>
-    /// <param name="microphoneId">Asked for at every start: the id of the microphone to open, or null for the Windows default.</param>
+    /// <param name="microphone">Asked for at every start: the microphone to open, or null for the Windows default.</param>
     /// <param name="log">One-line notes: a failure.</param>
     public DictationListening(
         DictationModel model,
         string folder,
-        Func<string?> microphoneId,
+        Func<Microphone?> microphone,
         Action<string, Exception?> log)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentException.ThrowIfNullOrWhiteSpace(folder);
-        ArgumentNullException.ThrowIfNull(microphoneId);
+        ArgumentNullException.ThrowIfNull(microphone);
         ArgumentNullException.ThrowIfNull(log);
 
         _model = model;
         _folder = folder;
-        _microphoneId = microphoneId;
+        _microphone = microphone;
         _log = log;
         _resampler = new Resampler(model.SampleRate);
     }
 
     /// <inheritdoc />
     public event Action? LimitReached;
+
+    /// <inheritdoc />
+    public float Level => _level;
 
     /// <inheritdoc />
     public string? Start()
@@ -93,11 +97,14 @@ internal sealed class DictationListening : IDictationRecorder, IDictationRecogni
             _heard.Clear();
             _resampler.Reset();
             _limitRaised = false;
+            _level = 0;
         }
 
         try
         {
-            _microphone = new PhraseListening.SharedMicrophone(Arrived, BufferMilliseconds, _microphoneId());
+            var wanted = _microphone();
+            _open = new PhraseListening.SharedMicrophone(Arrived, BufferMilliseconds, wanted?.Id);
+            _log($"listening started (microphone: {wanted?.Name ?? "the Windows default"})", null);
             return null;
         }
         catch (Exception ex)
@@ -153,7 +160,7 @@ internal sealed class DictationListening : IDictationRecorder, IDictationRecogni
     /// <summary>Closes the microphone, once, whichever thread gets here first.</summary>
     private void Close()
     {
-        var microphone = Interlocked.Exchange(ref _microphone, null);
+        var microphone = Interlocked.Exchange(ref _open, null);
 
         try
         {
@@ -197,6 +204,12 @@ internal sealed class DictationListening : IDictationRecorder, IDictationRecogni
 
             mono[frame] = total / channels;
         }
+
+        var peak = 0f;
+        foreach (var sample in mono)
+            peak = Math.Max(peak, Math.Abs(sample));
+
+        _level = peak;
 
         var raise = false;
 

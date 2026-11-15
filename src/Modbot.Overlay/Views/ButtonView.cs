@@ -151,7 +151,7 @@ public static class ButtonView
         }
 
         var dictate = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
-        var picture = Dictation(screen.Dictate, screen.Frame, ink, bright);
+        var picture = Dictation(screen.Dictate, screen.Frame, ink, bright, screen.Level);
         picture.Margin = new Thickness(8, 0, 4, 0);
         picture.VerticalAlignment = VerticalAlignment.Center;
         dictate.Children.Add(picture);
@@ -166,6 +166,8 @@ public static class ButtonView
 
         if (screen.DictatePercent.Length > 0)
             dictateLines.Children.Add(Shrunk(Text(screen.DictatePercent, 18, dim, FontWeight.SemiBold)));
+        else if (screen.Dictate is DictateState.Listening)
+            dictateLines.Children.Add(Shrunk(Meter(screen.Level, bright, track, 12, 10)));
 
         Grid.SetColumn(dictateLines, 1);
         dictate.Children.Add(dictateLines);
@@ -188,14 +190,15 @@ public static class ButtonView
     };
 
     /// <summary>
-    /// The Dictate picture on a 24-unit square: a microphone; with sound arcs that come and go while
-    /// listening; a ring of dots that turns while writing or getting ready.
+    /// The Dictate picture on a 24-unit square: a microphone; with sound arcs that follow how loud the
+    /// voice is (<paramref name="level"/>) while listening; a ring of dots that turns while writing,
+    /// sending or getting ready.
     /// </summary>
-    public static Control Dictation(DictateState state, int frame, IBrush ink, IBrush bright)
+    public static Control Dictation(DictateState state, int frame, IBrush ink, IBrush bright, int level = 0)
     {
         var canvas = new Canvas { Width = 24, Height = 24 };
 
-        if (state is DictateState.Writing or DictateState.GettingReady)
+        if (state is DictateState.Writing or DictateState.Sending or DictateState.GettingReady)
         {
             for (var i = 0; i < 8; i++)
             {
@@ -216,11 +219,10 @@ public static class ButtonView
 
             if (state is DictateState.Listening)
             {
-                var step = ((frame % 4) + 4) % 4;
                 var inner = Stroke("M20,8 A4,4 0 0 1 20,14 M4,8 A4,4 0 0 0 4,14", bright);
                 var outer = Stroke("M21.8,7.5 A5,5 0 0 1 21.8,15.5 M2.2,7.5 A5,5 0 0 0 2.2,15.5", bright);
-                inner.Opacity = step >= 1 ? 1 : 0.25;
-                outer.Opacity = step >= 2 ? 1 : 0.25;
+                inner.Opacity = level >= 2 ? 1 : 0.25;
+                outer.Opacity = level >= 5 ? 1 : 0.25;
                 canvas.Children.Add(inner);
                 canvas.Children.Add(outer);
             }
@@ -233,6 +235,25 @@ public static class ButtonView
             HorizontalAlignment = HorizontalAlignment.Center,
             Child = canvas,
         };
+    }
+
+    /// <summary>A row of small bars, <paramref name="level"/> of them lit: how loud the voice is.</summary>
+    public static Control Meter(int level, IBrush lit, IBrush unlit, double barWidth, double barHeight)
+    {
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = barWidth / 4 };
+
+        for (var i = 0; i < Modbot.Companion.Dictation.DictationController.LevelSteps; i++)
+        {
+            row.Children.Add(new Border
+            {
+                Width = barWidth,
+                Height = barHeight,
+                CornerRadius = new CornerRadius(barHeight / 4),
+                Background = i < level ? lit : unlit,
+            });
+        }
+
+        return row;
     }
 
     private static Path Stroke(string data, IBrush brush) => new()

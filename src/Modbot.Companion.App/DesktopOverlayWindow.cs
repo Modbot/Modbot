@@ -1304,10 +1304,10 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     /// What the Dictate button on the strip shows, from the card the controller last gave: off hides
     /// it, and the picture moves a step each 150 ms while the card says it has something moving.
     /// </summary>
-    public void SetDictate(DictateState state, int percent)
+    public void SetDictate(ButtonScreen card)
     {
-        _dictate = ButtonScreen.Shown with { Dictate = state, Percent = percent };
-        _dictateButton.IsVisible = state is not DictateState.Off;
+        _dictate = card;
+        _dictateButton.IsVisible = card.Dictate is not DictateState.Off;
 
         if (_dictate.DictateMoves)
         {
@@ -1339,7 +1339,8 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         _dictateButton.Margin = new Thickness(0, 0, 8, 0);
 
         var ink = v?.Icon ?? Ui.T.TextBrush;
-        var picture = ButtonView.Dictation(_dictate.Dictate, _dictateFrame, ink, v?.Bright ?? Ui.T.AccentBrush);
+        var bright = v?.Bright ?? Ui.T.AccentBrush;
+        var picture = ButtonView.Dictation(_dictate.Dictate, _dictateFrame, ink, bright, _dictate.Level);
         picture.Width = picture.Height = 24;
 
         var row = new StackPanel
@@ -1350,9 +1351,15 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             Children = { picture },
         };
 
-        // The words only while the speech model comes down.
+        // The picture alone while it is only a microphone; the stage in words as soon as there is one
+        // (or a notice), with how far the model has come, or how loud the voice is.
+        if (_dictate.Dictate is not DictateState.Idle || _dictate.DictateLabel != "Dictate")
+            row.Children.Add(Ui.Text(_dictate.DictateLabel, Ui.T.Density.TextSmall, ink, FontWeight.Medium, wrap: false));
+
         if (_dictate.DictatePercent.Length > 0)
             row.Children.Add(Ui.Text(_dictate.DictatePercent, Ui.T.Density.TextSmall, ink, FontWeight.Medium, wrap: false));
+        else if (_dictate.Dictate is DictateState.Listening)
+            row.Children.Add(ButtonView.Meter(_dictate.Level, bright, v?.Edge ?? Ui.T.Surface3Brush, 4, 12));
 
         _dictateButton.Content = row;
     }
