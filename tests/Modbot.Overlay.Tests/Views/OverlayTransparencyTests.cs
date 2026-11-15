@@ -12,7 +12,8 @@ namespace Modbot.Overlay.Tests.Views;
 /// </summary>
 public class OverlayTransparencyTests
 {
-    private const int Size = 256;
+    // Tall enough for the idle card, whose counts line wraps into a column in a frame this narrow.
+    private const int Size = 384;
 
     private static byte Alpha(byte[] pixels, int x, int y) => pixels[((y * Size) + x) * 4 + 3];
 
@@ -72,7 +73,7 @@ public class OverlayTransparencyTests
             return (first, second);
         });
 
-        // Thirty rows and a banner reach the bottom of a 256-pixel frame; the idle card does not.
+        // Thirty rows and a banner reach the bottom of a 384-pixel frame; the idle card does not.
         // Checked across the whole row rather than at one spot: what sits at the bottom of the
         // tall screen is laid out on clear ground (the filter row's chips have gaps between them),
         // and the point is that something is there, not what.

@@ -235,7 +235,8 @@ public class OverlayPageTests
 
         Assert.Single(targets.OfType<OverlayTarget.FiltersToggle>());
         Assert.Empty(targets.OfType<OverlayTarget.Filter>());
-        Assert.Contains("Filters (2)", texts);
+        // The button adds its own open/shut arrow after the words.
+        Assert.Contains(texts, t => t is not null && t.StartsWith("Filters (2)", StringComparison.Ordinal));
     }
 
     [Fact]

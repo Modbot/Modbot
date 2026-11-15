@@ -289,21 +289,39 @@ public class ButtonViewTests
     }
 
     [Fact]
-    public void WhileGettingReadyThePercentShowsAndTheMovingPicturesChangeWithTheFrame()
+    public void WhileGettingReadyThePercentShowsAndTheRingOfDotsTurnsWithTheFrame()
     {
         AvaloniaTestHost.Run(() =>
         {
             var preparing = ButtonScreen.Shown with { Dictate = DictateState.GettingReady, Percent = 64 };
             Assert.NotNull(Words(Laid(preparing, OverlayLook.Headset), "64%"));
 
+            var first = Laid(preparing with { Frame = 0 }, OverlayLook.Headset);
+            var later = Laid(preparing with { Frame = 2 }, OverlayLook.Headset);
+
+            static double[] Dots(Control root)
+                => root.GetLogicalDescendants().OfType<Avalonia.Controls.Shapes.Ellipse>().Select(d => d.Opacity).ToArray();
+
+            Assert.NotEmpty(Dots(first));
+            Assert.NotEqual(Dots(first), Dots(later));
+        });
+    }
+
+    [Fact]
+    public void WhileListeningTheSoundArcsFollowTheLevelAndNotTheFrame()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
             var listening = ButtonScreen.Shown with { Dictate = DictateState.Listening };
-            var quiet = Laid(listening with { Frame = 0 }, OverlayLook.Headset);
-            var loud = Laid(listening with { Frame = 2 }, OverlayLook.Headset);
+            var quiet = Laid(listening with { Level = 0 }, OverlayLook.Headset);
+            var loud = Laid(listening with { Level = 8 }, OverlayLook.Headset);
+            var later = Laid(listening with { Level = 0, Frame = 2 }, OverlayLook.Headset);
 
             static double[] Opacities(Control root)
                 => root.GetLogicalDescendants().OfType<Avalonia.Controls.Shapes.Path>().Select(p => p.Opacity).ToArray();
 
             Assert.NotEqual(Opacities(quiet), Opacities(loud));
+            Assert.Equal(Opacities(quiet), Opacities(later));
         });
     }
 }

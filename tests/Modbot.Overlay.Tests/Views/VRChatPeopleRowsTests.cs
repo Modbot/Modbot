@@ -178,7 +178,10 @@ public class VRChatPeopleRowsTests
         var texts = Texts(Screen(Mixed), OverlayLook.Headset);
 
         Assert.Contains("5 here", texts);
-        Assert.Contains("· Group (3) · 18+ (3) · Staff (1)", texts);
+        // Each count is its own item, so a heading wider than the room wraps between counts.
+        Assert.Contains("· Group (3)", texts);
+        Assert.Contains("· 18+ (3)", texts);
+        Assert.Contains("· Staff (1)", texts);
     }
 
     private static IReadOnlyList<RosterMember> OneHundredTwenty()
@@ -187,30 +190,31 @@ public class VRChatPeopleRowsTests
     [Fact]
     public void TheHeadingFitsBesideTheFreshnessWhenThePanelIsWideEnough()
     {
-        var (staffRight, freshnessLeft, staffHeight, headingHeight, _) = Draw(
+        var (staffRight, freshnessLeft, staffTop, headingTop, _) = Draw(
             Screen(OneHundredTwenty(), filters: new ListFilters(Name: "P1")),
             root => HeadingEdges(root),
             // Wide enough for the counts in the wider system font a Linux runner falls back to, too.
             width: 1000);
 
         Assert.True(staffRight <= freshnessLeft, $"Counts end at {staffRight}, freshness starts at {freshnessLeft}.");
-        Assert.True(staffHeight <= headingHeight, "The counts wrapped onto a second line.");
+        Assert.True(staffTop - headingTop < 10, "The counts wrapped onto a second line.");
     }
 
     [Theory]
     [InlineData(300)]
     [InlineData(PanelWidth)]
-    public void ANarrowPanelCutsTheCountsOffInsteadOfRunningThemUnderTheFreshness(double width)
+    public void ANarrowPanelWrapsTheLastCountsOntoASecondLineInsteadOfRunningThemUnderTheFreshness(double width)
     {
-        var (staffRight, freshnessLeft, staffHeight, headingHeight, clipRight) = Draw(
+        var (staffRight, freshnessLeft, staffTop, headingTop, clipRight) = Draw(
             Screen(OneHundredTwenty(), filters: new ListFilters(Name: "P1")),
             root => HeadingEdges(root),
             width: width);
 
-        // The text is longer than the room, so it runs past the cut; the cut itself stops at the freshness.
-        Assert.True(staffRight > freshnessLeft, $"Expected the counts to be too long, they end at {staffRight}.");
-        Assert.True(clipRight <= freshnessLeft, $"The cut is at {clipRight}, freshness starts at {freshnessLeft}.");
-        Assert.True(staffHeight <= headingHeight, "The counts wrapped onto a second line.");
+        // The counts are too long for one line beside the freshness, so the last one drops to a second
+        // line; the room the counts get stops at the freshness, and nothing is cut off.
+        Assert.True(staffTop > headingTop, $"Expected the last count on a second line, it is at {staffTop} and the heading at {headingTop}.");
+        Assert.True(clipRight <= freshnessLeft, $"The counts' room ends at {clipRight}, freshness starts at {freshnessLeft}.");
+        Assert.True(staffRight <= clipRight, $"The last count ends at {staffRight}, past the room of {clipRight}.");
     }
 
     [Fact]
@@ -255,8 +259,8 @@ public class VRChatPeopleRowsTests
         Assert.True(chevronRight >= headRight - 0.5, $"The chevron ends at {chevronRight}, the heading at {headRight}.");
     }
 
-    /// <summary>Where the Staff part and the freshness sit, the heights of the Staff part and the Users part, and where the counts are cut off.</summary>
-    private static (double StaffRight, double FreshnessLeft, double StaffHeight, double HeadingHeight, double ClipRight) HeadingEdges(Control root)
+    /// <summary>Where the Staff part and the freshness sit, the heights of the Staff part and the Users part, and where the counts' room ends.</summary>
+    private static (double StaffRight, double FreshnessLeft, double StaffTop, double HeadingTop, double ClipRight) HeadingEdges(Control root)
     {
         var blocks = root.GetLogicalDescendants().OfType<TextBlock>().ToList();
         var staff = blocks.First(t => t.Text is not null && t.Text.StartsWith("Staff (", StringComparison.Ordinal));
@@ -267,8 +271,8 @@ public class VRChatPeopleRowsTests
         return (
             staff.TranslatePoint(new Point(staff.Bounds.Width, 0), root)!.Value.X,
             freshness.TranslatePoint(new Point(0, 0), root)!.Value.X,
-            staff.Bounds.Height,
-            heading.Bounds.Height,
+            staff.TranslatePoint(new Point(0, 0), root)!.Value.Y,
+            heading.TranslatePoint(new Point(0, 0), root)!.Value.Y,
             counts.TranslatePoint(new Point(counts.Bounds.Width, 0), root)!.Value.X);
     }
 
@@ -301,7 +305,11 @@ public class VRChatPeopleRowsTests
         var untrimmed = new TextBlock { Text = name, FontSize = words.FontSize, FontFamily = words.FontFamily, FontWeight = words.FontWeight, TextWrapping = TextWrapping.NoWrap };
         untrimmed.Measure(Size.Infinity);
 
-        return (X(words, words.Bounds.Width), words.Bounds.Width, untrimmed.DesiredSize.Width, X(strip, 0), X(strip, strip.Bounds.Width), X(last, last.Bounds.Width), X(line, line.Bounds.Width));
+        // A strip cut to nothing has no width but still sits its margin to the right of where it was put, which
+        // is outside the line and not visible; its right edge is where it would end if it had no margin.
+        var stripRight = strip.Bounds.Width > 0 ? X(strip, strip.Bounds.Width) : X(strip, 0) - strip.Margin.Left;
+
+        return (X(words, words.Bounds.Width), words.Bounds.Width, untrimmed.DesiredSize.Width, X(strip, 0), stripRight, X(last, last.Bounds.Width), X(line, line.Bounds.Width));
     }
 
     [Theory]
@@ -380,11 +388,20 @@ public class VRChatPeopleRowsTests
         var line = (Control)words.GetLogicalParent()!;
         var parts = line.GetLogicalChildren().OfType<Control>().ToList();
 
-        Rect Of(Control c) => new(c.TranslatePoint(new Point(0, 0), root) ?? default, c.Bounds.Size);
+        // A part cut to nothing has no width but still sits its margin to the right of where it was put, which
+        // is outside the line and not visible; it is taken to be where it would be with no margin.
+        Rect Of(Control c)
+        {
+            var at = c.TranslatePoint(new Point(0, 0), root) ?? default;
+            return new(c.Bounds.Width > 0 ? at : at - new Point(c.Margin.Left, 0), c.Bounds.Size);
+        }
 
         var timeBlock = root.GetLogicalDescendants().OfType<TextBlock>().First(t => t.Text == time);
 
-        return (Of(parts[0]), Of(parts[1]), parts[1].DesiredSize.Width, Of(parts[2]), Of(line).Right, Of(timeBlock));
+        // The never-cut strip's own margin is outside its box, so the width it wants is its box's.
+        var wholeWanted = parts[1].DesiredSize.Width - parts[1].Margin.Left - parts[1].Margin.Right;
+
+        return (Of(parts[0]), Of(parts[1]), wholeWanted, Of(parts[2]), Of(line).Right, Of(timeBlock));
     }
 
     [Fact]

@@ -23,7 +23,7 @@ internal sealed partial class CompanionHost
         }));
 
     /// <summary>Puts text on the clipboard exactly as it was handed over.</summary>
-    private void CopyToClipboard(string text)
+    private void CopyText(string text)
         => Dispatcher.UIThread.Post(() => _ = CrashGuard.RunAsync("copying a name", async () =>
         {
             if (Window.Clipboard is not { } clipboard)

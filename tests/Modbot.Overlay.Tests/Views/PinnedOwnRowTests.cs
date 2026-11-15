@@ -93,7 +93,7 @@ public class PinnedOwnRowTests
     {
         double? Other(double scroll) => Draw(
             Screen(scroll, pin: true),
-            root => OverlayTargets.Find(root).Where(placed => placed.Target is OverlayTarget.Person { SubjectId: "usr_20" }).Select(placed => (double?)placed.Bounds.Top).FirstOrDefault());
+            root => OverlayTargets.Find(root).Where(placed => placed.Target is OverlayTarget.Person { SubjectId: "usr_12" }).Select(placed => (double?)placed.Bounds.Top).FirstOrDefault());
 
         var near = Other(0);
         var far = Other(300);

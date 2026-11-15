@@ -124,8 +124,11 @@ public class CompanionSourceGuardTests
         Assert.True(offenders.Count == 0, $"{why}; found in {string.Join(", ", offenders)}");
     }
 
-    /// <summary>The one file allowed to name the clipboard: the Log page's Copy crash details.</summary>
-    private const string ClipboardFile = "MainWindow.Crash.cs";
+    /// <summary>
+    /// The only files allowed to name the clipboard: the Log page's Copy crash details and the
+    /// person card's Copy name.
+    /// </summary>
+    private static readonly string[] ClipboardFiles = ["CompanionHost.PersonCard.cs", "MainWindow.Crash.cs"];
 
     /// <summary>Every way Avalonia offers to read what is on the clipboard.</summary>
     private static readonly Regex ReadsTheClipboard = new(
@@ -133,19 +136,20 @@ public class CompanionSourceGuardTests
         RegexOptions.Compiled);
 
     [Fact]
-    public void TheOnlyFileThatTouchesTheClipboardIsMainWindowCrashCsAndItOnlyWrites()
+    public void OnlyTwoFilesTouchTheClipboardAndTheyOnlyWrite()
     {
         // This ban used to be total: "the client does not read the clipboard". It is narrowed by
-        // exactly one file, for Copy crash details (clips design spec §16.3), and only in the
-        // direction that cannot take anything: the text is put on the clipboard when a moderator
-        // presses the button, and nothing anywhere in the client reads what is already there.
+        // exactly two files, for Copy crash details (clips design spec 16.3) and the person card's
+        // Copy name, and only in the direction that cannot take anything: the text is put on the
+        // clipboard when a moderator presses the button, and nothing anywhere in the client reads
+        // what is already there.
         var naming = EverythingTheClientShips()
             .Where(f => File.ReadAllText(f).Contains("Clipboard", StringComparison.Ordinal))
             .Select(Path.GetFileName)
             .Order()
             .ToList();
 
-        Assert.Equal([ClipboardFile], naming);
+        Assert.Equal(ClipboardFiles, naming);
 
         var reading = EverythingTheClientShips()
             .Where(f => ReadsTheClipboard.IsMatch(File.ReadAllText(f)))
@@ -154,8 +158,12 @@ public class CompanionSourceGuardTests
 
         Assert.True(reading.Count == 0, $"the client does not read the clipboard; found in {string.Join(", ", reading)}");
 
-        var crash = File.ReadAllText(EverythingTheClientShips().Single(f => Path.GetFileName(f) == ClipboardFile));
-        Assert.Contains("SetTextAsync", crash, StringComparison.Ordinal);
+        foreach (var name in ClipboardFiles)
+        {
+            var writer = File.ReadAllText(EverythingTheClientShips().Single(f => Path.GetFileName(f) == name));
+            Assert.Contains("SetTextAsync", writer, StringComparison.Ordinal);
+        }
+
         Assert.Matches(ReadsTheClipboard, "var text = await clipboard.GetTextAsync();");
         Assert.DoesNotMatch(ReadsTheClipboard, "await clipboard.SetTextAsync(text);");
     }

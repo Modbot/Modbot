@@ -198,6 +198,8 @@ public class DictationControllerTests
 
         Assert.Equal(["that is a long one"], said);
         Assert.Equal(1, rig.Recorder.Stops);
+        Assert.Equal(DictationState.Sending, rig.Controller.State);
+        rig.Controller.SendEnded(null);
         Assert.Equal(DictationState.Idle, rig.Controller.State);
     }
 

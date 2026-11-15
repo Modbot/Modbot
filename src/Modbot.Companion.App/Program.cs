@@ -2592,7 +2592,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         // Open in Modbot and Copy name on a person's card, on either panel. The browser and the
         // clipboard are this half's.
         _overlay.OpenPageAsked += OpenPersonPage;
-        _overlay.CopyTextAsked += CopyToClipboard;
+        _overlay.CopyTextAsked += CopyText;
 
         foreach (var connection in _state?.Connections ?? [])
             _overlay.Add(connection.Pairing, connection.Pairing.OverlayLabel);
