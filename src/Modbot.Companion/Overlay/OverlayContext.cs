@@ -74,6 +74,12 @@ public sealed record InstanceContext(
 /// An overlay card shows prior actions, roles, join date and current flags, and nothing that needs
 /// scrolling in a headset. Reading is fine in VR; scrolling and typing are hostile.
 /// </remarks>
+/// <param name="TimesSeen">How many times a moderator's client saw them arrive. Null when never, or when the server is too old to send it.</param>
+/// <param name="FirstSeenAt">When they were first seen in an instance. Null when never, or when the server is too old to send it.</param>
+/// <param name="NoteCount">How many notes stand on them. Null when none, or when the server is too old to send it.</param>
+/// <param name="LastAction">The last kick, ban, unban or warn the group gave them, in the server's word. Null when none, or when the server is too old to send it.</param>
+/// <param name="LastActionAt">When <paramref name="LastAction"/> happened.</param>
+/// <param name="Watched">Whether somebody is watching them. Null from a server too old to say.</param>
 public sealed record UserSummary(
     [property: JsonPropertyName("subjectId")] string SubjectId,
     [property: JsonPropertyName("displayName")] string? DisplayName,
@@ -82,7 +88,13 @@ public sealed record UserSummary(
     [property: JsonPropertyName("joinedAt")] DateTimeOffset? JoinedAt,
     [property: JsonPropertyName("flags")] IReadOnlyList<string> Flags,
     [property: JsonPropertyName("roles")] IReadOnlyList<string> Roles,
-    [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null);
+    [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null,
+    [property: JsonPropertyName("timesSeen")] int? TimesSeen = null,
+    [property: JsonPropertyName("firstSeenAt")] DateTimeOffset? FirstSeenAt = null,
+    [property: JsonPropertyName("noteCount")] int? NoteCount = null,
+    [property: JsonPropertyName("lastAction")] string? LastAction = null,
+    [property: JsonPropertyName("lastActionAt")] DateTimeOffset? LastActionAt = null,
+    [property: JsonPropertyName("watched")] bool? Watched = null);
 
 /// <summary>
 /// The one thing that genuinely needs push: a flagged user just joined this instance.

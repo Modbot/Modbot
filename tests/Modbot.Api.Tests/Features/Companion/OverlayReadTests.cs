@@ -8,6 +8,7 @@ using Modbot.Api.Features.Companion.Events;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Core.Users;
 
@@ -605,6 +606,118 @@ public class OverlayReadTests
         Assert.Equal(Noon.AddDays(-25), summary.JoinedAt);
         Assert.Equal("Rin", summary.DisplayName);
         Assert.Equal("1 kick or ban", Assert.Single(summary.Flags));
+    }
+
+    private static FactRecord NoteFact(string subject, DateTimeOffset at) => new()
+    {
+        Type = FactType.NoteAdded,
+        OccurredAt = at,
+        SubjectPlatform = FactPlatform.VRChat,
+        SubjectId = subject,
+        Source = FactSource.Manual,
+        Data = new System.Text.Json.Nodes.JsonObject { ["text"] = "Keep an eye out." },
+    };
+
+    [Fact]
+    public async Task AProfileSummaryCountsStandingNotesNamesTheLastActionAndSaysWhoIsWatched()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        // Two notes at different times, one of them taken back, so only one stands. Then a kick and,
+        // later, a ban: the ban is the last action.
+        await WriteAsync(host,
+            NoteFact("usr_noted", Noon.AddDays(-9)),
+            NoteFact("usr_noted", Noon.AddDays(-8)),
+            Fact(FactType.MemberKicked, "usr_noted", Noon.AddDays(-7), "Pip", instance: null),
+            Fact(FactType.MemberBanned, "usr_noted", Noon.AddDays(-2), instance: null));
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            var firstNote = await db.Events
+                .Where(e => e.SubjectId == "usr_noted" && e.Type == FactType.NoteAdded)
+                .OrderBy(e => e.OccurredAt)
+                .Select(e => e.Id)
+                .FirstAsync(ct);
+
+            await scope.ServiceProvider.GetRequiredService<IFactWriter>().WriteManyAsync(
+            [
+                new FactRecord
+                {
+                    Type = FactType.NoteTakenBack,
+                    OccurredAt = Noon.AddDays(-5),
+                    SubjectPlatform = FactPlatform.VRChat,
+                    SubjectId = "usr_noted",
+                    Source = FactSource.Manual,
+                    Data = new System.Text.Json.Nodes.JsonObject { ["noteFactId"] = firstNote },
+                },
+            ],
+            ct);
+
+            db.PersonWatches.RemoveRange(db.PersonWatches);
+            db.PersonWatches.Add(new PersonWatch
+            {
+                SubjectPlatform = FactPlatform.VRChat,
+                SubjectId = "usr_noted",
+                Reason = "Said they would come back with alts",
+                SetByUserId = Guid.NewGuid(),
+                SetByUsername = "mira",
+                SetAt = Noon.AddDays(-1),
+            });
+            await db.SaveChangesAsync(ct);
+        }
+
+        var summary = await GetAsync<UserSummaryDto>(host, token, "/api/v1/companion/user/usr_noted", ct);
+
+        Assert.Equal(1, summary.NoteCount);
+        Assert.Equal("Ban", summary.LastAction);
+        Assert.Equal(Noon.AddDays(-2), summary.LastActionAt);
+        Assert.True(summary.Watched);
+    }
+
+    [Fact]
+    public async Task AProfileSummaryCountsHowOftenAndWhenTheyWereFirstSeenArriving()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var start = Noon.AddDays(-3);
+        await WriteAsync(host,
+            Fact(FactType.InstanceJoined, "usr_often", start, "Wren", instance: "1", world: "wrld_a"),
+            Fact(FactType.InstanceLeft, "usr_often", start.AddMinutes(30), instance: "1", world: "wrld_a"),
+            Fact(FactType.InstanceJoined, "usr_often", start.AddHours(2), instance: "7", world: "wrld_b"),
+            Fact(FactType.InstanceLeft, "usr_often", start.AddHours(2).AddMinutes(15), instance: "7", world: "wrld_b"));
+
+        var summary = await GetAsync<UserSummaryDto>(host, token, "/api/v1/companion/user/usr_often", ct);
+
+        Assert.Equal(2, summary.TimesSeen);
+        Assert.Equal(start, summary.FirstSeenAt);
+    }
+
+    [Fact]
+    public async Task AProfileSummaryLeavesOutWhatThereIsNothingOn()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        await WriteAsync(host, Fact(FactType.MemberJoined, "usr_plain", Noon.AddDays(-25), "Rin", instance: null));
+
+        var summary = await GetAsync<UserSummaryDto>(host, token, "/api/v1/companion/user/usr_plain", ct);
+        var nobody = await GetAsync<UserSummaryDto>(host, token, "/api/v1/companion/user/usr_nobody", ct);
+
+        foreach (var s in new[] { summary, nobody })
+        {
+            Assert.Null(s.TimesSeen);
+            Assert.Null(s.FirstSeenAt);
+            Assert.Null(s.NoteCount);
+            Assert.Null(s.LastAction);
+            Assert.Null(s.LastActionAt);
+            Assert.NotEqual(true, s.Watched);
+        }
     }
 
     [Fact]

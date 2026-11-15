@@ -377,6 +377,30 @@ public sealed class NoteService
     }
 
     /// <summary>
+    /// How many notes still stand among one person's facts: written, and not taken back. The same
+    /// count as <see cref="NoteListResponse.Standing"/>, from facts a caller already holds.
+    /// </summary>
+    /// <param name="facts">
+    /// The person's facts, any types; only notes and take-backs are looked at. A take-back naming a
+    /// note that is not among them counts for nothing.
+    /// </param>
+    internal static int StandingCount(IEnumerable<(long Id, string Type, string Data)> facts)
+    {
+        var written = new HashSet<long>();
+        var takenBack = new HashSet<long>();
+
+        foreach (var (id, type, data) in facts)
+        {
+            if (type == FactType.NoteAdded)
+                written.Add(id);
+            else if (type == FactType.NoteTakenBack && NoteIdOf(data) is { } noteId)
+                takenBack.Add(noteId);
+        }
+
+        return written.Count(id => !takenBack.Contains(id));
+    }
+
+    /// <summary>
     /// Everyone's notes, newest first, a page at a time (API conventions design §8): what a
     /// group's own tools need to read the notes without asking about one person at a time.
     /// </summary>

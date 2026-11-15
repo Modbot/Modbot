@@ -401,4 +401,51 @@ public class OverlayPageTests
         Assert.False(Screen(OverlayPage.Instance).LooksTheSameAs(Screen(OverlayPage.Wrist)));
         Assert.True(Screen(OverlayPage.Wrist).LooksTheSameAs(Screen(OverlayPage.Wrist)));
     }
+
+    private static UserSummary Person(
+        int? timesSeen = null,
+        DateTimeOffset? firstSeenAt = null,
+        int? noteCount = null,
+        string? lastAction = null,
+        DateTimeOffset? lastActionAt = null,
+        bool? watched = null) =>
+        new("usr_rin", "Rin", RosterStanding.Flagged, 2, null, [], [],
+            TimesSeen: timesSeen, FirstSeenAt: firstSeenAt, NoteCount: noteCount,
+            LastAction: lastAction, LastActionAt: lastActionAt, Watched: watched);
+
+    /// <summary>A label and a value each, in the order seen, notes, last action: three short lines at most.</summary>
+    [Fact]
+    public void ThePersonCardSaysWhatTheServerHoldsInThreeShortLines()
+    {
+        var lines = OverlayView.PersonDetailLines(Person(
+            12, new DateTimeOffset(2026, 3, 2, 9, 0, 0, TimeSpan.Zero),
+            2, "Ban", new DateTimeOffset(2026, 11, 10, 18, 0, 0, TimeSpan.Zero), true));
+
+        Assert.Equal(
+            ["Seen 12 · First seen 2026-03-02", "Notes 2 · Watched", "Last action Ban · 2026-11-10"],
+            lines);
+    }
+
+    /// <summary>Somebody new to the group has nothing to say, so the card has no lines.</summary>
+    [Fact]
+    public void ThePersonCardHasNoDetailLinesForSomebodyTheServerHasNothingOn()
+    {
+        Assert.Empty(OverlayView.PersonDetailLines(Person(watched: false)));
+    }
+
+    /// <summary>A server too old to send the new values leaves them null, and the lines stay out.</summary>
+    [Fact]
+    public void ThePersonCardLeavesOutWhatAnOldServerDoesNotSend()
+    {
+        Assert.Empty(OverlayView.PersonDetailLines(Person()));
+    }
+
+    /// <summary>A line with only one part carries that part and no stray separator.</summary>
+    [Fact]
+    public void ALineWithOnePartCarriesNoSeparator()
+    {
+        var lines = OverlayView.PersonDetailLines(Person(noteCount: 1, lastAction: "Kick"));
+
+        Assert.Equal(["Notes 1", "Last action Kick"], lines);
+    }
 }

@@ -269,6 +269,19 @@ buttons, the same on both:
 - **Copy name** puts the person's display name on your PC's clipboard, exactly as the card shows it,
   for pasting into Discord or a ban reason.
 
+Under the name, up to three short lines say what your server holds about the person:
+
+- **Seen** and **First seen**: how many times a moderator's client saw them arrive, and the date of
+  the first time.
+- **Notes** and **Watched**: how many notes stand on them (notes taken back are not counted; what a
+  note says is not shown here), and whether somebody is watching them.
+- **Last action**: the last kick, ban, unban or warn your group gave them, and its date.
+
+A part with nothing behind it is left out, and so is its line: a person nobody has seen arrive has
+no **Seen**, and a person with no action has no **Last action**. These come from the records your
+server already holds, so no request goes to VRChat and the request that fetches the card is the same
+as before. A server too old to send them shows the card without these lines.
+
 ### Outside group instances
 
 In a public, friends-only or private instance, or in an instance of a group none of your servers

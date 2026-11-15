@@ -9,6 +9,8 @@ using Modbot.Api.Features.Companion.Alerts;
 using Modbot.Api.Features.Companion.Devices;
 using Modbot.Api.Features.Companion.HeadsUps;
 using Modbot.Api.Features.Files;
+using Modbot.Api.Features.Notes;
+using Modbot.Api.Features.Places;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Live;
@@ -44,6 +46,18 @@ public sealed record InstanceContextDto(
     [property: JsonPropertyName("members")] IReadOnlyList<RosterMemberDto> Members,
     [property: JsonPropertyName("headsUps")] IReadOnlyList<HeadsUpDto>? HeadsUps = null);
 
+/// <param name="TimesSeen">
+/// How many times a moderator's client saw them arrive (the web profile's Arrivals). Null when
+/// they were never seen. Older companions ignore it.
+/// </param>
+/// <param name="FirstSeenAt">When they were first seen in an instance (the web profile's First seen), or null.</param>
+/// <param name="NoteCount">How many notes stand on them, not counting ones taken back. Null when there are none. Only the number: what a note says is the audit log's permission.</param>
+/// <param name="LastAction">
+/// The last thing this group did to them: <c>Kick</c>, <c>Ban</c>, <c>Unban</c> or <c>Warn</c>. Null
+/// when nothing was.
+/// </param>
+/// <param name="LastActionAt">When <paramref name="LastAction"/> happened.</param>
+/// <param name="Watched">Whether somebody is watching them now. The word only, never why (<see cref="WatchHit"/>).</param>
 public sealed record UserSummaryDto(
     [property: JsonPropertyName("subjectId")] string SubjectId,
     [property: JsonPropertyName("displayName")] string? DisplayName,
@@ -52,7 +66,13 @@ public sealed record UserSummaryDto(
     [property: JsonPropertyName("joinedAt")] DateTimeOffset? JoinedAt,
     [property: JsonPropertyName("flags")] IReadOnlyList<string> Flags,
     [property: JsonPropertyName("roles")] IReadOnlyList<string> Roles,
-    [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null);
+    [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null,
+    [property: JsonPropertyName("timesSeen")] int? TimesSeen = null,
+    [property: JsonPropertyName("firstSeenAt")] DateTimeOffset? FirstSeenAt = null,
+    [property: JsonPropertyName("noteCount")] int? NoteCount = null,
+    [property: JsonPropertyName("lastAction")] string? LastAction = null,
+    [property: JsonPropertyName("lastActionAt")] DateTimeOffset? LastActionAt = null,
+    [property: JsonPropertyName("watched")] bool? Watched = null);
 
 /// <summary>
 /// The overlay's two reads: who is in this instance, and what is known about one of them.
@@ -214,7 +234,7 @@ public static class ContextHandler
             .AsNoTracking()
             .Where(e => e.SubjectPlatform == FactPlatform.VRChat && e.SubjectId == subjectId)
             .OrderBy(e => e.OccurredAt)
-            .Select(e => new { e.Type, e.OccurredAt, e.Data })
+            .Select(e => new { e.Id, e.Type, e.OccurredAt, e.Data })
             .ToListAsync(ct);
 
         // Read even with no facts on record: a Nuisance rank or a flag on a linked Discord account
@@ -227,14 +247,22 @@ public static class ContextHandler
         var belonging = await MembersAndStaff.ReadAsync(database, [subjectId], ct);
         var standing = Standing(match, belonging.IsMember(subjectId), belonging.IsStaff(subjectId));
 
+        var watched = match.Watch is not null;
+
         if (facts.Count == 0)
         {
             // Nothing on record is a perfectly good answer, and saying so is better than a 404 the
-            // overlay would have to translate.
+            // overlay would have to translate. A watch can stand on somebody with no facts at all.
             return Results.Ok(new UserSummaryDto(
                 subjectId, null, standing, match.PriorActions, null,
-                match.Reasons, [], trustRank));
+                match.Reasons, [], trustRank, Watched: watched));
         }
+
+        // The web profile's own figures, from the same query: times seen and first seen. Read only
+        // when there are facts, because being seen in an instance is a fact.
+        var seen = await new PresenceCounts(database).ForPersonAsync(subjectId, ct);
+        var notes = NoteService.StandingCount(facts.Select(f => (f.Id, f.Type, f.Data)));
+        var lastAction = facts.LastOrDefault(f => ActionNames.ContainsKey(f.Type));
 
         var joinedAt = facts.FirstOrDefault(f => f.Type == FactType.MemberJoined)?.OccurredAt;
         var displayName = facts.LastOrDefault(f => ReadDisplayName(f.Data) is not null) is { } named
@@ -261,8 +289,26 @@ public static class ContextHandler
             joinedAt,
             match.Reasons,
             roles,
-            trustRank));
+            trustRank,
+            seen.Arrivals > 0 ? seen.Arrivals : null,
+            seen.FirstSeenAt,
+            notes > 0 ? notes : null,
+            lastAction is null ? null : ActionNames[lastAction.Type],
+            lastAction?.OccurredAt,
+            watched));
     }
+
+    /// <summary>
+    /// What the card calls the things this group does to somebody, by the fact that records each: the
+    /// kicks and bans the prior-actions count is made of, a lifted ban, and a warning.
+    /// </summary>
+    private static readonly Dictionary<string, string> ActionNames = new(StringComparer.Ordinal)
+    {
+        [FactType.MemberKicked] = "Kick",
+        [FactType.MemberBanned] = "Ban",
+        [FactType.MemberUnbanned] = "Unban",
+        [FactType.GroupInstanceWarn] = "Warn",
+    };
 
     /// <summary>The stored trust rank of each of these people whose tags have been read. One query.</summary>
     internal static async Task<Dictionary<string, TrustRank?>> TrustRanksAsync(

@@ -1258,6 +1258,11 @@ public sealed partial class OverlayView
         if (person.JoinedAt is { } joined)
             lines.Children.Add(Text("Joined " + joined.ToString("yyyy-MM-dd"), T.Density.TextSmall, T.TextDimBrush));
 
+        // What the server holds about them, a label and a value each, three short lines at most so
+        // a headset needs no scrolling. Whatever it did not send, or has nothing on, is left out.
+        foreach (var line in PersonDetailLines(person))
+            lines.Children.Add(Text(line, T.Density.TextSmall, T.TextDimBrush));
+
         // What this panel can honestly do about a person: go back, read their summary again, open
         // their page in Modbot on this PC's browser, and copy their name. None of them changes
         // anything about the person: there is no ban, kick or warn here and there will not be one —
@@ -1287,6 +1292,41 @@ public sealed partial class OverlayView
             Padding = new Thickness(18, 14),
             Child = lines,
         };
+    }
+
+    /// <summary>
+    /// The lines under a person card's name for what the server knows of them: "Seen 12 · First seen
+    /// 2026-03-02", "Notes 2 · Watched", "Last action Ban · 2026-11-10". A part the server did not send
+    /// (an older server) or has nothing on (nobody saw them arrive, no notes, no action, not watched)
+    /// is left out, and a line with no part is left out with it.
+    /// </summary>
+    public static IReadOnlyList<string> PersonDetailLines(UserSummary person)
+    {
+        List<string?> seen =
+        [
+            person.TimesSeen is > 0 ? $"Seen {person.TimesSeen}" : null,
+            person.FirstSeenAt is { } first ? "First seen " + first.ToString("yyyy-MM-dd") : null,
+        ];
+
+        List<string?> standing =
+        [
+            person.NoteCount is > 0 ? $"Notes {person.NoteCount}" : null,
+            person.Watched == true ? "Watched" : null,
+        ];
+
+        List<string?> action =
+        [
+            person.LastAction is { Length: > 0 } what
+                ? person.LastActionAt is { } at ? $"Last action {what} · {at:yyyy-MM-dd}" : $"Last action {what}"
+                : null,
+        ];
+
+        return
+        [
+            .. new[] { seen, standing, action }
+                .Select(parts => string.Join(" · ", parts.Where(p => p is not null)))
+                .Where(line => line.Length > 0),
+        ];
     }
 
     /// <summary>
