@@ -144,7 +144,9 @@ public static class DesktopOverlayKeys
 /// <param name="ClickThrough">Clicks on the panel go through to the game; the strip still answers.</param>
 /// <param name="ShowButton">Modbot's button in VRChat's Esc row is drawn. On unless switched off; the shortcut works either way.</param>
 /// <param name="DictateShortcut">The combination that starts and stops Dictate, in <see cref="KeyTokens"/> spelling, or null for none. Unlike <see cref="Shortcut"/> it has no default: it claims a combination across the whole machine, so it is asked for.</param>
-public sealed record DesktopOverlaySettings(bool On, string Shortcut, int Opacity, bool Locked = false, bool ClickThrough = false, bool ShowButton = true, string? DictateShortcut = null)
+/// <param name="Wide">How many times its ordinary width the main panel was dragged to, from 1 to 2 (<see cref="DesktopPanelSize"/>). 1 leaves the panel at the size that fits beside VRChat's menu.</param>
+/// <param name="Tall">How many times its ordinary height the main panel was dragged to, from 1 to 2.</param>
+public sealed record DesktopOverlaySettings(bool On, string Shortcut, int Opacity, bool Locked = false, bool ClickThrough = false, bool ShowButton = true, string? DictateShortcut = null, double Wide = 1, double Tall = 1)
 {
     /// <summary>
     /// Ctrl+Alt+M. VRChat's desktop keys are bare letters and function keys, Windows keeps the

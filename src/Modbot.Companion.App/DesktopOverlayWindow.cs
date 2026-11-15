@@ -54,6 +54,12 @@ namespace Modbot.Companion.App;
 /// minimised one, it is where it always was, down the screen's right-hand side. Looking at
 /// VRChat's window is <c>VRChatWindow.cs</c>'s one question, asked four times a second only while
 /// this window is up; the window never activates, moves or sends anything to VRChat's.</para>
+/// <para><strong>The resize corner.</strong> In edit mode, while the window is neither locked nor
+/// click-through, a corner at the bottom right drags the window up to twice its ordinary width and
+/// height (<see cref="DesktopPanelSize"/>); the text keeps its size and the lists show more rows. The
+/// ordinary size is the fit beside VRChat's menu, so a dragged size is a number of times that and
+/// still follows VRChat's window; it replaces the automatic fit, which two quick clicks on the corner
+/// bring back. It is saved in <see cref="DesktopOverlaySettings"/>.</para>
 /// <para><strong>VRChat's colours.</strong> When the person using this PC has a colour palette
 /// selected in VRChat and the client knows who they are from VRChat's log, the window is drawn in
 /// the look of VRChat's own menu in that palette; with none it looks as it always did. The palette
@@ -123,6 +129,18 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     private OverlayLook _look = OverlayLook.Headset;
     private OverlayColours? _colours;
     private readonly Border _frame = new();
+
+    // The resize corner at the panel's bottom right, and the drag that is under way on it: where the pointer
+    // was on the screen when it began and how big the window was then.
+    private readonly Border _corner = ResizeCorner.Create();
+    private (PixelPoint Pointer, double Width, double Height)? _resizing;
+
+    // How big the window is at its ordinary size (the fit beside VRChat's menu, or the panel's own), and how
+    // many times that the window was dragged to, in width and in height (DesktopPanelSize).
+    private double _ordinaryWidth = PanelWidth;
+    private double _ordinaryHeight = PanelHeight;
+    private double _wide = 1;
+    private double _tall = 1;
     private readonly List<Style> _hoverStyles = [];
 
     // While the window is up: VRChat's selected palette looked at every two seconds, off the UI
@@ -173,6 +191,7 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             _editMode = value;
             _lockButton.IsVisible = value;
             _throughButton.IsVisible = value;
+            PaintCorner();
         }
     }
 
@@ -206,7 +225,10 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     /// <summary>A click on the panel, as the target under it. Null is a click on nothing.</summary>
     public event Action<OverlayTarget?>? PanelTapped;
 
-    /// <summary>The lock or the hand on the strip, pressed: the settings as they should now be.</summary>
+    /// <summary>
+    /// The lock or the hand on the strip, pressed, or the resize corner let go: the settings as they
+    /// should now be.
+    /// </summary>
     public event Action<DesktopOverlaySettings>? SwitchPressed;
 
     /// <summary>The Dictate button on the strip, pressed.</summary>
@@ -293,7 +315,11 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         // The panel is laid out at its own size and then drawn bigger or smaller by the scaler, so
         // layout, scrolling and clicking all work at any size (the transform is undone for a click).
         // The frame is what VRChat's look draws its rounded edge on; it is bare otherwise.
-        _frame.Child = new DockPanel { Children = { head, body } };
+        _corner.Margin = new Thickness(0, 0, 4, 4);
+        _corner.PointerPressed += CornerPressed;
+        _corner.PointerMoved += CornerMoved;
+        _corner.PointerReleased += CornerReleased;
+        _frame.Child = new Grid { Children = { new DockPanel { Children = { head, body } }, _corner } };
         _scaler.Child = _frame;
         Content = _scaler;
 
@@ -500,7 +526,7 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 
         // One width for the panel on every tab and in every state: the window's own, less the room the
         // shadow falls into. Not left to what happens to be on the screen.
-        _frame.Width = PanelWidth - (_look.VRChat is not null && CanRoundTheCorners ? 2 * VRChatLook.ShadowRoom : 0);
+        PaintFrameWidth();
         _frame.HorizontalAlignment = HorizontalAlignment.Left;
 
         if (_look.VRChat is { } v)
@@ -552,6 +578,89 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         PaintTitle();
         PaintClose();
         PaintStrip();
+        PaintCorner();
+    }
+
+    /// <summary>
+    /// The panel's width: the design width times how many times wider than ordinary the window was
+    /// dragged to, less the room the shadow falls into. The panel's tree is laid out at this width
+    /// whatever the scaler does to it, which is why the ordinary width is the design width.
+    /// </summary>
+    private void PaintFrameWidth()
+        => _frame.Width = (PanelWidth * _wide) - (_look.VRChat is not null && CanRoundTheCorners ? 2 * VRChatLook.ShadowRoom : 0);
+
+    /// <summary>The resize corner: there in edit mode while the window is neither locked nor click-through, as on the headset's panels.</summary>
+    private void PaintCorner()
+    {
+        _corner.IsVisible = _editMode && !_settings.Locked && !_settings.ClickThrough;
+        ResizeCorner.Ink(_corner, _look.VRChat?.Icon ?? Ui.T.TextDimBrush);
+    }
+
+    private void CornerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(_corner).Properties.IsLeftButtonPressed)
+            return;
+
+        e.Handled = true;
+
+        // Two quick clicks put the automatic fit back, wherever the panel was dragged to.
+        if (e.ClickCount >= 2)
+        {
+            _resizing = null;
+            e.Pointer.Capture(null);
+            UseTheFit();
+            return;
+        }
+
+        _resizing = (this.PointToScreen(e.GetPosition(this)), Width, Height);
+        e.Pointer.Capture(_corner);
+    }
+
+    private void CornerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_resizing is not { } start)
+            return;
+
+        var now = this.PointToScreen(e.GetPosition(this));
+        var scaling = RenderScaling <= 0 ? 1 : RenderScaling;
+
+        _wide = DesktopPanelSize.TimesOrdinary(start.Width + ((now.X - start.Pointer.X) / scaling), _ordinaryWidth);
+        _tall = DesktopPanelSize.TimesOrdinary(start.Height + ((now.Y - start.Pointer.Y) / scaling), _ordinaryHeight);
+
+        PaintFrameWidth();
+        Width = _ordinaryWidth * _wide;
+        Height = _ordinaryHeight * _tall;
+        e.Handled = true;
+    }
+
+    private void CornerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_resizing is null)
+            return;
+
+        _resizing = null;
+        e.Pointer.Capture(null);
+        SaveTheSize();
+    }
+
+    /// <summary>The size the window now has, handed on to be saved with the rest of its settings.</summary>
+    private void SaveTheSize()
+    {
+        var next = _settings with { Wide = _wide, Tall = _tall };
+
+        if (next != _settings)
+            SwitchPressed?.Invoke(next);
+    }
+
+    /// <summary>The ordinary size again, and the place the fit gives: what two quick clicks on the corner do.</summary>
+    private void UseTheFit()
+    {
+        _wide = 1;
+        _tall = 1;
+        PaintFrameWidth();
+        _lastVRChat = null;
+        FollowVRChat();
+        SaveTheSize();
     }
 
     /// <summary>
@@ -1118,9 +1227,24 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         ArgumentNullException.ThrowIfNull(settings);
 
         _settings = settings;
+
+        // A size the window did not just make itself (the corner being dragged hands its own on): lay the
+        // window out again at the size saved.
+        var wide = DesktopPanelSize.Clamp(settings.Wide);
+        var tall = DesktopPanelSize.Clamp(settings.Tall);
+        var resized = wide != _wide || tall != _tall;
+        _wide = wide;
+        _tall = tall;
+
         PaintGround();
         PaintSwitches();
         WatchTheMouseWhileNeeded();
+
+        if (resized && IsVisible)
+        {
+            _lastVRChat = null;
+            FollowVRChat();
+        }
 
         if (!settings.On)
             Dismiss();
@@ -1433,6 +1557,10 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     /// </remarks>
     private void FollowVRChat()
     {
+        // A drag on the resize corner is under way: the size is the pointer's until it lets go.
+        if (_resizing is not null)
+            return;
+
         var look = VRChatWindow.Look(_vrchat);
         _vrchat = look.Handle;
 
@@ -1459,11 +1587,14 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         if (_scaled)
         {
             _scaler.LayoutTransform = null;
-            Width = PanelWidth;
-            Height = PanelHeight;
             _scaled = false;
         }
 
+        _ordinaryWidth = PanelWidth;
+        _ordinaryHeight = PanelHeight;
+        Width = _ordinaryWidth * _wide;
+        Height = _ordinaryHeight * _tall;
+        PaintFrameWidth();
         Place(PlaceNear);
     }
 
@@ -1487,9 +1618,26 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 
         var factor = fit.Scale / scaling;
         _scaler.LayoutTransform = new ScaleTransform(factor, factor);
+        _ordinaryWidth = fit.Width / scaling;
+        _ordinaryHeight = fit.Height / scaling;
+        Width = _ordinaryWidth * _wide;
+        Height = _ordinaryHeight * _tall;
+        PaintFrameWidth();
+
+        // A panel dragged bigger than the fit grows from the fit's top left and is moved back onto the
+        // screen's work area where that takes it off. At the ordinary size it is where the fit puts it.
+        if (_wide > 1 || _tall > 1)
+        {
+            var area = screen?.WorkingArea;
+
+            if (area is { } box)
+            {
+                left = Math.Max(box.X, Math.Min(left, box.Right - (int)(Width * scaling)));
+                top = Math.Max(box.Y, Math.Min(top, box.Bottom - (int)(Height * scaling)));
+            }
+        }
+
         Position = new PixelPoint(left, top);
-        Width = fit.Width / scaling;
-        Height = fit.Height / scaling;
 
         _fittedScaling = scaling;
         _scaled = true;

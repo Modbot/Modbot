@@ -600,6 +600,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             ["clickThrough"] = desktopOverlay.ClickThrough,
             ["showButton"] = desktopOverlay.ShowButton,
             ["dictateShortcut"] = desktopOverlay.DictateShortcutOrNone,
+            ["wide"] = DesktopPanelSize.Clamp(desktopOverlay.Wide),
+            ["tall"] = DesktopPanelSize.Clamp(desktopOverlay.Tall),
         });
     }
 
@@ -614,7 +616,9 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             desktopOverlay.Locked ?? false,
             desktopOverlay.ClickThrough ?? false,
             desktopOverlay.ShowButton ?? true,
-            string.IsNullOrWhiteSpace(desktopOverlay.DictateShortcut) ? null : desktopOverlay.DictateShortcut.Trim());
+            string.IsNullOrWhiteSpace(desktopOverlay.DictateShortcut) ? null : desktopOverlay.DictateShortcut.Trim(),
+            DesktopPanelSize.Clamp(desktopOverlay.Wide ?? 1),
+            DesktopPanelSize.Clamp(desktopOverlay.Tall ?? 1));
 
     /// <summary>
     /// Writes the whole <c>notifyOverlay</c> object, keeping every other field in the file. The
@@ -847,7 +851,9 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("locked")] bool? Locked,
         [property: JsonPropertyName("clickThrough")] bool? ClickThrough,
         [property: JsonPropertyName("showButton")] bool? ShowButton,
-        [property: JsonPropertyName("dictateShortcut")] string? DictateShortcut);
+        [property: JsonPropertyName("dictateShortcut")] string? DictateShortcut,
+        [property: JsonPropertyName("wide")] double? Wide,
+        [property: JsonPropertyName("tall")] double? Tall);
 
     private sealed record NotificationsShape(
         [property: JsonPropertyName("bleep")] bool? Bleep,

@@ -250,6 +250,7 @@ the file:
 | `desktopOverlay.locked` | `false` | The lock in its strip: the window cannot be dragged. |
 | `desktopOverlay.clickThrough` | `false` | The hand in its strip: clicks on the panel go to VRChat. |
 | `desktopOverlay.showButton` | `true` | Whether Modbot's button shows in VRChat's row of key hints. |
+| `desktopOverlay.wide`, `desktopOverlay.tall` | `1` | How many times wider and taller than ordinary the window was made with its [resize corner](/companion/overlay#the-resize-corner), 1 to 2. |
 | `desktopNotifyOverlay.on` | `true` on a new install, `false` if you already had a settings file | Whether notifications appear in a corner of your screen. See [Notification overlay on a monitor](#notification-overlay-on-a-monitor). |
 | `desktopNotifyOverlay.spot` | `bottomright` | Which corner: `topleft`, `topmiddle`, `topright`, `bottomleft`, `bottommiddle` or `bottomright`. |
 | `desktopNotifyOverlay.seconds` | `6` | How long one notification stays, 2 to 30. |
@@ -461,7 +462,9 @@ The **Dictate** row on the same card records a second shortcut, one that starts 
   "opacity": 90,
   "locked": false,
   "clickThrough": false,
-  "showButton": true
+  "showButton": true,
+  "wide": 1,
+  "tall": 1
 }
 ```
 

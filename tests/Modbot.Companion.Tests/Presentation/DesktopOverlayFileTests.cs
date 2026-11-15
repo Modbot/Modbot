@@ -125,6 +125,38 @@ public class DesktopOverlayFileTests : IDisposable
     }
 
     [Fact]
+    public void TheSizeTheMainPanelWasDraggedToIsKept()
+    {
+        var saved = new DesktopOverlaySettings(true, "mod+alt+m", 90, Wide: 1.5, Tall: 1.25);
+
+        Assert.True(CompanionSettings.SaveDesktopOverlay(Path_, saved));
+
+        var read = CompanionSettings.Load(Path_, NoEnvironment).DesktopOverlay;
+        Assert.Equal(1.5, read.Wide);
+        Assert.Equal(1.25, read.Tall);
+    }
+
+    [Fact]
+    public void AnOlderFileWithoutASizeReadsAsOrdinary()
+    {
+        Write("""{ "desktopOverlay": { "on": true, "shortcut": "mod+alt+m", "opacity": 90 } }""");
+
+        var read = CompanionSettings.Load(Path_, NoEnvironment).DesktopOverlay;
+        Assert.Equal(1, read.Wide);
+        Assert.Equal(1, read.Tall);
+    }
+
+    [Fact]
+    public void ASizeOutsideOneToTwoIsBroughtInside()
+    {
+        Write("""{ "desktopOverlay": { "wide": 9, "tall": 0.2 } }""");
+
+        var read = CompanionSettings.Load(Path_, NoEnvironment).DesktopOverlay;
+        Assert.Equal(2, read.Wide);
+        Assert.Equal(1, read.Tall);
+    }
+
+    [Fact]
     public void AShortcutNobodyCouldRegisterIsNotWrittenToTheFile()
     {
         Assert.True(CompanionSettings.SaveDesktopOverlay(Path_, new DesktopOverlaySettings(true, "wibble", 90)));
