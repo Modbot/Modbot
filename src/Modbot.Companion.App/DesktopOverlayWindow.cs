@@ -100,6 +100,22 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     private readonly DockPanel _buttons = new() { LastChildFill = false };
 
     private OverlayScreen? _drawn;
+
+    // Where the Instance list and the Audit Log are scrolled to, in pixels of the panel's layout, and the
+    // list each belongs to: another list goes back to its top. Moved by the wheel and the keys, a glide
+    // at a time (_glideWatch).
+    private readonly ListScroll _rosterScroll = new();
+    private readonly ListScroll _eventScroll = new();
+    private int _rosterListId;
+    private int _eventListId;
+
+    // The window's own scrolling, kept for the person card, which is taller than the window; the two lists
+    // scroll themselves and need the room the window has.
+    private ScrollViewer? _body;
+
+    private readonly DispatcherTimer _glideWatch = new(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(16) };
+    private long _glideStamp;
+
     private DesktopOverlaySettings _settings = DesktopOverlaySettings.Default;
 
     // How the panel is drawn now: the headset's look, which is what this window always had, until
@@ -196,9 +212,6 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     /// <summary>The Dictate button on the strip, pressed.</summary>
     public event Action? DictatePressed;
 
-    /// <summary>The wheel, or j and k, as whole roster rows.</summary>
-    public event Action<int>? RosterScrolled;
-
     /// <summary>The name searched for, as typed here while the Name filter is open, with its list.</summary>
     public event Action<OverlayPage, string>? NameTyped;
 
@@ -271,6 +284,7 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
             Content = _panel,
         };
+        _body = body;
 
         var head = Head();
         _head = head;
@@ -290,18 +304,20 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             _mouse = null;
             Light(null);
         };
-        // The wheel moves the roster or the Audit Log, the two lists the panel itself pages through,
-        // the same way the J and K keys do. On the person card it is left to the window's own
-        // scrolling, because taking it there would be a wheel that does nothing over a card that is
-        // taller than the window.
+        // The wheel glides the roster or the Audit Log, the two lists the panel itself scrolls: a notch
+        // is three rows, and a touchpad's small steps are small. On the person card it is left to the
+        // window's own scrolling, because taking it there would be a wheel that does nothing over a
+        // card that is taller than the window.
         _panel.PointerWheelChanged += (_, e) =>
         {
-            if (_drawn is not { Page: OverlayPage.Instance or OverlayPage.Events })
+            if (ShownScroll is null)
                 return;
 
-            RosterScrolled?.Invoke(e.Delta.Y > 0 ? -1 : 1);
+            GlideShown(-e.Delta.Y * WheelRows);
             e.Handled = true;
         };
+
+        _glideWatch.Tick += (_, _) => GlideTick();
 
         KeyDown += OnKeyDown;
         TextInput += OnTextInput;
@@ -312,7 +328,11 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             _dictateFrame++;
             PaintDictate();
         };
-        Closed += (_, _) => _dictateMotion.Stop();
+        Closed += (_, _) =>
+        {
+            _dictateMotion.Stop();
+            _glideWatch.Stop();
+        };
         _followWatch.Tick += (_, _) => FollowVRChatSafely();
         _paletteWatch.Tick += (_, _) => _ = WatchThePaletteAsync();
         _openingWatch.Tick += (_, _) => _ = LookWhileWaitingToOpenAsync();
@@ -707,6 +727,26 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         if (_drawn is { } last && last.LooksTheSameAs(screen))
             return false;
 
+        // A glide belongs to the list it was started on: another page lets it stop where it is, and
+        // another list than the one before starts at its top.
+        if (_drawn?.Page != screen.Page)
+        {
+            _rosterScroll.Touch();
+            _eventScroll.Touch();
+        }
+
+        if (screen.RosterListId != _rosterListId)
+        {
+            _rosterListId = screen.RosterListId;
+            _rosterScroll.Reset();
+        }
+
+        if (screen.EventListId != _eventListId)
+        {
+            _eventListId = screen.EventListId;
+            _eventScroll.Reset();
+        }
+
         _drawn = screen;
         FramesDrawn++;
 
@@ -746,13 +786,89 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 
         // The idle screen draws nothing at all in a headset, where the panel hangs in the world.
         // In a window there is a window either way, so it says so rather than going blank.
+        // The two lists are drawn whole and moved by pixels, as the headset's are, with the moderator's own
+        // row kept at the top of the Instance list; the person card is the window's own to scroll.
+        var shown = ShownScroll;
+
+        if (_body is not null)
+        {
+            _body.VerticalScrollBarVisibility = shown is null
+                ? Avalonia.Controls.Primitives.ScrollBarVisibility.Auto
+                : Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled;
+        }
+
         _panel.Content = screen.IsIdle
             ? OverlayView.Build(screen with { ShowIdleCard = true }, GroupIcon, _look)
-            : OverlayView.Build(screen, GroupIcon, _look);
+            : OverlayView.Build(shown is null ? screen : screen with { ScrollOffset = shown.Offset, PinOwnRow = true }, GroupIcon, _look);
+
+        // The list's room is only known once it is laid out; a list that has got shorter is held inside it.
+        if (shown is not null && _panel.Content is Control tree)
+        {
+            _panel.UpdateLayout();
+            shown.Clamp(OverlayView.MaxScroll(tree));
+            OverlayView.SetScroll(tree, shown.Offset);
+        }
 
         // A new tree is drawn unlit, and what was under the mouse may have moved away from it
         // (a scroll, new events): light what is under the mouse now.
         Relight();
+    }
+
+    /// <summary>How many rows one notch of the wheel moves a list by.</summary>
+    private const double WheelRows = 3;
+
+    /// <summary>The scroll of the list on the screen: the Instance list's or the Audit Log's; null on the person card and the idle card.</summary>
+    private ListScroll? ShownScroll => _drawn is { IsIdle: false } shown
+        ? shown.Page switch
+        {
+            OverlayPage.Instance => _rosterScroll,
+            OverlayPage.Events => _eventScroll,
+            _ => null,
+        }
+        : null;
+
+    /// <summary>Sends the list on the screen <paramref name="rows"/> rows further down (up when negative), gliding there.</summary>
+    private void GlideShown(double rows)
+    {
+        if (ShownScroll is not { } scroll || _panel.Content is not Control tree)
+            return;
+
+        scroll.GlideBy(rows * OverlayView.RowPitch(_look), OverlayView.MaxScroll(tree));
+        StartGliding();
+    }
+
+    private void StartGliding()
+    {
+        if (_glideWatch.IsEnabled)
+            return;
+
+        _glideStamp = Stopwatch.GetTimestamp();
+        _glideWatch.Start();
+    }
+
+    /// <summary>One step of a glide: the list moved on the tree already drawn, with no new tree built.</summary>
+    private void GlideTick()
+    {
+        var now = Stopwatch.GetTimestamp();
+
+        // A pause (the machine was busy) must not become one big jump.
+        var seconds = Math.Min(Stopwatch.GetElapsedTime(_glideStamp, now).TotalSeconds, 0.1);
+        _glideStamp = now;
+
+        if (ShownScroll is not { Gliding: true } scroll || _panel.Content is not Control tree)
+        {
+            _glideWatch.Stop();
+            return;
+        }
+
+        scroll.Glide(seconds);
+        OverlayView.SetScroll(tree, scroll.Offset);
+
+        if (!scroll.Gliding)
+        {
+            _glideWatch.Stop();
+            Relight();
+        }
     }
 
     /// <summary>
@@ -1432,7 +1548,25 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 
         // The same lookup a controller's ray uses, on the same tagged controls, with a mouse
         // position instead of a point on a texture.
-        PanelTapped?.Invoke(OverlayTargets.At(root, e.GetPosition(root)));
+        var target = OverlayTargets.At(root, e.GetPosition(root));
+
+        // The list's own arrow is this window's business, as it is the headset panel's: the list glides
+        // back to its top.
+        if (target is OverlayTarget.BackToTop { List: var list })
+        {
+            var scroll = list == OverlayPage.Events ? _eventScroll : _rosterScroll;
+
+            if (_panel.Content is Control tree)
+            {
+                scroll.GlideBy(-(scroll.Goal ?? scroll.Offset), OverlayView.MaxScroll(tree));
+                StartGliding();
+            }
+
+            e.Handled = true;
+            return;
+        }
+
+        PanelTapped?.Invoke(target);
         e.Handled = true;
     }
 
@@ -1500,11 +1634,11 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         switch (e.Key)
         {
             case Key.J or Key.Down:
-                RosterScrolled?.Invoke(1);
+                GlideShown(1);
                 e.Handled = true;
                 break;
             case Key.K or Key.Up:
-                RosterScrolled?.Invoke(-1);
+                GlideShown(-1);
                 e.Handled = true;
                 break;
         }

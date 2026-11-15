@@ -160,6 +160,35 @@ public sealed partial class OverlayView
         return new OverlayView(look, icon).Draw(screen, icon);
     }
 
+    /// <summary>How far the list in a laid-out tree from <see cref="Build(OverlayScreen, Func{string?, IImage?}?, OverlayLook)"/> can be scrolled, in layout pixels; 0 when it has none.</summary>
+    public static double MaxScroll(Control tree)
+    {
+        ArgumentNullException.ThrowIfNull(tree);
+
+        return ScrollingList.In(tree)?.MaxOffset ?? 0;
+    }
+
+    /// <summary>Scrolls the list in a tree from <see cref="Build(OverlayScreen, Func{string?, IImage?}?, OverlayLook)"/> to <paramref name="offset"/>, held inside its ends.</summary>
+    /// <returns>Where the list now is, in layout pixels.</returns>
+    public static double SetScroll(Control tree, double offset)
+    {
+        ArgumentNullException.ThrowIfNull(tree);
+
+        if (ScrollingList.In(tree) is not { } list)
+            return 0;
+
+        list.Offset = Math.Clamp(offset, 0, list.MaxOffset);
+        return list.Offset;
+    }
+
+    /// <summary>How far one row of a list is from the next, in layout pixels: a row and the gap under it.</summary>
+    public static double RowPitch(OverlayLook look)
+    {
+        ArgumentNullException.ThrowIfNull(look);
+
+        return look.VRChat is null ? 40 + 4 : CardHeight + CardGap;
+    }
+
     private Control Draw(OverlayScreen screen, Func<string?, IImage?>? icon)
     {
         ArgumentNullException.ThrowIfNull(screen);
@@ -1402,7 +1431,7 @@ public sealed partial class OverlayView
 
         if (nobody is null && V is not null)
         {
-            AddVRChatRoster(list, screen, shown, arrivals, JustLeft, secondsLeft);
+            AddVRChatRoster(Scrolled && screen.PinOwnRow ? rows : list, list, screen, shown, arrivals, JustLeft, secondsLeft);
         }
         else if (nobody is null)
         {
@@ -1658,9 +1687,18 @@ public sealed partial class OverlayView
         // a user's row.
         if (V is { } v)
         {
-            var plus = Text("+", 26, v.Text, FontWeight.Bold);
-            plus.VerticalAlignment = VerticalAlignment.Center;
-            plus.HorizontalAlignment = HorizontalAlignment.Center;
+            // Drawn as two strokes and not as a letter: a font's "+" sits low and to the right of its own
+            // box, and this one is in the middle of the square by how it is made.
+            var plus = new Avalonia.Controls.Shapes.Path
+            {
+                Data = Geometry.Parse("M 0,8 L 16,8 M 8,0 L 8,16"),
+                Stroke = v.Text,
+                StrokeThickness = 4,
+                Width = 16,
+                Height = 16,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
+            };
 
             var square = new Border
             {

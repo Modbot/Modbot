@@ -115,6 +115,11 @@ public enum OverlayPage
 /// With <paramref name="NotSynced"/>: the instance is a group's, one no paired server manages, and not a
 /// public, friends-only or private instance. Only the heading's words change (<see cref="NoGroupWords"/>).
 /// </param>
+/// <param name="PinOwnRow">
+/// With <paramref name="ScrollOffset"/> set: the moderator's own row (and the "Other users" label under it)
+/// stays at the top of the Instance list while the rows under it scroll. The desktop window sets it; the
+/// headset never does, and its banner scrolls away with the list.
+/// </param>
 /// <param name="ModeratorArrived">
 /// When the moderator got into this instance, from this PC's own copy of VRChat's log, or null when it
 /// has no record of it (the overlay was switched on mid-instance). Somebody who was already here has
@@ -155,7 +160,8 @@ public sealed record OverlayScreen(
     int EventListId = 0,
     double? ScrollOffset = null,
     TalkRow Talk = default,
-    bool OtherGroup = false)
+    bool OtherGroup = false,
+    bool PinOwnRow = false)
 {
     private static readonly IReadOnlyDictionary<string, DateTimeOffset?> NoArrivals = new Dictionary<string, DateTimeOffset?>();
 
@@ -260,6 +266,7 @@ public sealed record OverlayScreen(
             && RosterListId == other.RosterListId
             && EventListId == other.EventListId
             && ScrollOffset == other.ScrollOffset
+            && PinOwnRow == other.PinOwnRow
             && Cursor == other.Cursor
             && Page == other.Page
             && NoKeyboard == other.NoKeyboard

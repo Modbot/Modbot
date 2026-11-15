@@ -3351,7 +3351,6 @@ internal sealed partial class CompanionHost : IOverlayListener
 
             // The strip's lock and hand: saved and applied like any other change to the window.
             _desktopOverlay.SwitchPressed += SetDesktopOverlay;
-            _desktopOverlay.RosterScrolled += rows => _overlay?.ScrollRoster(rows);
             _desktopOverlay.NameTyped += (list, name) => _overlay?.SetName(list, name);
             _desktopOverlay.HeadsUpTyped += words => _overlay?.SetHeadsUpText(words);
 

@@ -145,11 +145,14 @@ public sealed partial class OverlayView
     /// <remarks>
     /// <para>Without a moderator's own card (their id is not known, or the filters have hidden them) there is
     /// no banner and no label, and everybody is under the heading as one list.</para>
-    /// <para>On the desktop window the banner stays where it is while the others scroll under it; the headset's list scrolls it away with the rest. The count in the label is
+    /// <para>The banner and the label go in <paramref name="pinned"/> and the others in <paramref name="rows"/>: the same panel where
+    /// the list is drawn whole and the headset scrolls the banner away with the rest, the heading's panel where the desktop window
+    /// keeps the banner at the top while the others scroll under it. The count in the label is
     /// of the people present, as the heading's is: somebody who has just left is a row and not a person
     /// counted.</para>
     /// </remarks>
     private void AddVRChatRoster(
+        StackPanel pinned,
         StackPanel rows,
         OverlayScreen screen,
         IReadOnlyList<RosterMember> shown,
@@ -180,10 +183,10 @@ public sealed partial class OverlayView
 
         if (mine is not null)
         {
-            rows.Children.Add(RowFor(mine, true));
+            pinned.Children.Add(RowFor(mine, true));
 
             if (others.Count > 0)
-                rows.Children.Add(SectionLabel($"Other users ({others.Count(member => !justLeft(member))})"));
+                pinned.Children.Add(SectionLabel($"Other users ({others.Count(member => !justLeft(member))})"));
         }
 
         // Scrolled-past rows are counted, not hidden without a word. Where the headset scrolls by pixels

@@ -25,6 +25,12 @@ public sealed class ListScroll
     /// <summary>How fast a stick pushed all the way scrolls, in pixels a second.</summary>
     public const double StickSpeed = 1100;
 
+    /// <summary>How long a glide takes to cover most of what is left, in seconds: the share left falls as e to the minus time over this.</summary>
+    public const double GlideTime = 0.12;
+
+    /// <summary>A glide this close to its goal, in pixels, has arrived.</summary>
+    public const double GlideSnap = 0.5;
+
     /// <summary>How far back the speed of a drag is read from when it is let go.</summary>
     public static readonly TimeSpan Window = TimeSpan.FromMilliseconds(100);
 
@@ -40,13 +46,57 @@ public sealed class ListScroll
     /// <summary>Whether a fling is under way, which is when the list needs to be moved and drawn without being touched.</summary>
     public bool Flinging => Velocity != 0;
 
+    /// <summary>Where a glide (a wheel notch or a key) is heading, in pixels; null when there is no glide.</summary>
+    public double? Goal { get; private set; }
+
+    /// <summary>Whether a glide is under way, which is when the list needs to be moved and drawn without being touched.</summary>
+    public bool Gliding => Goal is not null;
+
     /// <summary>
-    /// A touch on the list: a fling stops where it is, and what a drag before it did is forgotten.
+    /// A touch on the list: a fling or a glide stops where it is, and what a drag before it did is forgotten.
     /// </summary>
     public void Touch()
     {
         Velocity = 0;
+        Goal = null;
         _samples.Clear();
+    }
+
+    /// <summary>
+    /// Sends the list <paramref name="by"/> pixels further than where it is already heading (positive is
+    /// towards the rows below), stopping at the ends. Several notches in a row add up.
+    /// </summary>
+    public void GlideBy(double by, double max)
+    {
+        Velocity = 0;
+        _samples.Clear();
+        Goal = Math.Clamp((Goal ?? Offset) + by, 0, Math.Max(0, max));
+    }
+
+    /// <summary>
+    /// Lets a glide go on for <paramref name="seconds"/>: the list covers the same share of what is left
+    /// every moment, so it starts quick and settles softly, and never goes past its goal. Returns whether
+    /// the list moved.
+    /// </summary>
+    public bool Glide(double seconds)
+    {
+        if (Goal is not { } goal)
+            return false;
+
+        var before = Offset;
+        var left = goal - Offset;
+
+        if (Math.Abs(left) <= GlideSnap)
+        {
+            Offset = goal;
+            Goal = null;
+        }
+        else
+        {
+            Offset += left * (1 - Math.Exp(-seconds / GlideTime));
+        }
+
+        return Offset != before;
     }
 
     /// <summary>
@@ -55,6 +105,7 @@ public sealed class ListScroll
     public void Drag(double by, double max, TimeSpan now)
     {
         Velocity = 0;
+        Goal = null;
         Offset = Math.Clamp(Offset + by, 0, Math.Max(0, max));
 
         _samples.Add((now, Offset));
@@ -96,6 +147,7 @@ public sealed class ListScroll
     public void Push(double deflection, double seconds, double max)
     {
         Velocity = 0;
+        Goal = null;
         _samples.Clear();
         Offset = Math.Clamp(Offset + (deflection * StickSpeed * seconds), 0, Math.Max(0, max));
     }
@@ -132,6 +184,8 @@ public sealed class ListScroll
     public void Clamp(double max)
     {
         Offset = Math.Clamp(Offset, 0, Math.Max(0, max));
+        if (Goal is { } goal)
+            Goal = Math.Clamp(goal, 0, Math.Max(0, max));
         if (Offset <= 0 || Offset >= max)
             Velocity = 0;
     }
@@ -140,6 +194,7 @@ public sealed class ListScroll
     public void ToEnd(double max)
     {
         Velocity = 0;
+        Goal = null;
         _samples.Clear();
         Offset = Math.Max(0, max);
     }
@@ -149,6 +204,7 @@ public sealed class ListScroll
     {
         Offset = 0;
         Velocity = 0;
+        Goal = null;
         _samples.Clear();
     }
 }
