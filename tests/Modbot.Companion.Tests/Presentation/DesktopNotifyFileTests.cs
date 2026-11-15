@@ -113,6 +113,38 @@ public class DesktopNotifyFileTests : IDisposable
     }
 
     [Fact]
+    public void TheSizeThePopUpsWereDraggedToIsKept()
+    {
+        Assert.True(CompanionSettings.SaveDesktopNotifyOverlay(
+            Path_,
+            DesktopNotifySettings.Default with { Wide = 1.5, Tall = 1.75 }));
+
+        var read = CompanionSettings.Load(Path_, NoEnvironment).DesktopNotifyOverlay;
+        Assert.Equal(1.5, read.Wide);
+        Assert.Equal(1.75, read.Tall);
+    }
+
+    [Fact]
+    public void AnOlderFileWithoutASizeReadsAsOrdinary()
+    {
+        Write("""{ "desktopNotifyOverlay": { "on": true, "spot": "bottomright", "seconds": 6 } }""");
+
+        var read = CompanionSettings.Load(Path_, NoEnvironment).DesktopNotifyOverlay;
+        Assert.Equal(1, read.Wide);
+        Assert.Equal(1, read.Tall);
+    }
+
+    [Fact]
+    public void ASizeOutsideOneToTwoIsBroughtInside()
+    {
+        Write("""{ "desktopNotifyOverlay": { "on": true, "wide": 9, "tall": 0.2 } }""");
+
+        var read = CompanionSettings.Load(Path_, NoEnvironment).DesktopNotifyOverlay;
+        Assert.Equal(2, read.Wide);
+        Assert.Equal(1, read.Tall);
+    }
+
+    [Fact]
     public void WritingItLeavesEverythingElseAlone()
     {
         Write("""

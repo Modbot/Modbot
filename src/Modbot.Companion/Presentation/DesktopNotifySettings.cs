@@ -29,10 +29,14 @@ namespace Modbot.Companion.Presentation;
 /// <param name="On">Whether the window exists at all. Off means none of it is built.</param>
 /// <param name="Spot">Which corner of the screen it sits in.</param>
 /// <param name="Seconds">How long one notification stays before it clears itself.</param>
+/// <param name="Wide">How many times its ordinary width the window was dragged to, from 1 to 2 (<see cref="DesktopPanelSize"/>).</param>
+/// <param name="Tall">How many times its ordinary height the window was dragged to, from 1 to 2.</param>
 public sealed record DesktopNotifySettings(
     bool On = true,
     ScreenSpot Spot = ScreenSpot.BottomRight,
-    float Seconds = DesktopNotifySettings.DefaultSeconds)
+    float Seconds = DesktopNotifySettings.DefaultSeconds,
+    double Wide = 1,
+    double Tall = 1)
 {
     public const float DefaultSeconds = 6f;
 
@@ -81,6 +85,8 @@ public sealed record DesktopNotifySettings(
     public DesktopNotifySettings Clamped() => this with
     {
         Seconds = float.IsFinite(Seconds) ? Math.Clamp(Seconds, MinSeconds, MaxSeconds) : DefaultSeconds,
+        Wide = DesktopPanelSize.Clamp(Wide),
+        Tall = DesktopPanelSize.Clamp(Tall),
     };
 
     /// <summary>How long one notification stays.</summary>
@@ -146,6 +152,8 @@ public sealed record DesktopNotifySettings(
             ["on"] = settings.On,
             ["spot"] = settings.Spot.ToString().ToLowerInvariant(),
             ["seconds"] = settings.Seconds,
+            ["wide"] = settings.Wide,
+            ["tall"] = settings.Tall,
         };
     }
 
@@ -174,7 +182,9 @@ public sealed record DesktopNotifySettings(
         return new DesktopNotifySettings(
             Flag(json, "on", absent.On),
             spot,
-            Number(json, "seconds", absent.Seconds)).Clamped();
+            Number(json, "seconds", absent.Seconds),
+            Times(json, "wide"),
+            Times(json, "tall")).Clamped();
     }
 
     private static string? Text(JsonObject json, string field)
@@ -182,6 +192,10 @@ public sealed record DesktopNotifySettings(
 
     private static bool Flag(JsonObject json, string field, bool fallback)
         => json[field] is JsonValue value && value.TryGetValue<bool>(out var flag) ? flag : fallback;
+
+    /// <summary>A size in times the ordinary one; a file from before the corner existed has none, which is 1.</summary>
+    private static double Times(JsonObject json, string field)
+        => json[field] is JsonValue value && value.TryGetValue<double>(out var times) ? times : DesktopPanelSize.Least;
 
     private static float Number(JsonObject json, string field, float fallback)
     {

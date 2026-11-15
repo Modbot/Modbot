@@ -129,6 +129,24 @@ public class DesktopNotifySettingsTests
     }
 
     [Fact]
+    public void ADraggedSizeGoesOutAndComesBackTheSame()
+    {
+        var settings = DesktopNotifySettings.Default with { Wide = 1.3, Tall = 1.9 };
+
+        Assert.Equal(settings, DesktopNotifySettings.FromJson(settings.ToJson()));
+    }
+
+    [Fact]
+    public void ASizeNobodyCanDragToIsBroughtInsideOneToTwo()
+    {
+        var clamped = (DesktopNotifySettings.Default with { Wide = 0.5, Tall = double.NaN }).Clamped();
+        Assert.Equal(1, clamped.Wide);
+        Assert.Equal(1, clamped.Tall);
+
+        Assert.Equal(2, (DesktopNotifySettings.Default with { Wide = 5 }).Clamped().Wide);
+    }
+
+    [Fact]
     public void NoObjectAtAllIsTheDefaults()
     {
         Assert.Equal(DesktopNotifySettings.Default, DesktopNotifySettings.FromJson(null));

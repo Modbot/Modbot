@@ -3,7 +3,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Avalonia.Win32;
+using Modbot.Companion.Overlay;
 using Modbot.Companion.Presentation;
 using Modbot.Overlay;
 using Modbot.Overlay.Interaction;
@@ -30,6 +32,12 @@ namespace Modbot.Companion.App;
 /// answered (update checking design §10).</para>
 /// <para><strong>It sits where it was put.</strong> One of the six corners from settings, on the
 /// screen Modbot's own window is on. It is not dragged, and nothing it shows can move it.</para>
+/// <para><strong>It can be made bigger.</strong> In edit mode, while pop-ups are up, a corner at the
+/// bottom right takes the mouse (the rest of the window still lets it through) and drags the window
+/// up to twice its ordinary size. The text keeps its size; the extra room is room for more
+/// pop-ups. A corner of the screen is where the window is anchored, so the drag grows it away from
+/// the anchored edges: pull toward the middle of the screen. The window is hidden with no pop-ups,
+/// so there is no corner to grab then.</para>
 /// <para><strong>Nothing is drawn while nothing is happening.</strong> An empty stack hides the
 /// window outright rather than leaving an empty frame in the corner, which is the thing that makes
 /// people turn overlays off.</para>
@@ -41,6 +49,13 @@ internal sealed class DesktopNotifyWindow : Window
 {
     /// <summary>Wide enough for a name and a line about it, narrow enough to stay out of the way.</summary>
     private const double PanelWidth = 340;
+
+    /// <summary>
+    /// The least height a dragged-taller window keeps, which is what "ordinary" means for height:
+    /// the window is otherwise exactly as tall as the cards in it, so it has no size of its own to
+    /// be a multiple of. About two cards' worth.
+    /// </summary>
+    private const double OrdinaryHeight = 120;
 
     private const int GwlExStyle = -20;
 
@@ -71,8 +86,19 @@ internal sealed class DesktopNotifyWindow : Window
     private Point? _mouse;
     private bool _styled;
 
-    // Whether a click lands on this window at all: only while a card with buttons is up.
+    // Whether a click lands on this window at all: while a card with buttons is up, and over the
+    // resize corner, which is the one other thing on it that takes a press.
     private bool _clickable;
+    private bool _overCorner;
+
+    // The resize corner at the bottom right, shown in edit mode, and the drag that is under way:
+    // where the mouse was on the screen, and the window's size then.
+    private readonly Border _corner = ResizeCorner.Create();
+    private readonly DispatcherTimer _cornerWatch = new() { Interval = TimeSpan.FromMilliseconds(50) };
+    private (PixelPoint Pointer, double Width, double Height)? _resizing;
+    private bool _editMode;
+    private double _wide = 1;
+    private double _tall = 1;
 
     public DesktopNotifyWindow()
     {
@@ -94,7 +120,14 @@ internal sealed class DesktopNotifyWindow : Window
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
         Background = Brushes.Transparent;
 
-        Content = _cards;
+        _corner.Margin = new Thickness(0, 0, 4, 4);
+        _corner.PointerPressed += CornerPressed;
+        _corner.PointerMoved += CornerMoved;
+        _corner.PointerReleased += CornerReleased;
+        _cornerWatch.Tick += (_, _) => WatchTheCorner();
+        PaintCorner();
+
+        Content = new Grid { Children = { _cards, _corner } };
         _cards.PointerPressed += OnCardsPressed;
         _cards.PointerMoved += OnCardsMoved;
         _cards.PointerExited += (_, _) =>
@@ -123,6 +156,27 @@ internal sealed class DesktopNotifyWindow : Window
     /// </summary>
     public event Action<string, bool>? PopUpAnswered;
 
+    /// <summary>The window was dragged to a new size: the settings with it, to be saved.</summary>
+    public event Action<DesktopNotifySettings>? SizeDragged;
+
+    /// <summary>
+    /// The SteamVR page's Edit mode switch: whether the resize corner shows. It is only ever drawn
+    /// while pop-ups are up, because the window is hidden otherwise.
+    /// </summary>
+    public bool EditMode
+    {
+        get => _editMode;
+        set
+        {
+            if (_editMode == value)
+                return;
+
+            _editMode = value;
+            PaintCorner();
+            WatchTheCornerWhileNeeded();
+        }
+    }
+
     /// <summary>
     /// Which visual the window is placed beside, so it lands on the monitor Modbot's own window is
     /// on. Null puts it on the main screen.
@@ -143,6 +197,7 @@ internal sealed class DesktopNotifyWindow : Window
                 return;
 
             _look = value;
+            PaintCorner();
 
             if (!_drawn.IsEmpty)
             {
@@ -165,11 +220,22 @@ internal sealed class DesktopNotifyWindow : Window
         ArgumentNullException.ThrowIfNull(settings);
 
         _settings = settings;
+        _wide = DesktopPanelSize.Clamp(settings.Wide);
+        _tall = DesktopPanelSize.Clamp(settings.Tall);
+
+        // The cards keep to the edge the window is anchored to, so a taller window does not leave a
+        // gap between them and the screen's edge.
+        _cards.VerticalAlignment = NotifyOverlaySettings.DownOf(settings.Spot) > 0f
+            ? Avalonia.Layout.VerticalAlignment.Top
+            : Avalonia.Layout.VerticalAlignment.Bottom;
 
         if (!settings.On)
+        {
             Clear();
-        else
-            Place();
+            return;
+        }
+
+        ApplySize();
     }
 
     /// <summary>
@@ -204,7 +270,8 @@ internal sealed class DesktopNotifyWindow : Window
         if (!IsVisible)
             Show();
 
-        Place();
+        ApplySize();
+        WatchTheCornerWhileNeeded();
         return true;
     }
 
@@ -218,6 +285,16 @@ internal sealed class DesktopNotifyWindow : Window
         // Hiding under the mouse may raise no PointerExited, so the next card would light a stale spot.
         _mouse = null;
         _litTarget = null;
+
+        // A drag the window is hidden in the middle of ends where it got to.
+        if (_resizing is not null)
+        {
+            _resizing = null;
+            SaveTheSize();
+        }
+
+        _cornerWatch.Stop();
+        SetOverCorner(false);
 
         if (IsVisible)
             Hide();
@@ -289,6 +366,8 @@ internal sealed class DesktopNotifyWindow : Window
             ApplyStyle();
     }
 
+    private bool TakesClicks => _clickable || _overCorner;
+
     private bool ApplyStyle()
     {
         if (!OperatingSystem.IsWindows())
@@ -301,7 +380,7 @@ internal sealed class DesktopNotifyWindow : Window
         {
             var style = (long)GetWindowLongPtrW(handle, GwlExStyle);
             var wanted = (style | WsExNoActivate | WsExToolWindow) & ~WsExTransparent;
-            if (!_clickable)
+            if (!TakesClicks)
                 wanted |= WsExTransparent;
 
             SetWindowLongPtrW(handle, GwlExStyle, (IntPtr)wanted);
@@ -317,11 +396,122 @@ internal sealed class DesktopNotifyWindow : Window
 
     private IntPtr KeepFocusOnTheGame(IntPtr window, uint message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        if (message != WmMouseActivate || !_clickable)
+        if (message != WmMouseActivate || !TakesClicks)
             return IntPtr.Zero;
 
         handled = true;
         return (IntPtr)MaNoActivate;
+    }
+
+    /// <summary>The window's width and height from the dragged size, and put back in its corner.</summary>
+    private void ApplySize()
+    {
+        Width = PanelWidth * _wide;
+        MinHeight = _tall > DesktopPanelSize.Least ? OrdinaryHeight * _tall : 0;
+        Place();
+    }
+
+    /// <summary>The resize corner: there in edit mode, which is only ever seen while pop-ups are up.</summary>
+    private void PaintCorner()
+    {
+        _corner.IsVisible = _editMode;
+        ResizeCorner.Ink(_corner, _look?.VRChat?.Icon ?? DesignTokens.Desktop.TextDimBrush);
+    }
+
+    /// <summary>Starts or stops watching the mouse for the corner, which a click-through window cannot hear.</summary>
+    private void WatchTheCornerWhileNeeded()
+    {
+        if (_editMode && IsVisible && OperatingSystem.IsWindows())
+        {
+            _cornerWatch.Start();
+            WatchTheCorner();
+            return;
+        }
+
+        _cornerWatch.Stop();
+        SetOverCorner(false);
+    }
+
+    /// <summary>The window takes clicks over the corner, and for the whole of a drag, and lets them through everywhere else.</summary>
+    private void WatchTheCorner()
+    {
+        if (!GetCursorPos(out var mouse))
+            return;
+
+        var topLeft = _corner.PointToScreen(new Point(0, 0));
+        var bottomRight = _corner.PointToScreen(new Point(_corner.Bounds.Width, _corner.Bounds.Height));
+        var over = mouse.X >= topLeft.X && mouse.X < bottomRight.X && mouse.Y >= topLeft.Y && mouse.Y < bottomRight.Y;
+
+        SetOverCorner(over || _resizing is not null);
+    }
+
+    private void SetOverCorner(bool over)
+    {
+        if (_overCorner == over)
+            return;
+
+        _overCorner = over;
+
+        if (_styled)
+            ApplyStyle();
+    }
+
+    private void CornerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(_corner).Properties.IsLeftButtonPressed)
+            return;
+
+        _resizing = (this.PointToScreen(e.GetPosition(this)), Width, Height);
+        e.Pointer.Capture(_corner);
+        e.Handled = true;
+    }
+
+    private void CornerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_resizing is not { } start)
+            return;
+
+        var now = this.PointToScreen(e.GetPosition(this));
+        var scaling = RenderScaling <= 0 ? 1 : RenderScaling;
+        var across = (now.X - start.Pointer.X) / scaling;
+        var down = (now.Y - start.Pointer.Y) / scaling;
+
+        // The window is held in its corner of the screen, so it grows away from the edges it is
+        // held by: toward the middle for a side corner, twice as fast for a window that is centred
+        // (it grows to both sides), and up for a bottom corner.
+        var spot = _settings.Spot;
+        var wider = NotifyOverlaySettings.AcrossOf(spot) switch
+        {
+            < 0f => across,
+            > 0f => -across,
+            _ => across * 2,
+        };
+        var taller = NotifyOverlaySettings.DownOf(spot) > 0f ? down : -down;
+
+        _wide = DesktopPanelSize.TimesOrdinary(start.Width + wider, PanelWidth);
+        _tall = DesktopPanelSize.TimesOrdinary(start.Height + taller, OrdinaryHeight);
+
+        ApplySize();
+        e.Handled = true;
+    }
+
+    private void CornerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_resizing is null)
+            return;
+
+        _resizing = null;
+        e.Pointer.Capture(null);
+        SaveTheSize();
+    }
+
+    /// <summary>The size the window now has, handed on to be saved with the rest of its settings.</summary>
+    private void SaveTheSize()
+    {
+        var next = _settings with { Wide = _wide, Tall = _tall };
+
+        if (next != _settings)
+            SizeDragged?.Invoke(next);
     }
 
     private void OnCardsMoved(object? sender, PointerEventArgs e)
@@ -385,6 +575,17 @@ internal sealed class DesktopNotifyWindow : Window
             e.Handled = true;
         }
     }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MousePoint
+    {
+        public int X;
+        public int Y;
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetCursorPos(out MousePoint point);
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
     private static extern IntPtr GetWindowLongPtrW(IntPtr window, int index);

@@ -3219,6 +3219,9 @@ internal sealed partial class CompanionHost : IOverlayListener
         if (_desktopChat is not null)
             _desktopChat.EditMode = on;
 
+        if (_desktopNotify is not null)
+            _desktopNotify.EditMode = on;
+
         ShowOnDashboard();
         Render();
     }
@@ -3457,8 +3460,9 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         try
         {
-            _desktopNotify = new DesktopNotifyWindow { PlaceNear = Window };
+            _desktopNotify = new DesktopNotifyWindow { PlaceNear = Window, EditMode = _state.Settings.OverlayEditMode };
             _desktopNotify.PopUpAnswered += UpdatePromptAnswered;
+            _desktopNotify.SizeDragged += SetDesktopNotifyOverlay;
             _desktopNotify.Apply(settings);
             StartHeadsetPaletteWatch();
         }

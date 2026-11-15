@@ -254,6 +254,7 @@ the file:
 | `desktopNotifyOverlay.on` | `true` on a new install, `false` if you already had a settings file | Whether notifications appear in a corner of your screen. See [Notification overlay on a monitor](#notification-overlay-on-a-monitor). |
 | `desktopNotifyOverlay.spot` | `bottomright` | Which corner: `topleft`, `topmiddle`, `topright`, `bottomleft`, `bottommiddle` or `bottomright`. |
 | `desktopNotifyOverlay.seconds` | `6` | How long one notification stays, 2 to 30. |
+| `desktopNotifyOverlay.wide`, `desktopNotifyOverlay.tall` | `1` | How many times wider and taller than ordinary the pop-ups' window was made with its [resize corner](/companion/overlay#the-resize-corner), 1 to 2. |
 | `notifications.bleep` | `true` | Whether a short sound plays when you are told something. See [Notification sound](#notification-sound). |
 | `notifications.volume` | `70` | The sound's own volume, 0 to 100, separate from the voice's. |
 | `notifications.trayNoticesShown` | `0` | How many times you have been told the client is still in the tray. It stops after three. |
@@ -507,7 +508,9 @@ something you asked for. The notification panel in the headset has been on from 
 "desktopNotifyOverlay": {
   "on": true,
   "spot": "bottomright",
-  "seconds": 6
+  "seconds": 6,
+  "wide": 1,
+  "tall": 1
 }
 ```
 
