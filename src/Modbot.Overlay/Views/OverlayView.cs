@@ -298,7 +298,7 @@ public sealed partial class OverlayView
         stack.Children.Add(screen.Page switch
         {
             OverlayPage.Events => EventsPanel(screen),
-            OverlayPage.Person when screen.Person is { } person => PersonCard(person, WasHereBefore(screen, person.SubjectId)),
+            OverlayPage.Person when screen.Person is { } person => PersonCard(person, WasHereBefore(screen, person.SubjectId), screen),
             _ => RosterPanel(screen),
         });
 
@@ -1250,7 +1250,11 @@ public sealed partial class OverlayView
     /// server's profile read added, with Back and Refresh under it.
     /// </summary>
     /// <param name="hereBefore">They were already here when the moderator arrived: the card says so.</param>
-    private Control PersonCard(UserSummary person, bool hereBefore = false)
+    /// <param name="screen">
+    /// What decides Mark avatar: it shows only when the server named the avatar they wear, it is not
+    /// listed yet and this panel can send it; once listed the card says Problem avatar instead.
+    /// </param>
+    private Control PersonCard(UserSummary person, bool hereBefore = false, OverlayScreen? screen = null)
     {
         var lines = new StackPanel { Spacing = 6 };
 
@@ -1288,12 +1292,18 @@ public sealed partial class OverlayView
         foreach (var line in PersonDetailLines(person))
             lines.Children.Add(Text(line, T.Density.TextSmall, T.TextDimBrush));
 
+        if (person.AvatarName is not null && person.AvatarListed == true)
+            lines.Children.Add(Text("Problem avatar", T.Density.TextSmall, T.DangerBrush));
+
+        if (screen?.AvatarProblem is { Length: > 0 } avatarProblem)
+            lines.Children.Add(Text(avatarProblem, T.Density.TextSmall, T.DangerBrush));
+
         // What this panel can honestly do about a person: go back, read their summary again, open
         // their page in Modbot on this PC's browser, and copy their name. None of them changes
         // anything about the person: there is no ban, kick or warn here and there will not be one —
         // the client's device token is ingest-scoped and could not carry one. They wrap, so four
         // buttons still fit a narrow headset panel.
-        lines.Children.Add(new WrapPanel
+        var buttons = new WrapPanel
         {
             Orientation = Orientation.Horizontal,
             ItemSpacing = 10,
@@ -1306,7 +1316,12 @@ public sealed partial class OverlayView
                 Press("Open in Modbot", new OverlayTarget.OpenPersonPage()),
                 Press("Copy name", new OverlayTarget.CopyName()),
             },
-        });
+        };
+
+        if (screen?.CanMarkAvatar == true && person.AvatarName is not null && person.AvatarListed != true)
+            buttons.Children.Add(Press("Mark avatar", new OverlayTarget.MarkAvatar()));
+
+        lines.Children.Add(buttons);
 
         return new Border
         {

@@ -2606,7 +2606,10 @@ internal sealed partial class CompanionHost : IOverlayListener
             popUps: _popUps,
 
             // Heads-ups go out only when Place or Clear is pressed on a panel.
-            headsUps: new HttpHeadsUpClient(_http!));
+            headsUps: new HttpHeadsUpClient(_http!),
+
+            // Mark avatar goes out only when it is pressed on a person's card.
+            avatars: new HttpProblemAvatarClient(_http!));
 
         // Save a clip on either panel. The loop only says that somebody asked; this half owns the
         // recorder, the folder and the limit on it, so this is where a clip is actually written.

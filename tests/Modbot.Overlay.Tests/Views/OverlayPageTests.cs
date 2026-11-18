@@ -156,6 +156,24 @@ public class OverlayPageTests
         Assert.All(targets, t => Assert.True(Allowed(t), $"Unexpected overlay target {t.GetType().Name}."));
     }
 
+    [Theory]
+    [InlineData("Fluffy Fox", false, true, true)]
+    [InlineData("Fluffy Fox", null, true, true)]
+    [InlineData("Fluffy Fox", true, true, false)]
+    [InlineData(null, null, true, false)]
+    [InlineData("Fluffy Fox", false, false, false)]
+    public void MarkAvatarShowsOnlyWithAnAvatarNotYetListedAndAPanelThatCanSendIt(string? avatar, bool? listed, bool canMark, bool shown)
+    {
+        var person = new UserSummary("usr_rin", "Rin", RosterStanding.Member, 0, null, [], [], AvatarName: avatar, AvatarListed: listed);
+        var screen = Screen(OverlayPage.Person, person) with { CanMarkAvatar = canMark };
+
+        var targets = Targets(screen).Select(t => t.Target).ToList();
+
+        Assert.Equal(shown, targets.Any(t => t is OverlayTarget.MarkAvatar));
+        Assert.Contains(targets, t => t is OverlayTarget.BackFromPerson);
+        Assert.Contains(targets, t => t is OverlayTarget.CopyName);
+    }
+
     /// <summary>
     /// The whole list of target kinds the panel has. Anything new has to be added here on purpose,
     /// which is the point. The filter row's four only choose what a list shows; the last three are
@@ -164,6 +182,7 @@ public class OverlayPageTests
     private static bool Allowed(OverlayTarget target) =>
         target is OverlayTarget.GoTo or OverlayTarget.Person or OverlayTarget.BackFromPerson
             or OverlayTarget.RefreshPerson or OverlayTarget.OpenPersonPage or OverlayTarget.CopyName
+            or OverlayTarget.MarkAvatar
             or OverlayTarget.Roster or OverlayTarget.Events
             or OverlayTarget.DismissAlert
             or OverlayTarget.Filter or OverlayTarget.FiltersToggle or OverlayTarget.Pick or OverlayTarget.ClearFilters or OverlayTarget.TypeName

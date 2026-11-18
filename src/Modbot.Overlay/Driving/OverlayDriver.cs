@@ -1594,6 +1594,7 @@ public sealed class OverlayDriver : IDisposable
             HeadsUps: roster.Value?.HeadsUpsOrNone,
             Draft: _draft,
             CanPlaceHeadsUps: _headsUpClient is not null && !server.TokenRejected,
+            CanMarkAvatar: _avatarClient is not null && !server.TokenRejected,
             Left: _leavers.Current(),
             ModeratorArrived: ModeratorArrived(),
             ModeratorId: ModeratorId);

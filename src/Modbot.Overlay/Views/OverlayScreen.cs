@@ -101,6 +101,10 @@ public enum OverlayPage
 /// Clear on a heads-up, so nothing is drawn that a tap would have to ignore.
 /// </param>
 /// <param name="AvatarProblem">Why the last Mark avatar on the open person card was refused, in words, or null.</param>
+/// <param name="CanMarkAvatar">
+/// Whether this panel can send Mark avatar for the open person: the client is wired and the server has not
+/// turned the device token away. The server still decides who may.
+/// </param>
 /// <param name="Left">
 /// The people who left in the last minute, as the drive loop counts it, first to go first. Their
 /// rows stay on the Instance list, greyed, and are not counted in "here". Never in
@@ -163,7 +167,8 @@ public sealed record OverlayScreen(
     double? ScrollOffset = null,
     TalkRow Talk = default,
     bool OtherGroup = false,
-    bool PinOwnRow = false)
+    bool PinOwnRow = false,
+    bool CanMarkAvatar = false)
 {
     private static readonly IReadOnlyDictionary<string, DateTimeOffset?> NoArrivals = new Dictionary<string, DateTimeOffset?>();
 
@@ -273,6 +278,7 @@ public sealed record OverlayScreen(
             && Page == other.Page
             && NoKeyboard == other.NoKeyboard
             && CanPlaceHeadsUps == other.CanPlaceHeadsUps
+            && CanMarkAvatar == other.CanMarkAvatar
             && Draft == other.Draft
             && HeadsUpsOrNone.SequenceEqual(other.HeadsUpsOrNone)
             && RosterFiltersOrNone == other.RosterFiltersOrNone

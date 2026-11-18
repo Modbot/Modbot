@@ -259,6 +259,13 @@ public class MadeUpHandTests
     }
 
     [Fact]
+    public void MarkAvatarIsNeverTapped()
+    {
+        Assert.NotNull(RemoteTaps.Refusal(new OverlayTarget.MarkAvatar(), null));
+        Assert.NotNull(RemoteTaps.Refusal(new OverlayTarget.MarkAvatar(), "usr_1"));
+    }
+
+    [Fact]
     public void NothingThatSendsAHeadsUpIsTapped()
     {
         Assert.NotNull(RemoteTaps.Refusal(new OverlayTarget.PlaceHeadsUp(), null));

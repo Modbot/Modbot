@@ -276,7 +276,7 @@ there is no control at all.
 ### The person card
 
 Tapping a person opens their card, on the desktop overlay and on the headset panel alike. It has four
-buttons, the same on both:
+buttons, the same on both, and a fifth, **Mark avatar**, for a moderator who may use it:
 
 - **Back** returns to the screen you opened the person from.
 - **Refresh** reads that person's summary again.
@@ -286,6 +286,12 @@ buttons, the same on both:
   the person's id, and nothing a server or a display name says.
 - **Copy name** puts the person's display name on your PC's clipboard, exactly as the card shows it,
   for pasting into Discord or a ban reason.
+- **Mark avatar** adds the avatar the person was last seen wearing to your server's
+  [problem avatar list](/moderation/problem-avatars), and the card then says **Problem avatar**. It
+  shows only when Modbot knows their avatar and it is not on the list yet, and only for a moderator
+  who has [**Change settings**](/accounts/roles-and-permissions#change-settings) on that server.
+  If the server says no, its reason stays on the card. For the Debug page's made-up people it
+  sends nothing.
 
 Under the name, up to three short lines say what your server holds about the person:
 

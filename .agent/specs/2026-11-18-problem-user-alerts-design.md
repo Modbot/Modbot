@@ -74,6 +74,10 @@ The card is the flagged join card, whose title reads "joined". For an avatar swi
 already there that is slightly wrong. Step D (companion card wording) may refine it; this step
 leaves it alone.
 
+Step D built the other half of the companion's part: a **Mark avatar** button on the person card,
+which posts the person's id to `POST /api/v1/companion/problem-avatars`. The server takes the avatar
+name from what it last saw them wear and needs the same permission as managing flag rules.
+
 ## 2. Crash alert (step E)
 
 Not built here. Recorded so the avatar list and the crash alert share one shape.
