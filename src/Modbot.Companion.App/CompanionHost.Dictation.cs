@@ -36,6 +36,13 @@ internal sealed partial class CompanionHost
     private DictationListening? _dictationListening;
     private DictationController? _dictation;
 
+    /// <summary>Dictate and Feedback take turns on the one microphone.</summary>
+    private readonly MicrophoneTurns _microphoneTurns = new();
+
+    private readonly Lock _speechModelGate = new();
+    private readonly List<IProgress<double>> _speechModelWatchers = [];
+    private Task<string?>? _speechModelFetch;
+
     private ChatAvailability? _chatAvailability;
     private ChatSession? _chatSession;
     private volatile ServerPairing? _chatPairing;
@@ -90,6 +97,8 @@ internal sealed partial class CompanionHost
         // The button says Sending until the answer begins, or says why it could not.
         _chatSession.AnswerStarted += problem => _dictation?.SendEnded(problem);
 
+        StartFeedback();
+
         _chatAsk.Tick += (_, _) => RefreshChatAvailability();
         _chatAsk.Start();
 
@@ -106,6 +115,9 @@ internal sealed partial class CompanionHost
 
     private void RefreshChatAvailability()
     {
+        // Feedback asks at the same times: at start, on the slow timer and when the pairing changes.
+        RefreshFeedbackAvailability();
+
         if (_chatAvailability is not { } availability)
             return;
 
@@ -190,19 +202,26 @@ internal sealed partial class CompanionHost
     /// </summary>
     internal DictationController Dictation => _dictation ??= MakeDictation();
 
+    /// <summary>
+    /// The one microphone and speech engine Dictate and Feedback share, built the first time either is
+    /// asked for. Each gets its own turn on it from <see cref="_microphoneTurns"/>.
+    /// </summary>
+    private DictationListening SpeechListening()
+        => _dictationListening ??= new DictationListening(
+            DictationModel.Default, DictationModel.DictationFolder(_directory), DictationMicrophone, LogDictation);
+
     private DictationController MakeDictation()
     {
         var model = DictationModel.Default;
         var folder = DictationModel.DictationFolder(_directory);
 
-        var listening = new DictationListening(model, folder, DictationMicrophone, LogDictation);
-        _dictationListening = listening;
+        var listening = SpeechListening();
 
         var controller = new DictationController(
-            listening,
+            _microphoneTurns.Wrap(listening, "Dictate"),
             listening,
             () => model.IsPresent(folder),
-            progress => PrepareDictationModel(model, folder, progress),
+            progress => PrepareSpeechModel(model, folder, progress),
             LogDictation);
 
         // The button follows the controller. It can change on a worker thread, so the redraw is
@@ -242,7 +261,52 @@ internal sealed partial class CompanionHost
     }
 
     /// <summary>
-    /// The one download of the speech model, started only because somebody tapped Dictate. Answers
+    /// Fetches the speech model for whichever of Dictate and Feedback asked first; the other, asking
+    /// while it is coming down, waits for the same download and shows the same progress instead of
+    /// starting a second one. Answers as <see cref="PrepareDictationModel"/> does.
+    /// </summary>
+    private Task<string?> PrepareSpeechModel(DictationModel model, string folder, IProgress<double> progress)
+    {
+        lock (_speechModelGate)
+        {
+            _speechModelWatchers.Add(progress);
+
+            // Run on a worker so a download that ends at once cannot clear itself before it is stored.
+            return _speechModelFetch ??= Task.Run(() => FetchSpeechModel(model, folder));
+        }
+    }
+
+    private async Task<string?> FetchSpeechModel(DictationModel model, string folder)
+    {
+        try
+        {
+            return await PrepareDictationModel(
+                    model,
+                    folder,
+                    new Progress<double>(fraction =>
+                    {
+                        IProgress<double>[] watching;
+
+                        lock (_speechModelGate)
+                            watching = [.. _speechModelWatchers];
+
+                        foreach (var watcher in watching)
+                            watcher.Report(fraction);
+                    }))
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            lock (_speechModelGate)
+            {
+                _speechModelFetch = null;
+                _speechModelWatchers.Clear();
+            }
+        }
+    }
+
+    /// <summary>
+    /// The one download of the speech model, started only because somebody tapped Dictate or Feedback. Answers
     /// null when the model is ready, otherwise a sentence saying why not.
     /// </summary>
     private async Task<string?> PrepareDictationModel(DictationModel model, string folder, IProgress<double> progress)

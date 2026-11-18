@@ -692,6 +692,7 @@ internal sealed partial class CompanionHost : IOverlayListener
                 _state.UnusablePairings.Add(pairing);
         }
 
+        Window.FeedbackPressed += ToggleFeedback;
         StartChat();
 
         // Off in settings means a panel is never built in the first place, and its own switch
@@ -2897,6 +2898,8 @@ internal sealed partial class CompanionHost : IOverlayListener
     private void ShowButton()
     {
         ShowDesktopDictate();
+        ShowDesktopFeedback();
+        ShowMainFeedback();
 
         if (_buttonHost is null || _overlayHost is null)
             return;
@@ -3375,8 +3378,10 @@ internal sealed partial class CompanionHost : IOverlayListener
             _desktopOverlayShortcut = new DesktopOverlayShortcut(ToggleDesktopOverlay);
             _desktopOverlayShortcut.Ask(settings.ShortcutOrDefault);
             _desktopOverlay.DictatePressed += ToggleDictateFromDesktop;
+            _desktopOverlay.FeedbackPressed += ToggleFeedback;
             ApplyDictateShortcut();
             ShowDesktopDictate();
+            ShowDesktopFeedback();
 
             // Modbot's bubble in VRChat's HUD row, for as long as the overlay is on. A click on it
             // is the shortcut's own action, not a second copy of it.
@@ -4163,6 +4168,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         _listener?.Dispose();
         _listener = null;
         StopTalk();
+        StopFeedback();
         StopDictation();
         StopChat();
     }

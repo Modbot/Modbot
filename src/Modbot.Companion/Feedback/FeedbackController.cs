@@ -172,9 +172,6 @@ public sealed class FeedbackController
         }
     }
 
-    /// <summary>Raised, once, each time a draft is ready for the person to change.</summary>
-    public event Action<FeedbackDraft>? DraftReady;
-
     /// <summary>A tap on the button. While a draft is up, tidying or sending, a tap does nothing.</summary>
     public void Toggle()
     {
@@ -316,7 +313,6 @@ public sealed class FeedbackController
         _log(draft.Tidied ? "feedback draft ready (tidied by the server)" : "feedback draft ready (the words as said)", null);
 
         Changed?.Invoke();
-        DraftReady?.Invoke(draft);
     }
 
     private async Task PostAsync(string kind, string title, string details)
