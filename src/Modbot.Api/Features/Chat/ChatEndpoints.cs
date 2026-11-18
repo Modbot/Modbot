@@ -492,11 +492,16 @@ public static class ChatEndpoints
             await SendEvent("conversation", Summary(conversation));
         }
 
+        var offered = registry.OfferedTo(held, ChatToolRegistry.ParseSwitches(settings.AiChatToolSwitches));
+
         var request = new ChatRequest(
             client,
-            ChatPrompt.Build(settings.ManagedGroupName, settings.AiChatInstructions),
+            ChatPrompt.Build(
+                settings.ManagedGroupName,
+                settings.AiChatInstructions,
+                offered.Any(t => t.Name == ChatPrompt.FileFeedbackToolName)),
             history,
-            registry.OfferedTo(held, ChatToolRegistry.ParseSwitches(settings.AiChatToolSwitches)),
+            offered,
             ChatSettingsRules.Limits(settings.AiChatMaxToolCalls, settings.AiChatMaxReplyTokens, settings.AiChatTimeLimitSeconds),
             new ChatToolContext(userId, held, http.RequestServices),
             conversation.Id,

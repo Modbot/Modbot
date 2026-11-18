@@ -38,6 +38,9 @@ public static class ChatRegistration
         services.AddSingleton<IChatTool, CalendarEventsTool>();
         services.AddSingleton<IChatTool, GetCalendarEventTool>();
 
+        // The one tool that acts: off until an operator switches it on (design §3.3).
+        services.AddSingleton<IChatTool, FileFeedbackTool>();
+
         services.TryAddSingleton<ChatToolRegistry>();
         services.TryAddSingleton<ChatLoop>();
 

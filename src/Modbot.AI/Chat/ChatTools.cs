@@ -38,7 +38,7 @@ public interface IChatTool
 
     /// <summary>
     /// False for a tool that changes anything. Such a tool is off unless an operator switches it
-    /// on (design §3.3). None exists yet.
+    /// on (design §3.3). Only <c>file_feedback</c> acts so far.
     /// </summary>
     bool OnlyReads { get; }
 
