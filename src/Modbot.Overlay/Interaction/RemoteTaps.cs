@@ -4,7 +4,7 @@ namespace Modbot.Overlay.Interaction;
 
 /// <summary>
 /// Which of the main panel's targets the test remote will not tap, because tapping them would ask
-/// a server something about a real person, or send a heads-up.
+/// a server something about a real person, send a heads-up, or change a server's list.
 /// </summary>
 /// <remarks>
 /// The remote sends nothing to any server. A test copy normally has nothing paired, but one that
@@ -27,6 +27,8 @@ public static class RemoteTaps
             => "Refresh asks a server about a real person; the remote never does.",
         OverlayTarget.OpenPersonPage
             => "Open in Modbot opens a server's page in this PC's browser; the remote never does.",
+        OverlayTarget.MarkAvatar
+            => "Mark avatar changes a server's list; the remote never does.",
         OverlayTarget.PlaceHeadsUp or OverlayTarget.ClearHeadsUp
             => "Place and Clear send a heads-up to a server; the remote never sends anything.",
         _ => null,

@@ -100,6 +100,7 @@ public enum OverlayPage
 /// Whether this panel can place and clear heads-ups. Without it there is no "+" on a row and no
 /// Clear on a heads-up, so nothing is drawn that a tap would have to ignore.
 /// </param>
+/// <param name="AvatarProblem">Why the last Mark avatar on the open person card was refused, in words, or null.</param>
 /// <param name="Left">
 /// The people who left in the last minute, as the drive loop counts it, first to go first. Their
 /// rows stay on the Instance list, greyed, and are not counted in "here". Never in
@@ -151,6 +152,7 @@ public sealed record OverlayScreen(
     IReadOnlyList<HeadsUp>? HeadsUps = null,
     HeadsUpDraft? Draft = null,
     bool CanPlaceHeadsUps = false,
+    string? AvatarProblem = null,
     IReadOnlyList<RecentLeaver>? Left = null,
     bool NotSynced = false,
     DateTimeOffset? ModeratorArrived = null,
@@ -283,6 +285,9 @@ public sealed record OverlayScreen(
             && Person?.SubjectId == other.Person?.SubjectId
             && Person?.DisplayName == other.Person?.DisplayName
             && Person?.Roles.Count == other.Person?.Roles.Count
+            && Person?.AvatarName == other.Person?.AvatarName
+            && Person?.AvatarListed == other.Person?.AvatarListed
+            && AvatarProblem == other.AvatarProblem
             && Freshness == other.Freshness
             && Health == other.Health
             && Alert?.AlertId == other.Alert?.AlertId

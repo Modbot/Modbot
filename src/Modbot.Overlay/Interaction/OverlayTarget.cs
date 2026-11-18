@@ -32,7 +32,7 @@ public abstract record OverlayTarget
     /// A read, and the only one a tap can ask for. There is deliberately no target that acts on a
     /// person: the companion observes and reports and never acts, and its device token is
     /// ingest-scoped and could not carry a moderation action even if something here tried
-    /// (M3 §10; two overlay modes design §3.1).
+    /// (M3 §10; two overlay modes design §3.1). <see cref="MarkAvatar"/> changes a list, not a person.
     /// </remarks>
     public sealed record RefreshPerson : OverlayTarget;
 
@@ -47,6 +47,14 @@ public abstract record OverlayTarget
     /// <summary>The open person card's Copy name: the person's display name goes on this PC's clipboard.</summary>
     /// <remarks>Not an action on a person. The loop hands the name straight back to the companion, which owns the clipboard.</remarks>
     public sealed record CopyName : OverlayTarget;
+
+    /// <summary>The open person card's Mark avatar: the avatar they are wearing goes on the server's problem avatar list.</summary>
+    /// <remarks>
+    /// The one card button that writes to a server. It changes the server's list, never the person, and the
+    /// server does it as the moderator whose companion this is and only if they may manage settings; the card
+    /// offers it only when the server said the avatar and sent it to somebody who may.
+    /// </remarks>
+    public sealed record MarkAvatar : OverlayTarget;
 
     /// <summary>The events list. Scrolling while pointing here moves the list.</summary>
     public sealed record Events : OverlayTarget;

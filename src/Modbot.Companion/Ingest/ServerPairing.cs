@@ -116,6 +116,10 @@ public sealed record ServerPairing
     public Uri HeadsUpsEndpoint()
         => new(BaseUri, $"/api/v{ApiVersion}/companion/heads-ups");
 
+    /// <summary>Where Mark avatar on a person's card sends the person whose avatar goes on the problem avatar list.</summary>
+    public Uri ProblemAvatarsEndpoint()
+        => new(BaseUri, $"/api/v{ApiVersion}/companion/problem-avatars");
+
     /// <summary>Where the clip for one clip request is sent, as the raw file.</summary>
     public Uri ClipUploadEndpoint(Guid requestId)
         => new(BaseUri, $"/api/v{ApiVersion}/companion/clip-requests/{requestId:D}/clip");

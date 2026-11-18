@@ -86,6 +86,12 @@ public sealed record InstanceContext(
 /// <param name="LastAction">The last kick, ban, unban or warn the group gave them, in the server's word. Null when none, or when the server is too old to send it.</param>
 /// <param name="LastActionAt">When <paramref name="LastAction"/> happened.</param>
 /// <param name="Watched">Whether somebody is watching them. Null from a server too old to say.</param>
+/// <param name="AvatarName">
+/// The avatar they were last seen wearing. Null when none was seen, when the server is too old to say,
+/// and when this moderator may not mark avatars: the server leaves it out for them, so the card offers
+/// Mark avatar only to somebody it would work for.
+/// </param>
+/// <param name="AvatarListed">Whether <paramref name="AvatarName"/> is already on the server's problem avatar list.</param>
 public sealed record UserSummary(
     [property: JsonPropertyName("subjectId")] string SubjectId,
     [property: JsonPropertyName("displayName")] string? DisplayName,
@@ -100,7 +106,9 @@ public sealed record UserSummary(
     [property: JsonPropertyName("noteCount")] int? NoteCount = null,
     [property: JsonPropertyName("lastAction")] string? LastAction = null,
     [property: JsonPropertyName("lastActionAt")] DateTimeOffset? LastActionAt = null,
-    [property: JsonPropertyName("watched")] bool? Watched = null);
+    [property: JsonPropertyName("watched")] bool? Watched = null,
+    [property: JsonPropertyName("avatarName")] string? AvatarName = null,
+    [property: JsonPropertyName("avatarListed")] bool? AvatarListed = null);
 
 /// <summary>
 /// The one thing that genuinely needs push: a flagged user just joined this instance.

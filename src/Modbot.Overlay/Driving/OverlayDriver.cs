@@ -109,6 +109,7 @@ public sealed class OverlayDriver : IDisposable
     private readonly IOverlayListener? _listener;
     private readonly PopUps? _popUps;
     private readonly IHeadsUpClient? _headsUpClient;
+    private readonly IProblemAvatarClient? _avatarClient;
     private readonly List<Server> _servers = [];
     private readonly Dictionary<string, DateTimeOffset> _lastAlerted = new(StringComparer.Ordinal);
 
@@ -147,6 +148,9 @@ public sealed class OverlayDriver : IDisposable
     // roster is scrolled.
     private UserSummary? _person;
     private string? _personWanted;
+
+    // Why the last Mark avatar on the open card was refused, in words, or null.
+    private string? _avatarProblem;
     private int _rosterSkip;
     private int _eventSkip;
 
@@ -233,6 +237,10 @@ public sealed class OverlayDriver : IDisposable
     /// Places and clears heads-ups. Null leaves the panel able to show them and not to place or
     /// clear one, which is what the tests that are not about them get.
     /// </param>
+    /// <param name="avatars">
+    /// Marks a person's avatar as a problem avatar from their card. Null leaves the card without the
+    /// button, which is what the tests that are not about it get.
+    /// </param>
     public OverlayDriver(
         IOverlayPresenter presenter,
         IOverlayReadClient reads,
@@ -240,7 +248,8 @@ public sealed class OverlayDriver : IDisposable
         IOverlayListener? listener = null,
         ILiveSocketFactory? sockets = null,
         PopUps? popUps = null,
-        IHeadsUpClient? headsUps = null)
+        IHeadsUpClient? headsUps = null,
+        IProblemAvatarClient? avatars = null)
     {
         ArgumentNullException.ThrowIfNull(presenter);
 
@@ -251,6 +260,7 @@ public sealed class OverlayDriver : IDisposable
         _sockets = sockets;
         _popUps = popUps;
         _headsUpClient = headsUps;
+        _avatarClient = avatars;
         _known = new KnownPeople(clock);
         _leavers = new RecentLeavers(clock);
     }
@@ -329,6 +339,7 @@ public sealed class OverlayDriver : IDisposable
         _showingSince = null;
         _person = null;
         _personWanted = null;
+        _avatarProblem = null;
         _rosterSkip = 0;
         _eventSkip = 0;
         _rosterListId++;
@@ -620,6 +631,9 @@ public sealed class OverlayDriver : IDisposable
             case OverlayTarget.CopyName when _person is { } named:
                 CopyTextAsked?.Invoke(named.DisplayName ?? named.SubjectId);
                 break;
+            case OverlayTarget.MarkAvatar:
+                _ = MarkAvatarAsync();
+                break;
             case OverlayTarget.BackToTop top:
                 if (top.List is OverlayPage.Events)
                     _eventSkip = 0;
@@ -737,6 +751,50 @@ public sealed class OverlayDriver : IDisposable
                 break;
             default:
                 _draft = waiting with { Sending = false, Problem = $"Cannot reach {server.Label}. Not placed." };
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Mark avatar: asks the server to put the avatar the open card's person was last seen wearing on its
+    /// problem avatar list, and shows the card as Problem avatar once it has been taken. A refusal stays on
+    /// the card, in the server's words.
+    /// </summary>
+    public async Task MarkAvatarAsync()
+    {
+        if (_person is not { AvatarName: not null, AvatarListed: not true } open
+            || _avatarClient is null || Current() is not { } server || server.TokenRejected)
+            return;
+
+        _avatarProblem = null;
+
+        AvatarMarked sent;
+        try
+        {
+            sent = await _avatarClient.MarkAsync(server.Pairing, open.SubjectId, CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or IOException)
+        {
+            sent = new AvatarMarked(MarkAvatarOutcome.Unreachable);
+        }
+
+        // The moderator opened somebody else while it was on its way: this card is gone already.
+        if (_person is not { } current || current.SubjectId != open.SubjectId)
+            return;
+
+        switch (sent.Outcome)
+        {
+            case MarkAvatarOutcome.Done:
+                _person = current with { AvatarListed = true };
+                break;
+            case MarkAvatarOutcome.Unauthorised:
+                RejectToken(server);
+                break;
+            case MarkAvatarOutcome.Refused:
+                _avatarProblem = sent.Message ?? "Not marked.";
+                break;
+            default:
+                _avatarProblem = $"Cannot reach {server.Label}. Not marked.";
                 break;
         }
     }
@@ -884,6 +942,7 @@ public sealed class OverlayDriver : IDisposable
             return;
 
         _personWanted = subjectId;
+        _avatarProblem = null;
 
         // Back goes to wherever the person was opened from. Refresh opens again from the card
         // itself, which is not a place to go back to.
@@ -1512,6 +1571,7 @@ public sealed class OverlayDriver : IDisposable
             _showing,
             problem,
             Person: _person,
+            AvatarProblem: _avatarProblem,
             RosterSkip: _rosterSkip,
             Page: _page,
 
