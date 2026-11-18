@@ -179,13 +179,13 @@ public static class EventsHandler
     /// Wakes every other moderator's overlay when somebody the flag rules match walks in.
     /// </summary>
     /// <remarks>
-    /// <para><strong>Only genuine arrivals, and only the first report of one.</strong> A
-    /// presence-observed is somebody who was already there when a moderator arrived, so alerting
-    /// on it would fire a card for the whole instance every time any moderator walked in -- the same
-    /// mistake, one layer up, that the type distinction exists to prevent. A deduplicated join is
-    /// one another client already reported and already alerted on, so alerting again would
-    /// interrupt six times for one arrival. An overlay that interrupts constantly gets disabled,
-    /// and a disabled overlay notifies nobody.</para>
+    /// <para><strong>Arrivals and people already there, and only the first report of either.</strong>
+    /// A presence-observed is somebody who was already there when a moderator arrived. It is told
+    /// the same way as a join, but only when the rules match them: a quiet instance stays quiet, and
+    /// a flagged person nobody saw arrive is exactly the one a moderator walking in needs to hear
+    /// about. A deduplicated report is one another client already made and already alerted on, so
+    /// alerting again would interrupt six times for one arrival. An overlay that interrupts
+    /// constantly gets disabled, and a disabled overlay notifies nobody.</para>
     /// <para><strong>Only the moderators in that instance.</strong> Every live device is offered
     /// to the hub, which keeps for itself the decision about which of them are standing there.
     /// A moderator in a different instance cannot act on the card and has no business being told
@@ -210,7 +210,8 @@ public static class EventsHandler
         CancellationToken ct)
     {
         var arrivals = written
-            .Where((fact, index) => fact.Type == FactType.InstanceJoined && !results[index].WasDeduplicated)
+            .Where((fact, index) => (fact.Type is FactType.InstanceJoined or FactType.InstancePresenceObserved)
+                                    && !results[index].WasDeduplicated)
             .ToList();
 
         if (arrivals.Count == 0)

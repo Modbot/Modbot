@@ -45,6 +45,13 @@ public sealed record FlagRuleSettings
     /// <summary>VRChat marks the account as a nuisance.</summary>
     public bool Nuisance { get; init; } = true;
 
+    /// <summary>
+    /// The account is a Visitor or a New User on VRChat. Off by default: most people met in a public
+    /// instance are new, so a deployment turns this on only for the nights it wants every one of them
+    /// pointed out.
+    /// </summary>
+    public bool NewAccounts { get; init; }
+
     /// <summary>An AutoMod flag that nobody dismissed.</summary>
     public bool AutoMod { get; init; } = true;
 
@@ -150,14 +157,20 @@ public sealed record WatchHit(Guid Id, FactPlatform Platform, string SubjectId);
 /// </remarks>
 public static class FlagRules
 {
-    /// <summary>The facts that count as a kick or ban.</summary>
-    private static readonly string[] KicksAndBans = [FactType.MemberKicked, FactType.MemberBanned];
+    /// <summary>
+    /// The facts that count as a kick or ban: removal from the group, a ban, and every ejection from
+    /// an instance whatever its reason.
+    /// </summary>
+    private static readonly string[] KicksAndBans = [FactType.MemberKicked, FactType.MemberBanned, FactType.GroupInstanceKick];
 
     /// <summary>
     /// What a watch says among the reasons. The word alone: the reasons go to every reader of
     /// Flagged, most of whom may not read the watch's reason.
     /// </summary>
     public const string Watched = "Watched";
+
+    /// <summary>What the new accounts rule says among the reasons.</summary>
+    public const string NewAccount = "New account";
 
     /// <summary>Reads the settings and decides every one of these people.</summary>
     /// <param name="ranks">The stored trust ranks the caller already read; a person missing from it
@@ -274,6 +287,10 @@ public static class FlagRules
 
             if (settings.Nuisance && ranks.GetValueOrDefault(id) == TrustRank.Nuisance)
                 reasons.Add(TrustRanks.Name(TrustRank.Nuisance));
+
+            // A rank nobody has read is unknown, not a Visitor, so it never matches here.
+            if (settings.NewAccounts && ranks.GetValueOrDefault(id) is TrustRank.Visitor or TrustRank.NewUser)
+                reasons.Add(NewAccount);
 
             if (autoMod.TryGetValue(id, out var rules) && rules.Count > 0)
                 reasons.Add("AutoMod: " + string.Join(", ", rules));

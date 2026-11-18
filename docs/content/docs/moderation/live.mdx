@@ -53,19 +53,24 @@ red row and the **Flagged user joined** card on the [companion overlay](/compani
 | Rule | Matches | Shown as |
 |---|---|---|
 | **Watched** | A moderator is [watching](/moderation/notes#watching-a-person) them, or a Discord account linked to them. Always on. | `Watched` |
-| **Kicks and bans** | They have been removed from the group or banned at least once. | `2 kicks or bans` |
+| **Kicks and bans** | They have been removed from the group, kicked out of an instance (whatever the reason) or banned at least once. | `2 kicks or bans` |
 | **Warns** | They have been warned in an instance at least this many times. 5 unless you change it. | `5 warns` |
 | **Nuisance on VRChat** | VRChat marks the account as a nuisance. | `Nuisance` |
 | **AutoMod** | An [AutoMod](/moderation/flags) flag on them, or on a Discord account linked to them, that nobody dismissed. Flags from a rule still on trial do not count. | `AutoMod: Slurs` |
+| **New accounts** | The account is a Visitor or a New User on VRChat. Off to start with. | `New account` |
 
 When several match, all of them are listed, such as `2 kicks or bans · Nuisance`. A watch is always
 listed first, as the word alone. Its reason is only on the person's **Notes** tab, for anyone who
 can see the audit log.
 
-All of them are on to start with. To change them: **Settings**, **Moderation**, **Flagged**, for
-anyone with [**Change settings**](/accounts/roles-and-permissions#change-settings). You can turn each
+Every rule except **New accounts** is on to start with. To change them: **Settings**, **Moderation**,
+**Flagged**, for anyone with
+[**Change settings**](/accounts/roles-and-permissions#change-settings). You can turn each
 rule off except **Watched**, set the number of warns (1 to 99), and pick which AutoMod rules count
 instead of every rule.
+
+A flagged person who was already in the instance when a moderator arrived gets the same alert as one
+who just joined.
 
 A ban counts for ever unless you tick **Lifted bans stop counting** under **Kicks and bans** and set
 **Days after lifting** (1 to 3650). Then a ban that was lifted stops counting that many days after

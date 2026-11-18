@@ -34,12 +34,17 @@ public sealed record FlagRulesView(
     [property: JsonPropertyName("nuisance")] bool Nuisance,
     [property: JsonPropertyName("autoMod")] bool AutoMod,
     [property: JsonPropertyName("everyAutoModRule")] bool EveryAutoModRule,
-    [property: JsonPropertyName("autoModRules")] IReadOnlyList<FlagRuleAutoModOption> AutoModRules);
+    [property: JsonPropertyName("autoModRules")] IReadOnlyList<FlagRuleAutoModOption> AutoModRules,
+    [property: JsonPropertyName("newAccounts")] bool NewAccounts);
 
 /// <param name="AutoModRules">The rules that count when <c>everyAutoModRule</c> is false.</param>
 /// <param name="LiftedBansForDays">
 /// How many days a lifted ban still counts, 1 to 3650. Null or left out means always, so a caller
 /// written before this existed keeps today's rule.
+/// </param>
+/// <param name="NewAccounts">
+/// Whether a Visitor or New User account makes somebody Flagged. Null or left out keeps what is
+/// set now, so a caller written before this existed does not switch it.
 /// </param>
 public sealed record SetFlagRulesRequest(
     [property: JsonPropertyName("kicksAndBans")] bool KicksAndBans,
@@ -49,7 +54,8 @@ public sealed record SetFlagRulesRequest(
     [property: JsonPropertyName("autoMod")] bool AutoMod,
     [property: JsonPropertyName("everyAutoModRule")] bool EveryAutoModRule,
     [property: JsonPropertyName("autoModRules")] IReadOnlyList<Guid>? AutoModRules,
-    [property: JsonPropertyName("liftedBansForDays")] int? LiftedBansForDays = null);
+    [property: JsonPropertyName("liftedBansForDays")] int? LiftedBansForDays = null,
+    [property: JsonPropertyName("newAccounts")] bool? NewAccounts = null);
 
 /// <summary>
 /// Settings → Moderation → Flagged: which rules make a person Flagged on the companion and the
@@ -129,6 +135,7 @@ public static class FlagRuleSettingsEndpoints
                     Warns = body.Warns,
                     WarnsAtLeast = body.WarnsAtLeast,
                     Nuisance = body.Nuisance,
+                    NewAccounts = body.NewAccounts ?? before.NewAccounts,
                     AutoMod = body.AutoMod,
                     AutoModRules = chosen,
                 }.Clamped();
@@ -159,6 +166,7 @@ public static class FlagRuleSettingsEndpoints
                 "Change which rules make a person Flagged. `warnsAtLeast` is 1 to 99. "
                 + "`liftedBansForDays` is 1 to 3650, or null for a lifted ban to count always. With "
                 + "`everyAutoModRule` false, only the flags of the rules in `autoModRules` count. "
+                + "`newAccounts` makes a Visitor or New User account Flagged; left out, it keeps its setting. "
                 + "A watch on a person always counts and has no setting here.")
             .Produces<FlagRulesView>()
             .Produces(StatusCodes.Status400BadRequest)
@@ -180,6 +188,7 @@ public static class FlagRuleSettingsEndpoints
             ["warns"] = rules.Warns,
             ["warnsAtLeast"] = rules.WarnsAtLeast,
             ["nuisance"] = rules.Nuisance,
+            ["newAccounts"] = rules.NewAccounts,
             ["autoMod"] = rules.AutoMod,
             ["autoModRules"] = rules.AutoModRules is null ? null : chosen,
         };
@@ -220,6 +229,7 @@ public static class FlagRuleSettingsEndpoints
             rules.Nuisance,
             rules.AutoMod,
             rules.AutoModRules is null,
-            options);
+            options,
+            rules.NewAccounts);
     }
 }

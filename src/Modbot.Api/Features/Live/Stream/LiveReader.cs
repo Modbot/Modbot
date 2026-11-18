@@ -214,7 +214,7 @@ public sealed class LiveReader
                     described.Flags,
                     eighteenPlus.TryGetValue(fact.SubjectId, out var marked) ? marked : null);
 
-                if (kind == LiveKinds.PersonJoined
+                if (kind is LiveKinds.PersonJoined or LiveKinds.PersonHere
                     && flaggedPeople.GetValueOrDefault(fact.SubjectId) is { IsFlagged: true } match)
                 {
                     finalKind = LiveKinds.FlaggedJoin;

@@ -23,7 +23,7 @@ kinds are named, because a screen does something particular with them; everythin
 | `kind` | From | What it means |
 |---|---|---|
 | `person_joined` | `vrchat.instance.join` | Somebody walked into an instance. |
-| `flagged_join` | the same, by somebody one of the [flag rules](/moderation/live#who-is-flagged) matches | Sent instead of `person_joined`, with a `reason`. |
+| `flagged_join` | the same, or `vrchat.instance.presence`, by somebody one of the [flag rules](/moderation/live#who-is-flagged) matches | Sent instead of `person_joined` or `person_here`, with a `reason`. |
 | `person_left` | `vrchat.instance.leave` | Somebody left. |
 | `person_here` | `vrchat.instance.presence` | Somebody was already there when a moderator started watching. |
 | `watch_stopped` | `vrchat.instance.log-stopped` | A moderator's client stopped seeing the instance. |
