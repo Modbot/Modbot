@@ -3797,6 +3797,12 @@ export type FlagRules = {
 
 export type FlagRulesInput = Omit<FlagRules, 'autoModRules'> & { autoModRules: string[] }
 
+/** Settings → Moderation → Problem avatars: one avatar name that raises a flagged alert on whoever wears it. */
+export type ProblemAvatar = { id: string; name: string; addedBy: string; addedAt: string }
+
+/** The avatar a person was last seen wearing. `avatarName` is null when Modbot never saw one. */
+export type PersonAvatar = { avatarName: string | null; listed: boolean }
+
 /** Settings → Auto-invites. `rules` is the same tree the giveaway rule builder reads and writes. */
 export type AutoInvites = {
   enabled: boolean
@@ -6696,6 +6702,18 @@ export const api = {
   flagRules: () => request<FlagRules>('/api/settings/flag-rules'),
 
   setFlagRules: (body: FlagRulesInput) => put<FlagRules>('/api/settings/flag-rules', body),
+
+  /** Needs ManageSettings, as the flag rules do. */
+  problemAvatars: () => request<ProblemAvatar[]>('/api/problem-avatars'),
+
+  removeProblemAvatar: (id: string) => del<void>(`/api/problem-avatars/${id}`),
+
+  /** The avatar the person was last seen wearing, and whether it is already listed. */
+  personAvatar: (vrchatUserId: string) =>
+    request<PersonAvatar>(`/api/problem-avatars/person?vrchat=${encodeURIComponent(vrchatUserId)}`),
+
+  /** Lists the avatar the person was last seen wearing, by its exact name. */
+  markPersonAvatar: (vrchatUserId: string) => post<ProblemAvatar>('/api/problem-avatars/from-person', { vrchatUserId }),
 
   autoInvites: () => request<AutoInvites>('/api/settings/auto-invites'),
 

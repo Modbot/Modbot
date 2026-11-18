@@ -1,5 +1,6 @@
 import { BanReasonsCard } from './BanReasonsCard'
 import { FlaggedCard } from './FlaggedCard'
+import { ProblemAvatarsCard } from './ProblemAvatarsCard'
 import { RepeatOffendersCard } from './RepeatOffendersCard'
 import { SettingsSection } from './SettingsCard'
 
@@ -9,7 +10,7 @@ import { SettingsSection } from './SettingsCard'
  *
  * The reason list (with the actions each reason is offered on, and whether a reason is required
  * beyond bans), the rules the repeat-offender status is decided by, and the rules that make
- * somebody Flagged.
+ * somebody Flagged, and the problem avatars that flag whoever wears one.
  */
 export function ModerationSection() {
   return (
@@ -17,6 +18,7 @@ export function ModerationSection() {
       <BanReasonsCard />
       <RepeatOffendersCard />
       <FlaggedCard />
+      <ProblemAvatarsCard />
     </SettingsSection>
   )
 }
