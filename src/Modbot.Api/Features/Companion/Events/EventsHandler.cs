@@ -271,42 +271,7 @@ public static class EventsHandler
         if (!flagged.Values.Any(m => m.IsFlagged))
             return;
 
-        // Somebody already there is for the headset card only: the team's notification and the
-        // Discord post are for a person walking in, which is what a moderator elsewhere can still act on.
-        var joins = arrivals.Where(a => a.Type == FactType.InstanceJoined).ToList();
-
-        if (notifier is not null)
-        {
-            try
-            {
-                await WatchAlerts.RaiseAsync(notifier, joins, flagged, ct);
-            }
-            catch (Exception e) when (e is not OperationCanceledException)
-            {
-                // The facts are written and the headset card still goes out below.
-                Serilog.Log.Warning(e, "Could not raise the notification for a watched person's arrival");
-            }
-        }
-
-        if (discord is not null)
-        {
-            try
-            {
-                await FlaggedDiscordPost.RaiseForJoinsAsync(
-                    discord,
-                    rules,
-                    joins,
-                    flagged,
-                    id => submitted.FirstOrDefault(e => e.SubjectId == id)?.Data?.GetValueOrDefault("displayName"),
-                    ct);
-            }
-            catch (Exception e) when (e is not OperationCanceledException)
-            {
-                // The headset card still goes out below.
-                Serilog.Log.Warning(e, "Could not post a flagged join in Discord");
-            }
-        }
-
+        // The headset card goes first: a slow notification or Discord post must not delay it.
         var paired = await devices.ListDevicesAsync(ct);
         var recipients = paired.Where(d => !d.IsRevoked).Select(d => d.Id).ToList();
 
@@ -325,6 +290,42 @@ public static class EventsHandler
                 reportingDeviceId,
                 recipients,
                 clock.UtcNow);
+        }
+
+        // Somebody already there is for the headset card only: the team's notification and the
+        // Discord post are for a person walking in, which is what a moderator elsewhere can still act on.
+        var joins = arrivals.Where(a => a.Type == FactType.InstanceJoined).ToList();
+
+        if (notifier is not null)
+        {
+            try
+            {
+                await WatchAlerts.RaiseAsync(notifier, joins, flagged, ct);
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                // The facts are written and the headset card has already gone out.
+                Serilog.Log.Warning(e, "Could not raise the notification for a watched person's arrival");
+            }
+        }
+
+        if (discord is not null)
+        {
+            try
+            {
+                await FlaggedDiscordPost.RaiseForJoinsAsync(
+                    discord,
+                    rules,
+                    joins,
+                    flagged,
+                    id => submitted.FirstOrDefault(e => e.SubjectId == id)?.Data?.GetValueOrDefault("displayName"),
+                    ct);
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                // The headset card has already gone out.
+                Serilog.Log.Warning(e, "Could not post a flagged join in Discord");
+            }
         }
     }
 

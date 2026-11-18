@@ -51,6 +51,15 @@ public class ProblemAvatarEndpointsTests
             },
             Ct);
 
+    /// <summary>Puts a name on the list the way a moderator does: by marking a person seen wearing it.</summary>
+    private static async Task<HttpResponseMessage> MarkWornAsync(
+        ReadSurfaceTestHost host, string cookie, string person, string avatar)
+    {
+        await WearAsync(host, person, FactType.AvatarChanged, avatar, Noon);
+
+        return await host.PostJsonAsync($"{Url}/from-person", new { vrchatUserId = person }, cookie, Ct);
+    }
+
     private static Task<HttpResponseMessage> DeleteAsync(ReadSurfaceTestHost host, string path, string cookie)
     {
         var request = new HttpRequestMessage(HttpMethod.Delete, path);
@@ -119,8 +128,8 @@ public class ProblemAvatarEndpointsTests
         var (host, cookie) = await StartAsync();
         await using var _ = host;
 
-        var first = await ReadAsync<ProblemAvatarView>(await host.PostJsonAsync(Url, new { name = "White Tiger" }, cookie, Ct));
-        var again = await ReadAsync<ProblemAvatarView>(await host.PostJsonAsync(Url, new { name = " white tiger" }, cookie, Ct));
+        var first = await ReadAsync<ProblemAvatarView>(await MarkWornAsync(host, cookie, "usr_one", "White Tiger"));
+        var again = await ReadAsync<ProblemAvatarView>(await MarkWornAsync(host, cookie, "usr_two", " white tiger"));
 
         Assert.Equal(first.Id, again.Id);
         Assert.Equal("White Tiger", again.Name);
@@ -128,15 +137,19 @@ public class ProblemAvatarEndpointsTests
     }
 
     [Fact]
-    public async Task ABlankOrTooLongName_IsRefused()
+    public async Task ANameLongerThanTheColumn_IsCutToFit_NotAnError_AndStillMatchesItself()
     {
         var (host, cookie) = await StartAsync();
         await using var _ = host;
 
-        Assert.Equal(HttpStatusCode.BadRequest, (await host.PostJsonAsync(Url, new { name = "  " }, cookie, Ct)).StatusCode);
-        Assert.Equal(
-            HttpStatusCode.BadRequest,
-            (await host.PostJsonAsync(Url, new { name = new string('a', ProblemAvatar.MaxNameLength + 1) }, cookie, Ct)).StatusCode);
+        var tooLong = new string('a', ProblemAvatar.MaxNameLength + 50);
+
+        var first = await ReadAsync<ProblemAvatarView>(await MarkWornAsync(host, cookie, "usr_one", tooLong));
+        var again = await ReadAsync<ProblemAvatarView>(await MarkWornAsync(host, cookie, "usr_two", tooLong));
+
+        Assert.Equal(ProblemAvatar.MaxNameLength, first.Name.Length);
+        Assert.Equal(first.Id, again.Id);
+        Assert.True((await host.GetJsonAsync<PersonAvatarView>($"{Url}/person?vrchat=usr_one", cookie, Ct)).Listed);
     }
 
     [Fact]
@@ -145,7 +158,7 @@ public class ProblemAvatarEndpointsTests
         var (host, cookie) = await StartAsync();
         await using var _ = host;
 
-        var added = await ReadAsync<ProblemAvatarView>(await host.PostJsonAsync(Url, new { name = "White Tiger" }, cookie, Ct));
+        var added = await ReadAsync<ProblemAvatarView>(await MarkWornAsync(host, cookie, "usr_wearer", "White Tiger"));
 
         Assert.Equal(HttpStatusCode.NoContent, (await DeleteAsync(host, $"{Url}/{added.Id}", cookie)).StatusCode);
         Assert.Empty(await host.GetJsonAsync<List<ProblemAvatarView>>(Url, cookie, Ct));
@@ -158,7 +171,7 @@ public class ProblemAvatarEndpointsTests
         var (host, cookie) = await StartAsync();
         await using var _ = host;
 
-        var added = await ReadAsync<ProblemAvatarView>(await host.PostJsonAsync(Url, new { name = "White Tiger" }, cookie, Ct));
+        var added = await ReadAsync<ProblemAvatarView>(await MarkWornAsync(host, cookie, "usr_wearer", "White Tiger"));
         await DeleteAsync(host, $"{Url}/{added.Id}", cookie);
 
         await using var context = _db.NewContext();
@@ -181,7 +194,8 @@ public class ProblemAvatarEndpointsTests
         Assert.Equal("White Tiger", before.AvatarName);
         Assert.False(before.Listed);
 
-        await host.PostJsonAsync(Url, new { name = "white tiger" }, cookie, Ct);
+        // Someone else wearing the same name in other letters marks it; the first person's card then reads listed.
+        await MarkWornAsync(host, cookie, "usr_other", "white tiger");
 
         Assert.True((await host.GetJsonAsync<PersonAvatarView>($"{Url}/person?vrchat=usr_wearer", cookie, Ct)).Listed);
 
@@ -201,7 +215,6 @@ public class ProblemAvatarEndpointsTests
 
         Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync(Url, cookie, Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync($"{Url}/person?vrchat=usr_wearer", cookie, Ct)).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await host.PostJsonAsync(Url, new { name = "White Tiger" }, cookie, Ct)).StatusCode);
         Assert.Equal(
             HttpStatusCode.Forbidden,
             (await host.PostJsonAsync($"{Url}/from-person", new { vrchatUserId = "usr_wearer" }, cookie, Ct)).StatusCode);

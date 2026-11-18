@@ -25,8 +25,6 @@ public sealed record ProblemAvatarView(
     [property: JsonPropertyName("addedBy")] string AddedBy,
     [property: JsonPropertyName("addedAt")] DateTimeOffset AddedAt);
 
-public sealed record AddProblemAvatarRequest([property: JsonPropertyName("name")] string? Name);
-
 /// <param name="VRChatUserId">The person whose current avatar is marked.</param>
 public sealed record MarkPersonAvatarRequest([property: JsonPropertyName("vrchatUserId")] string? VRChatUserId);
 
@@ -76,38 +74,6 @@ public static class ProblemAvatarEndpoints
                 "The avatar names that raise a flagged alert on whoever wears one, by name, in alphabetical "
                 + "order. VRChat's log gives avatar names and no ids, so two avatars with one name are one entry.")
             .Produces<IReadOnlyList<ProblemAvatarView>>()
-            .Produces(StatusCodes.Status403Forbidden);
-
-        group.MapPost("/", async (
-                [FromBody] AddProblemAvatarRequest body,
-                [FromServices] ModbotContext db,
-                [FromServices] AccountFacts facts,
-                [FromServices] IModbotClock clock,
-                HttpContext http,
-                CancellationToken ct) =>
-            {
-                ArgumentNullException.ThrowIfNull(body);
-
-                if (string.IsNullOrWhiteSpace(body.Name))
-                    return Results.BadRequest(new { error = "An avatar needs a name." });
-
-                if (body.Name.Length > ProblemAvatar.MaxNameLength)
-                {
-                    return Results.BadRequest(new
-                    {
-                        error = $"A name is at most {ProblemAvatar.MaxNameLength} characters.",
-                    });
-                }
-
-                return Results.Ok(await AddAsync(db, facts, clock, Actor.Of(http), body.Name, ct));
-            })
-            .WithName("AddProblemAvatar")
-            .WithSummary("Add a problem avatar")
-            .WithDescription(
-                "Adds an avatar name to the list. A name already on the list, whatever its case, comes back "
-                + "unchanged.")
-            .Produces<ProblemAvatarView>()
-            .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
 
         group.MapPost("/from-person", async (
@@ -230,6 +196,8 @@ public static class ProblemAvatarEndpoints
         string name,
         CancellationToken ct)
     {
+        // A name longer than the column is cut, not refused: the log gives names this code did not choose.
+        name = ProblemAvatar.Clip(name);
         var key = ProblemAvatar.KeyOf(name);
 
         if (await db.ProblemAvatars.AsNoTracking().FirstOrDefaultAsync(a => a.NameKey == key, ct) is { } existing)

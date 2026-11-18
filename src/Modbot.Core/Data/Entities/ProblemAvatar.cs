@@ -38,11 +38,22 @@ public class ProblemAvatar
 
     public DateTimeOffset AddedAt { get; set; }
 
-    /// <summary>The form names are compared in.</summary>
+    /// <summary>
+    /// The form names are compared in. Cut to <see cref="MaxNameLength"/>, as a stored name is, so a
+    /// name too long for the column still matches the entry it was saved as.
+    /// </summary>
     public static string KeyOf(string name)
     {
         ArgumentNullException.ThrowIfNull(name);
 
-        return name.Trim().ToLowerInvariant();
+        return Clip(name.Trim().ToLowerInvariant());
+    }
+
+    /// <summary>A name cut to <see cref="MaxNameLength"/> characters, the most the column holds.</summary>
+    public static string Clip(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+
+        return name.Length > MaxNameLength ? name[..MaxNameLength] : name;
     }
 }

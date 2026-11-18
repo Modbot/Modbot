@@ -70,7 +70,7 @@ public class ProblemAvatarAlertTests
     {
         var poster = new RecordingPoster();
 
-        await CompanionApiTestHost.ResetAsync(_db, Ct);
+        await CompanionApiTestHost.ResetAsync(_db, Ct, keepProblemAvatars: listed is null);
         var host = await CompanionApiTestHost.StartAsync(_db, s => s.AddSingleton<IDiscordChannelPoster>(poster));
         await host.ConfigureGroupAsync(_db, Group, Ct);
 

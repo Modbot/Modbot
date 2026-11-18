@@ -4646,7 +4646,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             screen.GroupLabel ?? screen.NoGroupWords,
             screen.HereCount,
             roster.Describe(),
-            screen.Alert is { } alert ? alert.DisplayName ?? alert.SubjectId : null,
+            screen.Alert is { } alert ? alert.IsCrash ? "Possible crash" : alert.DisplayName ?? alert.SubjectId : null,
             screen.Health,
             _overlay?.CurrentServer?.GroupLabel,
             _pinnedSample is { } sample ? OverlaySamples.Name(sample) : null,

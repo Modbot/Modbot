@@ -205,12 +205,15 @@ public sealed class CompanionApiTestHost : IAsyncDisposable
     /// fixed code finds it already spent -- both of which are the durable store working, not
     /// failing.
     /// </remarks>
-    public static async Task ResetAsync(PostgresFixture db, CancellationToken ct)
+    public static async Task ResetAsync(PostgresFixture db, CancellationToken ct, bool keepProblemAvatars = false)
     {
         await using var context = db.NewContext();
         await context.Events.ExecuteDeleteAsync(ct);
         await context.CompanionDevices.ExecuteDeleteAsync(ct);
         await context.CompanionPairingCodes.ExecuteDeleteAsync(ct);
+
+        if (!keepProblemAvatars)
+            await context.ProblemAvatars.ExecuteDeleteAsync(ct);
     }
 
     public async ValueTask DisposeAsync()
