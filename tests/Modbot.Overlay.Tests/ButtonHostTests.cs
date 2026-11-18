@@ -730,6 +730,61 @@ public class ButtonHostTests
     }
 
     [Fact]
+    public void AClickOnTheFeedbackRowIsAFeedbackPressAndNotADictateOrPanelPress()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+            using var button = host;
+            host.Update(ButtonScreen.Shown.WithFeedback(DictateState.Idle, "Feedback"));
+            var feedbacks = 0;
+            var dictates = 0;
+            var presses = 0;
+            host.FeedbackPressed += () => feedbacks++;
+            host.DictatePressed += () => dictates++;
+            host.Pressed += () => presses++;
+
+            Press(host, runtime, Find(host, t => t is OverlayTarget.FeedbackButton)!.Value, at: 0);
+
+            Assert.Equal(1, feedbacks);
+            Assert.Equal(0, dictates);
+            Assert.Equal(0, presses);
+        });
+    }
+
+    [Fact]
+    public void WithFeedbackOffThereIsNoFeedbackRowToPress()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, _) = Build();
+            using var button = host;
+
+            Assert.Null(Find(host, t => t is OverlayTarget.FeedbackButton));
+
+            host.Update(ButtonScreen.Shown.WithFeedback(DictateState.Off, string.Empty));
+
+            Assert.Null(Find(host, t => t is OverlayTarget.FeedbackButton));
+            Assert.NotNull(Find(host, t => t is OverlayTarget.PanelButton));
+        });
+    }
+
+    [Fact]
+    public void FeedbackShowsWithDictateOff()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, _) = Build();
+            using var button = host;
+
+            host.Update(ButtonScreen.Shown.WithFeedback(DictateState.Idle, "Feedback"));
+
+            Assert.NotNull(Find(host, t => t is OverlayTarget.FeedbackButton));
+            Assert.Null(Find(host, t => t is OverlayTarget.DictateButton));
+        });
+    }
+
+    [Fact]
     public void ThePictureStepsOnWhileDictateMovesAndDrawsOnlyWhenTheStepChanges()
     {
         AvaloniaTestHost.Run(() =>
