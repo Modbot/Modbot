@@ -112,6 +112,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>People a moderator asked to keep an eye on (watching a person design).</summary>
     public DbSet<PersonWatch> PersonWatches => Set<PersonWatch>();
 
+    /// <summary>Avatar names a moderator marked as problems, which raise a flagged alert on whoever wears one.</summary>
+    public DbSet<ProblemAvatar> ProblemAvatars => Set<ProblemAvatar>();
+
     /// <summary>Bans staff were asked to lift, logged by hand, and how each ended (batch 3, step G).</summary>
     public DbSet<Appeal> Appeals => Set<Appeal>();
 
@@ -4035,6 +4038,21 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasIndex(e => new { e.SubjectPlatform, e.SubjectId, e.SetAt })
                 .HasDatabaseName("ix_person_watch_person")
                 .IsDescending(false, false, true);
+        });
+
+        builder.Entity<ProblemAvatar>(entity =>
+        {
+            entity.ToTable("problem_avatar");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Name).HasMaxLength(ProblemAvatar.MaxNameLength);
+            entity.Property(e => e.NameKey).HasMaxLength(ProblemAvatar.MaxNameLength);
+            entity.Property(e => e.AddedByUsername).HasMaxLength(64);
+
+            // One entry per name, whatever its case: two marks of the same avatar are one.
+            entity.HasIndex(e => e.NameKey).IsUnique().HasDatabaseName("ux_problem_avatar_name");
         });
 
         builder.Entity<Appeal>(entity =>

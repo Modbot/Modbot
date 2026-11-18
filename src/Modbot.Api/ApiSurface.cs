@@ -568,6 +568,7 @@ public static class ApiSurface
         app.MapAutoInviteSettings();
         app.MapRepeatOffenderSettings();
         app.MapFlagRuleSettings();
+        app.MapProblemAvatars();
         app.MapCloudSettings();
         app.MapUpdateSettings();
         app.MapEmailSettings();
