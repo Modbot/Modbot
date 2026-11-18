@@ -3787,6 +3787,8 @@ export type FlagRules = {
   /** Every AutoMod rule counts, including ones added later. */
   everyAutoModRule: boolean
   autoModRules: FlagRuleAutoModOption[]
+  /** New and Visitor-rank accounts count. Off by default. */
+  newAccounts: boolean
 }
 
 export type FlagRulesInput = Omit<FlagRules, 'autoModRules'> & { autoModRules: string[] }

@@ -133,6 +133,21 @@ public class OverlayReadTests
         response.EnsureSuccessStatusCode();
     }
 
+    private static async Task ReportPresenceAsync(
+        CompanionApiTestHost host, string token, string subject, CancellationToken ct)
+    {
+        var report = host.WithToken(HttpMethod.Post, "/api/v1/companion/events", token);
+        report.Content = JsonContent.Create(new EventBatchDto(
+            Guid.NewGuid().ToString("n"), "2026.9.0", 0, "good",
+            [
+                new CompanionEventDto(
+                    Guid.NewGuid().ToString("n"), "InstancePresenceObserved", Noon, null, subject,
+                    "wrld_4b34", Instance, Group, null),
+            ]));
+
+        (await host.Client.SendAsync(report, ct)).EnsureSuccessStatusCode();
+    }
+
     private static Task<HttpResponseMessage> PollAsync(
         CompanionApiTestHost host, string token, CancellationToken ct, int wait = 1)
         => host.Client.SendAsync(host.WithToken(HttpMethod.Get, $"/api/v1/companion/alerts?wait={wait}", token), ct);
@@ -973,11 +988,10 @@ public class OverlayReadTests
     }
 
     [Fact]
-    public async Task PresenceObservedRaisesNothingEvenForAFlaggedUser()
+    public async Task AFlaggedPersonAlreadyThereWhenAModeratorArrives_AlertsOnce()
     {
-        // Somebody already in the instance when a moderator walked in is not an arrival, so alerting
-        // on it would fire a card for the whole instance every time anybody entered -- the phantom
-        // burst problem, one layer up.
+        // Somebody already in the instance is told like an arrival, but only when the rules match
+        // them: the card is for the one nobody saw walk in.
         var ct = TestContext.Current.CancellationToken;
         var (host, reporter) = await ReadyAsync(ct);
         await using var _ = host;
@@ -986,15 +1000,25 @@ public class OverlayReadTests
         await StandingInAsync(host, watcher, Instance, ct);
         await WriteAsync(host, Fact(FactType.MemberBanned, "usr_flag", Noon.AddDays(-10), instance: null));
 
-        var report = host.WithToken(HttpMethod.Post, "/api/v1/companion/events", reporter);
-        report.Content = JsonContent.Create(new EventBatchDto(
-            "batch", "2026.9.0", 0, "good",
-            [
-                new CompanionEventDto(
-                    "e1", "InstancePresenceObserved", Noon, null, "usr_flag", "wrld_4b34", Instance, Group, null),
-            ]));
+        await ReportPresenceAsync(host, reporter, "usr_flag", ct);
 
-        (await host.Client.SendAsync(report, ct)).EnsureSuccessStatusCode();
+        var alert = await (await PollAsync(host, watcher, ct)).Content.ReadFromJsonAsync<FlaggedJoinAlertDto>(ct);
+        Assert.Equal("usr_flag", alert!.SubjectId);
+        Assert.Equal(HttpStatusCode.NoContent, (await PollAsync(host, watcher, ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task AnOrdinaryPersonAlreadyThereRaisesNothing()
+    {
+        // Otherwise every moderator walking in would fire a card for the whole instance.
+        var ct = TestContext.Current.CancellationToken;
+        var (host, reporter) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var watcher = await host.PairDeviceAsync(ct);
+        await StandingInAsync(host, watcher, Instance, ct);
+
+        await ReportPresenceAsync(host, reporter, "usr_ordinary", ct);
 
         Assert.Equal(HttpStatusCode.NoContent, (await PollAsync(host, watcher, ct)).StatusCode);
     }

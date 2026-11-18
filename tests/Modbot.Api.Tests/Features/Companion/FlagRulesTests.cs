@@ -143,6 +143,20 @@ public class FlagRulesTests
     }
 
     [Fact]
+    public async Task AnInstanceKick_CountsTowardTheKicksRule_OnItsOwn()
+    {
+        await using var host = await ReadyAsync();
+
+        await host.WriteFactAsync(AuditFact(FactType.GroupInstanceKick, "usr_p", host.Clock.UtcNow.AddDays(-1)), Ct);
+
+        var match = (await ReadAsync(host, null, "usr_p"))["usr_p"];
+
+        Assert.True(match.IsFlagged);
+        Assert.Equal(1, match.PriorActions);
+        Assert.Equal("1 kick or ban", match.Reason);
+    }
+
+    [Fact]
     public async Task KicksAndBansSwitchedOff_StillCarryTheCount_ButDoNotFlag()
     {
         await using var host = await ReadyAsync();
@@ -206,6 +220,32 @@ public class FlagRulesTests
 
         await SetRulesAsync(host, new FlagRuleSettings { Nuisance = false });
         Assert.False((await ReadAsync(host, ranks, "usr_troll"))["usr_troll"].IsFlagged);
+    }
+
+    [Fact]
+    public async Task NewAccounts_AreOffByDefault_AndFlagVisitorsAndNewUsersWhenSwitchedOn()
+    {
+        await using var host = await ReadyAsync();
+
+        var ranks = new Dictionary<string, TrustRank?>(StringComparer.Ordinal)
+        {
+            ["usr_visitor"] = TrustRank.Visitor,
+            ["usr_new"] = TrustRank.NewUser,
+            ["usr_known"] = TrustRank.KnownUser,
+        };
+
+        var people = new[] { "usr_visitor", "usr_new", "usr_known", "usr_unread" };
+
+        var off = await ReadAsync(host, ranks, people);
+        Assert.All(people, id => Assert.False(off[id].IsFlagged));
+
+        await SetRulesAsync(host, new FlagRuleSettings { NewAccounts = true });
+
+        var on = await ReadAsync(host, ranks, people);
+        Assert.Equal(FlagRules.NewAccount, on["usr_visitor"].Reason);
+        Assert.Equal("New account", on["usr_new"].Reason);
+        Assert.False(on["usr_known"].IsFlagged);
+        Assert.False(on["usr_unread"].IsFlagged);
     }
 
     [Fact]

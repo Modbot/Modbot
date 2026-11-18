@@ -263,6 +263,31 @@ public class LiveStreamTests
     }
 
     [Fact]
+    public async Task SomebodyFlaggedAlreadyInTheInstance_ArrivesAsAFlaggedJoin_ButAnOrdinaryOneStaysHere()
+    {
+        await using var host = await StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
+
+        var flagged = Subject();
+        var ordinary = Subject();
+        await WriteAsync(host, FactType.MemberBanned, flagged, instance: null);
+
+        using var socket = await ConnectAsync(host, await TicketAsync(host, cookie));
+        await NextOfKindAsync(socket, "hello");
+
+        await WriteAsync(host, FactType.InstancePresenceObserved, ordinary, displayName: "Calm");
+        await WriteAsync(host, FactType.InstancePresenceObserved, flagged, displayName: "Trouble");
+
+        var first = await NextEventAsync(socket);
+        Assert.Equal(LiveKinds.PersonHere, first.GetProperty("kind").GetString());
+        Assert.Equal(ordinary, first.GetProperty("person").GetProperty("id").GetString());
+
+        var second = await NextEventAsync(socket);
+        Assert.Equal(LiveKinds.FlaggedJoin, second.GetProperty("kind").GetString());
+        Assert.Equal("1 kick or ban", second.GetProperty("reason").GetString());
+    }
+
+    [Fact]
     public async Task AJoinBySomebodyWatched_ArrivesAsAFlaggedJoin_WithoutTheWatchsReason()
     {
         await using var host = await StartAsync(_db);

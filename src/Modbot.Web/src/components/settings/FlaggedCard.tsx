@@ -19,6 +19,7 @@ export function FlaggedCard() {
   const [warns, setWarns] = useState(true)
   const [warnsAtLeast, setWarnsAtLeast] = useState('')
   const [nuisance, setNuisance] = useState(true)
+  const [newAccounts, setNewAccounts] = useState(false)
   const [autoMod, setAutoMod] = useState(true)
   const [everyRule, setEveryRule] = useState(true)
   const [chosen, setChosen] = useState<string[]>([])
@@ -34,6 +35,7 @@ export function FlaggedCard() {
     setWarns(next.warns)
     setWarnsAtLeast(String(next.warnsAtLeast))
     setNuisance(next.nuisance)
+    setNewAccounts(next.newAccounts)
     setAutoMod(next.autoMod)
     setEveryRule(next.everyAutoModRule)
     setChosen(next.autoModRules.filter((r) => r.counts).map((r) => r.id))
@@ -61,6 +63,7 @@ export function FlaggedCard() {
         warns,
         warnsAtLeast: Number(warnsAtLeast),
         nuisance,
+        newAccounts,
         autoMod,
         everyAutoModRule: everyRule,
         autoModRules: everyRule ? [] : chosen,
@@ -115,6 +118,10 @@ export function FlaggedCard() {
 
         <Switch checked={nuisance} onChange={setNuisance}>
           Nuisance on VRChat
+        </Switch>
+
+        <Switch checked={newAccounts} onChange={setNewAccounts}>
+          New accounts
         </Switch>
 
         <Switch checked={autoMod} onChange={setAutoMod}>

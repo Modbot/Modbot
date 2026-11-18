@@ -6852,7 +6852,7 @@
           "Settings"
         ],
         "summary": "Update flag rules",
-        "description": "Change which rules make a person Flagged. `warnsAtLeast` is 1 to 99. `liftedBansForDays` is 1 to 3650, or null for a lifted ban to count always. With `everyAutoModRule` false, only the flags of the rules in `autoModRules` count. A watch on a person always counts and has no setting here.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Change which rules make a person Flagged. `warnsAtLeast` is 1 to 99. `liftedBansForDays` is 1 to 3650, or null for a lifted ban to count always. With `everyAutoModRule` false, only the flags of the rules in `autoModRules` count. `newAccounts` makes a Visitor or New User account Flagged; left out, it keeps its setting. A watch on a person always counts and has no setting here.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetFlagRules",
         "requestBody": {
           "content": {
@@ -56267,7 +56267,8 @@
           "nuisance",
           "autoMod",
           "everyAutoModRule",
-          "autoModRules"
+          "autoModRules",
+          "newAccounts"
         ],
         "type": "object",
         "properties": {
@@ -56302,6 +56303,9 @@
             "items": {
               "$ref": "#/components/schemas/FlagRuleAutoModOption"
             }
+          },
+          "newAccounts": {
+            "type": "boolean"
           }
         }
       },
@@ -69630,6 +69634,12 @@
               "integer"
             ],
             "format": "int32"
+          },
+          "newAccounts": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },
