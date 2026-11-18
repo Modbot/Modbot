@@ -161,6 +161,12 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public OverlayPlacement? OverlayChatSpot { get; init; }
 
     /// <summary>
+    /// Where the feedback panel was last left, saved as the <c>overlayFeedbackSpot</c> object the same
+    /// way as the chat panel's. Null when nobody has moved it.
+    /// </summary>
+    public OverlayPlacement? OverlayFeedbackSpot { get; init; }
+
+    /// <summary>
     /// Where the chat window on a monitor was last left and how big it was made, saved as the
     /// <c>desktopChatSpot</c> object. Null when nobody has moved it: the window then opens beside
     /// the desktop overlay at its default size.
@@ -318,6 +324,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
 
     public const string OverlayChatSpotField = "overlayChatSpot";
 
+    public const string OverlayFeedbackSpotField = "overlayFeedbackSpot";
+
     public const string DesktopChatSpotField = "desktopChatSpot";
 
     public const string OverlayButtonStickField = "overlayButtonStick";
@@ -397,6 +405,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             OverlayButtonOn = shape?.OverlayButtonOn ?? true,
             OverlayButtonSpots = ButtonSpots.FromJson(shape?.OverlayButtonSpots),
             OverlayChatSpot = shape?.OverlayChatSpot is { } chatSpot ? OverlayPlacement.FromJson(chatSpot) : null,
+            OverlayFeedbackSpot = shape?.OverlayFeedbackSpot is { } feedbackSpot ? OverlayPlacement.FromJson(feedbackSpot) : null,
             DesktopChatSpot = DesktopChatSpot.FromJson(shape?.DesktopChatSpot),
             OverlayButtonShortcut = new ButtonShortcut(
                 ButtonShortcut.ParseStick(shape?.OverlayButtonStick),
@@ -573,6 +582,13 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     {
         ArgumentNullException.ThrowIfNull(placement);
         return SaveField(path, OverlayChatSpotField, placement.Clamped().ToJson());
+    }
+
+    /// <summary>Writes where the feedback panel was left as the <c>overlayFeedbackSpot</c> object, keeping every other field.</summary>
+    public static bool SaveOverlayFeedbackSpot(string path, OverlayPlacement placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        return SaveField(path, OverlayFeedbackSpotField, placement.Clamped().ToJson());
     }
 
     /// <summary>Writes where the chat window on a monitor was left and its size as the <c>desktopChatSpot</c> object, keeping every other field.</summary>
@@ -816,6 +832,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("overlayButtonOn")] bool? OverlayButtonOn = null,
         [property: JsonPropertyName("overlayButtonSpots")] JsonObject? OverlayButtonSpots = null,
         [property: JsonPropertyName("overlayChatSpot")] JsonObject? OverlayChatSpot = null,
+        [property: JsonPropertyName("overlayFeedbackSpot")] JsonObject? OverlayFeedbackSpot = null,
         [property: JsonPropertyName("desktopChatSpot")] JsonObject? DesktopChatSpot = null,
         [property: JsonPropertyName("overlayButtonStick")] string? OverlayButtonStick = null,
         [property: JsonPropertyName("overlayButtonDirection")] string? OverlayButtonDirection = null,

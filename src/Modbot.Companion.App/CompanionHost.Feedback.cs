@@ -2,6 +2,7 @@ using Avalonia.Threading;
 using Modbot.Companion.App.Feedback;
 using Modbot.Companion.Dictation;
 using Modbot.Companion.Feedback;
+using Modbot.Overlay;
 using Modbot.Overlay.Views;
 using Serilog;
 
@@ -137,13 +138,38 @@ internal sealed partial class CompanionHost
         return controller;
     }
 
-    /// <summary>Opens the draft window on <paramref name="draft"/>. Nothing is saved until Send.</summary>
+    /// <summary>The headset panel's Send: the same send as the draft window's.</summary>
+    private void FeedbackPanelSent(string kind, string title, string details)
+    {
+        if (_feedback is { } controller)
+            _ = CrashGuard.RunAsync("sending feedback", () => controller.SendAsync(kind, title, details));
+    }
+
+    /// <summary>The headset panel's Cancel or X: the draft is dropped and nothing is saved.</summary>
+    private void FeedbackPanelCancelled() => _feedback?.Cancel();
+
+    /// <summary>Opens the draft window, or the headset panel when the headset button started it, on <paramref name="draft"/>. Nothing is saved until Send.</summary>
     private void ShowFeedbackDraft(FeedbackController controller, FeedbackDraft draft)
     {
         // The button went away while the words were being tidied: nothing is offered, nothing is kept.
         if (!FeedbackAvailable)
         {
             controller.Abandon();
+            return;
+        }
+
+        if (_feedbackFromHeadset && _feedbackHost is { } panel)
+        {
+            try
+            {
+                panel.Show(FeedbackScreen.Of(draft));
+            }
+            catch (Exception ex)
+            {
+                LogFeedback("the draft panel could not be shown", ex);
+                controller.Cancel();
+            }
+
             return;
         }
 
@@ -175,6 +201,18 @@ internal sealed partial class CompanionHost
     /// <summary>Keeps the draft window to what the controller says: its reason, locked while sending, closed once the draft is over.</summary>
     private void FollowDraft(FeedbackController controller)
     {
+        var headset = _feedbackFromHeadset && _feedbackHost is not null;
+
+        // Nothing is under way any more, so the next tap, wherever it is, decides again.
+        if (controller.State is FeedbackState.Idle)
+            _feedbackFromHeadset = false;
+
+        if (headset)
+        {
+            FollowHeadsetDraft(controller, _feedbackHost!);
+            return;
+        }
+
         if (_feedbackDraft is not { } window)
         {
             // A draft is ready and has no window yet (or its window was closed while it was being sent
@@ -196,11 +234,38 @@ internal sealed partial class CompanionHost
         window.CloseFromHost();
     }
 
-    /// <summary>Closes the microphone and the draft window and drops what was heard. Safe to call when Feedback never started.</summary>
+    /// <summary>The same for the headset panel: its reason, locked while sending, put away once the draft is over.</summary>
+    private void FollowHeadsetDraft(FeedbackController controller, FeedbackHost panel)
+    {
+        if (controller.State is FeedbackState.Draft or FeedbackState.Sending)
+        {
+            if (panel.Hidden)
+            {
+                // A draft is ready and the panel is not up yet.
+                if (controller.State is FeedbackState.Draft && controller.Draft is { } kept)
+                    ShowFeedbackDraft(controller, kept);
+
+                return;
+            }
+
+            panel.SetProblem(controller.Problem);
+            panel.SetSending(controller.State is FeedbackState.Sending);
+            return;
+        }
+
+        if (!panel.Hidden)
+            panel.Hide();
+    }
+
+    /// <summary>Closes the microphone, the draft window and the headset panel and drops what was heard. Safe to call when Feedback never started.</summary>
     private void StopFeedback()
     {
         _feedbackLevel.Stop();
         _feedback?.Abandon();
+        _feedbackFromHeadset = false;
+
+        if (_feedbackHost is { Hidden: false } panel)
+            panel.Hide();
 
         _feedbackDraft?.CloseFromHost();
         _feedbackDraft = null;

@@ -333,6 +333,9 @@ internal sealed partial class CompanionHost : IOverlayListener
     /// <summary>The same for the chat panel, which a controller can move and resize too.</summary>
     private readonly DispatcherTimer _chatSpotSave = new() { Interval = TimeSpan.FromMilliseconds(500) };
 
+    /// <summary>The same for the feedback panel.</summary>
+    private readonly DispatcherTimer _feedbackSpotSave = new() { Interval = TimeSpan.FromMilliseconds(500) };
+
     /// <summary>The same for the chat window on a monitor, which is moved and resized with the mouse.</summary>
     private readonly DispatcherTimer _desktopChatSpotSave = new() { Interval = TimeSpan.FromMilliseconds(500) };
 
@@ -383,6 +386,7 @@ internal sealed partial class CompanionHost : IOverlayListener
     private NotificationHost? _notifyHost;
     private ButtonHost? _buttonHost;
     private ChatHost? _chatHost;
+    private FeedbackHost? _feedbackHost;
     private OverlayPreviewWindow? _preview;
 
     /// <summary>Modbot's tab in the SteamVR dashboard; null where it could not be set up.</summary>
@@ -2220,6 +2224,7 @@ internal sealed partial class CompanionHost : IOverlayListener
 
             MakeButtonHost();
             MakeChatHost();
+            MakeFeedbackHost();
 
             StartHeadsetPaletteWatch();
             AttachOverlay();
@@ -2311,6 +2316,23 @@ internal sealed partial class CompanionHost : IOverlayListener
     }
 
     /// <summary>
+    /// The feedback panel comes up with the panel and goes with it, and stays put away until a draft
+    /// shows it. It draws nothing and touches no graphics card while it is hidden.
+    /// </summary>
+    private void MakeFeedbackHost()
+    {
+        if (_feedbackHost is not null)
+            return;
+
+        _feedbackHost = FeedbackHost.Create(placement: _state?.Settings.OverlayFeedbackSpot);
+        _feedbackHost.EditMode = _state?.Settings.OverlayEditMode is true;
+        _feedbackHost.PushStep = PushStep(_state?.Settings.OverlayPushSpeed);
+        _feedbackHost.PlacementChanged += FeedbackPlacementChanged;
+        _feedbackHost.Sent += FeedbackPanelSent;
+        _feedbackHost.Cancelled += FeedbackPanelCancelled;
+    }
+
+    /// <summary>
     /// The headset panel threw on its way up: logged, put away, shown on the SteamVR page as
     /// <c>Could not start</c>, and tried again in a minute while tries are left. The companion
     /// carries on either way.
@@ -2329,6 +2351,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         _overlayHost = null;
         DisposeButton();
         DisposeChat();
+        DisposeFeedbackPanel();
         _overlayAttachedAt = null;
         StopHeadsetPaletteWatchIfUnused();
 
@@ -2406,6 +2429,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         _overlayHost = null;
         DisposeButton();
         DisposeChat();
+        DisposeFeedbackPanel();
         StopHeadsetPaletteWatchIfUnused();
 
         _overlayAttachedAt = null;
@@ -2662,6 +2686,15 @@ internal sealed partial class CompanionHost : IOverlayListener
             if (!CompanionSettings.SaveOverlayChatSpot(_settingsPath, spot))
                 Log.Warning("The chat panel's spot could not be saved to {Path}", _settingsPath);
         };
+        _feedbackSpotSave.Tick += (_, _) =>
+        {
+            _feedbackSpotSave.Stop();
+            if (_state?.Settings.OverlayFeedbackSpot is not { } spot)
+                return;
+
+            if (!CompanionSettings.SaveOverlayFeedbackSpot(_settingsPath, spot))
+                Log.Warning("The feedback panel's spot could not be saved to {Path}", _settingsPath);
+        };
         _desktopChatSpotSave.Tick += (_, _) =>
         {
             _desktopChatSpotSave.Stop();
@@ -2691,8 +2724,9 @@ internal sealed partial class CompanionHost : IOverlayListener
                 var now = System.Diagnostics.Stopwatch.GetElapsedTime(_inputClock);
                 _notifyHost?.PollInput(now);
                 _chatHost?.PollInput(now, _notifyHost?.Busy);
-                _buttonHost?.PollInput(now, _chatHost?.Busy ?? _notifyHost?.Busy, StickInUse);
-                _overlayHost?.PollInput(now, _buttonHost?.Busy ?? _chatHost?.Busy ?? _notifyHost?.Busy);
+                _feedbackHost?.PollInput(now, _chatHost?.Busy ?? _notifyHost?.Busy);
+                _buttonHost?.PollInput(now, _feedbackHost?.Busy ?? _chatHost?.Busy ?? _notifyHost?.Busy, StickInUse);
+                _overlayHost?.PollInput(now, _buttonHost?.Busy ?? _feedbackHost?.Busy ?? _chatHost?.Busy ?? _notifyHost?.Busy);
 
                 // Faster while a list is moving, slow again once it stops.
                 var scrolling = _overlayHost?.Scrolling is true;
@@ -2729,6 +2763,9 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         if (_chatHost is not null)
             _chatHost.PushStep = PushStep(speed);
+
+        if (_feedbackHost is not null)
+            _feedbackHost.PushStep = PushStep(speed);
 
         Render();
     }
@@ -2859,6 +2896,17 @@ internal sealed partial class CompanionHost : IOverlayListener
         _chatSpotSave.Start();
     }
 
+    /// <summary>A controller moved or resized the feedback panel or pressed a switch on its bar: kept, and saved once it settles.</summary>
+    private void FeedbackPlacementChanged(OverlayPlacement placement)
+    {
+        if (_state is null)
+            return;
+
+        _state.Settings = _state.Settings with { OverlayFeedbackSpot = placement };
+        _feedbackSpotSave.Stop();
+        _feedbackSpotSave.Start();
+    }
+
     /// <summary>The chat window on a monitor was moved or resized: kept, and saved once it settles.</summary>
     private void DesktopChatSpotChanged(DesktopChatSpot spot)
     {
@@ -2941,9 +2989,11 @@ internal sealed partial class CompanionHost : IOverlayListener
         => _overlayHost?.Holding is not null
             || _notifyHost?.Holding is not null
             || _chatHost?.Holding is not null
+            || _feedbackHost?.Holding is not null
             || _overlayHost?.Busy == hand
             || _notifyHost?.Busy == hand
             || _chatHost?.Busy == hand
+            || _feedbackHost?.Busy == hand
             || (hand == Hand.Right
                 && _overlayHost is { OnList: true, Placement: var placement }
                 && placement.Anchor != OverlayAnchor.RightHand);
@@ -3060,6 +3110,47 @@ internal sealed partial class CompanionHost : IOverlayListener
         {
             Log.Warning(ex, "The chat panel could not start ({Reason}); the panel carries on without it", PanelRetries.ShortReason(ex));
             DisposeChat();
+        }
+    }
+
+    /// <summary>Takes the feedback panel down; it goes with the panel it belongs to. A draft open in it is dropped.</summary>
+    private void DisposeFeedbackPanel()
+    {
+        if (_feedbackSpotSave.IsEnabled)
+        {
+            _feedbackSpotSave.Stop();
+            if (_state?.Settings.OverlayFeedbackSpot is { } spot && !CompanionSettings.SaveOverlayFeedbackSpot(_settingsPath, spot))
+                Log.Warning("The feedback panel's spot could not be saved to {Path}", _settingsPath);
+        }
+
+        _feedbackHost?.Dispose();
+        _feedbackHost = null;
+        _feedbackAttachTriedAt = DateTimeOffset.MinValue;
+
+        // A draft that was open in the panel has nowhere to be shown now.
+        if (_feedbackFromHeadset)
+            _feedback?.Abandon();
+    }
+
+    /// <summary>
+    /// Attaches the feedback panel once the headset panel is up, and again after a VR runtime that
+    /// closed is back. A failure puts only the feedback panel away.
+    /// </summary>
+    private void AttachFeedback()
+    {
+        if (_feedbackHost is null)
+            return;
+
+        _feedbackAttachTriedAt = _clock.UtcNow;
+
+        try
+        {
+            _feedbackHost.Start();
+        }
+        catch (Exception ex) when (PanelRetries.IsPanelFailure(ex))
+        {
+            Log.Warning(ex, "The feedback panel could not start ({Reason}); the panel carries on without it", PanelRetries.ShortReason(ex));
+            DisposeFeedbackPanel();
         }
     }
 
@@ -3188,6 +3279,9 @@ internal sealed partial class CompanionHost : IOverlayListener
         if (_chatHost is not null)
             _chatHost.Look = _headsetLook;
 
+        if (_feedbackHost is not null)
+            _feedbackHost.Look = _headsetLook;
+
         if (_desktopNotify is not null)
             _desktopNotify.Look = _popUpLook;
     }
@@ -3217,6 +3311,9 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         if (_chatHost is not null)
             _chatHost.EditMode = on;
+
+        if (_feedbackHost is not null)
+            _feedbackHost.EditMode = on;
 
         if (_desktopOverlay is not null)
             _desktopOverlay.EditMode = on;
@@ -3652,6 +3749,8 @@ internal sealed partial class CompanionHost : IOverlayListener
 
     private DateTimeOffset _chatAttachTriedAt = DateTimeOffset.MinValue;
 
+    private DateTimeOffset _feedbackAttachTriedAt = DateTimeOffset.MinValue;
+
     /// <summary>
     /// Attaches to SteamVR if it is running, and says so once. Never launches it: a program that
     /// starts with the computer must not start SteamVR too.
@@ -3944,6 +4043,19 @@ internal sealed partial class CompanionHost : IOverlayListener
                 }
             }
 
+            // The feedback panel the same.
+            if (_feedbackHost is not null)
+            {
+                _feedbackHost.Poll();
+
+                if (_overlayHost?.Status.State is OverlayRuntimeState.Running
+                    && _feedbackHost.Status.State is not OverlayRuntimeState.Running
+                    && _clock.UtcNow - _feedbackAttachTriedAt >= OverlayAttachInterval)
+                {
+                    AttachFeedback();
+                }
+            }
+
             if (_notifyHost is not null)
             {
                 var wasRunning = _notifyHost.Status.State is OverlayRuntimeState.Running;
@@ -4136,6 +4248,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         _overlayHost?.Dispose();
         _buttonHost?.Dispose();
         _chatHost?.Dispose();
+        _feedbackHost?.Dispose();
         _notifyHost?.Dispose();
         _dashboardLoop.Stop();
         _dashboard?.Dispose();
