@@ -293,10 +293,10 @@ test('every page shown as part of another points at one in the sidebar', () => {
   }
 })
 
-test('every page in the sidebar has a go-to chord, but Reports, Appeals, Votes, Supporters, Event categories, Partners, Terms and rules and Bluesky: all twenty-six letters are taken', () => {
+test('every page in the sidebar has a go-to chord, but Reports, Appeals, Votes, Supporters, Event categories, Partners, Terms and rules, Bluesky and Feedback: all twenty-six letters are taken', () => {
   for (const item of NAV) {
     if ('hidden' in item && item.hidden) continue
-    if (item.id === 'reports' || item.id === 'event-categories' || item.id === 'partners' || item.id === 'appeals' || item.id === 'votes' || item.id === 'supporters' || item.id === 'terms-and-rules' || item.id === 'bluesky') continue
+    if (item.id === 'feedback' || item.id === 'reports' || item.id === 'event-categories' || item.id === 'partners' || item.id === 'appeals' || item.id === 'votes' || item.id === 'supporters' || item.id === 'terms-and-rules' || item.id === 'bluesky') continue
     assert.notEqual(GO_TO_KEYS[item.id], '', `${item.id} has no letter`)
   }
 })
@@ -587,6 +587,25 @@ test('Partners opens with Manage partners alone, and sits just before Availabili
   assert.equal(community.indexOf('partners'), community.indexOf('availability') - 1)
   assert.equal(mayOpen(person('ManagePartners'), 'partners'), true)
   assert.equal(mayOpen(person('ViewCalendar', 'ManageSettings'), 'partners'), false)
+})
+
+test('Feedback opens with Review feedback alone, which Send feedback does not give, and heads System', () => {
+  const system = NAV.filter((n) => 'group' in n && n.group === 'System').map((n) => n.id)
+
+  assert.equal(system[0], 'feedback')
+  assert.equal(mayOpen(person('ReviewFeedback'), 'feedback'), true)
+  assert.equal(mayOpen(person('Administrator'), 'feedback'), true)
+  assert.equal(mayOpen(person('SendFeedback'), 'feedback'), false)
+  assert.equal(mayOpen(person('ManageSettings', 'ViewOperationalLog'), 'feedback'), false)
+  assert.equal(mayOpen(person(), 'feedback'), false)
+  assert.equal(GO_TO_KEYS.feedback, '')
+})
+
+test('the Feedback page shows in the sidebar and on the phone only for somebody who may review it', () => {
+  const listed = (me: CurrentUser) => listedPages(me).map((item) => item.id)
+
+  assert.ok(listed(person('ReviewFeedback')).includes('feedback'))
+  assert.ok(!listed(person('SendFeedback', 'ViewOperationalLog')).includes('feedback'))
 })
 
 test('Terms and rules opens for anybody signed in, and sits between Lists and Partners', () => {

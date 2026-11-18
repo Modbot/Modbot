@@ -1,0 +1,55 @@
+---
+title: Feedback
+description: Staff speak a bug, an idea or a change with the Feedback button on the companion or in the headset. It is saved on your own Modbot server and read by admins on the Feedback page. Nothing is sent to Modbot's makers, to GitHub or anywhere else.
+---
+
+Something is broken, or you wish Modbot did something else, and you are in the middle of an instance
+with no keyboard. **Feedback** lets you say it out loud: tap a button, speak, tap again, check the
+draft and send it. Admins read it on the **Feedback** page of the web app.
+
+## Where it is saved
+
+**On your own Modbot server, and nowhere else.** Nothing is sent to Modbot Cloud, to GitHub or to any
+other site. If your admins want something fixed, they read it on the Feedback page and decide for
+themselves.
+
+## Sending feedback
+
+1. Tap **Feedback** next to **Dictate**: on the small button panel in the headset, in the strip along
+   the top of the [desktop overlay](/companion/settings#desktop-overlay), or in the companion's main
+   window. The button reads **Listening** while you speak.
+2. Say what you want to tell the admins.
+3. Tap the button again. Your words are written out as text on your PC, the same way
+   [Dictate](/companion/dictate) does it. Your voice is never saved or sent.
+4. A draft shows the **kind** (**Bug**, **Idea** or **Change**), a **title** and the **details**.
+   Change any of them.
+5. Press **Send**, or **Cancel** to throw it away. Nothing is saved until you press **Send**.
+
+Feedback and Dictate share your microphone, so only one of them listens at a time.
+
+## With AI and without
+
+When [AI is set up](/ai/settings), your server tidies the words into a kind, a title and details, and
+takes out the names of people, worlds and groups. You can still edit all of it before you send.
+
+When AI is off, or it cannot answer, the draft is simply what you said, and you pick the kind
+yourself. The button shows either way: it does not need [AI Chat](/ai/chat) to be on.
+
+## The Feedback page
+
+Admins open **Feedback** under **System** in the web app's menu, or in the phone's menu. It lists what
+staff sent with the date, who sent it, the kind, the title and where it stands. Press an item to read
+it in full, and mark it **New**, **Reviewed**, **Done** or **Dropped**. The page can be narrowed to one
+status.
+
+Changing a status is written to the [audit log](/moderation/audit-log) with who did it. The log names
+the status and never holds a copy of the words.
+
+## Who can do what
+
+| Permission | Lets a person |
+|---|---|
+| **Send feedback** | See the Feedback button and send feedback. In the built-in Moderator role and Administrator. |
+| **Review feedback** | Open the Feedback page, read what was sent and set its status. Administrator holds it; no other built-in role does. |
+
+See [Roles and permissions](/accounts/roles-and-permissions#send-feedback) for both.

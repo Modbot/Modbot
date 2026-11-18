@@ -65,6 +65,7 @@ import { EventCategories } from '@/pages/EventCategories'
 import { WorldLists } from '@/pages/WorldLists'
 import { Availability } from '@/pages/Availability'
 import { Partners } from '@/pages/Partners'
+import { Feedback } from '@/pages/Feedback'
 import { TermsAndRules } from '@/pages/TermsAndRules'
 import { Integrations } from '@/pages/Integrations'
 import { Login } from '@/pages/Login'
@@ -156,6 +157,7 @@ const TITLES: Record<PageId, string> = {
   reviews: 'Reviews',
   reports: 'Reports',
   health: 'Health',
+  feedback: 'Feedback',
   logs: "Modbot's log",
   settings: 'Settings',
   account: 'Your account',
@@ -220,6 +222,7 @@ const PATHS: Record<PageId, string> = {
   reviews: '/reviews',
   reports: '/reports',
   health: '/health',
+  feedback: '/feedback',
   logs: '/logs',
   settings: '/settings',
   account: '/account',
@@ -799,6 +802,7 @@ function Shell({
           {page === 'appeals' && <Appeals />}
           {page === 'reports' && <Reports me={me} onChanged={refreshReportCount} />}
           {page === 'health' && <Health />}
+          {page === 'feedback' && <Feedback />}
           {page === 'logs' && <Logs />}
           {page === 'settings' && <Settings me={me} />}
           {page === 'account' && (

@@ -53,7 +53,7 @@ Three roles exist on every Modbot from the start. They cannot be deleted or rena
 | Role | Holds | Can be changed |
 |---|---|---|
 | **Administrator** | **Administrator**: everything, including permissions added in future versions. | No. It always means everything. |
-| **Moderator** | **See members**, **See profiles**, **See analytics**, **See the audit log**, **Kick**, **Ban**, **Unban**, **Warn**, **View evidence**, **Upload evidence**, **Pair a companion**, **See reports**, **Handle reports**. | Yes: its description and permissions. |
+| **Moderator** | **See members**, **See profiles**, **See analytics**, **See the audit log**, **Kick**, **Ban**, **Unban**, **Warn**, **View evidence**, **Upload evidence**, **Pair a companion**, **See reports**, **Handle reports**, **Send feedback**. | Yes: its description and permissions. |
 | **Viewer** | **See members**, **See profiles**, **See analytics**, **See the audit log**. | Yes: its description and permissions. |
 
 Some permissions are deliberately not in Moderator or Viewer, because they reach further than
@@ -493,6 +493,17 @@ In the built-in Moderator role. When it was added, it was also given to every ro
 whose companion was working at the time, so no companion stopped on the update. Take it off a role
 you do not want pairing.
 
+### Send feedback
+
+Name: `SendFeedback`
+
+- Shows the **Feedback** button on the companion and in the headset, and lets the person send a bug,
+  an idea or a change to the admins, by voice or through AI chat. See [Feedback](/companion/feedback).
+- Needs nothing else: not AI chat, and not a linked VRChat account.
+
+In the built-in Moderator role, including on a Modbot that had it before this permission existed.
+Take it off a role you do not want sending.
+
 ## Administration
 
 ### Edit the group's profile
@@ -666,6 +677,17 @@ Name: `ManagePartners`
 - Add a partner, change one and delete one. There is no separate permission for looking.
 
 Not in the built-in Moderator or Viewer roles.
+
+### Review feedback
+
+Name: `ReviewFeedback`
+
+- Opens the [**Feedback**](/companion/feedback#the-feedback-page) page under **System**: what staff
+  sent, who sent it, its kind and title, and the full words of each item.
+- Sets an item's status to New, Reviewed, Done or Dropped.
+
+Not in the built-in Moderator or Viewer roles. Administrator holds it. Give it to a role of your own
+to let more people read feedback.
 
 ### Manage users
 

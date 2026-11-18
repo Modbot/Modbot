@@ -177,6 +177,10 @@ export const NAV = [
   // one opens it at the part it names. The page, its address and every link to it are unchanged.
   // Called "Sync health" until 2026-09-26; it covers far more than syncing.
   { id: 'health', label: 'Health', needs: 'ViewOperationalLog', hidden: true },
+  // What staff sent with the Feedback button: a bug, an idea or a change, for the admins to read and
+  // mark. Admins only, through its own permission (Review feedback), which no built-in role but
+  // Administrator holds. First under System. No `g` letter: all twenty-six are taken.
+  { id: 'feedback', label: 'Feedback', group: 'System', needs: 'ReviewFeedback', words: ['bug', 'idea', 'suggestion', 'change', 'request', 'voice'] },
   // Modbot's own program log. "Logs" alone collided with the person popup's tab and with the
   // audit log; the id and address stay `logs`.
   { id: 'logs', label: "Modbot's log", group: 'System', needs: 'ViewOperationalLog' },
@@ -289,6 +293,7 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   reviews: 'r',
   reports: '',
   health: 'h',
+  feedback: '',
   logs: 'o',
   settings: 's',
   account: 'y',
