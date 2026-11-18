@@ -91,8 +91,17 @@ public class ChatTests
         Assert.Equal(120, fresh.GetProperty("timeLimitSeconds").GetInt32());
 
         var tools = fresh.GetProperty("tools").EnumerateArray().ToList();
-        Assert.Equal(23, tools.Count);
-        Assert.All(tools, t => Assert.True(t.GetProperty("onlyReads").GetBoolean() && t.GetProperty("enabled").GetBoolean()));
+        Assert.Equal(24, tools.Count);
+
+        // The one tool that acts starts off.
+        var acting = Assert.Single(tools, t => !t.GetProperty("onlyReads").GetBoolean());
+        Assert.Equal("file_feedback", acting.GetProperty("name").GetString());
+        Assert.False(acting.GetProperty("enabled").GetBoolean());
+        Assert.Equal("Send feedback", acting.GetProperty("needs").EnumerateArray().Single().GetString());
+
+        Assert.All(
+            tools.Where(t => t.GetProperty("onlyReads").GetBoolean()),
+            t => Assert.True(t.GetProperty("enabled").GetBoolean()));
         Assert.Contains(tools, t => t.GetProperty("name").GetString() == "list_live_instances"
                                     && t.GetProperty("needs").EnumerateArray().Single().GetString() == "See live instances");
 
@@ -907,6 +916,118 @@ public class ChatTests
             Offered("Question three").Order(StringComparer.Ordinal));
     }
 
+    // ── The tool that files feedback (feedback design §7) ─────────────────────────────────────
+
+    [Fact]
+    public async Task FileFeedback_StartsOff_SoItIsNotOffered_AndTheRulesDoNotMentionIt()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+
+        var provider = new ScriptedProvider().Then(Stream(Text("Hello.")));
+        await using var host = await StartWithProviderAsync(provider);
+
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.SendFeedback, Ct);
+
+        await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "The map page is broken" }, cookie, Ct);
+
+        Assert.Empty(provider.ToolNames(0));
+        Assert.DoesNotContain("file_feedback", provider.Bodies[0], StringComparison.Ordinal);
+        Assert.DoesNotContain("feedback", provider.Bodies[0], StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task FileFeedback_SwitchedOn_IsOffered_TheRulesEncourageIt_AndItSavesAsThePersonAsking()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+
+        var provider = new ScriptedProvider()
+            .Then(Stream(ToolCall("call_1", "file_feedback", JsonSerializer.Serialize(
+                new { kind = "bug", title = "The map is blank", details = "The map page is blank after I pick a world." }))))
+            .Then(Stream(Text("Filed.")));
+
+        await using var host = await StartWithProviderAsync(provider);
+        await SwitchOnAsync(host, "file_feedback");
+
+        var (asker, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.SendFeedback, Ct);
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "Yes, file it" }, cookie, Ct);
+        var events = ParseEvents(await response.Content.ReadAsStringAsync(Ct));
+
+        Assert.Contains("file_feedback", provider.ToolNames(0));
+        Assert.Contains("only after the person has said yes", provider.Bodies[0], StringComparison.Ordinal);
+
+        Assert.True(ToolResult(events, "file_feedback").GetProperty("filed").GetBoolean());
+
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        var item = await db.Feedback.AsNoTracking().SingleAsync(f => f.SenderUserId == asker.Id, Ct);
+
+        Assert.Equal(FeedbackKinds.Bug, item.Kind);
+        Assert.Equal("The map is blank", item.Title);
+        Assert.Equal("The map page is blank after I pick a world.", item.Details);
+        Assert.Equal(asker.Username, item.SenderName);
+        Assert.Equal(FeedbackStatuses.New, item.Status);
+    }
+
+    [Fact]
+    public async Task FileFeedback_WithoutSendFeedback_IsNotOffered_AndAModelAskingForItAnywayFilesNothing()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+
+        var provider = new ScriptedProvider()
+            .Then(Stream(ToolCall("call_1", "file_feedback", JsonSerializer.Serialize(
+                new { kind = "idea", title = "A dark map", details = "Make the map dark." }))))
+            .Then(Stream(Text("I can't file that.")));
+
+        await using var host = await StartWithProviderAsync(provider);
+        await SwitchOnAsync(host, "file_feedback");
+
+        var (person, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat, Ct);
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "File my idea" }, cookie, Ct);
+        var events = ParseEvents(await response.Content.ReadAsStringAsync(Ct));
+
+        Assert.DoesNotContain("file_feedback", provider.Bodies[0], StringComparison.Ordinal);
+
+        var tool = events.Where(e => e.Name == "message").Select(e => e.Data)
+            .Single(m => m.GetProperty("role").GetString() == "tool");
+        Assert.False(tool.GetProperty("worked").GetBoolean());
+
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        Assert.False(await db.Feedback.AnyAsync(f => f.SenderUserId == person.Id, Ct));
+    }
+
+    [Fact]
+    public async Task FileFeedback_RefusesWhoLacksSendFeedback_AndWhatIsNotFeedback_EvenWhenRunDirectly()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await StartWithProviderAsync(new ScriptedProvider());
+
+        var (person, _) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.SendFeedback, Ct);
+
+        using var scope = host.Services.CreateScope();
+        var tool = scope.ServiceProvider.GetRequiredService<AI.Chat.ChatToolRegistry>().All.Single(t => t.Name == "file_feedback");
+
+        async Task<AI.Chat.ChatToolResult> Run(ModbotPermissions held, object arguments) =>
+            await tool.RunAsync(
+                new AI.Chat.ChatToolContext(person.Id, held, scope.ServiceProvider),
+                JsonSerializer.SerializeToElement(arguments),
+                Ct);
+
+        var good = new { kind = "idea", title = "A dark map", details = "Make the map dark." };
+
+        Assert.False((await Run(ModbotPermissions.UseAiChat, good)).Worked);
+        Assert.False((await Run(ModbotPermissions.SendFeedback, new { kind = "complaint", details = "Nope." })).Worked);
+        Assert.False((await Run(ModbotPermissions.SendFeedback, new { kind = "bug" })).Worked);
+
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        Assert.False(await db.Feedback.AnyAsync(f => f.SenderUserId == person.Id, Ct));
+
+        Assert.True((await Run(ModbotPermissions.SendFeedback, good)).Worked);
+        Assert.True(await db.Feedback.AnyAsync(f => f.SenderUserId == person.Id, Ct));
+    }
+
     [Fact]
     public async Task SearchingDiscordMessages_MarksDeletedOnes_CapsTheRows_AndSaysThereWereMore()
     {
@@ -1459,6 +1580,18 @@ public class ChatTests
 
         await db.SaveChangesAsync(Ct);
         return host;
+    }
+
+    /// <summary>Switches tools on in Settings → AI → Chat, as an admin would.</summary>
+    private static async Task SwitchOnAsync(ApiTestHost host, params string[] names)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        var settings = await db.GetSettingsAsync(Ct);
+        settings.AiChatToolSwitches = JsonSerializer.Serialize(names.ToDictionary(n => n, _ => true));
+
+        await db.SaveChangesAsync(Ct);
     }
 
     private static async Task SeedPersonAsync(ApiTestHost host, string id, string name)
