@@ -104,6 +104,14 @@ public sealed record ServerPairing
     public Uri ChatMessagesEndpoint()
         => new(BaseUri, $"/api/v{ApiVersion}/companion/chat/messages");
 
+    /// <summary>Whether this device's owner may send feedback on the paired server, and whether AI tidies it.</summary>
+    public Uri FeedbackEndpoint()
+        => new(BaseUri, $"/api/v{ApiVersion}/companion/feedback");
+
+    /// <summary>Where the words that were said are sent to be tidied into a draft.</summary>
+    public Uri FeedbackTidyEndpoint()
+        => new(BaseUri, $"/api/v{ApiVersion}/companion/feedback/tidy");
+
     /// <summary>Where a heads-up is placed, in the instance the moderator is standing in.</summary>
     public Uri HeadsUpsEndpoint()
         => new(BaseUri, $"/api/v{ApiVersion}/companion/heads-ups");
