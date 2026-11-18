@@ -1,6 +1,6 @@
 # Feedback: staff speak a bug, an idea or a change
 
-**Status:** steps 1 to 3 of 5 built (the server, the web page, the companion's main window and desktop overlay). Approved 2026-11-18.
+**Status:** steps 1 to 4 of 5 built (the server, the web page, the companion's main window and desktop overlay, the headset panel). Approved 2026-11-18.
 **Builds on:** the Dictate design (2026-11-05), whose microphone, speech model and download the
 button reuses; the AI chat design §3.3, which makes a tool that changes something an acting tool.
 
@@ -24,7 +24,7 @@ admins want something fixed they read it here and decide for themselves.
 | 1 | The server: the table, the two permissions, the endpoints, the companion's way to ask whether it may send | built |
 | 2 | The web app: the Feedback page, its menu entry, its link preview, its docs page | built |
 | 3 | The companion's main window and the desktop overlay: the button and the draft window | built |
-| 4 | The headset panel: the button and the draft panel (lockable, click-through, grabbable, saved spot) | open |
+| 4 | The headset panel: the button and the draft panel (lockable, click-through, grabbable, saved spot) | built |
 | 5 | The chat tool `file_feedback` and the chat's nudge to use it | open |
 
 ## 3. What is stored
@@ -124,7 +124,11 @@ in the same way and leaves the same fact.
    overlay's sits next to Dictate. Both are hidden until the server's Send feedback permission offers
    them. The speech model and its download are Dictate's, shared.
 4. The same on the headset panel; its draft panel can be locked, made click-through, grabbed and
-   moved, and its spot is saved, like every other VR panel.
+   moved, and its spot is saved, like every other VR panel. Built as a third row on the show and hide
+   button (a column would squeeze the labels in its square card) and a draft panel of its own, with
+   its own saved spot (`overlayFeedbackSpot`), apart from the chat panel's. The text in it is read-only
+   (the headset has no keyboard); only the kind is chosen. A draft opens in the headset only when the
+   headset button started it. Long title and details are cut in the view only, at 2 and 9 lines.
 5. `file_feedback` (kind, title, details): an acting chat tool, so it is off until an admin switches
    it on in Settings, AI, Chat. It saves as the person asking. When it is offered, the chat's
    instructions tell the model to offer to file a bug, a missing feature or a wish for a change, to
