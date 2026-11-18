@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Modbot.Api.Features.ApiKeys;
+using Modbot.Api.Features.ProblemAvatars;
 using Modbot.Api.Features.Proxy;
 using Modbot.Api.Features.Events;
 using Modbot.Api.Features.Webhooks;

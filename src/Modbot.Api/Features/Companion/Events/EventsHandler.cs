@@ -9,6 +9,7 @@ using Modbot.Analytics.Facts;
 using Modbot.Api.Features.Companion.Alerts;
 using Modbot.Api.Features.Companion.Context;
 using Modbot.Api.Features.Companion.Devices;
+using Modbot.Api.Features.ProblemAvatars;
 using Modbot.Api.Features.Watches;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -92,6 +93,7 @@ public static class EventsHandler
         IFactWriter facts,
         ICompanionDeviceStore devices,
         AlertHub alerts,
+        ProblemAvatarSeen problemAvatars,
         DeviceLocations locations,
         ModbotContext database,
         IModbotClock clock,
@@ -170,6 +172,25 @@ public static class EventsHandler
             database,
             clock,
             ct);
+
+        try
+        {
+            await ProblemAvatarAlerts.RaiseAsync(
+                candidates,
+                results,
+                devices,
+                alerts,
+                problemAvatars,
+                context.RequestServices.GetService<IDiscordChannelPoster>(),
+                database,
+                clock,
+                ct);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            // Like the other alerts: the facts are written and losing an alert must not cost the batch.
+            Serilog.Log.Warning(e, "Could not raise a problem avatar alert");
+        }
 
         return Results.Ok(new EventBatchResponse(
             results.Count(r => !r.WasDeduplicated),

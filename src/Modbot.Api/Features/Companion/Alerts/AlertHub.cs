@@ -187,4 +187,34 @@ public sealed class AlertHub
             trustRank,
             worldId);
     }
+
+    /// <summary>
+    /// Builds the alert for somebody wearing an avatar on the problem avatar list.
+    /// </summary>
+    /// <remarks>
+    /// The same card as a flagged join, so the overlay and the bleep need nothing new: the reason is
+    /// the sentence the card shows, and there are no earlier actions to count.
+    /// </remarks>
+    public static FlaggedJoinAlertDto ForProblemAvatar(
+        IModbotClock clock,
+        string subjectId,
+        string? displayName,
+        string instanceId,
+        string avatarName,
+        TrustRank? trustRank = null,
+        string? worldId = null)
+    {
+        ArgumentNullException.ThrowIfNull(avatarName);
+
+        return new(
+            Guid.NewGuid().ToString("n"),
+            subjectId,
+            displayName,
+            instanceId,
+            $"Wearing a problem avatar: {avatarName}",
+            0,
+            clock.UtcNow,
+            trustRank,
+            worldId);
+    }
 }

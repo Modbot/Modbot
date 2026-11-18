@@ -84,4 +84,14 @@ public static class FlaggedDiscordPost
 
         return $"Flagged: {who} joined a group instance. {match.Reason}";
     }
+
+    /// <summary>The sentence for a problem avatar: who, and the avatar's name.</summary>
+    public static string AvatarText(string? displayName, string avatarName)
+    {
+        ArgumentNullException.ThrowIfNull(avatarName);
+
+        var who = string.IsNullOrWhiteSpace(displayName) ? "Someone" : displayName.Trim();
+
+        return $"Flagged: {who} is wearing a problem avatar in a group instance: {avatarName}";
+    }
 }

@@ -6916,6 +6916,340 @@
         ]
       }
     },
+    "/api/problem-avatars": {
+      "get": {
+        "tags": [
+          "Problem avatars"
+        ],
+        "summary": "List problem avatars",
+        "description": "The avatar names that raise a flagged alert on whoever wears one, by name, in alphabetical order. VRChat's log gives avatar names and no ids, so two avatars with one name are one entry.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "ListProblemAvatars",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProblemAvatarView"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Problem avatars"
+        ],
+        "summary": "Add a problem avatar",
+        "description": "Adds an avatar name to the list. A name already on the list, whatever its case, comes back unchanged.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "AddProblemAvatar",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddProblemAvatarRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemAvatarView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/problem-avatars/from-person": {
+      "post": {
+        "tags": [
+          "Problem avatars"
+        ],
+        "summary": "Mark a person's avatar as a problem",
+        "description": "Adds the avatar the person was last seen wearing, by its exact name, to the list. 404 when Modbot has never seen them wear one.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "MarkPersonAvatar",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkPersonAvatarRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemAvatarView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/problem-avatars/person": {
+      "get": {
+        "tags": [
+          "Problem avatars"
+        ],
+        "summary": "Get the avatar a person is wearing",
+        "description": "The avatar the person was last seen wearing, and whether it is on the list. `avatarName` is null when Modbot has never seen them wear one.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetPersonAvatar",
+        "parameters": [
+          {
+            "name": "vrchat",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonAvatarView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/problem-avatars/{id}": {
+      "delete": {
+        "tags": [
+          "Problem avatars"
+        ],
+        "summary": "Remove a problem avatar",
+        "description": "Takes an avatar name off the list. People wearing it are no longer alerted on.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "RemoveProblemAvatar",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/cloud": {
       "get": {
         "tags": [
@@ -41798,6 +42132,20 @@
           }
         }
       },
+      "AddProblemAvatarRequest": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "AgeCheckGroupRole": {
         "required": [
           "id",
@@ -62270,6 +62618,20 @@
           }
         }
       },
+      "MarkPersonAvatarRequest": {
+        "required": [
+          "vrchatUserId"
+        ],
+        "type": "object",
+        "properties": {
+          "vrchatUserId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "McpAuthorizeDecision": {
         "required": [
           "clientId",
@@ -64816,6 +65178,24 @@
           }
         }
       },
+      "PersonAvatarView": {
+        "required": [
+          "avatarName",
+          "listed"
+        ],
+        "type": "object",
+        "properties": {
+          "avatarName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "listed": {
+            "type": "boolean"
+          }
+        }
+      },
       "PersonBriefRequest": {
         "type": "object",
         "properties": {
@@ -66501,6 +66881,31 @@
           }
         },
         "description": "What went wrong (RFC 9457). Some errors carry more fields beside these, such as `neededPermissions` or `missingGroupPermission`."
+      },
+      "ProblemAvatarView": {
+        "required": [
+          "id",
+          "name",
+          "addedBy",
+          "addedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "addedBy": {
+            "type": "string"
+          },
+          "addedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       },
       "ProfileCopyResponse": {
         "required": [
@@ -75279,6 +75684,10 @@
     {
       "name": "Posts",
       "x-displayName": "Posts"
+    },
+    {
+      "name": "Problem avatars",
+      "x-displayName": "Problem avatars"
     },
     {
       "name": "Supporters",

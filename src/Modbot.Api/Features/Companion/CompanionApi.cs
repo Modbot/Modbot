@@ -78,6 +78,7 @@ public static class CompanionApi
         services.AddScoped<Modbot.Api.Features.AutomaticRoles.AutomaticRoleGiver>();
         services.AddHostedService<Modbot.Api.Features.AutomaticRoles.AutomaticRoleGiverService>();
         services.AddSingleton<AlertHub>();
+        services.AddSingleton<ProblemAvatars.ProblemAvatarSeen>();
         services.AddSingleton<HeadsUpSignal>();
         services.AddScoped<DeviceAuthenticator>();
 

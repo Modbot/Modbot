@@ -8629,6 +8629,48 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("post_destination", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.ProblemAvatar", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("AddedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("added_at");
+
+                    b.Property<Guid>("AddedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("added_by_user_id");
+
+                    b.Property<string>("AddedByUsername")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("added_by_username");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NameKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name_key");
+
+                    b.HasKey("Id")
+                        .HasName("pk_problem_avatar");
+
+                    b.HasIndex("NameKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_problem_avatar_name");
+
+                    b.ToTable("problem_avatar", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.ProfileField", b =>
                 {
                     b.Property<Guid>("Id")
