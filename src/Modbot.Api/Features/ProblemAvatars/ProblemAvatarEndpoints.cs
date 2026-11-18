@@ -99,7 +99,7 @@ public static class ProblemAvatarEndpoints
                     });
                 }
 
-                return Results.Ok(await AddAsync(db, facts, clock, http, body.Name, ct));
+                return Results.Ok(await AddAsync(db, facts, clock, Actor.Of(http), body.Name, ct));
             })
             .WithName("AddProblemAvatar")
             .WithSummary("Add a problem avatar")
@@ -126,7 +126,7 @@ public static class ProblemAvatarEndpoints
                 if (await CurrentAvatarAsync(db, body.VRChatUserId, ct) is not { } name)
                     return Results.NotFound(new { error = "Modbot has not seen that person wear an avatar." });
 
-                return Results.Ok(await AddAsync(db, facts, clock, http, name, ct));
+                return Results.Ok(await AddAsync(db, facts, clock, Actor.Of(http), name, ct));
             })
             .WithName("MarkPersonAvatar")
             .WithSummary("Mark a person's avatar as a problem")
@@ -146,14 +146,7 @@ public static class ProblemAvatarEndpoints
                 if (string.IsNullOrWhiteSpace(vrchat))
                     return Results.BadRequest(new { error = "Say which person." });
 
-                var name = await CurrentAvatarAsync(db, vrchat, ct);
-                if (name is null)
-                    return Results.Ok(new PersonAvatarView(null, false));
-
-                var key = ProblemAvatar.KeyOf(name);
-
-                return Results.Ok(new PersonAvatarView(
-                    name, await db.ProblemAvatars.AsNoTracking().AnyAsync(a => a.NameKey == key, ct)));
+                return Results.Ok(await PersonAvatarAsync(db, vrchat, ct) ?? new PersonAvatarView(null, false));
             })
             .WithName("GetPersonAvatar")
             .WithSummary("Get the avatar a person is wearing")
@@ -178,7 +171,7 @@ public static class ProblemAvatarEndpoints
                 db.ProblemAvatars.Remove(entry);
                 await db.SaveChangesAsync(ct);
 
-                await RecordAsync(facts, http, new JsonObject { ["setting"] = "problemAvatars", ["removed"] = entry.Name }, ct);
+                await RecordAsync(facts, Actor.Of(http), new JsonObject { ["setting"] = "problemAvatars", ["removed"] = entry.Name }, ct);
 
                 return Results.NoContent();
             })
@@ -217,11 +210,23 @@ public static class ProblemAvatarEndpoints
             .FirstOrDefault(name => name is not null);
     }
 
-    private static async Task<ProblemAvatarView> AddAsync(
+    /// <summary>The avatar a person was last seen wearing and whether it is on the list, or null when none was ever seen.</summary>
+    internal static async Task<PersonAvatarView?> PersonAvatarAsync(ModbotContext db, string vrchatUserId, CancellationToken ct)
+    {
+        if (await CurrentAvatarAsync(db, vrchatUserId, ct) is not { } name)
+            return null;
+
+        var key = ProblemAvatar.KeyOf(name);
+
+        return new PersonAvatarView(name, await db.ProblemAvatars.AsNoTracking().AnyAsync(a => a.NameKey == key, ct));
+    }
+
+    /// <summary>Adds a name to the list, for the account that marked it: from the web app, or from a paired companion.</summary>
+    internal static async Task<ProblemAvatarView> AddAsync(
         ModbotContext db,
         AccountFacts facts,
         IModbotClock clock,
-        HttpContext http,
+        Actor? actor,
         string name,
         CancellationToken ct)
     {
@@ -230,7 +235,6 @@ public static class ProblemAvatarEndpoints
         if (await db.ProblemAvatars.AsNoTracking().FirstOrDefaultAsync(a => a.NameKey == key, ct) is { } existing)
             return View(existing);
 
-        var actor = Actor.Of(http);
         var entry = new ProblemAvatar
         {
             Name = name,
@@ -253,13 +257,13 @@ public static class ProblemAvatarEndpoints
             return View(await db.ProblemAvatars.AsNoTracking().FirstAsync(a => a.NameKey == key, ct));
         }
 
-        await RecordAsync(facts, http, new JsonObject { ["setting"] = "problemAvatars", ["added"] = name }, ct);
+        await RecordAsync(facts, actor, new JsonObject { ["setting"] = "problemAvatars", ["added"] = name }, ct);
 
         return View(entry);
     }
 
-    private static Task RecordAsync(AccountFacts facts, HttpContext http, JsonObject data, CancellationToken ct)
-        => facts.RecordAsync(FactType.SettingsChanged, "settings", Actor.Of(http), data, ct);
+    private static Task RecordAsync(AccountFacts facts, Actor? actor, JsonObject data, CancellationToken ct)
+        => facts.RecordAsync(FactType.SettingsChanged, "settings", actor, data, ct);
 
     private static ProblemAvatarView View(ProblemAvatar entry)
         => new(entry.Id, entry.Name, entry.AddedByUsername, entry.AddedAt);

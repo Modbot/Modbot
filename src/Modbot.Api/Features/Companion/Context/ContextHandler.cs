@@ -5,12 +5,14 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Modbot.Api.Auth;
 using Modbot.Api.Features.Companion.Alerts;
 using Modbot.Api.Features.Companion.Devices;
 using Modbot.Api.Features.Companion.HeadsUps;
 using Modbot.Api.Features.Files;
 using Modbot.Api.Features.Notes;
 using Modbot.Api.Features.Places;
+using Modbot.Api.Features.ProblemAvatars;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Live;
@@ -64,6 +66,11 @@ public sealed record InstanceContextDto(
 /// </param>
 /// <param name="LastActionAt">When <paramref name="LastAction"/> happened.</param>
 /// <param name="Watched">Whether somebody is watching them now. The word only, never why (<see cref="WatchHit"/>).</param>
+/// <param name="AvatarName">
+/// The avatar they were last seen wearing, exactly as VRChat's log named it. Null when none was ever
+/// seen, and always null for a device whose owner may not manage settings: only they may mark it.
+/// </param>
+/// <param name="AvatarListed">Whether <paramref name="AvatarName"/> is on the problem avatar list. Null when the avatar is.</param>
 public sealed record UserSummaryDto(
     [property: JsonPropertyName("subjectId")] string SubjectId,
     [property: JsonPropertyName("displayName")] string? DisplayName,
@@ -78,7 +85,9 @@ public sealed record UserSummaryDto(
     [property: JsonPropertyName("noteCount")] int? NoteCount = null,
     [property: JsonPropertyName("lastAction")] string? LastAction = null,
     [property: JsonPropertyName("lastActionAt")] DateTimeOffset? LastActionAt = null,
-    [property: JsonPropertyName("watched")] bool? Watched = null);
+    [property: JsonPropertyName("watched")] bool? Watched = null,
+    [property: JsonPropertyName("avatarName")] string? AvatarName = null,
+    [property: JsonPropertyName("avatarListed")] bool? AvatarListed = null);
 
 /// <summary>
 /// The overlay's two reads: who is in this instance, and what is known about one of them.
@@ -275,6 +284,11 @@ public static class ContextHandler
             ? ReadDisplayName(named.Data)
             : null;
 
+        // Only for somebody who may mark it, so the card offers Mark avatar to nobody else.
+        var avatar = ModbotAuth.Allows(authentication.OwnerPermissions, ModbotPermissions.ManageSettings)
+            ? await ProblemAvatarEndpoints.PersonAvatarAsync(database, subjectId, ct)
+            : null;
+
         var roles = new List<string>();
         foreach (var fact in facts)
         {
@@ -301,7 +315,9 @@ public static class ContextHandler
             notes > 0 ? notes : null,
             lastAction is null ? null : ActionNames[lastAction.Type],
             lastAction?.OccurredAt,
-            watched));
+            watched,
+            avatar?.AvatarName,
+            avatar is null ? null : avatar.Listed));
     }
 
     /// <summary>

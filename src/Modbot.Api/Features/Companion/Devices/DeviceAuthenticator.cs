@@ -27,7 +27,10 @@ public readonly record struct DeviceAuthentication(
 /// presence facts and read one group's roster context, along with the pictures VRChat already
 /// shows anybody who has an address for one, which is the whole blast radius. The one narrowing,
 /// 2026-11-05: Dictate (<c>Companion/Chat</c>) sends a dictated message to AI Chat as the device's
-/// owner, and nothing else of Chat. See <c>CompanionChatEndpoints</c>.</para>
+/// owner, and nothing else of Chat. See <c>CompanionChatEndpoints</c>. The second narrowing,
+/// 2026-11-18: Mark avatar on the person card adds the avatar a person was last seen wearing to the
+/// problem avatar list as the owner, who must hold Manage settings, and nothing else of the list. See
+/// <c>CompanionProblemAvatarEndpoints</c>.</para>
 /// <para><strong>Revoked and unknown are the same answer.</strong> Revocation is server-side and
 /// immediate; a client that could tell "revoked" from "never existed" would learn that its token
 /// had once been valid.</para>

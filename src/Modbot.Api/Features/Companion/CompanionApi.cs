@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Modbot.Api.Features.Companion.Alerts;
+using Modbot.Api.Features.Companion.AvatarMarks;
 using Modbot.Api.Features.Companion.Chat;
 using Modbot.Api.Features.Companion.ClipRequests;
 using Modbot.Api.Features.Companion.Context;
@@ -402,6 +403,24 @@ public static class CompanionApi
             .Produces<CompanionError>(StatusCodes.Status400BadRequest)
             .Produces<CompanionError>(StatusCodes.Status401Unauthorized)
             .Produces<CompanionError>(StatusCodes.Status403Forbidden)
+            .AllowAnonymous();
+
+        // Mark avatar on the person card: the avatar a person was last seen wearing goes on the
+        // problem avatar list, as the device's owner, who must hold Manage settings.
+        companion.MapPost("/problem-avatars", CompanionProblemAvatarEndpoints.MarkAsync)
+            .WithName("MarkClientProblemAvatar")
+            .WithSummary("Mark a person's avatar as a problem")
+            .WithDescription(
+                "Adds the avatar the person (`vrchatUserId`) was last seen wearing, by its exact name, to "
+                + "the problem avatar list, as the device's owner. Refused with 403 when the owner does "
+                + "not hold Manage settings, and 404 when Modbot has never seen the person wear an "
+                + "avatar. A name already on the list comes back unchanged. Nothing else of the list is "
+                + "reachable from a device.")
+            .Produces<Modbot.Api.Features.ProblemAvatars.ProblemAvatarView>()
+            .Produces<CompanionError>(StatusCodes.Status400BadRequest)
+            .Produces<CompanionError>(StatusCodes.Status401Unauthorized)
+            .Produces<CompanionError>(StatusCodes.Status403Forbidden)
+            .Produces<CompanionError>(StatusCodes.Status404NotFound)
             .AllowAnonymous();
 
         // The staff side of pairing: a signed-in moderator generating a code, seeing which of
