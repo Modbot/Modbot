@@ -130,10 +130,12 @@ Only the four popup kinds are matched in the answer's text (§11.1). A fact id i
 case id is a UUID; matching those in prose would underline dates and counts that happened to read
 the same.
 
-### 3.3 Acting tools — none yet, and off by default
+### 3.3 Acting tools — one, and off by default
 
 M8 §2 and §6: Chat takes **no moderation action on VRChat** and **does not write ban reasons or
-reports** on a moderator's behalf. This version has no tool that changes anything.
+reports** on a moderator's behalf. The one tool that changes anything is `file_feedback`, which saves
+a feedback item on this server as the person asking (feedback design §7, 2026-11-18); it needs
+Send feedback and records the "feedback sent" fact naming that person.
 
 The registry is built for the day one is added anyway. A tool that is not read-only is
 **off unless an operator switches it on** in Settings → AI → Chat, whatever the stored switches

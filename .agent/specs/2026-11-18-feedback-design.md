@@ -1,6 +1,6 @@
 # Feedback: staff speak a bug, an idea or a change
 
-**Status:** steps 1 to 4 of 5 built (the server, the web page, the companion's main window and desktop overlay, the headset panel). Approved 2026-11-18.
+**Status:** all 5 steps built (the server, the web page, the companion's main window and desktop overlay, the headset panel, the chat tool). Approved 2026-11-18.
 **Builds on:** the Dictate design (2026-11-05), whose microphone, speech model and download the
 button reuses; the AI chat design §3.3, which makes a tool that changes something an acting tool.
 
@@ -25,7 +25,7 @@ admins want something fixed they read it here and decide for themselves.
 | 2 | The web app: the Feedback page, its menu entry, its link preview, its docs page | built |
 | 3 | The companion's main window and the desktop overlay: the button and the draft window | built |
 | 4 | The headset panel: the button and the draft panel (lockable, click-through, grabbable, saved spot) | built |
-| 5 | The chat tool `file_feedback` and the chat's nudge to use it | open |
+| 5 | The chat tool `file_feedback` and the chat's nudge to use it | built |
 
 ## 3. What is stored
 
@@ -133,3 +133,10 @@ in the same way and leaves the same fact.
    it on in Settings, AI, Chat. It saves as the person asking. When it is offered, the chat's
    instructions tell the model to offer to file a bug, a missing feature or a wish for a change, to
    show the draft with names removed, and to call the tool only after the person says yes.
+   Built as `FileFeedbackTool` (`src/Modbot.Api/Features/Chat/Tools/FeedbackTools.cs`), which needs
+   Send feedback (the registry leaves it out for anyone without it, and it checks again when run) and
+   saves through `FeedbackWriter`, naming the asking person as sender. The registry lists it in
+   Settings, AI, Chat as the one tool that acts, so no web change was needed. The system prompt
+   (`ChatPrompt.Build`'s `canFileFeedback`) carries the feedback rules, and says "you can only look
+   things up" or not, only when the tool is offered; when it is not offered the prompt does not
+   mention feedback at all. The same tool is offered over MCP when it is on, as any chat tool is.

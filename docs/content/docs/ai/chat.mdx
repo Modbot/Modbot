@@ -8,9 +8,11 @@ banned before?", "who is in our instances right now?" or "how many people joined
 AI model answers by looking things up in Modbot with a set of tools, and every lookup is shown
 beside the answer.
 
-Chat only looks things up. It cannot kick, ban, unban, warn or change anything, and there is no tool
-that could. It is also told not to write ban reasons, case files or reports for you, and not to give
-anyone a score or verdict.
+Chat looks things up. It cannot kick, ban, unban, warn or change anything, and there is no tool
+that could. The one thing it can do is file [feedback](/companion/feedback) about Modbot for the
+admins, and only after an admin switches that tool on and you say yes to its draft (see
+[File feedback](#file-feedback)). It is also told not to write ban reasons, case files or reports for
+you, and not to give anyone a score or verdict.
 
 ## Who can use it
 
@@ -73,6 +75,19 @@ messages on words alone looks at the last 90 days unless dates are given.
 
 All of these only read. Anyone with **Change settings** can switch any of them off for everyone in
 the [Chat settings](#chat-settings).
+
+### File feedback
+
+| Tool | What it does | Needs |
+|---|---|---|
+| **File feedback** | Files a bug, an idea or a change as [feedback](/companion/feedback) for the admins, as the person asking | **Send feedback** |
+
+This is the one tool that acts, so it starts off. Switch it on under **Settings** → **AI** →
+**Chat** → **Tools**. Once it is on, Chat is told to offer it: when you describe a bug, something
+Modbot is missing or a change you wish for, it offers to file it, shows you a draft (the kind, a
+title and the details, with names of people, worlds and groups taken out) and files it only after you
+say yes. The item is saved on your own Modbot server and shows on the **Feedback** page with your
+name as the sender. Nothing is sent to Modbot's makers or to GitHub.
 
 ## Using the page
 
@@ -264,5 +279,6 @@ can be set for everyone, for Chat, for a role or for one person.
 
 ### Tools
 
-One switch per tool. Beside each is **Reads** and the permission it needs. Read-only tools start
-switched on. Switching a tool off removes it for everyone, whatever their permissions.
+One switch per tool. Beside each is **Reads** or **Acts** and the permission it needs. Read-only
+tools start switched on; **File feedback**, which acts, starts off. Switching a tool off removes it
+for everyone, whatever their permissions.
