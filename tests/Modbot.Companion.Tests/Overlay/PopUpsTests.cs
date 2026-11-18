@@ -242,4 +242,21 @@ public class PopUpsTests
 
         Assert.Single(popUps.Current());
     }
+
+    [Fact]
+    public void APossibleCrashPopUpSaysHowManyLeftAndNamesWhoWasJustBefore()
+    {
+        var alert = new FlaggedJoinAlert(
+            "a1", "", null, "39911", "5 people left within 5 seconds", 0, DateTimeOffset.UnixEpoch,
+            Kind: FlaggedJoinAlert.CrashKind,
+            People: [new CrashPerson("usr_a", "Rin", "joined"), new CrashPerson("usr_b", null, "changed avatar")]);
+
+        var popUp = PopUp.FlaggedJoin(alert, "Cat Lounge", null);
+
+        Assert.Equal("Possible crash · Cat Lounge", popUp.Heading);
+        Assert.Equal("5 people left within 5 seconds", popUp.Body);
+        Assert.Equal("Rin, usr_b", popUp.Detail);
+        Assert.Equal(PopUpTone.Flagged, popUp.Tone);
+        Assert.Null(popUp.SubjectId);
+    }
 }

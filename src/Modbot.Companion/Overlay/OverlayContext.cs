@@ -121,6 +121,8 @@ public sealed record UserSummary(
 /// The world the instance is in, when the server says. An instance number is only unique inside
 /// one world, so the overlay compares both. Null from a server that does not say.
 /// </param>
+/// <param name="Kind"><c>crash</c> for a possible crash, which is about the instance and has no subject; null for a flagged person.</param>
+/// <param name="People">Who changed avatar or joined just before a possible crash, newest first. Null on every other alert.</param>
 public sealed record FlaggedJoinAlert(
     [property: JsonPropertyName("alertId")] string AlertId,
     [property: JsonPropertyName("subjectId")] string SubjectId,
@@ -130,4 +132,20 @@ public sealed record FlaggedJoinAlert(
     [property: JsonPropertyName("priorActions")] int PriorActions,
     [property: JsonPropertyName("raisedAt")] DateTimeOffset RaisedAt,
     [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null,
-    [property: JsonPropertyName("worldId")] string? WorldId = null);
+    [property: JsonPropertyName("worldId")] string? WorldId = null,
+    [property: JsonPropertyName("kind")] string? Kind = null,
+    [property: JsonPropertyName("people")] IReadOnlyList<CrashPerson>? People = null)
+{
+    /// <summary>The <see cref="Kind"/> of a possible crash.</summary>
+    public const string CrashKind = "crash";
+
+    /// <summary>Whether this is a possible crash rather than a flagged person.</summary>
+    public bool IsCrash => Kind == CrashKind;
+}
+
+/// <summary>One person a possible crash alert names, and what they did just before it.</summary>
+/// <param name="What">Words for the card: <c>joined</c> or <c>changed avatar</c>.</param>
+public sealed record CrashPerson(
+    [property: JsonPropertyName("subjectId")] string SubjectId,
+    [property: JsonPropertyName("displayName")] string? DisplayName,
+    [property: JsonPropertyName("what")] string What);

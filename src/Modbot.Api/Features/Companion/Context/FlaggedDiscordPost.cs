@@ -85,6 +85,16 @@ public static class FlaggedDiscordPost
         return $"Flagged: {who} joined a group instance. {match.Reason}";
     }
 
+    /// <summary>The sentence for a possible crash: how many left, and who joined or changed avatar just before.</summary>
+    public static string CrashText(int left, int seconds, IReadOnlyList<string> names)
+    {
+        ArgumentNullException.ThrowIfNull(names);
+
+        var text = $"Possible crash: {left} people left a group instance within {seconds} seconds.";
+
+        return names.Count == 0 ? text : $"{text} Just before: {string.Join(", ", names)}";
+    }
+
     /// <summary>The sentence for a problem avatar: who, and the avatar's name.</summary>
     public static string AvatarText(string? displayName, string avatarName)
     {

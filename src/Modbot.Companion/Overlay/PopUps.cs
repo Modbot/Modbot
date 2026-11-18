@@ -82,6 +82,20 @@ public sealed record PopUp(
     {
         ArgumentNullException.ThrowIfNull(alert);
 
+        // A possible crash is about the instance, not a person: the people it names are on the main
+        // panel's card, where each can be tapped. The pop-up says how many and who.
+        if (alert.IsCrash)
+        {
+            var names = (alert.People ?? []).Select(p => p.DisplayName ?? p.SubjectId).ToList();
+
+            return new PopUp(
+                "alert:" + alert.AlertId,
+                groupLabel is { Length: > 0 } crashLabel ? "Possible crash · " + crashLabel : "Possible crash",
+                alert.Reason,
+                names.Count == 0 ? null : string.Join(", ", names),
+                PopUpTone.Flagged);
+        }
+
         return new PopUp(
             "alert:" + alert.AlertId,
             groupLabel is { Length: > 0 } label ? "Flagged user joined · " + label : "Flagged user joined",

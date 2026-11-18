@@ -107,4 +107,16 @@ public class OverlayContextJsonTests
         Assert.Equal(TrustRank.VRChatTeam, JsonSerializer.Deserialize<UserSummary>(summary, Json)!.TrustRank);
         Assert.Equal(TrustRank.Nuisance, JsonSerializer.Deserialize<FlaggedJoinAlert>(alert, Json)!.TrustRank);
     }
+
+    [Fact]
+    public void APossibleCrashAlertCarriesItsKindAndThePeopleItNames()
+    {
+        const string alert = """{"alertId":"a","subjectId":"","displayName":null,"instanceId":"39911","reason":"5 people left within 5 seconds","priorActions":0,"raisedAt":"2026-09-12T20:14:07Z","kind":"crash","people":[{"subjectId":"usr_a","displayName":"Rin","what":"joined"}]}""";
+
+        var read = JsonSerializer.Deserialize<FlaggedJoinAlert>(alert, Json)!;
+
+        Assert.True(read.IsCrash);
+        var person = Assert.Single(read.People!);
+        Assert.Equal(("usr_a", "Rin", "joined"), (person.SubjectId, person.DisplayName, person.What));
+    }
 }

@@ -1466,14 +1466,17 @@ public sealed class OverlayDriver : IDisposable
             return false;
 
         // Somebody rejoining repeatedly is exactly what being kicked looks like, and a card each
-        // time would turn the channel into noise.
-        if (_lastAlerted.TryGetValue(alert.SubjectId, out var previous)
+        // time would turn the channel into noise. A possible crash has no person, so the instance
+        // is what repeats.
+        var who = alert.IsCrash ? "crash:" + alert.InstanceId : alert.SubjectId;
+
+        if (_lastAlerted.TryGetValue(who, out var previous)
             && _clock.UtcNow - previous < AlertCooldown)
         {
             return false;
         }
 
-        _lastAlerted[alert.SubjectId] = _clock.UtcNow;
+        _lastAlerted[who] = _clock.UtcNow;
         _showing = alert;
         _showingSince = _clock.UtcNow;
         _listener?.AlertShown(alert);

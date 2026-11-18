@@ -400,7 +400,7 @@ public sealed partial class OverlayView
         }
         else if (screen.Alert is { } alert)
         {
-            lines.Children.Add(Text(alert.DisplayName ?? alert.SubjectId, T.Density.TextBase * 1.7, T.TextBrush, FontWeight.SemiBold));
+            lines.Children.Add(Text(alert.IsCrash ? "Possible crash" : alert.DisplayName ?? alert.SubjectId, T.Density.TextBase * 1.7, T.TextBrush, FontWeight.SemiBold));
             lines.Children.Add(Text(alert.Reason, T.Density.TextBase * 1.3, T.DangerBrush));
         }
         else if (screen.EventsOrNone.Count > 0)
@@ -1398,11 +1398,30 @@ public sealed partial class OverlayView
     {
         var lines = new StackPanel { Spacing = 6 };
 
+        var title = alert.IsCrash ? "Possible crash" : "Flagged user joined";
+
         lines.Children.Add(Text(
-            groupLabel is null ? "Flagged user joined" : $"Flagged user joined · {groupLabel}",
+            groupLabel is null ? title : $"{title} · {groupLabel}",
             T.Density.TextSmall,
             T.TextDimBrush,
             FontWeight.SemiBold));
+
+        // A possible crash is about the instance: the large line is how many left, and the people
+        // it names follow as buttons, each one tap from their card (deepest target wins, so a
+        // press opens the person and a tap anywhere else on the card still clears it).
+        if (alert.IsCrash)
+        {
+            lines.Children.Add(Text(alert.Reason, T.Density.TextBase * 1.4, T.TextBrush, FontWeight.SemiBold));
+
+            var named = new WrapPanel { Orientation = Orientation.Horizontal, ItemSpacing = 10, LineSpacing = 10 };
+            foreach (var person in alert.People ?? [])
+                named.Children.Add(Press((person.DisplayName ?? person.SubjectId) + " · " + person.What, new OverlayTarget.Person(person.SubjectId)));
+
+            if (named.Children.Count > 0)
+                lines.Children.Add(named);
+
+            return AlertBorder(lines);
+        }
 
         lines.Children.Add(Text(
             alert.DisplayName ?? alert.SubjectId,
@@ -1416,6 +1435,11 @@ public sealed partial class OverlayView
         // The reason already names every rule that matched, kicks and bans included.
         lines.Children.Add(Text(alert.Reason, T.Density.TextBase, T.TextBrush));
 
+        return AlertBorder(lines);
+    }
+
+    private Border AlertBorder(Control lines)
+    {
         return new Border
         {
             Tag = new OverlayTarget.DismissAlert(),

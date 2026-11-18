@@ -12,6 +12,12 @@ namespace Modbot.Api.Features.Companion.Alerts;
 /// The world the instance is in. An instance number is only unique inside one world, so the alert
 /// names both. Older clients ignore it.
 /// </param>
+/// <param name="Kind">
+/// <c>crash</c> for a possible crash, which is about an instance rather than one person: its
+/// <paramref name="SubjectId"/> is empty and <paramref name="People"/> names who to look at. Null
+/// for a flagged person. Older clients ignore it and show the reason as a flagged card.
+/// </param>
+/// <param name="People">Who changed avatar or joined just before a possible crash, newest first.</param>
 public sealed record FlaggedJoinAlertDto(
     [property: JsonPropertyName("alertId")] string AlertId,
     [property: JsonPropertyName("subjectId")] string SubjectId,
@@ -21,7 +27,16 @@ public sealed record FlaggedJoinAlertDto(
     [property: JsonPropertyName("priorActions")] int PriorActions,
     [property: JsonPropertyName("raisedAt")] DateTimeOffset RaisedAt,
     [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null,
-    [property: JsonPropertyName("worldId")] string? WorldId = null);
+    [property: JsonPropertyName("worldId")] string? WorldId = null,
+    [property: JsonPropertyName("kind")] string? Kind = null,
+    [property: JsonPropertyName("people")] IReadOnlyList<CrashPersonDto>? People = null);
+
+/// <summary>One person a possible crash alert names, and what they did just before it.</summary>
+/// <param name="What">Words for the card: <c>joined</c> or <c>changed avatar</c>.</param>
+public sealed record CrashPersonDto(
+    [property: JsonPropertyName("subjectId")] string SubjectId,
+    [property: JsonPropertyName("displayName")] string? DisplayName,
+    [property: JsonPropertyName("what")] string What);
 
 /// <summary>
 /// The one thing in the protocol that is pushed rather than polled.
@@ -216,5 +231,39 @@ public sealed class AlertHub
             clock.UtcNow,
             trustRank,
             worldId);
+    }
+
+    /// <summary>The alert kind of a possible crash.</summary>
+    public const string CrashKind = "crash";
+
+    /// <summary>
+    /// Builds the alert for many people leaving one instance within a few seconds.
+    /// </summary>
+    /// <remarks>
+    /// The same hub and the same long poll as a flagged person. There is no one person to hang it on,
+    /// so the subject is empty and <paramref name="people"/> carries the ones worth opening.
+    /// </remarks>
+    public static FlaggedJoinAlertDto ForPossibleCrash(
+        IModbotClock clock,
+        string instanceId,
+        string? worldId,
+        int left,
+        int seconds,
+        IReadOnlyList<CrashPersonDto> people)
+    {
+        ArgumentNullException.ThrowIfNull(people);
+
+        return new(
+            Guid.NewGuid().ToString("n"),
+            string.Empty,
+            null,
+            instanceId,
+            $"{left} people left within {seconds} seconds",
+            0,
+            clock.UtcNow,
+            null,
+            worldId,
+            CrashKind,
+            people);
     }
 }

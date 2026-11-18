@@ -1920,7 +1920,11 @@ internal sealed partial class CompanionHost : IOverlayListener
         // The same moment the overlay draws its card: a sound that points at something already on
         // screen, and one sound however many times the alert is noticed.
         _bleep?.Ask(NotificationKind.FlaggedJoin, alert.DisplayName ?? alert.SubjectId);
-        _voice?.Announcer.FlaggedJoin(alert.DisplayName);
+
+        if (alert.IsCrash)
+            _voice?.Announcer.Problem("Possible crash");
+        else
+            _voice?.Announcer.FlaggedJoin(alert.DisplayName);
     }
 
     void IOverlayListener.TokenRejected(string label) => AnnounceTokenRejected(label);

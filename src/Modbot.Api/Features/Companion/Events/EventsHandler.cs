@@ -9,6 +9,7 @@ using Modbot.Analytics.Facts;
 using Modbot.Api.Features.Companion.Alerts;
 using Modbot.Api.Features.Companion.Context;
 using Modbot.Api.Features.Companion.Devices;
+using Modbot.Api.Features.PossibleCrash;
 using Modbot.Api.Features.ProblemAvatars;
 using Modbot.Api.Features.Watches;
 using Modbot.Core.Data;
@@ -94,6 +95,7 @@ public static class EventsHandler
         ICompanionDeviceStore devices,
         AlertHub alerts,
         ProblemAvatarSeen problemAvatars,
+        PossibleCrashWatch crashWatch,
         DeviceLocations locations,
         ModbotContext database,
         IModbotClock clock,
@@ -190,6 +192,25 @@ public static class EventsHandler
         {
             // Like the other alerts: the facts are written and losing an alert must not cost the batch.
             Serilog.Log.Warning(e, "Could not raise a problem avatar alert");
+        }
+
+        try
+        {
+            await PossibleCrashAlerts.RaiseAsync(
+                candidates,
+                results,
+                devices,
+                alerts,
+                crashWatch,
+                context.RequestServices.GetService<IDiscordChannelPoster>(),
+                database,
+                clock,
+                ct);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            // Like the other alerts: the facts are written and losing an alert must not cost the batch.
+            Serilog.Log.Warning(e, "Could not raise a possible crash alert");
         }
 
         return Results.Ok(new EventBatchResponse(

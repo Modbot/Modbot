@@ -80,6 +80,7 @@ public static class CompanionApi
         services.AddHostedService<Modbot.Api.Features.AutomaticRoles.AutomaticRoleGiverService>();
         services.AddSingleton<AlertHub>();
         services.AddSingleton<ProblemAvatars.ProblemAvatarSeen>();
+        services.AddSingleton<PossibleCrash.PossibleCrashWatch>();
         services.AddSingleton<HeadsUpSignal>();
         services.AddScoped<DeviceAuthenticator>();
 

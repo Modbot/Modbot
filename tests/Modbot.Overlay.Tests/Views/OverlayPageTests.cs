@@ -429,6 +429,22 @@ public class OverlayPageTests
         Assert.Contains(targets, t => t is OverlayTarget.DismissAlert);
     }
 
+    /// <summary>A possible crash names the people who were there just before it, and each is one press from their card.</summary>
+    [Fact]
+    public void APossibleCrashCardHasAPressForEachPersonItNames_AndStillClears()
+    {
+        var alert = new FlaggedJoinAlert(
+            "a1", "", null, "39911", "5 people left within 5 seconds", 0, DateTimeOffset.UnixEpoch,
+            Kind: FlaggedJoinAlert.CrashKind,
+            People: [new CrashPerson("usr_changer", "Changer", "changed avatar"), new CrashPerson("usr_joiner", "Joiner", "joined")]);
+        var screen = Screen(OverlayPage.Instance) with { Alert = alert };
+
+        var targets = Targets(screen).Select(t => t.Target).ToList();
+
+        Assert.Equal(["usr_changer", "usr_joiner"], targets.OfType<OverlayTarget.Person>().Select(p => p.SubjectId));
+        Assert.Contains(targets, t => t is OverlayTarget.DismissAlert);
+    }
+
     /// <summary>Moving on or off the wrist redraws, because the panel shows something else there.</summary>
     [Fact]
     public void GoingToTheWristIsAChangeWorthRedrawing()

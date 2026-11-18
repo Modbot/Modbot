@@ -70,8 +70,30 @@ public sealed record FlagRuleSettings
     /// <summary>The Discord channel a flagged alert is posted in. Null until one is picked.</summary>
     public string? DiscordChannelId { get; init; }
 
+    /// <summary>
+    /// Whether many people leaving one instance at once raises a possible crash alert. On by
+    /// default: it costs nothing until it happens, and it is the alert a moderator cannot work out
+    /// for themselves from a list.
+    /// </summary>
+    public bool CrashAlert { get; init; } = true;
+
+    /// <summary>How many people must leave one instance within <see cref="CrashSeconds"/>.</summary>
+    /// <remarks>A starting point to tune against real instances, not a VRChat limit: capacity differs by group.</remarks>
+    public int CrashLeaves { get; init; } = 5;
+
+    /// <summary>The window, in seconds, that <see cref="CrashLeaves"/> people must leave within.</summary>
+    public int CrashSeconds { get; init; } = 5;
+
     /// <summary>The most characters a channel id may have.</summary>
     public const int ChannelIdLength = 32;
+
+    public const int MinCrashLeaves = 2;
+
+    public const int MaxCrashLeaves = 99;
+
+    public const int MinCrashSeconds = 1;
+
+    public const int MaxCrashSeconds = 60;
 
     public const int MinWarns = 1;
 
@@ -112,6 +134,8 @@ public sealed record FlagRuleSettings
     public FlagRuleSettings Clamped() => this with
     {
         WarnsAtLeast = Math.Clamp(WarnsAtLeast, MinWarns, MaxWarns),
+        CrashLeaves = Math.Clamp(CrashLeaves, MinCrashLeaves, MaxCrashLeaves),
+        CrashSeconds = Math.Clamp(CrashSeconds, MinCrashSeconds, MaxCrashSeconds),
         LiftedBansForDays = LiftedBansForDays is { } days ? Math.Clamp(days, MinLiftedBanDays, MaxLiftedBanDays) : null,
         AutoModRules = AutoModRules?.Distinct().ToList(),
     };

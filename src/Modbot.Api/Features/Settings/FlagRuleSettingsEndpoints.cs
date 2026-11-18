@@ -25,6 +25,9 @@ public sealed record FlagRuleAutoModOption(
 /// <param name="LiftedBansForDays">How many days a lifted ban still counts. Null means always.</param>
 /// <param name="DiscordPost">Whether a flagged join is also posted in the Discord channel.</param>
 /// <param name="DiscordChannelId">The channel it is posted in. Null when none is picked.</param>
+/// <param name="CrashAlert">Whether many people leaving one instance at once raises a possible crash alert.</param>
+/// <param name="CrashLeaves">How many people must leave one instance within <paramref name="CrashSeconds"/>.</param>
+/// <param name="CrashSeconds">The window, in seconds, those people must leave within.</param>
 /// <param name="WarnsAtLeast">How many instance warns make somebody Flagged.</param>
 /// <param name="EveryAutoModRule">Every AutoMod rule counts, including rules added later.</param>
 /// <param name="AutoModRules">Every AutoMod rule there is, and whether it counts.</param>
@@ -39,7 +42,10 @@ public sealed record FlagRulesView(
     [property: JsonPropertyName("autoModRules")] IReadOnlyList<FlagRuleAutoModOption> AutoModRules,
     [property: JsonPropertyName("newAccounts")] bool NewAccounts,
     [property: JsonPropertyName("discordPost")] bool DiscordPost,
-    [property: JsonPropertyName("discordChannelId")] string? DiscordChannelId);
+    [property: JsonPropertyName("discordChannelId")] string? DiscordChannelId,
+    [property: JsonPropertyName("crashAlert")] bool CrashAlert,
+    [property: JsonPropertyName("crashLeaves")] int CrashLeaves,
+    [property: JsonPropertyName("crashSeconds")] int CrashSeconds);
 
 /// <param name="AutoModRules">The rules that count when <c>everyAutoModRule</c> is false.</param>
 /// <param name="LiftedBansForDays">
@@ -54,6 +60,9 @@ public sealed record FlagRulesView(
 /// <param name="DiscordChannelId">
 /// The channel to post in. Null or left out keeps what is set now; an empty string picks none.
 /// </param>
+/// <param name="CrashAlert">Whether a possible crash alert is raised. Null or left out keeps what is set now.</param>
+/// <param name="CrashLeaves">How many people must leave, 2 to 99. Null or left out keeps what is set now.</param>
+/// <param name="CrashSeconds">Within how many seconds, 1 to 60. Null or left out keeps what is set now.</param>
 public sealed record SetFlagRulesRequest(
     [property: JsonPropertyName("kicksAndBans")] bool KicksAndBans,
     [property: JsonPropertyName("warns")] bool Warns,
@@ -65,7 +74,10 @@ public sealed record SetFlagRulesRequest(
     [property: JsonPropertyName("liftedBansForDays")] int? LiftedBansForDays = null,
     [property: JsonPropertyName("newAccounts")] bool? NewAccounts = null,
     [property: JsonPropertyName("discordPost")] bool? DiscordPost = null,
-    [property: JsonPropertyName("discordChannelId")] string? DiscordChannelId = null);
+    [property: JsonPropertyName("discordChannelId")] string? DiscordChannelId = null,
+    [property: JsonPropertyName("crashAlert")] bool? CrashAlert = null,
+    [property: JsonPropertyName("crashLeaves")] int? CrashLeaves = null,
+    [property: JsonPropertyName("crashSeconds")] int? CrashSeconds = null);
 
 /// <summary>
 /// Settings → Moderation → Flagged: which rules make a person Flagged on the companion and the
@@ -122,6 +134,22 @@ public static class FlagRuleSettingsEndpoints
                     });
                 }
 
+                if (body.CrashLeaves is < FlagRuleSettings.MinCrashLeaves or > FlagRuleSettings.MaxCrashLeaves)
+                {
+                    return Results.BadRequest(new
+                    {
+                        error = $"People leaving must be between {FlagRuleSettings.MinCrashLeaves} and {FlagRuleSettings.MaxCrashLeaves}.",
+                    });
+                }
+
+                if (body.CrashSeconds is < FlagRuleSettings.MinCrashSeconds or > FlagRuleSettings.MaxCrashSeconds)
+                {
+                    return Results.BadRequest(new
+                    {
+                        error = $"Seconds must be between {FlagRuleSettings.MinCrashSeconds} and {FlagRuleSettings.MaxCrashSeconds}.",
+                    });
+                }
+
                 if (body.DiscordChannelId?.Trim() is { Length: > FlagRuleSettings.ChannelIdLength })
                 {
                     return Results.BadRequest(new
@@ -164,6 +192,9 @@ public static class FlagRuleSettingsEndpoints
                     NewAccounts = body.NewAccounts ?? before.NewAccounts,
                     DiscordPost = post,
                     DiscordChannelId = channelId,
+                    CrashAlert = body.CrashAlert ?? before.CrashAlert,
+                    CrashLeaves = body.CrashLeaves ?? before.CrashLeaves,
+                    CrashSeconds = body.CrashSeconds ?? before.CrashSeconds,
                     AutoMod = body.AutoMod,
                     AutoModRules = chosen,
                 }.Clamped();
@@ -197,6 +228,8 @@ public static class FlagRuleSettingsEndpoints
                 + "`newAccounts` makes a Visitor or New User account Flagged; left out, it keeps its setting. "
                 + "`discordPost` also posts every flagged join in the channel `discordChannelId` (an empty string "
                 + "picks none); left out, each keeps its setting. "
+                + "`crashAlert` raises a possible crash alert when `crashLeaves` people (2 to 99) leave one instance "
+                + "within `crashSeconds` seconds (1 to 60); left out, each keeps its setting. "
                 + "A watch on a person always counts and has no setting here.")
             .Produces<FlagRulesView>()
             .Produces(StatusCodes.Status400BadRequest)
@@ -221,6 +254,9 @@ public static class FlagRuleSettingsEndpoints
             ["newAccounts"] = rules.NewAccounts,
             ["discordPost"] = rules.DiscordPost,
             ["discordChannelId"] = rules.DiscordChannelId,
+            ["crashAlert"] = rules.CrashAlert,
+            ["crashLeaves"] = rules.CrashLeaves,
+            ["crashSeconds"] = rules.CrashSeconds,
             ["autoMod"] = rules.AutoMod,
             ["autoModRules"] = rules.AutoModRules is null ? null : chosen,
         };
@@ -264,6 +300,9 @@ public static class FlagRuleSettingsEndpoints
             options,
             rules.NewAccounts,
             rules.DiscordPost,
-            rules.DiscordChannelId);
+            rules.DiscordChannelId,
+            rules.CrashAlert,
+            rules.CrashLeaves,
+            rules.CrashSeconds);
     }
 }
