@@ -864,6 +864,10 @@ public static class ApiSurface
         // own table only; nothing here reaches VRChat.
         Features.Partners.PartnerEndpoints.MapPartners(app);
 
+        // Feedback: what staff sent with the Feedback button, read and marked by the admins. Modbot's
+        // own table only; nothing here leaves this server.
+        Features.Feedback.FeedbackEndpoints.MapFeedback(app);
+
         // Terms and rules: the words and the rules staff type on the Terms and rules page, which
         // /term and /rule answer from. Modbot's own tables only; nothing here reaches Discord.
         Features.TermsAndRules.TermsAndRulesEndpoints.MapTermsAndRules(app);

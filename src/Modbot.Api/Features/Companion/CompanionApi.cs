@@ -14,6 +14,7 @@ using Modbot.Api.Features.Companion.Live;
 using Modbot.Api.Features.Companion.Pair;
 using Modbot.Api.Features.Companion.PairingCodes;
 using Modbot.Api.Features.Events;
+using Modbot.Api.Features.Feedback;
 using Modbot.Api.Features.Live.Stream;
 using Modbot.Core.Time;
 
@@ -360,6 +361,44 @@ public static class CompanionApi
                 + "`conversationId` the first answer named. The reply streams back as the Chat page's "
                 + "server-sent events. Nothing else of Chat is reachable from a device.")
             .Produces(StatusCodes.Status200OK, contentType: "text/event-stream")
+            .Produces<CompanionError>(StatusCodes.Status401Unauthorized)
+            .Produces<CompanionError>(StatusCodes.Status403Forbidden)
+            .AllowAnonymous();
+
+        // Feedback: whether the device's owner may send feedback, tidying what they said, and saving
+        // what they confirmed as them. Kept on this server only.
+        companion.MapGet("/feedback", CompanionFeedbackEndpoints.AvailableAsync)
+            .WithName("GetClientFeedback")
+            .WithSummary("Whether the owner may send feedback")
+            .WithDescription(
+                "`available` is true when the device's owner holds Send feedback, whether or not AI is "
+                + "set up. `ai` is true when the words can be tidied. The client shows Feedback when "
+                + "`available` is true.")
+            .Produces<CompanionFeedbackAvailability>()
+            .Produces<CompanionError>(StatusCodes.Status401Unauthorized)
+            .AllowAnonymous();
+
+        companion.MapPost("/feedback/tidy", CompanionFeedbackEndpoints.TidyAsync)
+            .WithName("TidyClientFeedback")
+            .WithSummary("Tidy spoken feedback")
+            .WithDescription(
+                "Turns `text` into a draft: a kind, a title and details with the names of people, worlds "
+                + "and groups removed. With AI off, over a limit or failing, the answer is the same "
+                + "words with `kind` and `title` empty and `tidied` false. Nothing is saved.")
+            .Produces<CompanionFeedbackDraft>()
+            .Produces<CompanionError>(StatusCodes.Status400BadRequest)
+            .Produces<CompanionError>(StatusCodes.Status401Unauthorized)
+            .Produces<CompanionError>(StatusCodes.Status403Forbidden)
+            .AllowAnonymous();
+
+        companion.MapPost("/feedback", CompanionFeedbackEndpoints.SendAsync)
+            .WithName("SendClientFeedback")
+            .WithSummary("Send feedback")
+            .WithDescription(
+                "Saves `kind` (bug, idea or change), `title` and `details` as the device's owner, on "
+                + "this server only. A missing title is the first line of the details.")
+            .Produces<CompanionFeedbackSaved>()
+            .Produces<CompanionError>(StatusCodes.Status400BadRequest)
             .Produces<CompanionError>(StatusCodes.Status401Unauthorized)
             .Produces<CompanionError>(StatusCodes.Status403Forbidden)
             .AllowAnonymous();

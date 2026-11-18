@@ -31,6 +31,7 @@ public class ModbotPermissionsTests
         Assert.Equal(1L << 31, (long)ModbotPermissions.WriteNotes);
         Assert.Equal(1L << 32, (long)ModbotPermissions.ViewJoinRequests);
         Assert.Equal(1L << 33, (long)ModbotPermissions.AnswerJoinRequests);
+        Assert.Equal(1L << 34, (long)ModbotPermissions.ReviewFeedback);
         Assert.Equal(1L << 35, (long)ModbotPermissions.ManageDiscordSync);
         Assert.Equal(1L << 36, (long)ModbotPermissions.RunDiscordSync);
         Assert.Equal(1L << 38, (long)ModbotPermissions.EditGroupProfile);
@@ -50,6 +51,7 @@ public class ModbotPermissionsTests
         Assert.Equal(1L << 58, (long)ModbotPermissions.HandleReports);
         Assert.Equal(1L << 59, (long)ModbotPermissions.ManageTemplates);
         Assert.Equal(1L << 60, (long)ModbotPermissions.ManagePartners);
+        Assert.Equal(1L << 61, (long)ModbotPermissions.SendFeedback);
         Assert.Equal(1L << 18, (long)ModbotPermissions.EditAgeVerification);
         Assert.Equal(1L << 62, (long)ModbotPermissions.Administrator);
     }
@@ -89,6 +91,19 @@ public class ModbotPermissionsTests
     {
         Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.ReadDiscordMessages));
         Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.ReadDiscordMessages));
+    }
+
+    /// <summary>
+    /// Every moderator may send feedback; reading what was sent is for admins, so it is in no
+    /// built-in role (feedback design §5).
+    /// </summary>
+    [Fact]
+    public void Feedback_ModeratorsSend_AndNoBuiltInRoleReviews()
+    {
+        Assert.True(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.SendFeedback));
+        Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.SendFeedback));
+        Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.ReviewFeedback));
+        Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.ReviewFeedback));
     }
 
     /// <summary>An event can open an instance and post in the group's name, so managing it is granted on purpose.</summary>
