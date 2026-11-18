@@ -442,6 +442,11 @@ public static class AuditVisibility
         [FactType.PartnerChanged] = AuditCategory.Operational,
         [FactType.PartnerDeleted] = AuditCategory.Operational,
 
+        // Feedback: what staff told the admins, kept on this server. Operational, the same shape as
+        // partners; the words themselves are read on the Feedback page with Review feedback.
+        [FactType.FeedbackSent] = AuditCategory.Operational,
+        [FactType.FeedbackStatusChanged] = AuditCategory.Operational,
+
         // Terms and rules: staff-typed words kept on the Terms and rules page, the same shape as partners.
         [FactType.TermChanged] = AuditCategory.Operational,
         [FactType.RuleChanged] = AuditCategory.Operational,

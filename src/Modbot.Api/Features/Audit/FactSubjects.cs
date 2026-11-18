@@ -170,6 +170,8 @@ public static class FactSubjects
         [FactType.PartnerCreated] = SubjectKind.Other,
         [FactType.PartnerChanged] = SubjectKind.Other,
         [FactType.PartnerDeleted] = SubjectKind.Other,
+        [FactType.FeedbackSent] = SubjectKind.Other,
+        [FactType.FeedbackStatusChanged] = SubjectKind.Other,
         [FactType.TermChanged] = SubjectKind.Other,
         [FactType.RuleChanged] = SubjectKind.Other,
 

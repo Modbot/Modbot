@@ -236,6 +236,8 @@ public static class FactLabels
         [FactType.PartnerCreated] = "Partner added",
         [FactType.PartnerChanged] = "Partner changed",
         [FactType.PartnerDeleted] = "Partner deleted",
+        [FactType.FeedbackSent] = "Feedback sent",
+        [FactType.FeedbackStatusChanged] = "Feedback status changed",
         [FactType.TermChanged] = "Term changed",
         [FactType.RuleChanged] = "Rule changed",
 

@@ -880,6 +880,14 @@ public static class FactType
     public const string PartnerChanged = "modbot.partner.change";
     public const string PartnerDeleted = "modbot.partner.delete";
 
+    // ── Feedback (feedback design §8). The subject is the feedback's id on the Modbot platform. ──
+    //
+    // What staff told the admins. The facts carry the kind and the status, never the title or the
+    // details: those live in the feedback table, where the admins read them.
+
+    public const string FeedbackSent = "modbot.feedback.send";
+    public const string FeedbackStatusChanged = "modbot.feedback.status";
+
     // ── Terms and rules (batch 3, /term and /rule). The subject is the term's or the rule's id. ──
     //
     // The words staff typed for the Terms and rules page: nothing keyed to a member, so a purge has

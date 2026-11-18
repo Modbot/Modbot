@@ -527,6 +527,32 @@ public enum ModbotPermissions : long
     /// </remarks>
     ManagePartners = 1L << 60,
 
+    // --- Feedback (feedback design §4). Bits 61 and 34. ---
+    //
+    // Bit 62 is Administrator and bit 63 is the sign bit, so the second flag takes bit 34: it has
+    // never been assigned (the join requests and sync notes above skipped it) and no branch claims it.
+
+    /// <summary>
+    /// Send feedback to the admins: speak or type a bug, an idea or a change from the companion, or
+    /// have AI chat file one for you.
+    /// </summary>
+    /// <remarks>
+    /// Its own flag rather than part of <see cref="UseAiChat"/>: the button works with AI off, and
+    /// everyone on the staff may use it. In the built-in Moderator role (added by the migration that
+    /// made the table, as <see cref="PairCompanion"/> was); Administrator holds it. Reading what was
+    /// sent is <see cref="ReviewFeedback"/>.
+    /// </remarks>
+    SendFeedback = 1L << 61,
+
+    /// <summary>
+    /// See the Feedback page, open what staff sent, and set its status.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="SendFeedback"/>: what a team member sent is addressed to the admins,
+    /// not to every other member of the team. Not in the built-in roles; Administrator holds it.
+    /// </remarks>
+    ReviewFeedback = 1L << 34,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

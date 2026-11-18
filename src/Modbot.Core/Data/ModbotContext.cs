@@ -512,6 +512,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>The other groups this one works with, kept by staff (partner tracker).</summary>
     public DbSet<Partner> Partners => Set<Partner>();
 
+    /// <summary>What staff sent the admins: bugs, ideas and changes, kept on this server only (feedback design).</summary>
+    public DbSet<FeedbackItem> Feedback => Set<FeedbackItem>();
+
     /// <summary>The words staff explain on the Terms and rules page, answered by <c>/term</c>.</summary>
     public DbSet<GlossaryTerm> GlossaryTerms => Set<GlossaryTerm>();
 
@@ -3849,6 +3852,22 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // The page lists the most recent collab first.
             entity.HasIndex(e => e.LastCollabOn).HasDatabaseName("ix_partner_last_collab");
+        });
+
+        builder.Entity<FeedbackItem>(entity =>
+        {
+            entity.ToTable("feedback");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.SenderName).HasMaxLength(64);
+            entity.Property(e => e.Kind).HasMaxLength(16);
+            entity.Property(e => e.Title).HasMaxLength(FeedbackItem.MaxTitleLength);
+            entity.Property(e => e.Details).HasMaxLength(FeedbackItem.MaxDetailsLength);
+            entity.Property(e => e.Status).HasMaxLength(16);
+            entity.Property(e => e.StatusChangedBy).HasMaxLength(64);
+
+            // The page lists the newest first, and filters by status.
+            entity.HasIndex(e => new { e.Status, e.CreatedAt }).HasDatabaseName("ix_feedback_status");
         });
 
         builder.Entity<GlossaryTerm>(entity =>
