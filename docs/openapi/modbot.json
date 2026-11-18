@@ -6852,7 +6852,7 @@
           "Settings"
         ],
         "summary": "Update flag rules",
-        "description": "Change which rules make a person Flagged. `warnsAtLeast` is 1 to 99. `liftedBansForDays` is 1 to 3650, or null for a lifted ban to count always. With `everyAutoModRule` false, only the flags of the rules in `autoModRules` count. `newAccounts` makes a Visitor or New User account Flagged; left out, it keeps its setting. `discordPost` also posts every flagged join in the channel `discordChannelId` (an empty string picks none); left out, each keeps its setting. A watch on a person always counts and has no setting here.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Change which rules make a person Flagged. `warnsAtLeast` is 1 to 99. `liftedBansForDays` is 1 to 3650, or null for a lifted ban to count always. With `everyAutoModRule` false, only the flags of the rules in `autoModRules` count. `newAccounts` makes a Visitor or New User account Flagged; left out, it keeps its setting. `discordPost` also posts every flagged join in the channel `discordChannelId` (an empty string picks none); left out, each keeps its setting. `crashAlert` raises a possible crash alert when `crashLeaves` people (2 to 99) leave one instance within `crashSeconds` seconds (1 to 60); left out, each keeps its setting. A watch on a person always counts and has no setting here.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetFlagRules",
         "requestBody": {
           "content": {
@@ -56618,7 +56618,10 @@
           "autoModRules",
           "newAccounts",
           "discordPost",
-          "discordChannelId"
+          "discordChannelId",
+          "crashAlert",
+          "crashLeaves",
+          "crashSeconds"
         ],
         "type": "object",
         "properties": {
@@ -56665,6 +56668,17 @@
               "null",
               "string"
             ]
+          },
+          "crashAlert": {
+            "type": "boolean"
+          },
+          "crashLeaves": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "crashSeconds": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -70068,6 +70082,26 @@
               "null",
               "string"
             ]
+          },
+          "crashAlert": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "crashLeaves": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "crashSeconds": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },

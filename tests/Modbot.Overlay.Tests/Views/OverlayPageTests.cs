@@ -437,7 +437,9 @@ public class OverlayPageTests
             "a1", "", null, "39911", "5 people left within 5 seconds", 0, DateTimeOffset.UnixEpoch,
             Kind: FlaggedJoinAlert.CrashKind,
             People: [new CrashPerson("usr_changer", "Changer", "changed avatar"), new CrashPerson("usr_joiner", "Joiner", "joined")]);
-        var screen = Screen(OverlayPage.Instance) with { Alert = alert };
+        // The roster would add a press for each of its own rows, so a filter that keeps nobody leaves
+        // the crash card's presses alone.
+        var screen = Screen(OverlayPage.Instance) with { Alert = alert, RosterFilters = new ListFilters(Name: "nobody by this name") };
 
         var targets = Targets(screen).Select(t => t.Target).ToList();
 

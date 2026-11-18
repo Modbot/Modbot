@@ -25,6 +25,9 @@ export function FlaggedCard() {
   const [newAccounts, setNewAccounts] = useState(false)
   const [discordPost, setDiscordPost] = useState(false)
   const [discordChannelId, setDiscordChannelId] = useState('')
+  const [crashAlert, setCrashAlert] = useState(true)
+  const [crashLeaves, setCrashLeaves] = useState('')
+  const [crashSeconds, setCrashSeconds] = useState('')
   const [autoMod, setAutoMod] = useState(true)
   const [everyRule, setEveryRule] = useState(true)
   const [chosen, setChosen] = useState<string[]>([])
@@ -43,6 +46,9 @@ export function FlaggedCard() {
     setNewAccounts(next.newAccounts)
     setDiscordPost(next.discordPost)
     setDiscordChannelId(next.discordChannelId ?? '')
+    setCrashAlert(next.crashAlert)
+    setCrashLeaves(String(next.crashLeaves))
+    setCrashSeconds(String(next.crashSeconds))
     setAutoMod(next.autoMod)
     setEveryRule(next.everyAutoModRule)
     setChosen(next.autoModRules.filter((r) => r.counts).map((r) => r.id))
@@ -73,6 +79,9 @@ export function FlaggedCard() {
         newAccounts,
         discordPost,
         discordChannelId,
+        crashAlert,
+        crashLeaves: Number(crashLeaves),
+        crashSeconds: Number(crashSeconds),
         autoMod,
         everyAutoModRule: everyRule,
         autoModRules: everyRule ? [] : chosen,
@@ -147,6 +156,16 @@ export function FlaggedCard() {
                   {rule.name}
                 </Checkbox>
               ))}
+          </div>
+        )}
+
+        <Switch checked={crashAlert} onChange={setCrashAlert}>
+          Possible crash alert
+        </Switch>
+        {crashAlert && (
+          <div className="flex max-w-lg gap-3 pl-6">
+            <NumberField label="People leaving" value={crashLeaves} min={2} max={99} onChange={setCrashLeaves} />
+            <NumberField label="Within seconds" value={crashSeconds} min={1} max={60} onChange={setCrashSeconds} />
           </div>
         )}
 

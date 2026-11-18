@@ -3793,6 +3793,12 @@ export type FlagRules = {
   discordPost: boolean
   /** The channel the post goes in. Null until one is picked. */
   discordChannelId: string | null
+  /** A possible crash alert when `crashLeaves` people leave one instance within `crashSeconds`. On by default. */
+  crashAlert: boolean
+  /** How many people leaving counts as a crash (2 to 99). */
+  crashLeaves: number
+  /** The window the leaves happen in, in seconds (1 to 60). */
+  crashSeconds: number
 }
 
 export type FlagRulesInput = Omit<FlagRules, 'autoModRules'> & { autoModRules: string[] }
