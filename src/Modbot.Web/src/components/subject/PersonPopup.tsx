@@ -22,6 +22,7 @@ import { PersonActivity } from '@/components/subject/PersonActivity'
 import { BriefDialog, BriefLink } from '@/components/subject/Brief'
 import { useBrief } from '@/components/subject/useBrief'
 import { offersBriefs } from '@/lib/briefs'
+import { PersonAvatar } from '@/components/subject/PersonAvatar'
 import { PersonFlags } from '@/components/subject/PersonFlags'
 import { PersonNotes } from '@/components/subject/PersonNotes'
 import { PersonMilestones } from '@/components/subject/PersonMilestones'
@@ -36,6 +37,7 @@ import { Ago, Unread } from '@/components/Freshness'
 import { Stat, StatStrip } from '@/pages/analytics/shared'
 import { useDiscordRecords } from '@/lib/useDiscordRecords'
 import { useLoad } from '@/lib/useLoad'
+import { useCanManageSettings } from '@/lib/manageSettings'
 import { useOpenFromAbove } from '@/lib/useOpenFromAbove'
 import {
   api,
@@ -465,6 +467,7 @@ function Overview({
   const readsVisits = can(me, 'ViewAuditLog')
   const vrchatId = person.vrChat?.id ?? null
   const phone = accounts != null
+  const canManageSettings = useCanManageSettings()
 
   const facts = usePersonLatest(asked, 8)
 
@@ -505,6 +508,8 @@ function Overview({
       )}
 
       {readsVisits && vrchatId && <PersonMilestones userId={vrchatId} />}
+
+      {canManageSettings && vrchatId && <PersonAvatar vrchatId={vrchatId} />}
 
       {readsVisits && vrchatId && (
         <PersonVisits userId={vrchatId} currentName={stored.profile?.displayName ?? person.vrChat?.name ?? null} />
