@@ -1,0 +1,46 @@
+---
+title: Problem avatars
+description: Mark the avatar somebody is wearing as a problem avatar, and Modbot warns your moderators and your Discord channel when anyone arrives in it or switches to it.
+---
+
+A **problem avatar** is an avatar you have told Modbot to watch for. When somebody arrives in one of
+your group's instances wearing it, or switches into it, your moderators get the same card and bleep
+as for a [flagged person](/moderation/live#who-is-flagged).
+
+| To | You need |
+|---|---|
+| Mark an avatar, see the list or remove an avatar | [**Change settings**](/accounts/roles-and-permissions#change-settings) |
+
+## Marking an avatar
+
+Open a person, for example from [Live](/moderation/live) or [People](/moderation/people). On the
+**Overview** tab, **Avatar** shows the avatar Modbot last saw them wearing. Press **Mark avatar**.
+The panel then shows **Problem avatar**.
+
+An avatar is only shown once a moderator's [companion](/companion/install) has seen the person in
+one.
+
+## The list
+
+**Settings**, **Moderation**, **Problem avatars** lists every avatar you marked. Press **Remove** beside
+one to take it off.
+
+## How avatars are matched
+
+VRChat's log gives an avatar's name and never its id, so Modbot matches the **name** only, ignoring
+capital letters and spaces at either end. Two avatars that share a name cannot be told apart, and an
+avatar that is renamed is no longer on the list. **Mark avatar** stores the name exactly as VRChat
+wrote it.
+
+## What happens when somebody wears one
+
+- Every paired [companion](/companion/overlay) gets a card for the person, in the same place as a
+  **Flagged user joined** card, saying they are wearing a problem avatar and which one. That includes
+  the companion of the moderator who saw them.
+- If **Post in Discord** is on under [**Flagged**](/moderation/live#post-in-discord), Modbot also posts
+  one line in that channel for each person, such as
+  `Flagged: Rin is wearing a problem avatar in a group instance: Name of avatar`.
+
+The same person in the same avatar in the same instance is alerted once, however many moderators see
+them, and again after about twelve hours. If Modbot restarts, somebody still there can be alerted
+once more.
