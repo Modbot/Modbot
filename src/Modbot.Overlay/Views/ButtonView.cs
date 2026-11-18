@@ -72,7 +72,7 @@ public static class ButtonView
         Control face;
         object? tag;
 
-        if (screen.Dictate is DictateState.Off)
+        if (screen.Dictate is DictateState.Off && screen.Feedback is DictateState.Off)
         {
             var lines = new StackPanel
             {
@@ -100,8 +100,8 @@ public static class ButtonView
         }
         else
         {
-            // Two rows inside the one card, each its own thing to point at, so the card keeps its
-            // size and its place on the bar.
+            // Two or three rows inside the one card, each its own thing to point at, so the card keeps
+            // its size and its place on the bar.
             face = Rows(screen, fill, ink, words, dim, bright, track);
             tag = null;
         }
@@ -150,35 +150,58 @@ public static class ButtonView
             show.Children.Add(bar);
         }
 
-        var dictate = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
-        var picture = Dictation(screen.Dictate, screen.Frame, ink, bright, screen.Level);
+        // The show and hide row, then Dictate and Feedback below it where they are offered. With all
+        // three the card keeps its size and each row is a third of it.
+        var rows = new Grid();
+        AddRow(rows, Row(new OverlayTarget.PanelButton(), show));
+
+        if (screen.Dictate is not DictateState.Off)
+        {
+            var dictate = Cell(screen.Dictate, screen.DictateLabel, screen.DictatePercent, screen.Level, screen.Frame, ink, words, dim, bright, track);
+            AddRow(rows, Row(new OverlayTarget.DictateButton(), dictate));
+        }
+
+        if (screen.Feedback is not DictateState.Off)
+        {
+            var feedback = Cell(screen.Feedback, screen.FeedbackLabel, screen.FeedbackPercent, screen.FeedbackLevel, screen.Frame, ink, words, dim, bright, track);
+            AddRow(rows, Row(new OverlayTarget.FeedbackButton(), feedback));
+        }
+
+        return rows;
+    }
+
+    private static void AddRow(Grid rows, Control row)
+    {
+        Grid.SetRow(row, rows.RowDefinitions.Count);
+        rows.RowDefinitions.Add(new RowDefinition(GridLength.Star));
+        rows.Children.Add(row);
+    }
+
+    /// <summary>A microphone row: its picture on the left, its label on the right, and under the label how far the model has come or how loud the voice is.</summary>
+    private static Grid Cell(DictateState state, string label, string percent, int level, int frame, IBrush ink, IBrush words, IBrush dim, IBrush bright, IBrush track)
+    {
+        var cell = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+        var picture = Dictation(state, frame, ink, bright, level);
         picture.Margin = new Thickness(8, 0, 4, 0);
         picture.VerticalAlignment = VerticalAlignment.Center;
-        dictate.Children.Add(picture);
+        cell.Children.Add(picture);
 
-        var dictateLines = new StackPanel
+        var lines = new StackPanel
         {
             Spacing = 1,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
-            Children = { Shrunk(Text(screen.DictateLabel, 32, words, FontWeight.Bold)) },
+            Children = { Shrunk(Text(label, 32, words, FontWeight.Bold)) },
         };
 
-        if (screen.DictatePercent.Length > 0)
-            dictateLines.Children.Add(Shrunk(Text(screen.DictatePercent, 18, dim, FontWeight.SemiBold)));
-        else if (screen.Dictate is DictateState.Listening)
-            dictateLines.Children.Add(Shrunk(Meter(screen.Level, bright, track, 12, 10)));
+        if (percent.Length > 0)
+            lines.Children.Add(Shrunk(Text(percent, 18, dim, FontWeight.SemiBold)));
+        else if (state is DictateState.Listening)
+            lines.Children.Add(Shrunk(Meter(level, bright, track, 12, 10)));
 
-        Grid.SetColumn(dictateLines, 1);
-        dictate.Children.Add(dictateLines);
-
-        var rows = new Grid { RowDefinitions = new RowDefinitions("*,*") };
-        var top = Row(new OverlayTarget.PanelButton(), show);
-        var bottom = Row(new OverlayTarget.DictateButton(), dictate);
-        Grid.SetRow(bottom, 1);
-        rows.Children.Add(top);
-        rows.Children.Add(bottom);
-        return rows;
+        Grid.SetColumn(lines, 1);
+        cell.Children.Add(lines);
+        return cell;
     }
 
     private static Border Row(OverlayTarget target, Control content) => new()

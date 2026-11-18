@@ -199,6 +199,27 @@ public abstract record OverlayTarget
     /// <summary>The Dictate button under the show and hide button. Tapping it starts or stops dictating.</summary>
     /// <remarks>Handled by the button's own host, like <see cref="PanelButton"/>.</remarks>
     public sealed record DictateButton : OverlayTarget;
+
+    /// <summary>The Feedback button beside Dictate. Tapping it starts or stops speaking feedback.</summary>
+    /// <remarks>Handled by the button's own host, like <see cref="PanelButton"/>.</remarks>
+    public sealed record FeedbackButton : OverlayTarget;
+
+    /// <summary>The X at the top right of the feedback panel. A tap here throws the draft away, as Cancel does.</summary>
+    /// <remarks>Handled by the feedback panel's own host, never by the drive loop.</remarks>
+    public sealed record CloseFeedback : OverlayTarget;
+
+    /// <summary>One of the kind chips on the feedback panel: Bug, Idea or Change.</summary>
+    /// <remarks>Handled by the feedback panel's own host, never by the drive loop.</remarks>
+    /// <param name="Kind">"bug", "idea" or "change".</param>
+    public sealed record FeedbackKind(string Kind) : OverlayTarget;
+
+    /// <summary>The feedback panel's Cancel: throws the draft away. Nothing is saved.</summary>
+    /// <remarks>Handled by the feedback panel's own host, never by the drive loop.</remarks>
+    public sealed record FeedbackCancel : OverlayTarget;
+
+    /// <summary>The feedback panel's Send: saves the draft on the server.</summary>
+    /// <remarks>Handled by the feedback panel's own host, never by the drive loop.</remarks>
+    public sealed record FeedbackSend : OverlayTarget;
 }
 
 /// <summary>A target and where it was drawn, in panel pixels.</summary>

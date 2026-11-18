@@ -2,6 +2,7 @@ using Avalonia.Threading;
 using Modbot.Companion.App.Feedback;
 using Modbot.Companion.Dictation;
 using Modbot.Companion.Feedback;
+using Modbot.Overlay.Views;
 using Serilog;
 
 namespace Modbot.Companion.App;
@@ -27,6 +28,9 @@ internal sealed partial class CompanionHost
     private FeedbackAvailability? _feedbackAvailability;
     private FeedbackController? _feedback;
     private FeedbackDraftWindow? _feedbackDraft;
+
+    /// <summary>Whether the Feedback that is under way was started from the headset button, so its draft opens in the headset.</summary>
+    private bool _feedbackFromHeadset;
 
     /// <summary>Redraws the button ten times a second while listening, so the level follows the voice.</summary>
     private readonly DispatcherTimer _feedbackLevel = new() { Interval = TimeSpan.FromMilliseconds(100) };
@@ -73,6 +77,21 @@ internal sealed partial class CompanionHost
         if (FeedbackAvailable)
             Feedback.Toggle();
     }
+
+    /// <summary>The headset button's Feedback tap: the same as the others, but the draft then opens in the headset.</summary>
+    private void ToggleFeedbackFromHeadset()
+    {
+        if (!FeedbackAvailable)
+            return;
+
+        // Set before the toggle: it can reach the draft before this method returns.
+        _feedbackFromHeadset = Feedback.State is FeedbackState.Idle || _feedbackFromHeadset;
+        Feedback.Toggle();
+    }
+
+    /// <summary>The screen with the headset button's Feedback row set from the controller. The row is left out while Feedback is not offered.</summary>
+    internal static ButtonScreen WithFeedback(ButtonScreen screen, FeedbackCard card)
+        => screen.WithFeedback(card.Picture, card.Label, card.PercentText, card.Level);
 
     /// <summary>Hands the desktop overlay's strip what its Feedback button should say.</summary>
     private void ShowDesktopFeedback() => _desktopOverlay?.SetFeedback(FeedbackCardNow());

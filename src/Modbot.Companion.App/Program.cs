@@ -2287,6 +2287,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             if (DictateAvailable)
                 Dictation.Toggle();
         };
+        _buttonHost.FeedbackPressed += ToggleFeedbackFromHeadset;
         _buttonHost.ShortcutHeld += TogglePanel;
         _buttonHost.Shown = _state?.Settings.OverlayButtonOn is not false;
     }
@@ -2906,8 +2907,9 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         var screen = new ButtonScreen(!_overlayHost.Hidden, ButtonShortcutNow().Text);
 
-        // The Dictate row is there only while AI Chat is on and allowed; without it the card is as it was.
-        _buttonHost.Update(WithDictateIfOffered(screen, DictateAvailable, () => Dictation));
+        // The Dictate row is there only while AI Chat is on and allowed, and the Feedback row only while
+        // feedback may be sent; with neither the card is as it was.
+        _buttonHost.Update(WithFeedback(WithDictateIfOffered(screen, DictateAvailable, () => Dictation), FeedbackCardNow()));
     }
 
     /// <summary>
