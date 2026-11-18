@@ -24,7 +24,7 @@ namespace Modbot.Api.Features.Companion.Context;
 /// </remarks>
 public sealed record FlagRuleSettings
 {
-    /// <summary>At least one kick from the group or ban.</summary>
+    /// <summary>At least one kick from the group, kick from an instance, or ban.</summary>
     public bool KicksAndBans { get; init; } = true;
 
     /// <summary>
@@ -60,6 +60,18 @@ public sealed record FlagRuleSettings
     /// so a rule added later counts without anybody coming back to this card.
     /// </summary>
     public IReadOnlyList<Guid>? AutoModRules { get; init; }
+
+    /// <summary>
+    /// Whether every flagged join and every flagged person already there is also posted in
+    /// <see cref="DiscordChannelId"/>. Off by default: the channel is somebody's to choose.
+    /// </summary>
+    public bool DiscordPost { get; init; }
+
+    /// <summary>The Discord channel a flagged alert is posted in. Null until one is picked.</summary>
+    public string? DiscordChannelId { get; init; }
+
+    /// <summary>The most characters a channel id may have.</summary>
+    public const int ChannelIdLength = 32;
 
     public const int MinWarns = 1;
 

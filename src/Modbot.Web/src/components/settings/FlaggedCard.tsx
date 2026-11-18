@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
+import { ChannelPicker } from '@/components/discord/ChannelPicker'
 import { Button } from '@/components/ui/button'
-import { api, type FlagRules } from '@/lib/api'
+import { api, type DiscordChannelPermission, type FlagRules } from '@/lib/api'
 import { Checkbox, NumberField, Outcome, Switch } from './fields'
 import { SettingsCard } from './SettingsCard'
+
+const POST_NEEDS: DiscordChannelPermission[] = ['viewChannel', 'sendMessages']
 
 /**
  * Settings → Moderation: the rules that make a person Flagged — the companion's red join card,
@@ -20,6 +23,8 @@ export function FlaggedCard() {
   const [warnsAtLeast, setWarnsAtLeast] = useState('')
   const [nuisance, setNuisance] = useState(true)
   const [newAccounts, setNewAccounts] = useState(false)
+  const [discordPost, setDiscordPost] = useState(false)
+  const [discordChannelId, setDiscordChannelId] = useState('')
   const [autoMod, setAutoMod] = useState(true)
   const [everyRule, setEveryRule] = useState(true)
   const [chosen, setChosen] = useState<string[]>([])
@@ -36,6 +41,8 @@ export function FlaggedCard() {
     setWarnsAtLeast(String(next.warnsAtLeast))
     setNuisance(next.nuisance)
     setNewAccounts(next.newAccounts)
+    setDiscordPost(next.discordPost)
+    setDiscordChannelId(next.discordChannelId ?? '')
     setAutoMod(next.autoMod)
     setEveryRule(next.everyAutoModRule)
     setChosen(next.autoModRules.filter((r) => r.counts).map((r) => r.id))
@@ -64,6 +71,8 @@ export function FlaggedCard() {
         warnsAtLeast: Number(warnsAtLeast),
         nuisance,
         newAccounts,
+        discordPost,
+        discordChannelId,
         autoMod,
         everyAutoModRule: everyRule,
         autoModRules: everyRule ? [] : chosen,
@@ -138,6 +147,15 @@ export function FlaggedCard() {
                   {rule.name}
                 </Checkbox>
               ))}
+          </div>
+        )}
+
+        <Switch checked={discordPost} onChange={setDiscordPost}>
+          Post in Discord
+        </Switch>
+        {discordPost && (
+          <div className="max-w-lg pl-6">
+            <ChannelPicker label="Channel" value={discordChannelId} onChange={setDiscordChannelId} needs={POST_NEEDS} />
           </div>
         )}
       </div>

@@ -311,6 +311,7 @@ public static class ContextHandler
     private static readonly Dictionary<string, string> ActionNames = new(StringComparer.Ordinal)
     {
         [FactType.MemberKicked] = "Kick",
+        [FactType.GroupInstanceKick] = "Kick",
         [FactType.MemberBanned] = "Ban",
         [FactType.MemberUnbanned] = "Unban",
         [FactType.GroupInstanceWarn] = "Warn",

@@ -23,6 +23,8 @@ public sealed record FlagRuleAutoModOption(
     [property: JsonPropertyName("counts")] bool Counts);
 
 /// <param name="LiftedBansForDays">How many days a lifted ban still counts. Null means always.</param>
+/// <param name="DiscordPost">Whether a flagged join is also posted in the Discord channel.</param>
+/// <param name="DiscordChannelId">The channel it is posted in. Null when none is picked.</param>
 /// <param name="WarnsAtLeast">How many instance warns make somebody Flagged.</param>
 /// <param name="EveryAutoModRule">Every AutoMod rule counts, including rules added later.</param>
 /// <param name="AutoModRules">Every AutoMod rule there is, and whether it counts.</param>
@@ -35,7 +37,9 @@ public sealed record FlagRulesView(
     [property: JsonPropertyName("autoMod")] bool AutoMod,
     [property: JsonPropertyName("everyAutoModRule")] bool EveryAutoModRule,
     [property: JsonPropertyName("autoModRules")] IReadOnlyList<FlagRuleAutoModOption> AutoModRules,
-    [property: JsonPropertyName("newAccounts")] bool NewAccounts);
+    [property: JsonPropertyName("newAccounts")] bool NewAccounts,
+    [property: JsonPropertyName("discordPost")] bool DiscordPost,
+    [property: JsonPropertyName("discordChannelId")] string? DiscordChannelId);
 
 /// <param name="AutoModRules">The rules that count when <c>everyAutoModRule</c> is false.</param>
 /// <param name="LiftedBansForDays">
@@ -46,6 +50,10 @@ public sealed record FlagRulesView(
 /// Whether a Visitor or New User account makes somebody Flagged. Null or left out keeps what is
 /// set now, so a caller written before this existed does not switch it.
 /// </param>
+/// <param name="DiscordPost">Whether a flagged join is also posted in Discord. Null or left out keeps what is set now.</param>
+/// <param name="DiscordChannelId">
+/// The channel to post in. Null or left out keeps what is set now; an empty string picks none.
+/// </param>
 public sealed record SetFlagRulesRequest(
     [property: JsonPropertyName("kicksAndBans")] bool KicksAndBans,
     [property: JsonPropertyName("warns")] bool Warns,
@@ -55,7 +63,9 @@ public sealed record SetFlagRulesRequest(
     [property: JsonPropertyName("everyAutoModRule")] bool EveryAutoModRule,
     [property: JsonPropertyName("autoModRules")] IReadOnlyList<Guid>? AutoModRules,
     [property: JsonPropertyName("liftedBansForDays")] int? LiftedBansForDays = null,
-    [property: JsonPropertyName("newAccounts")] bool? NewAccounts = null);
+    [property: JsonPropertyName("newAccounts")] bool? NewAccounts = null,
+    [property: JsonPropertyName("discordPost")] bool? DiscordPost = null,
+    [property: JsonPropertyName("discordChannelId")] string? DiscordChannelId = null);
 
 /// <summary>
 /// Settings → Moderation → Flagged: which rules make a person Flagged on the companion and the
@@ -112,6 +122,14 @@ public static class FlagRuleSettingsEndpoints
                     });
                 }
 
+                if (body.DiscordChannelId?.Trim() is { Length: > FlagRuleSettings.ChannelIdLength })
+                {
+                    return Results.BadRequest(new
+                    {
+                        error = $"A channel id is at most {FlagRuleSettings.ChannelIdLength} characters.",
+                    });
+                }
+
                 IReadOnlyList<Guid>? chosen = null;
 
                 if (!body.EveryAutoModRule)
@@ -128,6 +146,14 @@ public static class FlagRuleSettingsEndpoints
                 var settings = await db.GetSettingsAsync(ct);
                 var before = FlagRuleSettings.Read(settings.FlagRules);
 
+                var channelId = body.DiscordChannelId is null
+                    ? before.DiscordChannelId
+                    : string.IsNullOrWhiteSpace(body.DiscordChannelId) ? null : body.DiscordChannelId.Trim();
+                var post = body.DiscordPost ?? before.DiscordPost;
+
+                if (post && channelId is null)
+                    return Results.BadRequest(new { error = "Pick a channel to post in." });
+
                 var after = new FlagRuleSettings
                 {
                     KicksAndBans = body.KicksAndBans,
@@ -136,6 +162,8 @@ public static class FlagRuleSettingsEndpoints
                     WarnsAtLeast = body.WarnsAtLeast,
                     Nuisance = body.Nuisance,
                     NewAccounts = body.NewAccounts ?? before.NewAccounts,
+                    DiscordPost = post,
+                    DiscordChannelId = channelId,
                     AutoMod = body.AutoMod,
                     AutoModRules = chosen,
                 }.Clamped();
@@ -167,6 +195,8 @@ public static class FlagRuleSettingsEndpoints
                 + "`liftedBansForDays` is 1 to 3650, or null for a lifted ban to count always. With "
                 + "`everyAutoModRule` false, only the flags of the rules in `autoModRules` count. "
                 + "`newAccounts` makes a Visitor or New User account Flagged; left out, it keeps its setting. "
+                + "`discordPost` also posts every flagged join in the channel `discordChannelId` (an empty string "
+                + "picks none); left out, each keeps its setting. "
                 + "A watch on a person always counts and has no setting here.")
             .Produces<FlagRulesView>()
             .Produces(StatusCodes.Status400BadRequest)
@@ -189,6 +219,8 @@ public static class FlagRuleSettingsEndpoints
             ["warnsAtLeast"] = rules.WarnsAtLeast,
             ["nuisance"] = rules.Nuisance,
             ["newAccounts"] = rules.NewAccounts,
+            ["discordPost"] = rules.DiscordPost,
+            ["discordChannelId"] = rules.DiscordChannelId,
             ["autoMod"] = rules.AutoMod,
             ["autoModRules"] = rules.AutoModRules is null ? null : chosen,
         };
@@ -230,6 +262,8 @@ public static class FlagRuleSettingsEndpoints
             rules.AutoMod,
             rules.AutoModRules is null,
             options,
-            rules.NewAccounts);
+            rules.NewAccounts,
+            rules.DiscordPost,
+            rules.DiscordChannelId);
     }
 }

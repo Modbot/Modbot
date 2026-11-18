@@ -12,6 +12,7 @@ using Modbot.Api.Features.Companion.Devices;
 using Modbot.Api.Features.Watches;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 using Modbot.Core.Notifications;
 using Modbot.Core.Time;
 
@@ -165,6 +166,7 @@ public static class EventsHandler
             devices,
             alerts,
             context.RequestServices.GetService<INotifier>(),
+            context.RequestServices.GetService<IDiscordChannelPoster>(),
             database,
             clock,
             ct);
@@ -205,6 +207,7 @@ public static class EventsHandler
         ICompanionDeviceStore devices,
         AlertHub alerts,
         INotifier? notifier,
+        IDiscordChannelPoster? discord,
         ModbotContext database,
         IModbotClock clock,
         CancellationToken ct)
@@ -219,21 +222,46 @@ public static class EventsHandler
 
         var people = arrivals.Select(a => a.SubjectId).Distinct(StringComparer.Ordinal).ToList();
         var ranks = await ContextHandler.TrustRanksAsync(database, people, ct);
-        var flagged = await FlagRules.ReadAsync(database, people, ranks, clock.UtcNow, ct);
+        var rules = FlagRuleSettings.Read(
+            await database.Settings.AsNoTracking().Where(s => s.Id == 1).Select(s => s.FlagRules).FirstOrDefaultAsync(ct));
+        var flagged = await FlagRules.ReadAsync(database, rules, people, ranks, clock.UtcNow, ct);
 
         if (!flagged.Values.Any(m => m.IsFlagged))
             return;
+
+        // Somebody already there is for the headset card only: the team's notification and the
+        // Discord post are for a person walking in, which is what a moderator elsewhere can still act on.
+        var joins = arrivals.Where(a => a.Type == FactType.InstanceJoined).ToList();
 
         if (notifier is not null)
         {
             try
             {
-                await WatchAlerts.RaiseAsync(notifier, arrivals, flagged, ct);
+                await WatchAlerts.RaiseAsync(notifier, joins, flagged, ct);
             }
             catch (Exception e) when (e is not OperationCanceledException)
             {
                 // The facts are written and the headset card still goes out below.
                 Serilog.Log.Warning(e, "Could not raise the notification for a watched person's arrival");
+            }
+        }
+
+        if (discord is not null)
+        {
+            try
+            {
+                await FlaggedDiscordPost.RaiseForJoinsAsync(
+                    discord,
+                    rules,
+                    joins,
+                    flagged,
+                    id => submitted.FirstOrDefault(e => e.SubjectId == id)?.Data?.GetValueOrDefault("displayName"),
+                    ct);
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                // The headset card still goes out below.
+                Serilog.Log.Warning(e, "Could not post a flagged join in Discord");
             }
         }
 

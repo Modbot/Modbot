@@ -239,6 +239,10 @@ public static class DiscordServiceCollectionExtensions
         services.AddSingleton<Core.Discord.IDiscordBirthdayActions>(
             p => new Birthdays.DiscordBirthdayActions(() => p.GetRequiredService<DiscordBotService>().ReadyGateway));
 
+        // Flagged alerts: the API posts one line in the chosen channel through the bot's session.
+        services.AddSingleton<Core.Discord.IDiscordChannelPoster>(
+            p => new DiscordChannelPoster(() => p.GetRequiredService<DiscordBotService>().ReadyGateway));
+
         // Automatic roles: the API's job gives and takes a role through the bot's session.
         services.AddSingleton<Core.Discord.IDiscordAutomaticRoleActions>(
             p => new AutomaticRoles.DiscordAutomaticRoleActions(() => p.GetRequiredService<DiscordBotService>().ReadyGateway));

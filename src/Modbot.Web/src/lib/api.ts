@@ -3789,6 +3789,10 @@ export type FlagRules = {
   autoModRules: FlagRuleAutoModOption[]
   /** New and Visitor-rank accounts count. Off by default. */
   newAccounts: boolean
+  /** Every flagged join is also posted in `discordChannelId`. Off by default. */
+  discordPost: boolean
+  /** The channel the post goes in. Null until one is picked. */
+  discordChannelId: string | null
 }
 
 export type FlagRulesInput = Omit<FlagRules, 'autoModRules'> & { autoModRules: string[] }

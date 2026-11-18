@@ -223,7 +223,7 @@ public static class CompanionApi
             .WithName("WaitForClientAlert")
             .WithSummary("Wait for an alert")
             .WithDescription(
-                "Long poll: a flagged user joined this moderator's instance. "
+                "Long poll: a flagged user joined this moderator's instance, or was already there. "
                 + "The only push in the protocol, and the only case that earns it — by the time a "
                 + "thirty-second poll notices, the moment has passed.\n\n"
                 + "A long poll rather than a websocket: one endpoint, one concern, and it "

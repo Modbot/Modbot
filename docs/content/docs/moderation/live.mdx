@@ -72,6 +72,16 @@ instead of every rule.
 A flagged person who was already in the instance when a moderator arrived gets the same alert as one
 who just joined.
 
+### Post in Discord
+
+Under **Flagged** in the same settings, **Post in Discord** is off to start with. Turn it on and
+pick a **Channel**, and every time somebody the rules flag joins one of your group's instances,
+Modbot posts one line there: their name, that they joined, and the reasons, such as
+`Flagged: Rin joined a group instance. 2 kicks or bans · Nuisance`. It is every flagged join, not
+only watched people, and it posts once per join however many moderators saw it. Somebody who was
+already there when a moderator arrived is not posted; they still get the alert on the companion.
+Nobody is pinged. Modbot needs to see the channel and be allowed to send messages in it.
+
 A ban counts for ever unless you tick **Lifted bans stop counting** under **Kicks and bans** and set
 **Days after lifting** (1 to 3650). Then a ban that was lifted stops counting that many days after
 it was lifted. A ban that still stands, and a kick, always count.
