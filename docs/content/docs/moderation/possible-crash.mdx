@@ -1,0 +1,53 @@
+---
+title: Possible crash
+description: Modbot warns your moderators when many people leave one instance within a few seconds, and names who joined or changed avatar just before.
+---
+
+A **possible crash** is when many people leave one of your group's instances within a few seconds.
+Your moderators get a red **Possible crash** card on the [companion](/companion/overlay#possible-crash-card)
+naming the people who changed avatar or joined just before the leaves, because that is the likely
+cause.
+
+| To | You need |
+|---|---|
+| Turn the alert on or off, or change its numbers | [**Change settings**](/accounts/roles-and-permissions#change-settings) |
+
+## What a moderator sees
+
+- A **Possible crash** card on the headset panel and a pop-up, with the same bleep as for a
+  [flagged person](/moderation/live#who-is-flagged). It says how many people left and in how many
+  seconds.
+- Under it, up to five people, newest first, each with **joined** or **changed avatar**. Pressing a
+  name opens that person's [card](/companion/overlay#the-person-card), where you can mark their avatar
+  as a [problem avatar](/moderation/problem-avatars) or open them in Modbot. Pressing anywhere else on
+  the card clears it.
+- If **Post in Discord** is on under [**Flagged**](/moderation/live#post-in-discord), Modbot also posts
+  one line in that channel, such as
+  `Possible crash: 6 people left a group instance within 5 seconds. Just before: Rin, Sol`.
+
+Every paired companion standing in that instance gets the card, including the one whose log showed
+the leaves.
+
+## The numbers
+
+**Settings**, **Moderation**, **Flagged** has **Possible crash alert**, on to start with, and two
+numbers:
+
+| Setting | Meaning | Start | Range |
+|---|---|---|---|
+| **People leaving** | How many people must leave | 5 | 2 to 99 |
+| **Within seconds** | How many seconds they leave in | 5 | 1 to 60 |
+
+Instances differ in size, so tune these for yours. A number outside the range is brought to the
+nearest allowed value.
+
+## How it is decided
+
+Modbot counts leaves reported by your paired companions' own logs, one instance at a time. It has no
+other view of an instance, so a crash nobody with a companion was standing in is not seen.
+
+One crash raises one alert: after it, that instance stays quiet for the length of the window, so a
+slow trickle of leaves does not raise it again. Leaves and arrivals reported more than two minutes
+late, such as a log read after the fact, are ignored. The people named are those who joined or
+changed avatar up to twice the **Within seconds** before the first leave, or during the leaves.
+Each person counts once, with their newest change.

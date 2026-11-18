@@ -4,8 +4,7 @@
 
 Staff should be warned about problem users in an instance before they cause harm. Two alerts share
 one path: a person wearing an avatar on a list the team keeps (this document's first half, built),
-and a crash alert for an instance where many people left at once (the second half, step E, not yet
-built).
+and a crash alert for an instance where many people left at once (the second half, step E, built).
 
 Builds on the flagged join alert (flagged rules design) and the companion's alert hub; no new
 transport.
@@ -80,7 +79,8 @@ name from what it last saw them wear and needs the same permission as managing f
 
 ## 2. Crash alert (step E)
 
-Not built here. Recorded so the avatar list and the crash alert share one shape.
+Built (step E). Code: `src/Modbot.Api/Features/PossibleCrash/` (`PossibleCrashWatch` counts,
+`PossibleCrashAlerts` raises), called from `EventsHandler` after the problem avatar alerts.
 
 ### Signal
 
@@ -102,6 +102,12 @@ of a fixed size.
 
 Defaults are a starting point to be tuned against real instances. Time comes from `IModbotClock`.
 
+Built as `FlagRuleSettings.CrashAlert` (on by default), `CrashLeaves` (5, clamped 2 to 99) and
+`CrashSeconds` (5, clamped 1 to 60), shown in Settings, Moderation, Flagged. One person counts once
+per burst, on their earliest reported leave, so two companions reporting the same leave are one
+person. A leave or arrival more than 2 minutes older than the server clock (`PossibleCrashWatch.Fresh`)
+is ignored, so a log replayed after the fact does not raise an alert.
+
 ### What the alert says
 
 - A **Possible crash** card on the companion, naming the instance.
@@ -118,7 +124,10 @@ One crash is one alert: after raising, the instance is quiet for the window's le
 trickle of leaves after the crash does not raise it again. Like the avatar dedupe this is in
 memory.
 
-### Not decided
+### Decided while building
 
-- How far back "just before" reaches (about the same number of seconds again is the start).
-- Whether a crash alert should link to the **Copy crash details** text the companion already makes.
+- "Just before" reaches back twice the window before the first leave (`LookbackWindows` = 2), up to
+  the last leave. Up to five people are named (`MostNamed`), each once with their newest change.
+- Recipients: every paired device standing in that instance, including the one whose log showed the
+  leaves, which cannot know what the other logs said.
+- The **Copy crash details** link was not built. The companion's own text stays where it was.
