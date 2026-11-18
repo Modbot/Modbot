@@ -536,6 +536,7 @@ public sealed partial class MainWindow : Window
 
         var panel = new DockPanel();
         panel.Children.Add(Dock(_identity, Avalonia.Controls.Dock.Top));
+        panel.Children.Add(Dock(FeedbackButton(), Avalonia.Controls.Dock.Top));
         panel.Children.Add(Dock(SearchButton(), Avalonia.Controls.Dock.Top));
         panel.Children.Add(Dock(_nav, Avalonia.Controls.Dock.Top));
         panel.Children.Add(Dock(health, Avalonia.Controls.Dock.Bottom));
