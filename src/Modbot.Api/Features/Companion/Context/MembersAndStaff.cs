@@ -149,10 +149,14 @@ public sealed class MembersAndStaff
             if (banned.Contains(subjectId))
                 isMember = false;
 
-            if (isMember)
+            // The owner is in their own group whatever the list and the facts say (they may not be on
+            // the list at all), so the overlay never marks them "Not in group".
+            var isOwner = subjectId == owner;
+
+            if (isMember || isOwner)
                 members.Add(subjectId);
 
-            if (subjectId == owner
+            if (isOwner
                 || (isMember && onList && HoldsAny(row!.Roles, moderationRoles)))
                 staff.Add(subjectId);
         }

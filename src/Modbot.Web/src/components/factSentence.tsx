@@ -2016,6 +2016,22 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  // ── Feedback ────────────────────────────────────────────────────────────────────────────────
+  'modbot.feedback.send': (p) => {
+    const kind = p.text('kind')
+    return (
+      <>
+        {p.actor} sent feedback{kind ? <> ({kind})</> : null} to the Modbot admins.
+      </>
+    )
+  },
+
+  'modbot.feedback.status': (p) => (
+    <>
+      {p.actor} marked a piece of feedback as {p.text('status') ?? 'a new status'}.
+    </>
+  ),
+
   // ── Terms and rules ─────────────────────────────────────────────────────────────────────────
   'modbot.term.change': (p) => (
     <>
