@@ -8,6 +8,8 @@ using Modbot.Api.Tests.Features.Audit;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
+using Modbot.VRChat;
+using VRChat.API.Model;
 
 namespace Modbot.Api.Tests.Features.ProblemAvatars;
 
@@ -204,6 +206,137 @@ public class ProblemAvatarEndpointsTests
         Assert.False(none.Listed);
     }
 
+    private const string AvatarId = "avtr_6d1b3a52-0c1e-4b57-9a2d-1f7c0e3b8a90";
+
+    private static Task<HttpResponseMessage> AddAsync(ReadSurfaceTestHost host, string cookie, string? text)
+        => host.PostJsonAsync(Url, new { text }, cookie, Ct);
+
+    [Fact]
+    public async Task AddingAName_SavesItAsAByNameEntry_AndTheSameNameInOtherLettersIsTheSameEntry()
+    {
+        var (host, cookie) = await StartAsync();
+        await using var _ = host;
+
+        var first = await ReadAsync<ProblemAvatarView>(await AddAsync(host, cookie, "  White Tiger "));
+        var again = await ReadAsync<ProblemAvatarView>(await AddAsync(host, cookie, "white TIGER"));
+
+        Assert.Equal("White Tiger", first.Name);
+        Assert.Null(first.AvatarId);
+        Assert.Equal(first.Id, again.Id);
+        Assert.Single(await host.GetJsonAsync<List<ProblemAvatarView>>(Url, cookie, Ct));
+        Assert.Empty(host.VRChat.Calls);
+    }
+
+    [Fact]
+    public async Task AddingAName_DoesNotMatchAPartOfAnotherName()
+    {
+        var (host, cookie) = await StartAsync();
+        await using var _ = host;
+
+        await ReadAsync<ProblemAvatarView>(await AddAsync(host, cookie, "Tiger"));
+
+        // The name on the list is "Tiger": a person in "White Tiger" is not a match for it.
+        Assert.False((await WornListedAsync(host, cookie, "usr_part", "White Tiger")).Listed);
+        Assert.True((await WornListedAsync(host, cookie, "usr_exact", " tiger ")).Listed);
+    }
+
+    private static async Task<PersonAvatarView> WornListedAsync(ReadSurfaceTestHost host, string cookie, string person, string avatar)
+    {
+        await WearAsync(host, person, FactType.AvatarChanged, avatar, Noon);
+
+        return await host.GetJsonAsync<PersonAvatarView>($"{Url}/person?vrchat={person}", cookie, Ct);
+    }
+
+    [Theory]
+    [InlineData("https://vrchat.com/home/avatar/" + AvatarId)]
+    [InlineData(AvatarId)]
+    public async Task AddingALinkOrAnId_LooksTheAvatarUpOnce_AndSavesItsNameWithTheId(string text)
+    {
+        var (host, cookie) = await StartAsync();
+        await using var _ = host;
+
+        host.VRChat.Returns("GetAvatar", new Avatar { Id = AvatarId, Name = "White Tiger" });
+
+        var added = await ReadAsync<ProblemAvatarView>(await AddAsync(host, cookie, text));
+
+        Assert.Equal("White Tiger", added.Name);
+        Assert.Equal(AvatarId, added.AvatarId);
+
+        var call = Assert.Single(host.VRChat.Calls);
+        Assert.Equal(VRChatEndpointClass.AvatarsRead, call.Endpoint.Class);
+        Assert.Equal(VRChatCallPriority.Interactive, call.Priority);
+
+        // The name is what alerts match on.
+        Assert.True((await WornListedAsync(host, cookie, "usr_wearer", "white tiger")).Listed);
+    }
+
+    [Fact]
+    public async Task AddingALinkVRChatCannotLookUp_StillAddsTheId_WithNoName()
+    {
+        var (host, cookie) = await StartAsync();
+        await using var _ = host;
+
+        host.VRChat.Returns("GetAvatar", VRChatResult<Avatar>.Failure(404, "Not found."));
+
+        var added = await ReadAsync<ProblemAvatarView>(
+            await AddAsync(host, cookie, "https://vrchat.com/home/avatar/" + AvatarId));
+
+        Assert.Equal(string.Empty, added.Name);
+        Assert.Equal(AvatarId, added.AvatarId);
+        Assert.Single(await host.GetJsonAsync<List<ProblemAvatarView>>(Url, cookie, Ct));
+        Assert.Single(host.VRChat.Calls);
+    }
+
+    [Fact]
+    public async Task AddingTheSameIdAgain_ReturnsTheEntry_AndAsksVRChatNothing()
+    {
+        var (host, cookie) = await StartAsync();
+        await using var _ = host;
+
+        host.VRChat.Returns("GetAvatar", new Avatar { Id = AvatarId, Name = "White Tiger" });
+
+        var first = await ReadAsync<ProblemAvatarView>(await AddAsync(host, cookie, AvatarId));
+        var again = await ReadAsync<ProblemAvatarView>(await AddAsync(host, cookie, "https://vrchat.com/home/avatar/" + AvatarId));
+
+        Assert.Equal(first.Id, again.Id);
+        Assert.Single(host.VRChat.Calls);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task AddingNothing_IsRefused(string? text)
+    {
+        var (host, cookie) = await StartAsync();
+        await using var _ = host;
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await AddAsync(host, cookie, text)).StatusCode);
+        Assert.Empty(await host.GetJsonAsync<List<ProblemAvatarView>>(Url, cookie, Ct));
+    }
+
+    [Fact]
+    public async Task Suggestions_ComeFromAvatarsSeen_LeaveOutListedOnes_AndWaitForTwoCharacters()
+    {
+        var (host, cookie) = await StartAsync();
+        await using var _ = host;
+
+        await WearAsync(host, "usr_a", FactType.AvatarChanged, "White Tiger", Noon.AddMinutes(-20));
+        await WearAsync(host, "usr_b", FactType.AvatarChanged, "white tiger", Noon.AddMinutes(-10));
+        await WearAsync(host, "usr_c", FactType.InstanceJoined, "Tiger Cub", Noon.AddMinutes(-5));
+        await WearAsync(host, "usr_d", FactType.AvatarChanged, "Plain Fox", Noon);
+
+        var found = await host.GetJsonAsync<List<string>>($"{Url}/suggest?text=tiger", cookie, Ct);
+
+        Assert.Equal(["Tiger Cub", "white tiger"], found);
+
+        await ReadAsync<ProblemAvatarView>(await AddAsync(host, cookie, "White Tiger"));
+
+        Assert.Equal(["Tiger Cub"], await host.GetJsonAsync<List<string>>($"{Url}/suggest?text=tiger", cookie, Ct));
+        Assert.Empty(await host.GetJsonAsync<List<string>>($"{Url}/suggest?text=t", cookie, Ct));
+        Assert.Empty(host.VRChat.Calls);
+    }
+
     [Fact]
     public async Task WithoutTheSettingsPermission_EveryRouteIsForbidden()
     {
@@ -213,6 +346,8 @@ public class ProblemAvatarEndpointsTests
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, Ct);
         var id = Guid.NewGuid();
 
+        Assert.Equal(HttpStatusCode.Forbidden, (await AddAsync(host, cookie, "White Tiger")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync($"{Url}/suggest?text=tiger", cookie, Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync(Url, cookie, Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync($"{Url}/person?vrchat=usr_wearer", cookie, Ct)).StatusCode);
         Assert.Equal(

@@ -1,6 +1,6 @@
 ---
 title: Problem avatars
-description: Mark the avatar somebody is wearing as a problem avatar, and Modbot warns your moderators and your Discord channel when anyone arrives in it or switches to it.
+description: Mark an avatar as a problem avatar, from somebody wearing it or by its name or link, and Modbot warns your moderators and your Discord channel when anyone arrives in it or switches to it.
 ---
 
 A **problem avatar** is an avatar you have told Modbot to watch for. When somebody arrives in one of
@@ -9,7 +9,7 @@ as for a [flagged person](/moderation/live#who-is-flagged).
 
 | To | You need |
 |---|---|
-| Mark an avatar, see the list or remove an avatar | [**Change settings**](/accounts/roles-and-permissions#change-settings) |
+| Mark or add an avatar, see the list or remove an avatar | [**Change settings**](/accounts/roles-and-permissions#change-settings) |
 
 ## Marking an avatar
 
@@ -23,17 +23,34 @@ one.
 The [person card](/companion/overlay#the-person-card) in the companion has the same **Mark avatar**
 button, with the same permission.
 
+## Adding an avatar
+
+You do not need anybody to be wearing it. In **Settings**, **Moderation**, **Problem avatars**, type or
+paste into the box and press **Add**:
+
+- **A name.** It is saved as typed and matches an avatar with exactly that name. Part of a name does not
+  match.
+- **A link or an id.** Paste an avatar link such as `https://vrchat.com/home/avatar/avtr_...`, or just the
+  `avtr_...` id. Modbot asks VRChat for the avatar and saves it with the name VRChat gives. Adding
+  an avatar you already added changes nothing.
+
+An avatar that VRChat will not show, such as a private one, is still added by its id, with no name. Its
+entry cannot match anybody, because the log never gives an id.
+
+While you type a name, Modbot suggests avatars it has already seen people wear. Press one to add it.
+
 ## The list
 
-**Settings**, **Moderation**, **Problem avatars** lists every avatar you marked. Press **Remove** beside
-one to take it off.
+**Settings**, **Moderation**, **Problem avatars** lists every avatar you added or marked, with **Linked**
+beside the ones added from a link or an id and **By name** beside the rest. Press **Remove** beside one
+to take it off.
 
 ## How avatars are matched
 
 VRChat's log gives an avatar's name and never its id, so Modbot matches the **name** only, ignoring
 capital letters and spaces at either end. Two avatars that share a name cannot be told apart, and an
 avatar that is renamed is no longer on the list. **Mark avatar** stores the name exactly as VRChat
-wrote it.
+wrote it. An avatar added from a link is matched by the name VRChat gave when you added it.
 
 ## What happens when somebody wears one
 
