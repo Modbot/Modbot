@@ -177,9 +177,12 @@ public class ProblemAvatarEndpointsTests
         await DeleteAsync(host, $"{Url}/{added.Id}", cookie);
 
         await using var context = _db.NewContext();
-        var changes = await context.Events.AsNoTracking()
-            .Where(e => e.Type == FactType.SettingsChanged && e.Data.Contains("problemAvatars"))
-            .CountAsync(Ct);
+        // Data is jsonb, which Postgres won't LIKE-search, so the text check runs here rather than in SQL.
+        var settingsChanges = await context.Events.AsNoTracking()
+            .Where(e => e.Type == FactType.SettingsChanged)
+            .Select(e => e.Data)
+            .ToListAsync(Ct);
+        var changes = settingsChanges.Count(d => d.Contains("problemAvatars"));
 
         Assert.Equal(2, changes);
     }
