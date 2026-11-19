@@ -77,8 +77,9 @@ public static class ProblemAvatarEndpoints
             .WithName("ListProblemAvatars")
             .WithSummary("List problem avatars")
             .WithDescription(
-                "The avatar names that raise a flagged alert on whoever wears one, by name, in alphabetical "
-                + "order. VRChat's log gives avatar names and no ids, so two avatars with one name are one entry.")
+                "The avatars on the list, in alphabetical order by name. An entry may also carry an avatar id "
+                + "from a link, but an alert matches the name, since VRChat's log gives avatar names and no ids. "
+                + "An entry with an id and no name never alerts.")
             .Produces<IReadOnlyList<ProblemAvatarView>>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -204,7 +205,7 @@ public static class ProblemAvatarEndpoints
             })
             .WithName("RemoveProblemAvatar")
             .WithSummary("Remove a problem avatar")
-            .WithDescription("Takes an avatar name off the list. People wearing it are no longer alerted on.")
+            .WithDescription("Takes an avatar off the list. People wearing it are no longer alerted on.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);

@@ -1,13 +1,14 @@
 namespace Modbot.Core.Data.Entities;
 
 /// <summary>
-/// One avatar a moderator marked as a problem avatar, by its name. The table is <c>problem_avatar</c>.
+/// One avatar a moderator marked as a problem avatar, by its name or from a link. The table is <c>problem_avatar</c>.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>By name, because that is all there is.</strong> VRChat's log names the avatar a person
-/// switched to and never gives its id, so the list can only hold names. Two avatars that share a name
-/// are one entry; that is the price of the log, and it is why the entry says what it matches.
+/// <strong>Alerts match by name, because that is all the log has.</strong> VRChat's log names the avatar
+/// a person switched to and never gives its id. An entry can also carry an avatar id, when it was added
+/// from a link or an id, but an alert still matches the name, so an entry with an id and no name never
+/// alerts. Two avatars that share a name are one entry; that is the price of the log.
 /// </para>
 /// <para>
 /// <strong>Matched without regard to case or surrounding spaces</strong> (<see cref="NameKey"/>); the
