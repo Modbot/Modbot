@@ -4051,8 +4051,16 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.NameKey).HasMaxLength(ProblemAvatar.MaxNameLength);
             entity.Property(e => e.AddedByUsername).HasMaxLength(64);
 
-            // One entry per name, whatever its case: two marks of the same avatar are one.
-            entity.HasIndex(e => e.NameKey).IsUnique().HasDatabaseName("ux_problem_avatar_name");
+            entity.Property(e => e.AvatarId).HasMaxLength(ProblemAvatar.MaxIdLength);
+
+            // One entry per name, whatever its case: two marks of the same avatar are one. An entry
+            // with no name has an empty key, and any number of those may exist.
+            entity.HasIndex(e => e.NameKey).IsUnique().HasDatabaseName("ux_problem_avatar_name")
+                .HasFilter("name_key <> ''");
+
+            // One entry per id.
+            entity.HasIndex(e => e.AvatarId).IsUnique().HasDatabaseName("ux_problem_avatar_avatar_id")
+                .HasFilter("avatar_id IS NOT NULL");
         });
 
         builder.Entity<Appeal>(entity =>

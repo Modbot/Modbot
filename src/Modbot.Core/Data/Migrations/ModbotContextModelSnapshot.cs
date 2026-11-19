@@ -8649,6 +8649,11 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("added_by_username");
 
+                    b.Property<string>("AvatarId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("avatar_id");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -8664,9 +8669,15 @@ namespace Modbot.Core.Data.Migrations
                     b.HasKey("Id")
                         .HasName("pk_problem_avatar");
 
+                    b.HasIndex("AvatarId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_problem_avatar_avatar_id")
+                        .HasFilter("avatar_id IS NOT NULL");
+
                     b.HasIndex("NameKey")
                         .IsUnique()
-                        .HasDatabaseName("ux_problem_avatar_name");
+                        .HasDatabaseName("ux_problem_avatar_name")
+                        .HasFilter("name_key <> ''");
 
                     b.ToTable("problem_avatar", (string)null);
                 });

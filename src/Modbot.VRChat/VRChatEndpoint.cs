@@ -97,6 +97,18 @@ public static class VRChatEndpointClass
     public const string WorldsSearch = "worlds.search";
 
     /// <summary>
+    /// One avatar's own page -- <c>GET /avatars/{avatarId}</c>. Read when an admin adds a problem
+    /// avatar from a link, to learn the avatar's name.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Not measured.</strong> One request every ten seconds, a cautious placeholder (spec
+    /// 4.3.4): the foundation spec, the research notes and the rate limit options had no number for
+    /// it. Its own class and lane, so a 429 here stops avatar lookups and nothing else. Sent only
+    /// when an admin adds an avatar by its link, and never retried.
+    /// </remarks>
+    public const string AvatarsRead = "avatars.read";
+
+    /// <summary>
     /// One instance by its location -- <c>/instances/{location}</c>. Read for instances Modbot
     /// learns about from a client rather than from the group's own list.
     /// </summary>

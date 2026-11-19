@@ -206,6 +206,9 @@ public static class VRChatRateLimits
     /// </summary>
     public const string WorldsSearchLane = "worlds.search";
 
+    /// <summary>Reading one avatar's page (<see cref="VRChatEndpointClass.AvatarsRead"/>). Its own queue, so a lookup never holds up anything else.</summary>
+    public const string AvatarsReadLane = "avatars.read";
+
     /// <summary>VRChat calendar reads, apart from the writes for the same reason.</summary>
     public const string CalendarReadLane = "calendar.read";
 
@@ -636,6 +639,16 @@ public static class VRChatRateLimits
             // pressed Search VRChat and nothing polls it.
             [VRChatEndpointClass.WorldsSearch] = new(
                 VRChatEndpointClass.WorldsSearch, WorldsSearchLane,
+                HardMaxPerSecond: PerSeconds(10), DefaultCeilingPerSecond: CeilingFor(PerSeconds(10)),
+                Backstop: VRChatEndpointClass.Interactive),
+
+            // NOT MEASURED -- reading one avatar, GET /avatars/{avatarId}. Spec 4.3.4's table, the
+            // research notes and this file had no number for it, so this is a cautious placeholder:
+            // one read per ten seconds, the rate a similar unmeasured call (worlds.search) starts at.
+            // Its own class and lane, so a 429 here stops nothing else. Interactive backstop: an admin
+            // pasted a link and nothing polls it.
+            [VRChatEndpointClass.AvatarsRead] = new(
+                VRChatEndpointClass.AvatarsRead, AvatarsReadLane,
                 HardMaxPerSecond: PerSeconds(10), DefaultCeilingPerSecond: CeilingFor(PerSeconds(10)),
                 Backstop: VRChatEndpointClass.Interactive),
 

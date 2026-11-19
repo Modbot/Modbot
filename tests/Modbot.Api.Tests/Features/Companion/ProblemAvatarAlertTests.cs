@@ -212,6 +212,67 @@ public class ProblemAvatarAlertTests
     }
 
     [Fact]
+    public async Task OnlyTheWholeName_Matches_NotPartOfIt()
+    {
+        var (host, reporter, watcher, _) = await ReadyAsync([Tiger]);
+        await using var _ = host;
+
+        await ReportAsync(host, reporter, "AvatarChanged", "usr_cub", "White Tiger Cub");
+        await ReportAsync(host, reporter, "AvatarChanged", "usr_part", "White");
+
+        await AssertQuietAsync(host, watcher);
+    }
+
+    [Fact]
+    public async Task AnAvatarAddedFromALink_AlertsByTheNameVRChatGave()
+    {
+        var (host, reporter, watcher, _) = await ReadyAsync([]);
+        await using var _ = host;
+
+        await using (var context = _db.NewContext())
+        {
+            context.ProblemAvatars.Add(new ProblemAvatar
+            {
+                Name = Tiger,
+                NameKey = ProblemAvatar.KeyOf(Tiger),
+                AvatarId = "avtr_4f2f3a52-0000-0000-0000-000000000001",
+                AddedByUserId = Guid.NewGuid(),
+                AddedByUsername = "mira",
+                AddedAt = Noon.AddDays(-1),
+            });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        await ReportAsync(host, reporter, "InstanceJoined", "usr_wearer", Tiger);
+
+        Assert.Equal("usr_wearer", (await AlertAsync(host, watcher)).SubjectId);
+    }
+
+    [Fact]
+    public async Task AnAvatarAddedByIdWithNoName_AlertsNobody_NotEvenSomeoneWithABlankAvatarName()
+    {
+        var (host, reporter, watcher, _) = await ReadyAsync([]);
+        await using var _ = host;
+
+        await using (var context = _db.NewContext())
+        {
+            context.ProblemAvatars.Add(new ProblemAvatar
+            {
+                AvatarId = "avtr_4f2f3a52-0000-0000-0000-000000000002",
+                AddedByUserId = Guid.NewGuid(),
+                AddedByUsername = "mira",
+                AddedAt = Noon.AddDays(-1),
+            });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        await ReportAsync(host, reporter, "InstanceJoined", "usr_blank", " ");
+        await ReportAsync(host, reporter, "InstanceJoined", "usr_wearer", Tiger);
+
+        await AssertQuietAsync(host, watcher);
+    }
+
+    [Fact]
     public async Task AModeratorWhoFoundSomeoneAlreadyThereWearingOne_IsToldOfIt()
     {
         var (host, reporter, watcher, _) = await ReadyAsync([Tiger]);

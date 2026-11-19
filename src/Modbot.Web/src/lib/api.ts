@@ -3804,7 +3804,7 @@ export type FlagRules = {
 export type FlagRulesInput = Omit<FlagRules, 'autoModRules'> & { autoModRules: string[] }
 
 /** Settings → Moderation → Problem avatars: one avatar name that raises a flagged alert on whoever wears it. */
-export type ProblemAvatar = { id: string; name: string; addedBy: string; addedAt: string }
+export type ProblemAvatar = { id: string; name: string; avatarId: string | null; addedBy: string; addedAt: string }
 
 /** The avatar a person was last seen wearing. `avatarName` is null when Modbot never saw one. */
 export type PersonAvatar = { avatarName: string | null; listed: boolean }
@@ -6711,6 +6711,13 @@ export const api = {
 
   /** Needs ManageSettings, as the flag rules do. */
   problemAvatars: () => request<ProblemAvatar[]>('/api/problem-avatars'),
+
+  /** Adds an avatar by exact name, vrchat.com avatar link or avtr_ id. A link or id is looked up on VRChat. */
+  addProblemAvatar: (text: string) => post<ProblemAvatar>('/api/problem-avatars', { text }),
+
+  /** Avatar names people were seen wearing that hold the text, not yet listed. */
+  suggestProblemAvatars: (text: string) =>
+    request<string[]>(`/api/problem-avatars/suggest?text=${encodeURIComponent(text)}`),
 
   removeProblemAvatar: (id: string) => del<void>(`/api/problem-avatars/${id}`),
 

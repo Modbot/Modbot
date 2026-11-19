@@ -1,7 +1,7 @@
 namespace Modbot.Core.Data.Entities;
 
 /// <summary>
-/// One avatar name a moderator marked as a problem avatar. The table is <c>problem_avatar</c>.
+/// One avatar a moderator marked as a problem avatar, by its name. The table is <c>problem_avatar</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -21,14 +21,20 @@ public class ProblemAvatar
 
     public Guid Id { get; set; } = Guid.CreateVersion7();
 
-    /// <summary>The avatar's name, exactly as the log gave it or as it was typed.</summary>
+    /// <summary>The longest an avatar id may be. A real one is 41 characters; ids are never checked for shape.</summary>
+    public const int MaxIdLength = 100;
+
+    /// <summary>The avatar's name, exactly as the log gave it or as it was typed. Empty for an id with no name.</summary>
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
     /// <see cref="Name"/> trimmed and in lower case: what names are compared by, and what the
-    /// database keeps unique.
+    /// database keeps unique. Empty when there is no name, and then it is not compared.
     /// </summary>
     public string NameKey { get; set; } = string.Empty;
+
+    /// <summary>The <c>avtr_</c> id, when the entry was added from a link or an id. Null when it was added by name.</summary>
+    public string? AvatarId { get; set; }
 
     /// <summary>The Modbot account that marked it.</summary>
     public Guid AddedByUserId { get; set; }
@@ -47,6 +53,37 @@ public class ProblemAvatar
         ArgumentNullException.ThrowIfNull(name);
 
         return Clip(name.Trim().ToLowerInvariant());
+    }
+
+    /// <summary>
+    /// The avatar id in what an admin pasted: the text itself when it is a bare <c>avtr_</c> id, or the
+    /// <c>avtr_</c> part of a vrchat.com link's path. Null for anything else, which is taken as a name.
+    /// </summary>
+    /// <remarks>
+    /// The id is never checked for shape (foundation §3.1.1): the link is only taken apart to find
+    /// the part that starts with <c>avtr_</c>.
+    /// </remarks>
+    public static string? AvatarIdFrom(string? text)
+    {
+        const string Prefix = "avtr_";
+
+        var trimmed = text?.Trim();
+        if (string.IsNullOrEmpty(trimmed))
+            return null;
+
+        if (Uri.TryCreate(trimmed, UriKind.Absolute, out var link)
+            && (link.Scheme == Uri.UriSchemeHttps || link.Scheme == Uri.UriSchemeHttp))
+        {
+            return link.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries)
+                .Select(Uri.UnescapeDataString)
+                .FirstOrDefault(part => part.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase) && part.Length > Prefix.Length);
+        }
+
+        return trimmed.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase)
+            && trimmed.Length > Prefix.Length
+            && !trimmed.Any(char.IsWhiteSpace)
+                ? trimmed
+                : null;
     }
 
     /// <summary>A name cut to <see cref="MaxNameLength"/> characters, the most the column holds.</summary>

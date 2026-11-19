@@ -62,7 +62,8 @@ public static class ProblemAvatarAlerts
         if (listed.Count == 0)
             return;
 
-        var keys = listed.Select(a => a.NameKey).ToHashSet(StringComparer.Ordinal);
+        // An entry added by id that VRChat gave no name for has an empty key and matches nobody.
+        var keys = listed.Select(a => a.NameKey).Where(k => k.Length > 0).ToHashSet(StringComparer.Ordinal);
 
         var hits = sightings
             .Where(f => keys.Contains(ProblemAvatar.KeyOf(AuditJson.Text(f.Data, "avatarName")!)))
