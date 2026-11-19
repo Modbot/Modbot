@@ -6967,6 +6967,136 @@
             "session": [ ]
           }
         ]
+      },
+      "post": {
+        "tags": [
+          "Problem avatars"
+        ],
+        "summary": "Add a problem avatar by name or link",
+        "description": "`text` is an avatar name, a vrchat.com avatar link or an `avtr_` id. A name is added as it is. A link or id is looked up on VRChat (avatars.read, one lookup per ten seconds, never retried) and added with the name VRChat gives; when VRChat gives none the id is added alone. Adding what is already listed returns it.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "AddProblemAvatar",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddProblemAvatarRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemAvatarView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/problem-avatars/suggest": {
+      "get": {
+        "tags": [
+          "Problem avatars"
+        ],
+        "summary": "Suggest avatars Modbot has seen",
+        "description": "Up to 8 avatar names, newest first, that people were seen wearing in the last 90 days and that hold the text, leaving out the ones already on the list. Empty for less than 2 characters. Nothing is asked of VRChat.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SuggestProblemAvatars",
+        "parameters": [
+          {
+            "name": "text",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
       }
     },
     "/api/problem-avatars/from-person": {
@@ -42064,6 +42194,20 @@
           }
         }
       },
+      "AddProblemAvatarRequest": {
+        "required": [
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "AgeCheckGroupRole": {
         "required": [
           "id",
@@ -66818,6 +66962,7 @@
         "required": [
           "id",
           "name",
+          "avatarId",
           "addedBy",
           "addedAt"
         ],
@@ -66829,6 +66974,12 @@
           },
           "name": {
             "type": "string"
+          },
+          "avatarId": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "addedBy": {
             "type": "string"
