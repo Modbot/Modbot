@@ -624,10 +624,10 @@ public class CompanionSourceGuardTests
     }
 
     [Fact]
-    public void OnlyTheFourteenDeclaredPlacesMakeOutboundRequests()
+    public void OnlyTheFifteenDeclaredPlacesMakeOutboundRequests()
     {
         // "What does this program send, and where" should have a short, complete answer findable
-        // by somebody who has never seen the codebase. Fourteen files, each with a remarks block
+        // by somebody who has never seen the codebase. Fifteen files, each with a remarks block
         // saying what it sends: one posts observations, one asks the time, one trades a pairing
         // code for a token, one reads the overlay's context, one holds the overlay's live
         // WebSocket open, one backs the client's events up to Modbot Cloud (cloud event backup
@@ -646,7 +646,10 @@ public class CompanionSourceGuardTests
         // whether the owner may send feedback, has the words tidied and saves the feedback they confirmed
         // (HttpFeedbackClient.cs, added 2026-11-18: a GET with no body, one POST of the words per
         // tidy and one POST of the confirmed text per send, to the paired server only, with the device
-        // token, never to Modbot Cloud or GitHub). Nothing else reaches the network.
+        // token, never to Modbot Cloud or GitHub), and one marks a person's avatar as a problem when a
+        // moderator presses Mark avatar on their card (ProblemAvatars.cs, added 2026-11-17: one POST per
+        // press carrying only the person's VRChat id, to the paired server only, with the device token).
+        // Nothing else reaches the network.
         //
         // The ninth is a download and nothing else, and so is the twelfth. The thirteenth and the
         // fourteenth send text and never a sound. Nothing a microphone hears reaches the network
@@ -685,6 +688,7 @@ public class CompanionSourceGuardTests
                 "HttpServerTimeProbe.cs",
                 "LiveSocket.cs",
                 "PhraseDownload.cs",
+                "ProblemAvatars.cs",
                 "VoiceDownload.cs",
             ],
             senders);
