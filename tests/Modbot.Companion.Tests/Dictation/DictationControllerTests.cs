@@ -153,6 +153,69 @@ public class DictationControllerTests
     }
 
     [Fact]
+    public async Task AQuietRecordingIsRaisedBeforeTheSpeechModelHearsIt()
+    {
+        var rig = new Rig { Recorder = { Heard = Enumerable.Repeat(0.05f, 16_000).ToArray() }, Recognizer = { Says = "hello" } };
+
+        await rig.StartListening();
+        rig.Controller.Toggle();
+        await rig.Controller.WhenSettled;
+
+        Assert.Equal(0.9f, rig.Recognizer.Received!.Max(), 3);
+    }
+
+    [Fact]
+    public void LoudenedRaisesAQuietRecordingToAPeakOfAboutNineTenths()
+    {
+        float[] quiet = [0.05f, -0.1f, 0.02f];
+
+        var raised = DictationController.Loudened(quiet, out var gain);
+
+        Assert.Equal(9f, gain, 3);
+        Assert.Equal([0.45f, -0.9f, 0.18f], raised, new FloatComparer());
+        Assert.Equal([0.05f, -0.1f, 0.02f], quiet);
+    }
+
+    [Fact]
+    public void LoudenedLeavesALoudRecordingAsItWas()
+    {
+        float[] loud = [0.5f, -0.95f, 0.2f];
+
+        var raised = DictationController.Loudened(loud, out var gain);
+
+        Assert.Equal(1f, gain);
+        Assert.Equal(loud, raised);
+        Assert.NotSame(loud, raised);
+    }
+
+    [Fact]
+    public void LoudenedNeverRaisesMoreThanTwentyTimes()
+    {
+        float[] faint = [0.01f, -0.02f];
+
+        var raised = DictationController.Loudened(faint, out var gain);
+
+        Assert.Equal(DictationController.MostRaised, gain);
+        Assert.Equal(-0.4f, raised[1], 3);
+    }
+
+    [Fact]
+    public void LoudenedLeavesSilenceAsItWas()
+    {
+        var raised = DictationController.Loudened(Silence, out var gain);
+
+        Assert.Equal(1f, gain);
+        Assert.All(raised, sample => Assert.Equal(0f, sample));
+    }
+
+    private sealed class FloatComparer : IEqualityComparer<float>
+    {
+        public bool Equals(float x, float y) => Math.Abs(x - y) < 0.001f;
+
+        public int GetHashCode(float value) => 0;
+    }
+
+    [Fact]
     public async Task ASendThatFailsLeavesTheNoticeCouldNotSendAndGoesBackToIdle()
     {
         var rig = new Rig { Recorder = { Heard = Speech }, Recognizer = { Says = "hello" } };
@@ -538,9 +601,12 @@ public class DictationControllerTests
 
         public int Calls { get; private set; }
 
+        public float[]? Received { get; private set; }
+
         public string Recognize(float[] samples)
         {
             Calls++;
+            Received = samples;
             Hold?.Task.GetAwaiter().GetResult();
 
             if (Throws is not null)

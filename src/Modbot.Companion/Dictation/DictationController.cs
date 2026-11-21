@@ -569,7 +569,11 @@ public sealed class DictationController
         {
             try
             {
-                text = _recognizer.Recognize(samples).Trim();
+                var louder = Loudened(samples, out var gain);
+                text = _recognizer.Recognize(louder).Trim();
+
+                if (text.Length == 0)
+                    _log($"no words came back from {samples.Length / (double)SamplesPerSecond:0.0} seconds of sound ({Describe(samples)}, raised x{gain:0})", null);
             }
             catch (Exception ex)
             {
@@ -601,6 +605,55 @@ public sealed class DictationController
     }
 
     private static int WordCount(string text) => text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+
+    /// <summary>The loudest a recording is raised to, as a share of the loudest a microphone can hear.</summary>
+    public const float RaisedPeak = 0.9f;
+
+    /// <summary>The most a recording is ever raised by, so a faint hiss is not blown up into noise.</summary>
+    public const float MostRaised = 20f;
+
+    /// <summary>
+    /// A copy of the recording raised so its loudest moment is about <see cref="RaisedPeak"/>, which
+    /// the speech model copes with better than a quiet one. Never lowered, never past
+    /// <see cref="MostRaised"/> times, and never loud enough to clip. <paramref name="gain"/> is the
+    /// factor used (1 when nothing was raised).
+    /// </summary>
+    public static float[] Loudened(float[] samples, out float gain)
+    {
+        var peak = 0f;
+
+        foreach (var sample in samples)
+            peak = Math.Max(peak, Math.Abs(sample));
+
+        gain = peak > 0 ? Math.Clamp(RaisedPeak / peak, 1f, MostRaised) : 1f;
+
+        var raised = new float[samples.Length];
+
+        for (var i = 0; i < samples.Length; i++)
+            raised[i] = samples[i] * gain;
+
+        return raised;
+    }
+
+    /// <summary>The loudest moment and the average loudness of a recording, in dB below the loudest a microphone can hear.</summary>
+    private static string Describe(float[] samples)
+    {
+        var peak = 0.0;
+        var squares = 0.0;
+
+        foreach (var sample in samples)
+        {
+            peak = Math.Max(peak, Math.Abs(sample));
+            squares += (double)sample * sample;
+        }
+
+        var average = samples.Length > 0 ? Math.Sqrt(squares / samples.Length) : 0;
+
+        return $"peak {Decibels(peak)} dB, average {Decibels(average)} dB";
+    }
+
+    private static string Decibels(double level) =>
+        (20 * Math.Log10(level)).ToString("0", System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>Whether nothing in the recording was loud enough to be speech.</summary>
     public static bool IsQuiet(float[] samples)
