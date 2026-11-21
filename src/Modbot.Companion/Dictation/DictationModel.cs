@@ -8,11 +8,14 @@ namespace Modbot.Companion.Dictation;
 /// SHA-256 it must have, so that a file that is not exactly this one is never loaded.
 /// </summary>
 /// <remarks>
-/// <para><strong>Why this one.</strong> Moonshine tiny, English only, 8-bit. It is the smallest
-/// model that writes ordinary speech out well enough to be worth sending, about 108 megabytes
-/// downloaded, and it runs on the processor, so it needs no graphics card. It is made by Useful
-/// Sensors under the MIT licence and packaged for the same engine (sherpa-onnx) that listens for a
-/// phrase, so no second engine is added to the client.</para>
+/// <para><strong>Why this one.</strong> Moonshine base, English only, 8-bit, about 251 megabytes
+/// downloaded. It was Moonshine tiny (about 108 megabytes) until 2026-11-20, when the companion's
+/// log showed tiny writing nothing for five fast, short recordings of 3 to 5 seconds at normal
+/// loudness ("no words came back", peak -11 dB). Base is the next size up in the same family, so it
+/// is a drop-in swap for the same engine. It runs on the processor, so it needs no graphics card. It
+/// is made by Useful Sensors under the MIT licence and packaged for the same engine (sherpa-onnx)
+/// that listens for a phrase, so no second engine is added to the client. Once it is unpacked the
+/// older model's folder is deleted (<see cref="DictationDownload.RemoveOldModels"/>).</para>
 /// <para><strong>Where it lives.</strong> <c>%APPDATA%\Modbot\dictation</c>, downloaded once, the
 /// first time somebody taps Dictate (<see cref="DictationDownload"/>). Nothing is fetched at any
 /// other time.</para>
@@ -54,11 +57,11 @@ public sealed record DictationModel(
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
     public static DictationModel Default { get; } = new(
-        "sherpa-onnx-moonshine-tiny-en-int8",
-        new Uri("https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-moonshine-tiny-en-int8.tar.bz2"),
-        "d5fe6ec4334fef36255b2a4010412cad4c007e33103fec62fb5d17cad88086f2",
-        107_600_538,
-        "sherpa-onnx-moonshine-tiny-en-int8",
+        "sherpa-onnx-moonshine-base-en-int8",
+        new Uri("https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-moonshine-base-en-int8.tar.bz2"),
+        "21870cecaa2e44e4e2bf63e02d1072bed183ccd10284871353bd9d24dad14e5e",
+        250_807_309,
+        "sherpa-onnx-moonshine-base-en-int8",
         16_000);
 
     /// <summary>The files kept out of the archive, and nothing else.</summary>

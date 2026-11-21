@@ -110,11 +110,11 @@ release on GitHub — and checked against a pinned SHA-256 before it is used
 (`src/Modbot.Companion/Dictation/DictationModel.cs`):
 
 ```
-https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-moonshine-tiny-en-int8.tar.bz2
-107,600,538 bytes, SHA-256 d5fe6ec4334fef36255b2a4010412cad4c007e33103fec62fb5d17cad88086f2
+https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-moonshine-base-en-int8.tar.bz2
+250,807,309 bytes, SHA-256 21870cecaa2e44e4e2bf63e02d1072bed183ccd10284871353bd9d24dad14e5e
 ```
 
-That archive holds **Moonshine tiny**, English, 8-bit, made by Useful Sensors (**MIT**, from
+That archive holds **Moonshine base**, English, 8-bit, made by Useful Sensors (**MIT**, from
 <https://github.com/usefulsensors/moonshine>). Five files from it sit in `%APPDATA%\Modbot\dictation`
 on the moderator's PC and are never redistributed by Modbot.
 

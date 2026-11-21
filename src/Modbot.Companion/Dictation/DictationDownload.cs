@@ -4,8 +4,12 @@ using ICSharpCode.SharpZipLib.BZip2;
 
 namespace Modbot.Companion.Dictation;
 
-/// <summary>How a download ended: ready, or a sentence saying why not.</summary>
-public sealed record DictationDownloadResult(bool Ready, string? Problem = null)
+/// <summary>
+/// How a download ended: ready, or a sentence saying why not. <paramref name="RemovedOldModels"/> is
+/// the names of the older speech models taken off the disk once the new one was in place.
+/// </summary>
+public sealed record DictationDownloadResult(
+    bool Ready, string? Problem = null, IReadOnlyList<string>? RemovedOldModels = null)
 {
     public static DictationDownloadResult Done { get; } = new(true);
 }
@@ -80,9 +84,10 @@ public sealed class DictationDownload
                 Directory.Delete(folder, recursive: true);
 
             Directory.Move(unpacking, folder);
+            var removed = RemoveOldModels(model, dictationFolder);
             progress?.Report(1.0);
 
-            return DictationDownloadResult.Done;
+            return new DictationDownloadResult(true, RemovedOldModels: removed);
         }
         catch (OperationCanceledException)
         {
@@ -96,6 +101,49 @@ public sealed class DictationDownload
         {
             TryDelete(archive);
         }
+    }
+
+    /// <summary>
+    /// Takes away the folders of older speech models, now that the pinned one is on the disk, and
+    /// answers with their names. Only a folder named like a sherpa-onnx Moonshine model, and not
+    /// the pinned one, is touched; nothing else in the dictation folder is.
+    /// </summary>
+    /// <remarks>
+    /// A folder that will not delete (open in a window, held by a virus scanner) is left alone; the
+    /// pinned model works either way. A link is never followed.
+    /// </remarks>
+    public static IReadOnlyList<string> RemoveOldModels(DictationModel model, string dictationFolder)
+    {
+        var removed = new List<string>();
+
+        try
+        {
+            foreach (var folder in Directory.EnumerateDirectories(dictationFolder, "sherpa-onnx-moonshine-*"))
+            {
+                var name = Path.GetFileName(folder);
+                if (string.Equals(name, model.Name, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                try
+                {
+                    if (new DirectoryInfo(folder).Attributes.HasFlag(FileAttributes.ReparsePoint))
+                        continue;
+
+                    Directory.Delete(folder, recursive: true);
+                    removed.Add(name);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // Left for next time.
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+        {
+            // The folder is unreadable; there is nothing to tidy.
+        }
+
+        return removed;
     }
 
     /// <summary>

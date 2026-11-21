@@ -17,6 +17,18 @@ public class DictationModelTests
     }
 
     [Fact]
+    public void IsMoonshineBaseWithTheMeasuredSizeAndHash()
+    {
+        Assert.Equal("sherpa-onnx-moonshine-base-en-int8", Model.Name);
+        Assert.Equal("sherpa-onnx-moonshine-base-en-int8", Model.ArchiveFolder);
+        Assert.Equal(
+            "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-moonshine-base-en-int8.tar.bz2",
+            Model.Url.ToString());
+        Assert.Equal(250_807_309, Model.Size);
+        Assert.Equal("21870cecaa2e44e4e2bf63e02d1072bed183ccd10284871353bd9d24dad14e5e", Model.Sha256);
+    }
+
+    [Fact]
     public void KeepsTheFiveFilesTheEngineNeedsAndNothingElse()
     {
         Assert.Equal(

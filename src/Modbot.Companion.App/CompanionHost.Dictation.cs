@@ -285,6 +285,10 @@ internal sealed partial class CompanionHost
         if (result.Ready)
         {
             Log.Information("The speech model for Dictate is ready");
+
+            if (result.RemovedOldModels is { Count: > 0 } removed)
+                Log.Information("Removed the old speech model {Names} from the dictation folder", string.Join(", ", removed));
+
             return null;
         }
 
