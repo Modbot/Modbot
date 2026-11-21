@@ -2234,17 +2234,14 @@ public sealed partial class OverlayView
     /// <param name="shared">The Talk icons are on the same row, so the bar takes the room they leave and a long caption wraps.</param>
     private Control SaveClipBar(ClipButton clip, bool shared = false)
     {
-        var label = Text(
-            clip.Caption ?? string.Empty,
-            T.Density.TextBase,
-            clip.State switch
-            {
-                ClipButtonState.Saved => T.OkBrush,
-                ClipButtonState.NotSaved => T.DangerBrush,
-                ClipButtonState.Stopped => T.TextDimBrush,
-                _ => T.TextBrush,
-            },
-            FontWeight.SemiBold);
+        var captionBrush = clip.State switch
+        {
+            ClipButtonState.Saved => T.OkBrush,
+            ClipButtonState.NotSaved => T.DangerBrush,
+            ClipButtonState.Stopped => T.TextDimBrush,
+            _ => T.TextBrush,
+        };
+        var label = Text(clip.Caption ?? string.Empty, T.Density.TextBase, captionBrush, FontWeight.SemiBold);
         label.VerticalAlignment = VerticalAlignment.Center;
         label.HorizontalAlignment = HorizontalAlignment.Center;
 
@@ -2275,7 +2272,18 @@ public sealed partial class OverlayView
             MinWidth = shared ? 120 : 240,
             MinHeight = T.Density.RowHeight,
             Padding = new Thickness(16, 8),
-            Child = label,
+
+            // The clapperboard goes with the words a press can have: while nothing is being kept the
+            // caption is a reason, and that wraps to two lines without it.
+            Child = clip.CanPress
+                ? new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Children = { ClapperIcon(captionBrush), label },
+                }
+                : label,
         };
     }
 

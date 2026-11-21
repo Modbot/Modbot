@@ -85,7 +85,7 @@ public class TalkRowControlTests
     [Fact]
     public void TheIconsSitOnTheSameRowAsSaveAClip()
     {
-        var screen = Screen(Showing) with { Clips = new ClipButton(ClipButtonState.Ready, "Save a clip", CanPress: true) };
+        var screen = Screen(Showing) with { Clips = new ClipButton(ClipButtonState.Ready, "Clip", CanPress: true) };
         var targets = Targets(screen);
 
         var save = Assert.Single(targets, t => t.Target is OverlayTarget.SaveClip);
@@ -109,6 +109,38 @@ public class TalkRowControlTests
         var drawn = AvaloniaTestHost.Run(() => OverlayTargets.Drawn(LaidOut(Screen(Showing)), gap));
 
         Assert.True(drawn);
+    }
+
+    [Theory]
+    [InlineData(TalkSide.Discord)]
+    [InlineData(TalkSide.VRChat)]
+    [InlineData(TalkSide.Neither)]
+    public void TheSwapButtonShowsALogoOrArrowsAndNoLetter(TalkSide side)
+    {
+        var (words, filled) = AvaloniaTestHost.Run(() =>
+        {
+            var swap = LaidOut(Screen(new TalkRow(true, side, false, false, null)))
+                .GetVisualDescendants().OfType<Border>().Single(b => b.Tag is OverlayTarget.Talk { Button: TalkButton.Swap });
+            return (
+                swap.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList(),
+                swap.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().Any(p => p.Fill is not null));
+        });
+
+        Assert.Empty(words);
+
+        // A solid mark on a side; the two arrows, which are lines, when on neither.
+        Assert.Equal(side is not TalkSide.Neither, filled);
+    }
+
+    [Fact]
+    public void TheDiscordAndVRChatLogosAreDifferentMarks()
+    {
+        var shapes = new[] { TalkSide.Discord, TalkSide.VRChat }.Select(side => AvaloniaTestHost.Run(() =>
+            LaidOut(Screen(new TalkRow(true, side, false, false, null)))
+                .GetVisualDescendants().OfType<Border>().Single(b => b.Tag is OverlayTarget.Talk { Button: TalkButton.Swap })
+                .GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().Single().Data!.Bounds)).ToList();
+
+        Assert.NotEqual(shapes[0], shapes[1]);
     }
 
     [Fact]

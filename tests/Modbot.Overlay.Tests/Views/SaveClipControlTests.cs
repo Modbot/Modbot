@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.VisualTree;
 using Modbot.Companion.Clips;
 using Modbot.Companion.Overlay;
 using Modbot.Overlay.Interaction;
@@ -33,7 +34,7 @@ public class SaveClipControlTests
         Page: page,
         Clips: clips);
 
-    private static ClipButton Ready => new(ClipButtonState.Ready, "Save a clip", CanPress: true);
+    private static ClipButton Ready => new(ClipButtonState.Ready, "Clip", CanPress: true);
 
     private static ClipButton Stopped => new(ClipButtonState.Stopped, "Waiting for VRChat", CanPress: false);
 
@@ -92,6 +93,30 @@ public class SaveClipControlTests
         var placed = Assert.Single(Targets(Screen(Ready)), t => t.Target is OverlayTarget.SaveClip);
 
         Assert.True(placed.Bounds.Top < Height / 3.0, $"Too far down the panel: {placed.Bounds.Top}");
+    }
+
+    [Fact]
+    public void ItSaysClipBesideAClapperboardIcon()
+    {
+        var (words, icons) = AvaloniaTestHost.Run(() =>
+        {
+            var save = LaidOut(Screen(Ready)).GetVisualDescendants().OfType<Border>().Single(b => b.Tag is OverlayTarget.SaveClip);
+            return (
+                save.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList(),
+                save.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().Count());
+        });
+
+        Assert.Equal(["Clip"], words);
+        Assert.True(icons > 0, "No icon beside the word.");
+    }
+
+    [Fact]
+    public void WhileNothingIsBeingKeptThereIsNoIconToGetInTheWayOfTheReason()
+    {
+        int Icons(ClipButton clips) => AvaloniaTestHost.Run(() => LaidOut(Screen(clips)).GetVisualDescendants()
+            .OfType<Avalonia.Controls.Shapes.Path>().Count());
+
+        Assert.Equal(Icons(default), Icons(Stopped));
     }
 
     [Fact]

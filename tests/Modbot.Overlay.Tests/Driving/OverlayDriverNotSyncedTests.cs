@@ -563,7 +563,7 @@ public class OverlayDriverNotSyncedTests
     public async Task SaveAClipTravelsWithTheNotSyncedScreen()
     {
         var (driver, presenter, _, _) = Build();
-        driver.Clips = new Modbot.Companion.Clips.ClipButton(Modbot.Companion.Clips.ClipButtonState.Ready, "Save a clip", CanPress: true);
+        driver.Clips = new Modbot.Companion.Clips.ClipButton(Modbot.Companion.Clips.ClipButtonState.Ready, "Clip", CanPress: true);
         driver.EnteredInstance(Location());
 
         await driver.TickAsync(TestContext.Current.CancellationToken);

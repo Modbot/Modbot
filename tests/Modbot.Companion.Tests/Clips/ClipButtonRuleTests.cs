@@ -42,7 +42,7 @@ public class ClipButtonRuleTests
         var button = ClipButtonRule.For(Status(ClipRecordingState.Recording), Now);
 
         Assert.Equal(ClipButtonState.Ready, button.State);
-        Assert.Equal("Save a clip", button.Caption);
+        Assert.Equal("Clip", button.Caption);
         Assert.True(button.CanPress);
     }
 

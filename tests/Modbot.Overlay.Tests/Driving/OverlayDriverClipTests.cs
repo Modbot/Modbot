@@ -75,7 +75,7 @@ public class OverlayDriverClipTests
         var (driver, _) = Build();
         var asked = 0;
         driver.SaveClipAsked += () => asked++;
-        driver.Clips = new ClipButton(ClipButtonState.Ready, "Save a clip", CanPress: true);
+        driver.Clips = new ClipButton(ClipButtonState.Ready, "Clip", CanPress: true);
 
         driver.Tap(new OverlayTarget.SaveClip());
 
@@ -114,7 +114,7 @@ public class OverlayDriverClipTests
     {
         // It is not a screen change: the person's card stays open, the roster stays where it was.
         var (driver, _) = Build();
-        driver.Clips = new ClipButton(ClipButtonState.Ready, "Save a clip", CanPress: true);
+        driver.Clips = new ClipButton(ClipButtonState.Ready, "Clip", CanPress: true);
         driver.GoTo(OverlayPage.Events);
 
         driver.Tap(new OverlayTarget.SaveClip());
@@ -140,7 +140,7 @@ public class OverlayDriverClipTests
         // The recorder runs wherever VRChat does, so a moment worth keeping can happen in a public
         // instance. The panel still says nothing else there.
         var (driver, presenter) = Build(inAGroupInstance: false);
-        driver.Clips = new ClipButton(ClipButtonState.Ready, "Save a clip", CanPress: true);
+        driver.Clips = new ClipButton(ClipButtonState.Ready, "Clip", CanPress: true);
 
         await driver.TickAsync(TestContext.Current.CancellationToken);
 
@@ -152,8 +152,8 @@ public class OverlayDriverClipTests
     public void AChangedSaveControlMakesThePanelRedraw()
     {
         // The confirmation is the point. A screen comparison that ignored it would leave the panel
-        // showing "Save a clip" after the file landed.
-        var before = OverlayScreen.Idle with { Clips = new ClipButton(ClipButtonState.Ready, "Save a clip", true) };
+        // showing "Clip" after the file landed.
+        var before = OverlayScreen.Idle with { Clips = new ClipButton(ClipButtonState.Ready, "Clip", true) };
         var after = OverlayScreen.Idle with { Clips = new ClipButton(ClipButtonState.Saved, "Clip saved", true) };
 
         Assert.False(before.LooksTheSameAs(after));

@@ -75,7 +75,7 @@ public static class ClipButtonRule
                 : new ClipButton(ClipButtonState.NotSaved, "Clip not saved", true);
         }
 
-        return new ClipButton(ClipButtonState.Ready, "Save a clip", true);
+        return new ClipButton(ClipButtonState.Ready, "Clip", true);
     }
 
     /// <summary>The same words the Clips card on the settings screen uses, so one thing has one name.</summary>
