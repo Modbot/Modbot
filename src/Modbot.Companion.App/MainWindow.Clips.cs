@@ -61,11 +61,14 @@ public sealed partial class MainWindow
             Height = 16,
             VerticalAlignment = VerticalAlignment.Center,
         };
+        // The label is already the button's child; let go of it before it joins the row.
+        var label = (Control)button.Content!;
+        button.Content = null;
         button.Content = new StackPanel
         {
             Orientation = Orientation.Horizontal,
             Spacing = 6,
-            Children = { icon, (Control)button.Content! },
+            Children = { icon, label },
         };
         AutomationProperties.SetName(button, "Clip");
         return button;
