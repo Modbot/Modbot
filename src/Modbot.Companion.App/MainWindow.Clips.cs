@@ -1,5 +1,7 @@
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using Avalonia.Media;
 using Modbot.Companion.Clips;
 
 namespace Modbot.Companion.App;
@@ -36,9 +38,38 @@ public sealed partial class MainWindow
     private readonly TextBox _clipsFolderBox = Ui.Input();
     private readonly Button _clipsFolderSave = Ui.Button("Save");
     private readonly Button _clipsFolderReset = Ui.Button("Use the usual folder");
-    private readonly Button _clipsSave = Ui.Button("Save a clip", primary: true);
+    private readonly Button _clipsSave = ClipsSaveButton();
     private readonly TextBlock _clipsLine = Ui.Faint("");
     private readonly TextBlock _clipsProblem = Ui.Faint("");
+
+    /// <summary>The card's save button: an open clapperboard, then <strong>Clip</strong>.</summary>
+    private static Button ClipsSaveButton()
+    {
+        var button = Ui.Button("Clip", primary: true);
+        var icon = new Avalonia.Controls.Shapes.Path
+        {
+            // Lucide's clapperboard: the striped arm lifted off the board.
+            Data = Geometry.Parse(
+                "M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z " +
+                "M6.2 5.3l3.1 3.9 M12.4 3.4l3.1 4 M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"),
+            Stroke = Ui.T.AccentForegroundBrush,
+            StrokeThickness = 1.6,
+            StrokeLineCap = PenLineCap.Round,
+            StrokeJoin = PenLineJoin.Round,
+            Stretch = Stretch.Uniform,
+            Width = 16,
+            Height = 16,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        button.Content = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 6,
+            Children = { icon, (Control)button.Content! },
+        };
+        AutomationProperties.SetName(button, "Clip");
+        return button;
+    }
 
     /// <summary>Wires the Clips card. Called once, from the constructor.</summary>
     private void SetUpClips()
