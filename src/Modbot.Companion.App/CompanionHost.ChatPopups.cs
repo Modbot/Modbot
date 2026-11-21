@@ -1,5 +1,6 @@
 using Avalonia.Threading;
 using Modbot.Companion.Chat;
+using Modbot.Companion.Dictation;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Presentation;
 using Modbot.Overlay;
@@ -39,6 +40,12 @@ internal sealed partial class CompanionHost
 
         /// <summary>Lets go of what the window listens to on the overlay.</summary>
         public Action? Unhook { get; set; }
+
+        /// <summary>This chat's own text box and microphone, tied to this chat's conversation only.</summary>
+        public ChatInput? Input { get; set; }
+
+        /// <summary>Redraws the chat ten times a second while its microphone listens, so the level follows the voice.</summary>
+        public DispatcherTimer? Level { get; set; }
     }
 
     private ChatPopups? _chatPopups;
@@ -61,6 +68,29 @@ internal sealed partial class CompanionHost
         _chatPanels.Add(popup, panels);
         RebuildChatPanelList();
 
+        // Its own microphone button on the shared microphone; the words it hears and the words typed
+        // here go into this chat's conversation and no other.
+        var controller = MakeSpeechController($"Chat {number}");
+        var level = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+        panels.Level = level;
+        panels.Input = new ChatInput(controller, popup.Session);
+
+        controller.Changed += () => Dispatcher.UIThread.Post(() =>
+        {
+            if (controller.State is DictationState.Listening && _chatPanels.ContainsKey(popup))
+                level.Start();
+
+            ShowChat(popup);
+        });
+
+        level.Tick += (_, _) =>
+        {
+            if (controller.State is not DictationState.Listening)
+                level.Stop();
+
+            ShowChat(popup);
+        };
+
         if (_overlayHost is not null)
         {
             var host = ChatHost.Create(number, placement: number == 1 ? settings.OverlayChatSpot : null);
@@ -74,6 +104,7 @@ internal sealed partial class CompanionHost
 
             // The X ends this conversation and no other.
             host.Closed += () => ClosePopup(popup);
+            host.MicTapped += () => ToggleChatMic(panels);
         }
 
         if (_desktopOverlay is { } overlay)
@@ -94,6 +125,8 @@ internal sealed partial class CompanionHost
 
             window.SwitchPressed += SetDesktopOverlay;
             window.CloseTapped += () => ClosePopup(popup);
+            window.MicTapped += () => ToggleChatMic(panels);
+            window.TextSent += text => _ = CrashGuard.RunAsync("asking AI Chat", () => panels.Input!.SendAsync(text));
 
             if (number == 1)
                 window.SpotChanged += DesktopChatSpotChanged;
@@ -129,6 +162,8 @@ internal sealed partial class CompanionHost
         RebuildChatPanelList();
 
         panels.Unhook?.Invoke();
+        panels.Level?.Stop();
+        panels.Input?.Dictation.Abandon();
         panels.Host?.Dispose();
 
         if (panels.Window is { } window)
@@ -137,6 +172,17 @@ internal sealed partial class CompanionHost
             window.Close();
         }
     }
+
+    /// <summary>A tap on one chat's microphone, only while Dictate would be offered.</summary>
+    private void ToggleChatMic(ChatPanels panels)
+    {
+        if (DictateAvailable)
+            panels.Input?.Dictation.Toggle();
+    }
+
+    /// <summary>What a chat's panels draw: its conversation, and its own microphone button while chat is on.</summary>
+    private ChatScreen ScreenFor(ChatPanels panels)
+        => new(panels.Popup.Session.Lines, DictateAvailable && panels.Input is { } input ? ChatMicScreen.Of(input.Dictation) : null);
 
     /// <summary>
     /// Attaches a chat's panel once the headset panel is up, and again after a VR runtime that closed
@@ -207,13 +253,23 @@ internal sealed partial class CompanionHost
             return;
         }
 
+        // Dictate's button says Sending until this first answer begins, or says why it could not. Only
+        // this first message is Dictate's; what is asked in the chat afterwards is the chat's own.
+        Action<string?>? firstAnswer = null;
+        firstAnswer = problem =>
+        {
+            session.AnswerStarted -= firstAnswer;
+            _dictation?.SendEnded(problem);
+        };
+        session.AnswerStarted += firstAnswer;
+
         // The words go onto the conversation at once (the first part of asking runs here), so the panel
         // opens already showing them and the waiting line under them.
         _ = CrashGuard.RunAsync("asking AI Chat", () => session.AskAsync(text));
 
         try
         {
-            var screen = new ChatScreen(session.Lines);
+            var screen = ScreenFor(panels);
             panels.Host?.Show(screen);
             panels.Window?.Show(screen);
         }
@@ -229,7 +285,7 @@ internal sealed partial class CompanionHost
         if (_chatPopups?.Find(popup.Number) != popup || !_chatPanels.TryGetValue(popup, out var panels))
             return;
 
-        var screen = new ChatScreen(popup.Session.Lines);
+        var screen = ScreenFor(panels);
 
         if (panels.Host is { Hidden: false } host)
             host.Update(screen);

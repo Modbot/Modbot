@@ -280,6 +280,9 @@ public sealed class ChatHost : IDisposable
     /// <summary>Raised when the X is tapped. The panel has already put itself away by then.</summary>
     public event Action? Closed;
 
+    /// <summary>Raised when the chat's own microphone button is tapped.</summary>
+    public event Action? MicTapped;
+
     /// <summary>Puts the panel where the settings say. UI thread only.</summary>
     public void Place(OverlayPlacement placement)
     {
@@ -372,7 +375,7 @@ public sealed class ChatHost : IDisposable
         }
 
         var scrolled = ScrollLog(result, now);
-        _frame = _drawn.IsTyping ? (int)(now.TotalMilliseconds / ChatView.FrameMilliseconds) % ChatView.Frames : 0;
+        _frame = _drawn.Moves ? (int)(now.TotalMilliseconds / ChatView.FrameMilliseconds) % ChatView.Frames : 0;
 
         foreach (var click in result.Clicks)
         {
@@ -383,6 +386,9 @@ public sealed class ChatHost : IDisposable
                     break;
                 case OverlayTarget.ClickThrough when EditMode:
                     Switch(Placement with { ClickThrough = !Placement.ClickThrough });
+                    break;
+                case OverlayTarget.ChatMic:
+                    MicTapped?.Invoke();
                     break;
                 case OverlayTarget.CloseChat:
                     Hide();
@@ -619,7 +625,8 @@ public sealed class ChatHost : IDisposable
             _cursor,
             DesignPixels,
             placement.Wide,
-            placement.Tall);
+            placement.Tall,
+            ChatView.Foot(_drawn, _frame, _look));
         var fit = Height / (DesignPixels * placement.Longest);
         if (Math.Abs(fit - 1) > 1e-6)
             root = new Zoom(fit, root);

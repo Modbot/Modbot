@@ -88,15 +88,8 @@ internal sealed partial class CompanionHost
 
         _chatAvailability = new ChatAvailability(client, () => _chatPairing);
 
-        // Every pop-up chat gets a conversation of its own. The button says Sending until the answer
-        // begins, or says why it could not.
-        _chatPopups = new ChatPopups(() =>
-        {
-            var session = new ChatSession(client, () => _chatPairing, LogDictation);
-            session.AnswerStarted += problem => _dictation?.SendEnded(problem);
-
-            return session;
-        });
+        // Every pop-up chat gets a conversation of its own.
+        _chatPopups = new ChatPopups(() => new ChatSession(client, () => _chatPairing, LogDictation));
         _chatPopups.Closed += ChatPopupClosed;
 
         // It can change on a worker thread, so what it draws is handed to the window's thread.
@@ -133,9 +126,18 @@ internal sealed partial class CompanionHost
     {
         // Dictating while the button goes away would still send what was said.
         if (!DictateAvailable)
+        {
             _dictation?.Abandon();
 
+            foreach (var panels in _chatPanelList)
+                panels.Input?.Dictation.Abandon();
+        }
+
         ShowButton();
+
+        // The chats' microphone buttons come and go with it.
+        foreach (var panels in _chatPanelList)
+            ShowChat(panels.Popup);
     }
 
     /// <summary>Stops asking, and closes every pop-up chat.</summary>
@@ -161,19 +163,25 @@ internal sealed partial class CompanionHost
         => _dictationListening ??= new DictationListening(
             DictationModel.Default, DictationModel.DictationFolder(_directory), DictationMicrophone, LogDictation);
 
-    private DictationController MakeDictation()
+    /// <summary>A button's own controller on the shared microphone, taking its turn under <paramref name="turnName"/>.</summary>
+    private DictationController MakeSpeechController(string turnName)
     {
         var model = DictationModel.Default;
         var folder = DictationModel.DictationFolder(_directory);
 
         var listening = SpeechListening();
 
-        var controller = new DictationController(
-            _microphoneTurns.Wrap(listening, "Dictate"),
+        return new DictationController(
+            _microphoneTurns.Wrap(listening, turnName),
             listening,
             () => model.IsPresent(folder),
             progress => PrepareSpeechModel(model, folder, progress),
             LogDictation);
+    }
+
+    private DictationController MakeDictation()
+    {
+        var controller = MakeSpeechController("Dictate");
 
         // The button follows the controller. It can change on a worker thread, so the redraw is
         // handed to the window's thread. The text it finishes with goes to the chat panel.
