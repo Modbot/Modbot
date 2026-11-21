@@ -1,6 +1,6 @@
 ---
 title: Dictate
-description: Speak a question to AI Chat from the headset panel or the desktop overlay. Your words are written out on your PC, sent to AI Chat, and the answer shows in a Chat panel. Your voice is never saved or sent.
+description: Speak a question to AI Chat from the headset panel or the desktop overlay. Every press opens a new chat of its own. Your words are written out on your PC, sent to AI Chat, and the answer shows in that chat. Your voice is never saved or sent.
 ---
 
 In a headset you have no keyboard. **Dictate** lets you ask [AI Chat](/ai/chat) out loud instead of
@@ -14,27 +14,30 @@ monitor it works the same way from the [desktop overlay](#on-the-desktop).
 2. Say your question.
 3. Tap the button again. It reads **Writing** while your words are written out as text, then
    **Sending** while they go to AI Chat.
-4. The **Chat** panel opens as soon as your words are sent. It shows them with **Waiting for an
+4. A new **Chat** opens as soon as your words are sent. It shows them with **Waiting for an
    answer** under them, and the answer appears there as it is written. The button goes back to
    **Dictate**.
 
-To ask a follow-up, tap **Dictate** again. The new question goes into the same conversation.
+**Every press of Dictate opens a new chat**, with a conversation of its own. Chats you opened
+earlier stay where they are, and there is no limit to how many are open. To ask a follow-up in a
+chat you already have, use that chat's own microphone or, on a monitor, its text box (see
+[Chats](#chats)).
 
-The conversation is the same one you see on the website's [Chat page](/ai/chat), so you can carry on
-there with a keyboard, or read it again later.
+Each conversation is the same kind you see on the website's [Chat page](/ai/chat), so you can carry
+on there with a keyboard, or read it again later.
 
 If nothing was said, or nothing could be made out, nothing is sent and the button says **Nothing heard**
 for a few seconds, then goes back to **Dictate**.
 
 When something fails the button says so for a few seconds: **Could not listen**, **Could not write**,
-**Could not get ready** or **Could not send**. A failed send also shows its reason in the Chat panel.
+**Could not get ready** or **Could not send**. A failed send also shows its reason in its chat.
 
 ## On the desktop
 
 The [desktop overlay](/companion/settings#desktop-overlay) has a **Dictate** button in the strip along
 its top, next to **Close**. It works the way the headset button does: click it, say your question,
 click it again. The button shows the same words, **Listening**, **Writing**, **Sending**, and the same
-bars. The answer shows in a Chat window.
+bars. The answer shows in a new chat window.
 
 You can also start and stop Dictate with a key, which is useful while VRChat has the keyboard. The
 key is set in the app's **Settings**, on the **Desktop overlay** card, in the **Dictate** row: press
@@ -50,27 +53,45 @@ The **Dictate** button, on the headset panel and on the desktop overlay, only sh
 - You are allowed to use it: your role has **Use AI chat**
   ([roles and permissions](/accounts/roles-and-permissions#use-ai-chat)).
 
-If either stops being true, the button goes away. The companion checks when it starts, every five
+If either stops being true, the button goes away, and so does the microphone in each open chat. The companion checks when it starts, every five
 minutes, and when you pair it with a different server.
 
-## The Chat panel
+## Chats
 
-The answer shows in its own panel, in your headset or in a window on your monitor. It is held the
-same way as the other panels:
+Each chat is its own panel, in your headset or in a window on your monitor, and each has its own
+microphone:
+
+- In the headset a chat has a microphone and no text box. Tap its microphone, say your words, tap it
+  again. To type, use the same chat's window on your monitor, which is there while the
+  [desktop overlay](#on-the-desktop) is on.
+- On a monitor a chat has a text box and a microphone. Type and press Enter, or use the microphone.
+- What you say or type in a chat goes into that chat's conversation and no other.
+
+Each chat is held the same way as the other panels:
 
 - **Lock** stops it being picked up, moved or resized.
 - **Hand** makes it click-through, so pointing and clicking go to VRChat behind it.
 - You can pick it up and move it, and drag its corner to make it bigger or smaller.
-- The **X** closes it.
+- The **X** closes that chat and ends its conversation. The others stay.
 
-In the headset, where you put it is remembered, and two quick grips send it back to its own spot. See
+Every chat keeps its own Lock and Hand in the headset, and where you put it is remembered by its
+number: the first chat opened is number 1, and when one is closed its number is used again by the
+next. A chat opens where its number was last left. A number nobody has moved a chat in opens a step
+to the side and down from the last, so chats do not sit on top of each other. Two quick grips send a
+headset chat back to its own spot. See
 [the bar under the panel](/companion/overlay#the-bar-under-the-panel) for what the buttons do.
 
-On the desktop the Chat panel is its own window. It opens on the screen VRChat is on, in front of it,
-and never off the screen. Drag its top strip to move it and
-its bottom-right corner to resize it. The **Lock** and the **Hand** are in the strip when **Edit mode**
-is on, the same switch as for the other panels. Its place and size are remembered, and the **X**
-closes it until the next time Dictate has an answer to show.
+On the desktop each chat is its own window. It opens on the screen VRChat is on, in front of it, and
+never off the screen. Drag its top strip to move it and its bottom-right corner to resize it. The
+**Lock** and the **Hand** are in the strip when **Edit mode** is on, the same switch as for the other
+panels, and they work for all the chat windows together, as they do for the rest of the desktop
+overlay. Its place and size are remembered by its number, like the headset's.
+
+## Filing feedback
+
+The overlay has no Feedback button. Ask a chat to file it, for example by saying "file feedback: the
+instance list is missing the world name". The chat shows you a draft and files it only after you say
+yes. See [Feedback](/companion/feedback#asking-chat-to-file-it).
 
 ## The first time
 
