@@ -403,6 +403,7 @@ public sealed record OverlayScreen(
                 || left.PictureUrl != right.PictureUrl
                 || left.IsMember != right.IsMember
                 || left.Invitation != right.Invitation
+                || left.CompanionRunning != right.CompanionRunning
                 || !left.Flags.SequenceEqual(right.Flags, StringComparer.Ordinal))
             {
                 return false;

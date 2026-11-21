@@ -60,6 +60,10 @@ public enum Invitation
 /// For somebody who is not a member: whether the group has invited them or they have asked to join.
 /// Null for a member, and from a server too old to say (the row then says only that they are not in the group).
 /// </param>
+/// <param name="CompanionRunning">
+/// Whether their own companion is running now. Null from a server too old to say; the row draws its mark
+/// only for true.
+/// </param>
 public sealed record RosterMember(
     [property: JsonPropertyName("subjectId")] string SubjectId,
     [property: JsonPropertyName("displayName")] string? DisplayName,
@@ -70,7 +74,8 @@ public sealed record RosterMember(
     [property: JsonPropertyName("eighteenPlus")] bool? EighteenPlus = null,
     [property: JsonPropertyName("pictureUrl")] string? PictureUrl = null,
     [property: JsonPropertyName("isMember")] bool? IsMember = null,
-    [property: JsonPropertyName("invitation")] Invitation? Invitation = null);
+    [property: JsonPropertyName("invitation")] Invitation? Invitation = null,
+    [property: JsonPropertyName("companionRunning")] bool? CompanionRunning = null);
 
 /// <summary>
 /// What one server knows about the instance the moderator is standing in.
@@ -112,6 +117,7 @@ public sealed record InstanceContext(
 /// </param>
 /// <param name="AvatarListed">Whether <paramref name="AvatarName"/> is already on the server's problem avatar list.</param>
 /// <param name="Invitation">As <see cref="RosterMember.Invitation"/>: set for somebody who is not a member, null otherwise and from a server too old to say.</param>
+/// <param name="CompanionRunning">As <see cref="RosterMember.CompanionRunning"/>.</param>
 public sealed record UserSummary(
     [property: JsonPropertyName("subjectId")] string SubjectId,
     [property: JsonPropertyName("displayName")] string? DisplayName,
@@ -129,7 +135,8 @@ public sealed record UserSummary(
     [property: JsonPropertyName("watched")] bool? Watched = null,
     [property: JsonPropertyName("avatarName")] string? AvatarName = null,
     [property: JsonPropertyName("avatarListed")] bool? AvatarListed = null,
-    [property: JsonPropertyName("invitation")] Invitation? Invitation = null);
+    [property: JsonPropertyName("invitation")] Invitation? Invitation = null,
+    [property: JsonPropertyName("companionRunning")] bool? CompanionRunning = null);
 
 /// <summary>
 /// The one thing that genuinely needs push: a flagged user just joined this instance.

@@ -182,6 +182,69 @@ public class OverlayReadTests
     }
 
     /// <summary>
+    /// The row says whose own companion is running: a device that is not revoked and was heard from within
+    /// the window. Somebody with no companion, an idle one, a revoked one or a disabled account is not.
+    /// </summary>
+    [Fact]
+    public async Task ARosterSaysWhoseCompanionIsRunning()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var moderator = await host.PairModeratorAsync(ct);
+        var now = host.Clock.UtcNow;
+
+        async Task<ModbotUser> OwnerWithDeviceAsync(DateTimeOffset? lastSeenAt, bool revoked = false, bool disabled = false)
+        {
+            var owner = await host.CreateOwnerAsync(ModbotPermissions.PairCompanion, ct);
+            var (_, deviceId) = await host.PairDeviceToAsync(owner.Id, ct, lastSeenAt: lastSeenAt);
+
+            if (revoked)
+                await host.Devices.RevokeAsync(deviceId, now, ct);
+
+            if (disabled)
+            {
+                await using var database = host.Database;
+                await database.Users.Where(u => u.Id == owner.Id).ExecuteUpdateAsync(u => u.SetProperty(x => x.IsDisabled, true), ct);
+            }
+
+            return owner;
+        }
+
+        // Last heard from just inside the window (a write is up to five minutes old), and just outside it.
+        var running = await OwnerWithDeviceAsync(now - ContextHandler.CompanionRunningWindow + TimeSpan.FromSeconds(30));
+        var idle = await OwnerWithDeviceAsync(now - ContextHandler.CompanionRunningWindow - TimeSpan.FromSeconds(30));
+        var revoked = await OwnerWithDeviceAsync(now - TimeSpan.FromMinutes(1), revoked: true);
+        var disabled = await OwnerWithDeviceAsync(now - TimeSpan.FromMinutes(1), disabled: true);
+
+        await WriteAsync(host,
+            Fact(FactType.InstanceJoined, moderator.VRChatUserId, Noon.AddMinutes(-40), device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, running.VRChatUserId!, Noon.AddMinutes(-30), "Running", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, idle.VRChatUserId!, Noon.AddMinutes(-30), "Idle", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, revoked.VRChatUserId!, Noon.AddMinutes(-30), "Revoked", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, disabled.VRChatUserId!, Noon.AddMinutes(-30), "Disabled", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_nocompanion", Noon.AddMinutes(-30), "Nobody", device: moderator.DeviceId));
+
+        var roster = await GetAsync<InstanceContextDto>(
+            host, token, $"/api/v1/companion/context?instanceId={Instance}", ct);
+
+        bool? RunningOf(string subjectId) => Assert.Single(roster.Members, m => m.SubjectId == subjectId).CompanionRunning;
+
+        Assert.True(RunningOf(running.VRChatUserId!));
+        Assert.False(RunningOf(idle.VRChatUserId!));
+        Assert.False(RunningOf(revoked.VRChatUserId!));
+        Assert.False(RunningOf(disabled.VRChatUserId!));
+        Assert.False(RunningOf("usr_nocompanion"));
+
+        // The card says the same as the row.
+        Assert.True((await GetAsync<UserSummaryDto>(
+            host, token, $"/api/v1/companion/user/{running.VRChatUserId}", ct)).CompanionRunning);
+        Assert.False((await GetAsync<UserSummaryDto>(
+            host, token, $"/api/v1/companion/user/{idle.VRChatUserId}", ct)).CompanionRunning);
+    }
+
+    /// <summary>
     /// The ghost-roster bug. When the last moderator walks out nobody is told that anybody else
     /// left, so "last fact per person wins" kept everyone they saw present for twelve hours, long
     /// after the instance had closed.

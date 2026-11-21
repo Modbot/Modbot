@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
@@ -1258,7 +1259,22 @@ public sealed partial class OverlayView
     {
         var lines = new StackPanel { Spacing = 6 };
 
-        lines.Children.Add(Text(person.DisplayName ?? person.SubjectId, T.Density.TextBase * 1.4, T.TextBrush, FontWeight.SemiBold));
+        var name = Text(person.DisplayName ?? person.SubjectId, T.Density.TextBase * 1.4, T.TextBrush, FontWeight.SemiBold);
+
+        if (person.CompanionRunning == true)
+        {
+            name.VerticalAlignment = VerticalAlignment.Center;
+            lines.Children.Add(new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 10,
+                Children = { name, CompanionRunningMark() },
+            });
+        }
+        else
+        {
+            lines.Children.Add(name);
+        }
 
         var standing = person.Standing switch
         {
@@ -1829,6 +1845,37 @@ public sealed partial class OverlayView
         VerticalAlignment = VerticalAlignment.Center,
         Child = RankDot(rank),
     };
+
+    /// <summary>The words a screen reader gives the mark that says somebody's companion is running.</summary>
+    public const string CompanionRunningName = "Companion running";
+
+    /// <summary>
+    /// A small monitor in one colour, for somebody whose Modbot companion is running now. No words: the
+    /// picture is the whole mark, and a screen reader says <see cref="CompanionRunningName"/>.
+    /// </summary>
+    private Control CompanionRunningMark()
+    {
+        var mark = new Viewbox
+        {
+            Width = 14,
+            Height = 14,
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new Avalonia.Controls.Shapes.Path
+            {
+                Data = Geometry.Parse("M3 4 H21 V16 H3 Z M9 20 H15 M12 16 V20"),
+                Stroke = T.OkBrush,
+                StrokeThickness = 2.4,
+                StrokeLineCap = PenLineCap.Round,
+                StrokeJoin = PenLineJoin.Round,
+                Width = 24,
+                Height = 24,
+            },
+        };
+
+        AutomationProperties.SetName(mark, CompanionRunningName);
+
+        return mark;
+    }
 
     /// <summary>
     /// The kind of the heads-up standing on a person, for the chip on their row: Keep an eye before

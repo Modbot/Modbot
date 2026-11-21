@@ -233,7 +233,7 @@ public sealed partial class OverlayView
     {
         var v = V!;
 
-        // The rank in its VRChat colour, then the 18+ mark: always drawn whole.
+        // The rank in its VRChat colour, then the 18+ mark, then the companion mark: always drawn whole.
         var marks = new List<Control>();
 
         if (member.TrustRank is { } rank)
@@ -241,6 +241,10 @@ public sealed partial class OverlayView
 
         if (member.EighteenPlus == true)
             marks.Add(EighteenPlusChip());
+
+        // Whose companion is running: a small picture, whole like the rank, never cut.
+        if (member.CompanionRunning == true)
+            marks.Add(CompanionRunningMark());
 
         // After them the group mark ("Invited", "Asked to join", "Not invited") and "New", the flags and the heads-up: cut when the room is short.
         var more = new List<Control>();

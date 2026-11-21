@@ -443,6 +443,60 @@ public class VRChatPeopleRowsTests
         Assert.Contains(name, Texts(screen, OverlayLook.Headset));
     }
 
+    private static int CompanionMarks(OverlayScreen screen)
+        => Draw(screen, root => root.GetLogicalDescendants().OfType<Control>()
+            .Count(c => Avalonia.Automation.AutomationProperties.GetName(c) == OverlayView.CompanionRunningName));
+
+    [Theory]
+    [InlineData(true, 1)]
+    [InlineData(false, 0)]
+    [InlineData(null, 0)]
+    public void ARowAndTheCardShowTheCompanionMarkOnlyWhenTheCompanionIsRunning(bool? running, int marks)
+    {
+        var row = Screen([Kai with { CompanionRunning = running }]);
+        var card = Screen([Kai]) with
+        {
+            Page = OverlayPage.Person,
+            Person = new UserSummary("usr_Kai", "Kai", RosterStanding.Ordinary, 0, null, [], [], CompanionRunning: running),
+        };
+
+        Assert.Equal(marks, CompanionMarks(row));
+        Assert.Equal(marks, CompanionMarks(card));
+
+        // A picture, so no words are added to the row for it.
+        Assert.DoesNotContain(OverlayView.CompanionRunningName, Texts(row));
+    }
+
+    [Theory]
+    [InlineData(420)]
+    [InlineData(520)]
+    public void ALongNameIsCutBeforeTheCompanionMark(double width)
+    {
+        var name = new string('W', 80);
+        var who = Person(name) with { TrustRank = Modbot.Core.Users.TrustRank.KnownUser, CompanionRunning = true };
+        var screen = Screen([who]) with
+        {
+            ModeratorArrived = Now.AddMinutes(-64),
+            Arrivals = new Dictionary<string, DateTimeOffset?> { [who.SubjectId] = null },
+        };
+
+        var (blockWidth, natural, marksSeen, e) = Draw(screen, root =>
+        {
+            var block = root.GetLogicalDescendants().OfType<TextBlock>().First(t => t.Text == name);
+            var untrimmed = new TextBlock { Text = name, FontSize = block.FontSize, FontFamily = block.FontFamily, FontWeight = block.FontWeight, TextWrapping = TextWrapping.NoWrap };
+            untrimmed.Measure(Size.Infinity);
+
+            var mark = root.GetLogicalDescendants().OfType<Control>().First(c => Avalonia.Automation.AutomationProperties.GetName(c) == OverlayView.CompanionRunningName);
+
+            return (block.Bounds.Width, untrimmed.DesiredSize.Width, mark.Bounds.Width, RowEdges(root, name, "~1h 4m+"));
+        }, width: width);
+
+        Assert.True(blockWidth < natural - 1, "The name was not cut.");
+        Assert.True(marksSeen > 0, "The companion mark has no room on the row.");
+        Assert.True(e.Whole.Width >= e.WholeWanted - 0.5, $"The marks are {e.Whole.Width} wide of {e.WholeWanted}.");
+        Assert.True(e.Name.Right <= e.Whole.Left + 0.5, "The name runs into the marks.");
+    }
+
     [Theory]
     // Not 380: with the wider font a Linux runner falls back to, the room left after the picture, the
     // time and the button is under what the rank and the 18+ mark want, so they are cut there. That is

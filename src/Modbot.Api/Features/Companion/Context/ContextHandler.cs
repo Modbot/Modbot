@@ -39,6 +39,11 @@ namespace Modbot.Api.Features.Companion.Context;
 /// <c>AskedToJoin</c> (a join request nobody has answered) or <c>NotInvited</c>. Null for a member. Older
 /// companions ignore it.
 /// </param>
+/// <param name="CompanionRunning">
+/// Whether this person's own companion is running now: a paired device of theirs that is not revoked
+/// has been heard from within <see cref="ContextHandler.CompanionRunningWindow"/>. False for everybody
+/// else, including somebody with no paired companion. Older companions ignore it.
+/// </param>
 public sealed record RosterMemberDto(
     [property: JsonPropertyName("subjectId")] string SubjectId,
     [property: JsonPropertyName("displayName")] string? DisplayName,
@@ -49,7 +54,8 @@ public sealed record RosterMemberDto(
     [property: JsonPropertyName("eighteenPlus")] bool? EighteenPlus = null,
     [property: JsonPropertyName("pictureUrl")] string? PictureUrl = null,
     [property: JsonPropertyName("isMember")] bool? IsMember = null,
-    [property: JsonPropertyName("invitation")] string? Invitation = null);
+    [property: JsonPropertyName("invitation")] string? Invitation = null,
+    [property: JsonPropertyName("companionRunning")] bool? CompanionRunning = null);
 
 /// <param name="HeadsUps">
 /// What stands in this instance (heads-ups, 2026-10-03), oldest first. Sent only with this
@@ -78,6 +84,7 @@ public sealed record InstanceContextDto(
 /// </param>
 /// <param name="AvatarListed">Whether <paramref name="AvatarName"/> is on the problem avatar list. Null when the avatar is.</param>
 /// <param name="Invitation">As <see cref="RosterMemberDto.Invitation"/>.</param>
+/// <param name="CompanionRunning">As <see cref="RosterMemberDto.CompanionRunning"/>.</param>
 public sealed record UserSummaryDto(
     [property: JsonPropertyName("subjectId")] string SubjectId,
     [property: JsonPropertyName("displayName")] string? DisplayName,
@@ -95,7 +102,8 @@ public sealed record UserSummaryDto(
     [property: JsonPropertyName("watched")] bool? Watched = null,
     [property: JsonPropertyName("avatarName")] string? AvatarName = null,
     [property: JsonPropertyName("avatarListed")] bool? AvatarListed = null,
-    [property: JsonPropertyName("invitation")] string? Invitation = null);
+    [property: JsonPropertyName("invitation")] string? Invitation = null,
+    [property: JsonPropertyName("companionRunning")] bool? CompanionRunning = null);
 
 /// <summary>
 /// The overlay's two reads: who is in this instance, and what is known about one of them.
@@ -129,6 +137,15 @@ public static class ContextHandler
     /// than this is not a roster any more.
     /// </summary>
     public static readonly TimeSpan RosterWindow = TimeSpan.FromHours(12);
+
+    /// <summary>
+    /// How recently a paired device must have been heard from for its owner's companion to count as
+    /// running. A device's last-seen time is written at most once every
+    /// <see cref="DeviceStanding.SeenWriteEvery"/> (five minutes), so a running companion can show a
+    /// last-seen up to five minutes old; two more minutes are added so one slow write does not make
+    /// the icon blink off.
+    /// </summary>
+    public static readonly TimeSpan CompanionRunningWindow = DeviceStanding.SeenWriteEvery + TimeSpan.FromMinutes(2);
 
     public static async Task<IResult> ContextAsync(
         int apiVersion,
@@ -210,6 +227,7 @@ public static class ContextHandler
         var eighteenPlus = await EighteenPlusAsync(database, subjects, ct);
         var flagged = await FlagRules.ReadAsync(database, subjects, ranks, clock.UtcNow, ct);
         var pictures = await PictureAddressesAsync(database, apiVersion, subjects, cache, ct);
+        var running = await CompanionsRunningAsync(database, subjects, clock.UtcNow, ct);
 
         var roster = people.Here
             .Select(person => Describe(
@@ -219,7 +237,8 @@ public static class ContextHandler
                 members,
                 ranks.GetValueOrDefault(person.UserId),
                 eighteenPlus.TryGetValue(person.UserId, out var marked) ? marked : null,
-                pictures.GetValueOrDefault(person.UserId)))
+                pictures.GetValueOrDefault(person.UserId),
+                running.Contains(person.UserId)))
             .ToList();
 
         return Results.Ok(new InstanceContextDto(instanceId, roster, headsUps));
@@ -271,6 +290,7 @@ public static class ContextHandler
         var standing = Standing(match, belonging.IsMember(subjectId), belonging.IsStaff(subjectId));
 
         var watched = match.Watch is not null;
+        var companionRunning = (await CompanionsRunningAsync(database, [subjectId], clock.UtcNow, ct)).Contains(subjectId);
 
         if (facts.Count == 0)
         {
@@ -278,7 +298,8 @@ public static class ContextHandler
             // overlay would have to translate. A watch can stand on somebody with no facts at all.
             return Results.Ok(new UserSummaryDto(
                 subjectId, null, standing, match.PriorActions, null,
-                match.Reasons, [], trustRank, Watched: watched, Invitation: belonging.Invitation(subjectId)));
+                match.Reasons, [], trustRank, Watched: watched, Invitation: belonging.Invitation(subjectId),
+                CompanionRunning: companionRunning));
         }
 
         // The web profile's own figures, from the same query: times seen and first seen. Read only
@@ -326,7 +347,8 @@ public static class ContextHandler
             watched,
             avatar?.AvatarName,
             avatar is null ? null : avatar.Listed,
-            belonging.Invitation(subjectId)));
+            belonging.Invitation(subjectId),
+            companionRunning));
     }
 
     /// <summary>
@@ -352,6 +374,35 @@ public static class ContextHandler
             .Where(u => subjectIds.Contains(u.UserId) && u.TrustRank != null)
             .Select(u => new { u.UserId, u.TrustRank })
             .ToDictionaryAsync(u => u.UserId, u => u.TrustRank, StringComparer.Ordinal, ct);
+
+    /// <summary>
+    /// Which of these VRChat users have their companion running: a Modbot account linked to them
+    /// (<see cref="ModbotUser.VRChatUserId"/>), enabled, with a device that is not revoked and was
+    /// heard from within <see cref="CompanionRunningWindow"/>. One query for everybody. A device
+    /// heard from that recently is far inside <see cref="DeviceStanding.IdleLimit"/>, so idleness
+    /// needs no separate check.
+    /// </summary>
+    internal static async Task<HashSet<string>> CompanionsRunningAsync(
+        ModbotContext database,
+        IReadOnlyCollection<string> subjectIds,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        var heardSince = now - CompanionRunningWindow;
+
+        var running = await database.CompanionDevices
+            .AsNoTracking()
+            .Where(d => d.RevokedAt == null && d.LastSeenAt >= heardSince)
+            .Join(
+                database.Users.Where(u => !u.IsDisabled && u.VRChatUserId != null && subjectIds.Contains(u.VRChatUserId)),
+                d => d.IssuedToUserId,
+                u => u.Id,
+                (d, u) => u.VRChatUserId!)
+            .Distinct()
+            .ToListAsync(ct);
+
+        return running.ToHashSet(StringComparer.Ordinal);
+    }
 
     /// <summary>
     /// Whether each of these people carries Modbot's 18+ mark, for everybody VRChat has told Modbot
@@ -492,6 +543,7 @@ public static class ContextHandler
     /// <param name="flagged">What <see cref="FlagRules"/> decided for everybody being described.</param>
     /// <param name="belonging">What <see cref="MembersAndStaff"/> read for everybody being described.</param>
     /// <param name="pictureUrl">The path this person's picture is served at, or null (<see cref="RosterMemberDto"/>).</param>
+    /// <param name="companionRunning">Whether their companion is running now, or null where nobody asked (<see cref="RosterMemberDto"/>).</param>
     internal static RosterMemberDto Describe(
         string subjectId,
         string? displayName,
@@ -499,7 +551,8 @@ public static class ContextHandler
         MembersAndStaff belonging,
         TrustRank? trustRank = null,
         bool? eighteenPlus = null,
-        string? pictureUrl = null)
+        string? pictureUrl = null,
+        bool? companionRunning = null)
     {
         var match = flagged.GetValueOrDefault(subjectId) ?? FlagMatch.None;
 
@@ -513,7 +566,8 @@ public static class ContextHandler
             eighteenPlus,
             pictureUrl,
             belonging.IsMember(subjectId),
-            belonging.Invitation(subjectId));
+            belonging.Invitation(subjectId),
+            companionRunning);
     }
 
     /// <summary>
