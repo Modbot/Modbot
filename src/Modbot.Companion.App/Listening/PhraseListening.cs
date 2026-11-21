@@ -590,6 +590,32 @@ internal sealed class PhraseListening : IDisposable
         };
     }
 
+    /// <summary>
+    /// Whether the samples Windows hands over are decimal numbers rather than whole ones.
+    /// </summary>
+    /// <remarks>
+    /// Windows nearly always describes a shared microphone as "extensible", with the real kind
+    /// (here, decimal numbers) in a second field. Reading only the first field called that format
+    /// whole numbers, so every sample was read as garbage: the level jumped straight to full and
+    /// the phrase model heard noise.
+    /// </remarks>
+    internal static bool IsFloat(WaveFormat format)
+    {
+        if (format.Encoding is WaveFormatEncoding.IeeeFloat)
+            return true;
+
+        if (format.Encoding is not WaveFormatEncoding.Extensible)
+            return false;
+
+        // Extensible but without the second field to read: 32 bits can only be decimal numbers.
+        if (format is not WaveFormatExtensible extensible)
+            return format.BitsPerSample == 32;
+
+        return extensible.SubFormat == IeeeFloatSubFormat;
+    }
+
+    private static readonly Guid IeeeFloatSubFormat = new("00000003-0000-0010-8000-00aa00389b71");
+
     /// <summary>Sound as Windows hands it over, before anything has been done to it.</summary>
     internal delegate void SoundArrived(ReadOnlySpan<byte> bytes, int sampleRate, int channels, int bits, bool isFloat);
 
@@ -639,7 +665,7 @@ internal sealed class PhraseListening : IDisposable
             _recorder = builder.BuildAsync().ConfigureAwait(false).GetAwaiter().GetResult();
 
             var format = _recorder.WaveFormat;
-            var isFloat = format.Encoding is WaveFormatEncoding.IeeeFloat;
+            var isFloat = IsFloat(format);
             var rate = format.SampleRate;
             var channels = format.Channels;
             var bits = format.BitsPerSample;
