@@ -120,9 +120,9 @@ in the same way and leaves the same fact.
 3. The button on the companion's main window and (removed 2026-11-20) on the desktop overlay strip, sharing Dictate's
    microphone so only one listens at a time, and the draft window with kind chips, title, details,
    Cancel and Send. The main window has no Dictate button, so its Feedback button sits at the top of
-   the sidebar under the group's name, where it is easy to find (user, 2026-11-18). The desktop
-   overlay's sits next to Dictate. Both are hidden until the server's Send feedback permission offers
-   them. The speech model and its download are Dictate's, shared.
+   the sidebar under the group's name, where it is easy to find (user, 2026-11-18). (The desktop
+   overlay's, next to Dictate, was removed 2026-11-20.) The button is hidden until the server's Send feedback
+   permission offers it. The speech model and its download are Dictate's, shared.
 4. (Removed 2026-11-20: the overlay has one microphone, Dictate, and feedback from the headset is filed by
    asking the chat. The headset button, the draft panel and its saved spot are gone, and so is the Feedback
    button on the desktop overlay strip; the main window's button stays.) The same on the headset panel; its draft panel can be locked, made click-through, grabbed and
