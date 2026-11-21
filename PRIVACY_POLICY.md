@@ -587,7 +587,7 @@ backup off is below, and it is the only thing that stops it.
 | Modbot Cloud, for updates | See below | No |
 | GitHub, for the listening model | About 17 MB, once, when **Listening** is switched on | No |
 | GitHub, for the voice model | Once, when the spoken voice is used | No |
-| GitHub, for the Dictate model | About 108 MB, once, the first time **Dictate** is tapped | No |
+| GitHub, for the Dictate model | About 251 MB, once, the first time **Dictate** is tapped | No |
 | Picture addresses | Icons for the group and credits pictures, fetched straight from their own hosts, which see the PC's IP address | The credits pictures stop; the group's icon does not |
 
 **It does not send a recording of anyone's screen or anyone's voice on its own, ever.** Since 19
@@ -670,7 +670,7 @@ text on that PC by a speech model, held in memory only until the words are writt
 dropped. It is never written to a file and never sent to us, Modbot Cloud or anyone else. The written
 words are sent to the Modbot server that PC is paired with, as a message to AI Chat, the same as if
 they had been typed, and are kept the way any other message to AI Chat is kept. The first tap
-downloads the speech model from GitHub, about 108 MB, once.
+downloads the speech model from GitHub, about 251 MB, once.
 
 **How to turn the backup off — on that PC, by the person using it.** Your server cannot do it for
 them. Either:
