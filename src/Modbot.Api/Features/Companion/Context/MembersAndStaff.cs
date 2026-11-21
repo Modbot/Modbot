@@ -34,25 +34,49 @@ namespace Modbot.Api.Features.Companion.Context;
 /// group's owner, and anybody holding a role that can kick, remove or ban. Roles come off the
 /// member list, which has everybody's; the role facts only start when Modbot did.
 /// </para>
+/// <para>
+/// <strong>Somebody who is not a member</strong> is Invited, Asked to join, or Not invited
+/// (<see cref="Invitation"/>), from what is already stored: the list's word for them and the invite
+/// and join request facts. No VRChat call is made. No fact records an invite being declined or
+/// running out, so such an invite still reads Invited until a later fact ends it.
+/// </para>
 /// </remarks>
 public sealed class MembersAndStaff
 {
     public static MembersAndStaff Nobody { get; } = new(
         new HashSet<string>(StringComparer.Ordinal), new HashSet<string>(StringComparer.Ordinal));
 
+    /// <summary>The group has invited them and nothing since has answered it. See <see cref="Invitation"/>.</summary>
+    public const string Invited = "Invited";
+
+    /// <summary>They have asked to join and nobody has answered.</summary>
+    public const string AskedToJoin = "AskedToJoin";
+
+    /// <summary>Neither: includes people who left or were kicked.</summary>
+    public const string NotInvited = "NotInvited";
+
     private readonly HashSet<string> _members;
 
     private readonly HashSet<string> _staff;
 
-    internal MembersAndStaff(HashSet<string> members, HashSet<string> staff)
+    private readonly Dictionary<string, string> _invitations;
+
+    internal MembersAndStaff(HashSet<string> members, HashSet<string> staff, Dictionary<string, string>? invitations = null)
     {
         _members = members;
         _staff = staff;
+        _invitations = invitations ?? new Dictionary<string, string>(StringComparer.Ordinal);
     }
 
     public bool IsMember(string subjectId) => _members.Contains(subjectId);
 
     public bool IsStaff(string subjectId) => _staff.Contains(subjectId);
+
+    /// <summary>
+    /// For somebody who is not a member: <see cref="Invited"/>, <see cref="AskedToJoin"/> or
+    /// <see cref="NotInvited"/>. Null for a member, and for somebody ReadAsync was not asked about.
+    /// </summary>
+    public string? Invitation(string subjectId) => _invitations.GetValueOrDefault(subjectId);
 
     /// <summary>
     /// The facts that start or end a membership. A kick and a ban end one as surely as leaving
@@ -65,6 +89,41 @@ public sealed class MembersAndStaff
         FactType.MemberKicked,
         FactType.MemberBanned,
     ];
+
+    /// <summary>The facts that say the group invited somebody.</summary>
+    private static readonly string[] InviteFacts =
+    [
+        FactType.InviteCreated,
+        FactType.GroupAutoInvited,
+        FactType.GroupInviteSent,
+    ];
+
+    /// <summary>
+    /// The facts, besides <see cref="MembershipFacts"/>, that settle an invite or a join request.
+    /// No fact records somebody declining an invite, so a declined one reads as Invited until a later fact.
+    /// </summary>
+    private static readonly string[] AnsweredFacts =
+    [
+        FactType.JoinRequestRejected,
+        FactType.JoinRequestBlocked,
+        FactType.GroupInviteCancelled,
+        FactType.ActionJoinRequestRejected,
+    ];
+
+    private static readonly string[] InvitationFacts =
+    [
+        .. MembershipFacts,
+        .. InviteFacts,
+        FactType.JoinRequestCreated,
+        .. AnsweredFacts,
+    ];
+
+    /// <summary>What a member list row's word says about somebody who is not in yet.</summary>
+    private static readonly Dictionary<string, string> ListedInvitations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["invited"] = Invited,
+        ["requested"] = AskedToJoin,
+    };
 
     /// <summary>Reads both answers for these people. Four small queries, whatever the number of people.</summary>
     public static async Task<MembersAndStaff> ReadAsync(
@@ -106,14 +165,25 @@ public sealed class MembersAndStaff
             .AsNoTracking()
             .Where(e => e.SubjectPlatform == FactPlatform.VRChat
                      && subjectIds.Contains(e.SubjectId)
-                     && MembershipFacts.Contains(e.Type))
+                     && InvitationFacts.Contains(e.Type))
             .OrderBy(e => e.OccurredAt)
             .Select(e => new { e.SubjectId, e.Type, e.OccurredAt })
             .ToListAsync(ct);
 
         var lastFact = new Dictionary<string, (bool Joined, DateTimeOffset At)>(StringComparer.Ordinal);
+        var lastInvitation = new Dictionary<string, (string State, DateTimeOffset At)>(StringComparer.Ordinal);
         foreach (var fact in facts)
-            lastFact[fact.SubjectId] = (fact.Type == FactType.MemberJoined, fact.OccurredAt);
+        {
+            if (MembershipFacts.Contains(fact.Type))
+                lastFact[fact.SubjectId] = (fact.Type == FactType.MemberJoined, fact.OccurredAt);
+
+            // The newest of them all wins: an invite, then a leave, is somebody the group no longer asks.
+            lastInvitation[fact.SubjectId] = (
+                InviteFacts.Contains(fact.Type) ? Invited
+                : fact.Type == FactType.JoinRequestCreated ? AskedToJoin
+                : NotInvited,
+                fact.OccurredAt);
+        }
 
         // Somebody the list has no row for was last "read" when the last full sweep started: the
         // sweep would have listed them had they been in the group then. Null until one has
@@ -129,6 +199,7 @@ public sealed class MembersAndStaff
 
         var members = new HashSet<string>(StringComparer.Ordinal);
         var staff = new HashSet<string>(StringComparer.Ordinal);
+        var invitations = new Dictionary<string, string>(StringComparer.Ordinal);
 
         foreach (var subjectId in subjectIds)
         {
@@ -155,13 +226,35 @@ public sealed class MembersAndStaff
 
             if (isMember || isOwner)
                 members.Add(subjectId);
+            else if (banned.Contains(subjectId))
+                invitations[subjectId] = NotInvited;
+            else
+                invitations[subjectId] = InvitationOf(
+                    row is { LeftAt: null } ? row.MembershipStatus : null,
+                    row?.LastSeenAt,
+                    lastInvitation.TryGetValue(subjectId, out var latest) ? latest : null);
 
             if (isOwner
                 || (isMember && onList && HoldsAny(row!.Roles, moderationRoles)))
                 staff.Add(subjectId);
         }
 
-        return new MembersAndStaff(members, staff);
+        return new MembersAndStaff(members, staff, invitations);
+    }
+
+    /// <summary>
+    /// Where somebody who is not in the group stands with it. The member list's word for them
+    /// (<c>invited</c>, <c>requested</c>) counts as of the sweep that listed them; a fact newer than
+    /// that wins, and with no list word the newest fact decides. With neither, they are not invited.
+    /// </summary>
+    private static string InvitationOf(string? listedStatus, DateTimeOffset? listedAt, (string State, DateTimeOffset At)? fact)
+    {
+        var listed = listedStatus is not null && ListedInvitations.TryGetValue(listedStatus, out var word) ? word : null;
+
+        if (fact is { } latest && (listed is null || listedAt is null || latest.At > listedAt))
+            return latest.State;
+
+        return listed ?? NotInvited;
     }
 
     /// <summary>

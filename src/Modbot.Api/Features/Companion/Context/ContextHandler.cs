@@ -34,6 +34,11 @@ namespace Modbot.Api.Features.Companion.Context;
 /// <paramref name="Standing"/> because that holds one word, and Staff and Flagged hide it. Older
 /// companions ignore it.
 /// </param>
+/// <param name="Invitation">
+/// For somebody who is not a member: <c>Invited</c> (the group invited them and nothing has answered it),
+/// <c>AskedToJoin</c> (a join request nobody has answered) or <c>NotInvited</c>. Null for a member. Older
+/// companions ignore it.
+/// </param>
 public sealed record RosterMemberDto(
     [property: JsonPropertyName("subjectId")] string SubjectId,
     [property: JsonPropertyName("displayName")] string? DisplayName,
@@ -43,7 +48,8 @@ public sealed record RosterMemberDto(
     [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null,
     [property: JsonPropertyName("eighteenPlus")] bool? EighteenPlus = null,
     [property: JsonPropertyName("pictureUrl")] string? PictureUrl = null,
-    [property: JsonPropertyName("isMember")] bool? IsMember = null);
+    [property: JsonPropertyName("isMember")] bool? IsMember = null,
+    [property: JsonPropertyName("invitation")] string? Invitation = null);
 
 /// <param name="HeadsUps">
 /// What stands in this instance (heads-ups, 2026-10-03), oldest first. Sent only with this
@@ -71,6 +77,7 @@ public sealed record InstanceContextDto(
 /// seen, and always null for a device whose owner may not manage settings: only they may mark it.
 /// </param>
 /// <param name="AvatarListed">Whether <paramref name="AvatarName"/> is on the problem avatar list. Null when the avatar is.</param>
+/// <param name="Invitation">As <see cref="RosterMemberDto.Invitation"/>.</param>
 public sealed record UserSummaryDto(
     [property: JsonPropertyName("subjectId")] string SubjectId,
     [property: JsonPropertyName("displayName")] string? DisplayName,
@@ -87,7 +94,8 @@ public sealed record UserSummaryDto(
     [property: JsonPropertyName("lastActionAt")] DateTimeOffset? LastActionAt = null,
     [property: JsonPropertyName("watched")] bool? Watched = null,
     [property: JsonPropertyName("avatarName")] string? AvatarName = null,
-    [property: JsonPropertyName("avatarListed")] bool? AvatarListed = null);
+    [property: JsonPropertyName("avatarListed")] bool? AvatarListed = null,
+    [property: JsonPropertyName("invitation")] string? Invitation = null);
 
 /// <summary>
 /// The overlay's two reads: who is in this instance, and what is known about one of them.
@@ -270,7 +278,7 @@ public static class ContextHandler
             // overlay would have to translate. A watch can stand on somebody with no facts at all.
             return Results.Ok(new UserSummaryDto(
                 subjectId, null, standing, match.PriorActions, null,
-                match.Reasons, [], trustRank, Watched: watched));
+                match.Reasons, [], trustRank, Watched: watched, Invitation: belonging.Invitation(subjectId)));
         }
 
         // The web profile's own figures, from the same query: times seen and first seen. Read only
@@ -317,7 +325,8 @@ public static class ContextHandler
             lastAction?.OccurredAt,
             watched,
             avatar?.AvatarName,
-            avatar is null ? null : avatar.Listed));
+            avatar is null ? null : avatar.Listed,
+            belonging.Invitation(subjectId)));
     }
 
     /// <summary>
@@ -503,7 +512,8 @@ public static class ContextHandler
             trustRank,
             eighteenPlus,
             pictureUrl,
-            belonging.IsMember(subjectId));
+            belonging.IsMember(subjectId),
+            belonging.Invitation(subjectId));
     }
 
     /// <summary>

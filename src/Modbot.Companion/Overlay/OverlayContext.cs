@@ -22,6 +22,20 @@ public enum RosterStanding
     Flagged,
 }
 
+/// <summary>Where somebody who is not in the group stands with it: what staff need to know to invite them.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<Invitation>))]
+public enum Invitation
+{
+    /// <summary>Neither invited nor asking. Includes people who left or were kicked.</summary>
+    NotInvited,
+
+    /// <summary>The group has invited them and nothing since has answered it.</summary>
+    Invited,
+
+    /// <summary>They have asked to join and nobody has answered.</summary>
+    AskedToJoin,
+}
+
 /// <param name="SubjectId">Opaque VRChat id. Never validated for shape.</param>
 /// <param name="DisplayName">
 /// Arbitrary user-controlled text, and therefore hostile input on a display surface — it may carry
@@ -42,6 +56,10 @@ public enum RosterStanding
 /// shows Staff or Flagged for somebody who is also a member. Null when the server is too old to say, and for a
 /// list made from this PC's log: then no mark is drawn, since nobody can say they are not in the group.
 /// </param>
+/// <param name="Invitation">
+/// For somebody who is not a member: whether the group has invited them or they have asked to join.
+/// Null for a member, and from a server too old to say (the row then says only that they are not in the group).
+/// </param>
 public sealed record RosterMember(
     [property: JsonPropertyName("subjectId")] string SubjectId,
     [property: JsonPropertyName("displayName")] string? DisplayName,
@@ -51,7 +69,8 @@ public sealed record RosterMember(
     [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null,
     [property: JsonPropertyName("eighteenPlus")] bool? EighteenPlus = null,
     [property: JsonPropertyName("pictureUrl")] string? PictureUrl = null,
-    [property: JsonPropertyName("isMember")] bool? IsMember = null);
+    [property: JsonPropertyName("isMember")] bool? IsMember = null,
+    [property: JsonPropertyName("invitation")] Invitation? Invitation = null);
 
 /// <summary>
 /// What one server knows about the instance the moderator is standing in.
@@ -92,6 +111,7 @@ public sealed record InstanceContext(
 /// Mark avatar only to somebody it would work for.
 /// </param>
 /// <param name="AvatarListed">Whether <paramref name="AvatarName"/> is already on the server's problem avatar list.</param>
+/// <param name="Invitation">As <see cref="RosterMember.Invitation"/>: set for somebody who is not a member, null otherwise and from a server too old to say.</param>
 public sealed record UserSummary(
     [property: JsonPropertyName("subjectId")] string SubjectId,
     [property: JsonPropertyName("displayName")] string? DisplayName,
@@ -108,7 +128,8 @@ public sealed record UserSummary(
     [property: JsonPropertyName("lastActionAt")] DateTimeOffset? LastActionAt = null,
     [property: JsonPropertyName("watched")] bool? Watched = null,
     [property: JsonPropertyName("avatarName")] string? AvatarName = null,
-    [property: JsonPropertyName("avatarListed")] bool? AvatarListed = null);
+    [property: JsonPropertyName("avatarListed")] bool? AvatarListed = null,
+    [property: JsonPropertyName("invitation")] Invitation? Invitation = null);
 
 /// <summary>
 /// The one thing that genuinely needs push: a flagged user just joined this instance.

@@ -242,10 +242,10 @@ public sealed partial class OverlayView
         if (member.EighteenPlus == true)
             marks.Add(EighteenPlusChip());
 
-        // After them "Not in group" and "New", the flags and the heads-up: cut when the room is short.
+        // After them the group mark ("Invited", "Asked to join", "Not invited") and "New", the flags and the heads-up: cut when the room is short.
         var more = new List<Control>();
 
-        // Somebody who just left is on the way out, so neither "New" nor "Not in group" is the news about them.
+        // Somebody who just left is on the way out, so neither "New" nor the group mark is the news about them.
         if (secondsLeft is null)
             more.AddRange(ArrivalMarks(member, isNew));
 

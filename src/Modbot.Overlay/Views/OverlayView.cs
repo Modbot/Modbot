@@ -1265,7 +1265,7 @@ public sealed partial class OverlayView
             RosterStanding.Flagged => "Flagged",
             RosterStanding.Staff => "Staff",
             RosterStanding.Member => "Member",
-            _ => "Not a member",
+            _ => person.Invitation is { } invitation ? InvitationWords(invitation) : "Not a member",
         };
         // Why somebody is Flagged -- kicks and bans among the rest -- is the flags line below, in
         // the server's words, so the count is not repeated here.
@@ -1685,7 +1685,7 @@ public sealed partial class OverlayView
         if (member.EighteenPlus == true)
             line.Children.Add(EighteenPlusChip());
 
-        // Somebody who just left is on the way out, so neither "New" nor "Not in group" is the news about them.
+        // Somebody who just left is on the way out, so neither "New" nor the group mark is the news about them.
         if (!left)
         {
             foreach (var mark in ArrivalMarks(member, isNew))
@@ -1716,21 +1716,30 @@ public sealed partial class OverlayView
 
     /// <summary>
     /// The marks a roster row carries for who the person is to the group and how long they have been here:
-    /// "Not in group" when the server says they are not a member (nothing from a server too old to say), and
-    /// "New" when they joined in the last two minutes.
+    /// "Invited", "Asked to join" or "Not invited" when the server says they are not a member ("Not in group" from
+    /// a server too old to say which; nothing from one too old to say at all), and "New" when they joined in the last
+    /// two minutes.
     /// </summary>
     private List<Control> ArrivalMarks(RosterMember member, bool isNew)
     {
         var marks = new List<Control>();
 
         if (member.IsMember == false)
-            marks.Add(TagChip("Not in group", T.Palette.Warn, T.WarnBrush));
+            marks.Add(TagChip(member.Invitation is { } invitation ? InvitationWords(invitation) : "Not in group", T.Palette.Warn, T.WarnBrush));
 
         if (isNew)
             marks.Add(TagChip("New", T.Palette.Ok, T.OkBrush));
 
         return marks;
     }
+
+    /// <summary>What a row and a card say of somebody who is not in the group.</summary>
+    internal static string InvitationWords(Invitation invitation) => invitation switch
+    {
+        Invitation.Invited => "Invited",
+        Invitation.AskedToJoin => "Asked to join",
+        _ => "Not invited",
+    };
 
     /// <summary>A small tinted word on a roster row, drawn the way the "Left" tag is.</summary>
     private Control TagChip(string caption, Color colour, IBrush brush)

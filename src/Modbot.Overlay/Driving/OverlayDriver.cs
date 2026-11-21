@@ -958,7 +958,7 @@ public sealed class OverlayDriver : IDisposable
             ?? _leavers.Find(subjectId);
         _person = known is null
             ? new UserSummary(subjectId, null, RosterStanding.Ordinary, 0, null, [], [])
-            : new UserSummary(known.SubjectId, known.DisplayName, known.Standing, known.PriorActions, null, known.Flags, []);
+            : new UserSummary(known.SubjectId, known.DisplayName, known.Standing, known.PriorActions, null, known.Flags, [], Invitation: known.Invitation);
 
         // Somebody the Debug page made up exists only on this PC: their card is what the Events
         // list holds about them, and the server is never asked (TestPeople).
