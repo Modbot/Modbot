@@ -364,14 +364,15 @@ public class VRChatPeopleRowsTests
         Assert.True(e.LastLabelRight > e.StripRight, "The labels were expected to be cut at this width.");
     }
 
-    /// <summary>A person with the rank, the 18+ mark and "Not in group" after the name, who was here before the moderator.</summary>
-    private static OverlayScreen HereBeforeWithMarks(string name)
+    /// <summary>A person with the rank, the 18+ mark and the group mark ("Not in group" when the server did not say which) after the name, who was here before the moderator.</summary>
+    private static OverlayScreen HereBeforeWithMarks(string name, Invitation? invitation = null)
     {
         var who = Person(name) with
         {
             TrustRank = Modbot.Core.Users.TrustRank.KnownUser,
             EighteenPlus = true,
             IsMember = false,
+            Invitation = invitation,
         };
 
         return Screen([who]) with
@@ -404,11 +405,13 @@ public class VRChatPeopleRowsTests
         return (Of(parts[0]), Of(parts[1]), wholeWanted, Of(parts[2]), Of(line).Right, Of(timeBlock));
     }
 
-    [Fact]
-    public void AHereBeforeYouRowShowsTwelveLettersOfTheNameAndWholeChipsAtTheDefaultWidth()
+    [Theory]
+    [InlineData(null)]
+    [InlineData(Invitation.AskedToJoin)]
+    public void AHereBeforeYouRowShowsTwelveLettersOfTheNameAndWholeChipsAtTheDefaultWidth(Invitation? invitation)
     {
         var name = "Cobaltfoxxlive";
-        var (blockWidth, twelve, e) = Draw(HereBeforeWithMarks(name), root =>
+        var (blockWidth, twelve, e) = Draw(HereBeforeWithMarks(name, invitation), root =>
         {
             var block = root.GetLogicalDescendants().OfType<TextBlock>().First(t => t.Text == name);
             var first = new TextBlock { Text = name[..12], FontSize = block.FontSize, FontFamily = block.FontFamily, FontWeight = block.FontWeight, TextWrapping = TextWrapping.NoWrap };
@@ -427,12 +430,14 @@ public class VRChatPeopleRowsTests
     // Not 380: with the wider font a Linux runner falls back to, the room left after the picture, the
     // time and the button is under what the rank and the 18+ mark want, so they are cut there. That is
     // the narrowest-panel rule (nothing overlaps, nothing runs past the line), not a promise of the row.
-    [InlineData(420)]
-    [InlineData(520)]
-    public void ALongNameIsCutBeforeTheRankAndTheEighteenPlusMark(double width)
+    [InlineData(420, null)]
+    [InlineData(520, null)]
+    [InlineData(420, Invitation.AskedToJoin)]
+    [InlineData(520, Invitation.AskedToJoin)]
+    public void ALongNameIsCutBeforeTheRankAndTheEighteenPlusMark(double width, Invitation? invitation)
     {
         var name = new string('W', 80);
-        var (blockWidth, natural, e) = Draw(HereBeforeWithMarks(name), root =>
+        var (blockWidth, natural, e) = Draw(HereBeforeWithMarks(name, invitation), root =>
         {
             var block = root.GetLogicalDescendants().OfType<TextBlock>().First(t => t.Text == name);
             var untrimmed = new TextBlock { Text = name, FontSize = block.FontSize, FontFamily = block.FontFamily, FontWeight = block.FontWeight, TextWrapping = TextWrapping.NoWrap };

@@ -176,8 +176,9 @@ public class OverlayReadTests
         Assert.Equal("Staying", member.DisplayName);
 
         // Nobody here is on a member list or has joined the group, so the row says so for the overlay's
-        // "Not in group" mark.
+        // "Not invited" mark (no invite or join request anywhere).
         Assert.False(member.IsMember);
+        Assert.Equal("NotInvited", member.Invitation);
     }
 
     /// <summary>
@@ -342,6 +343,9 @@ public class OverlayReadTests
     private static string StandingOf(InstanceContextDto roster, string subjectId)
         => Assert.Single(roster.Members, m => m.SubjectId == subjectId).Standing;
 
+    private static string? InvitationOf(InstanceContextDto roster, string subjectId)
+        => Assert.Single(roster.Members, m => m.SubjectId == subjectId).Invitation;
+
     /// <summary>
     /// The bug the owner reported: their staff, themselves included, showed grey. Everybody here
     /// joined before Modbot started recording, so none of them has a join fact; the member list and
@@ -394,9 +398,13 @@ public class OverlayReadTests
         Assert.Equal("Flagged", StandingOf(roster, "usr_modflag"));
 
         // The one word above hides membership for staff and flagged people, so it travels beside it:
-        // all of these are members, and only those who are not get the overlay's "Not in group" mark.
+        // all of these are members, and only those who are not get the overlay's group mark.
         Assert.All(["usr_founder", "usr_unworded", "usr_fan", "usr_mod", "usr_modflag", "usr_roster_owner"],
             id => Assert.True(Assert.Single(roster.Members, m => m.SubjectId == id).IsMember, id));
+
+        // A member has no invitation word.
+        Assert.All(["usr_founder", "usr_unworded", "usr_fan", "usr_mod", "usr_modflag", "usr_roster_owner"],
+            id => Assert.Null(Assert.Single(roster.Members, m => m.SubjectId == id).Invitation));
 
         // The card reads the same answer as the row it opens from.
         Assert.Equal("Staff", (await GetAsync<UserSummaryDto>(host, token, "/api/v1/companion/user/usr_mod", ct)).Standing);
@@ -452,7 +460,69 @@ public class OverlayReadTests
         Assert.Equal("Member", StandingOf(roster, "usr_new"));
         Assert.Equal("Ordinary", StandingOf(roster, "usr_stale"));
 
+        // The list's own word: invited and requested say so; left, banned and quit are not invited.
+        Assert.Equal("Invited", InvitationOf(roster, "usr_invited"));
+        Assert.Equal("AskedToJoin", InvitationOf(roster, "usr_requested"));
+        Assert.Equal("NotInvited", InvitationOf(roster, "usr_left"));
+        Assert.Equal("NotInvited", InvitationOf(roster, "usr_banned"));
+        Assert.Equal("NotInvited", InvitationOf(roster, "usr_quit"));
+        Assert.Equal("NotInvited", InvitationOf(roster, "usr_stale"));
+        Assert.Null(InvitationOf(roster, "usr_new"));
+
+        // The card says what its row says.
+        Assert.Equal("Invited", (await GetAsync<UserSummaryDto>(host, token, "/api/v1/companion/user/usr_invited", ct)).Invitation);
+        Assert.Equal("AskedToJoin", (await GetAsync<UserSummaryDto>(host, token, "/api/v1/companion/user/usr_requested", ct)).Invitation);
+        Assert.Equal("NotInvited", (await GetAsync<UserSummaryDto>(host, token, "/api/v1/companion/user/usr_left", ct)).Invitation);
+        Assert.Null((await GetAsync<UserSummaryDto>(host, token, "/api/v1/companion/user/usr_new", ct)).Invitation);
+
         await ClearMemberListAsync(host, ct);
+    }
+
+    /// <summary>
+    /// With no member list row, the newest invite or join request fact decides, and anything that
+    /// answers it (a leave, a refusal, a cancelled invite) puts the person back to not invited.
+    /// </summary>
+    [Fact]
+    public async Task WithNoListRow_TheNewestInviteOrJoinRequestFactDecidesTheInvitation()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+        await ClearMemberListAsync(host, ct);
+
+        var moderator = await host.PairModeratorAsync(ct);
+
+        await WriteAsync(host,
+            Fact(FactType.InviteCreated, "usr_sent", Noon.AddMinutes(-60), instance: null),
+            Fact(FactType.JoinRequestCreated, "usr_asked", Noon.AddMinutes(-60), instance: null),
+            Fact(FactType.InviteCreated, "usr_leftagain", Noon.AddMinutes(-60), instance: null),
+            Fact(FactType.MemberLeft, "usr_leftagain", Noon.AddMinutes(-50), instance: null),
+            Fact(FactType.JoinRequestCreated, "usr_refused", Noon.AddMinutes(-60), instance: null),
+            Fact(FactType.JoinRequestRejected, "usr_refused", Noon.AddMinutes(-50), instance: null),
+            Fact(FactType.InviteCreated, "usr_cancelled", Noon.AddMinutes(-60), instance: null),
+            Fact(FactType.GroupInviteCancelled, "usr_cancelled", Noon.AddMinutes(-50), instance: null),
+            Fact(FactType.InviteCreated, "usr_reinvited", Noon.AddMinutes(-60), instance: null),
+            Fact(FactType.MemberLeft, "usr_reinvited", Noon.AddMinutes(-50), instance: null),
+            Fact(FactType.InviteCreated, "usr_reinvited", Noon.AddMinutes(-40), instance: null),
+            Fact(FactType.InstanceJoined, moderator.VRChatUserId, Noon.AddMinutes(-15), device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_sent", Noon.AddMinutes(-10), "Sent", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_asked", Noon.AddMinutes(-10), "Asked", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_leftagain", Noon.AddMinutes(-10), "Left again", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_refused", Noon.AddMinutes(-10), "Refused", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_cancelled", Noon.AddMinutes(-10), "Cancelled", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_reinvited", Noon.AddMinutes(-10), "Reinvited", device: moderator.DeviceId));
+
+        var roster = await GetAsync<InstanceContextDto>(
+            host, token, $"/api/v1/companion/context?instanceId={Instance}", ct);
+
+        Assert.Equal("Invited", InvitationOf(roster, "usr_sent"));
+        Assert.Equal("AskedToJoin", InvitationOf(roster, "usr_asked"));
+        Assert.Equal("NotInvited", InvitationOf(roster, "usr_leftagain"));
+        Assert.Equal("NotInvited", InvitationOf(roster, "usr_refused"));
+        Assert.Equal("NotInvited", InvitationOf(roster, "usr_cancelled"));
+        Assert.Equal("Invited", InvitationOf(roster, "usr_reinvited"));
+
+        Assert.Equal("AskedToJoin", (await GetAsync<UserSummaryDto>(host, token, "/api/v1/companion/user/usr_asked", ct)).Invitation);
     }
 
     /// <summary>

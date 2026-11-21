@@ -60,6 +60,19 @@ public class ListFilteringTests
         Assert.Equal(["𝕬𝖑𝖊𝖝", "Ash", "Jo"], Names(new ListFilters(Who: Who.NotInGroup)));
     }
 
+    [Theory]
+    [InlineData(Invitation.Invited)]
+    [InlineData(Invitation.AskedToJoin)]
+    [InlineData(Invitation.NotInvited)]
+    public void NotInGroupKeepsEachInvitationWord(Invitation invitation)
+    {
+        var people = new[] { Member("Rin", RosterStanding.Flagged), Member("Jo") with { IsMember = false, Invitation = invitation }, Member("Mira", RosterStanding.Member) };
+
+        var kept = ListFiltering.Roster(people, new ListFilters(Who: Who.NotInGroup), Arrivals, Now);
+
+        Assert.Equal(["Jo"], kept.Select(m => m.DisplayName));
+    }
+
     [Fact]
     public void RanksKeepAnyOfThePicked()
     {

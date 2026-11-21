@@ -132,9 +132,16 @@ group too, so they are in both counts. A flagged person is not in the group or s
 list does not say whether they are in the group; they do count as 18+ when they carry the mark. The
 **Members** choice of the **Who** filter is only the people shown in green, not staff.
 
-Two small tags can follow a person's name, in both looks. **Not in group** is on somebody who is not a
-member of the group, including a flagged person, whose row shows red whether or not they are in it. A
-server that does not say who is a member leaves the tag off. **New** is on somebody who joined in the
+Two small tags can follow a person's name, in both looks. Somebody who is not a member of the group,
+including a flagged person, whose row shows red whether or not they are in it, carries one of three:
+**Invited** (the group has sent them an invite nobody has answered), **Asked to join** (they asked to
+join and nobody has answered) or **Not invited** (neither, which includes people who left or were
+kicked). A person the group has banned is **Not invited**. The server works this out from what it
+already knows, so a declined or expired invite still reads **Invited** until something newer is
+recorded, and somebody you approved in Modbot reads **Asked to join** until their join is recorded.
+A server that does not yet say which of the three shows **Not in group** instead, and one that does
+not say who is a member leaves the tag off. The **Not in group** choice of the **Who** filter keeps
+all three. **New** is on somebody who joined in the
 last two minutes; it goes by itself two minutes after they joined, with no need to wait for the list to
 refresh. It only shows for somebody your own log saw arrive, so it is never on someone who was already
 here when you arrived, nor on your own row, and neither tag is on a row tagged **Left**.
@@ -168,7 +175,7 @@ VRChat's **Users** list:
   there is no banner and no label. Your own row never shows a time for being here before you: when your log has
   no record of when you arrived, it shows no time at all.
 - Every person is a one-line card, so about twice as many people fit at once: a small rounded
-  square picture on the left, their name in bold, their rank, 18+ mark, **Not in group** and **New**
+  square picture on the left, their name in bold, their rank, 18+ mark, **Invited**, **Asked to join** or **Not invited**, and **New**
   tags, flags and heads-up after the name, and at the right end when they came (or `~5m+` for somebody
   who was here before you, or **Left** and the seconds). The rank and the 18+ mark are always whole, then
   the time; the name takes the room that is left and is cut with an ellipsis only when it must be. The **+** that starts a

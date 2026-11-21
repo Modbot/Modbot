@@ -7,16 +7,17 @@ using Modbot.Overlay.Views;
 namespace Modbot.Overlay.Tests.Views;
 
 /// <summary>
-/// The two marks a roster row can carry beside the name: "Not in group" on somebody the server says is
-/// not a member (whatever else their one standing word says), and "New" on somebody who joined in the
-/// last two minutes. The same words in the headset's look and the desktop window's.
+/// The two marks a roster row can carry beside the name: "Invited", "Asked to join" or "Not invited" on
+/// somebody the server says is not a member (whatever else their one standing word says; "Not in group" when
+/// an older server did not say which), and "New" on somebody who joined in the last two minutes. The same
+/// words in the headset's look and the desktop window's, and on the person's card.
 /// </summary>
 public class RosterMarkersTests
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 14, 21, 0, 0, TimeSpan.Zero);
 
-    private static RosterMember Person(string name, RosterStanding standing, bool? isMember)
-        => new("usr_" + name, name, standing, 0, [], IsMember: isMember);
+    private static RosterMember Person(string name, RosterStanding standing, bool? isMember, Invitation? invitation = null)
+        => new("usr_" + name, name, standing, 0, [], IsMember: isMember, Invitation: invitation);
 
     private static OverlayScreen Instance(
         IReadOnlyList<RosterMember> people,
@@ -74,6 +75,57 @@ public class RosterMarkersTests
             inVRChatLook);
 
         Assert.Equal(2, Count(texts, "Not in group"));
+    }
+
+    [Theory]
+    [InlineData(false, Invitation.Invited, "Invited")]
+    [InlineData(false, Invitation.AskedToJoin, "Asked to join")]
+    [InlineData(false, Invitation.NotInvited, "Not invited")]
+    [InlineData(true, Invitation.Invited, "Invited")]
+    [InlineData(true, Invitation.AskedToJoin, "Asked to join")]
+    [InlineData(true, Invitation.NotInvited, "Not invited")]
+    public void ANonMemberTheServerSaysMoreAboutCarriesThatWordInPlaceOfNotInGroup(bool inVRChatLook, Invitation invitation, string word)
+    {
+        var texts = Texts(Instance([Person("Jo", RosterStanding.Ordinary, false, invitation)]), inVRChatLook);
+
+        Assert.Equal(1, Count(texts, word));
+        Assert.Equal(0, Count(texts, "Not in group"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AMemberWithNoInvitationWordCarriesNoneOfThem(bool inVRChatLook)
+    {
+        var texts = Texts(Instance([Person("Jo", RosterStanding.Member, true)]), inVRChatLook);
+
+        Assert.Equal(0, Count(texts, "Invited"));
+        Assert.Equal(0, Count(texts, "Asked to join"));
+        Assert.Equal(0, Count(texts, "Not invited"));
+    }
+
+    [Theory]
+    [InlineData(Invitation.Invited, "Invited")]
+    [InlineData(Invitation.AskedToJoin, "Asked to join")]
+    [InlineData(Invitation.NotInvited, "Not invited")]
+    public void ThePersonsCardSaysTheSameWordInPlaceOfNotAMember(Invitation invitation, string word)
+    {
+        var person = new UserSummary("usr_Jo", "Jo", RosterStanding.Ordinary, 0, null, [], [], Invitation: invitation);
+        var screen = Instance([Person("Jo", RosterStanding.Ordinary, false, invitation)]) with { Page = OverlayPage.Person, Person = person };
+
+        var texts = Texts(screen, false);
+
+        Assert.Equal(1, Count(texts, word));
+        Assert.Equal(0, Count(texts, "Not a member"));
+    }
+
+    [Fact]
+    public void ACardWithNoInvitationWordStillSaysNotAMember()
+    {
+        var person = new UserSummary("usr_Jo", "Jo", RosterStanding.Ordinary, 0, null, [], []);
+        var screen = Instance([Person("Jo", RosterStanding.Ordinary, false)]) with { Page = OverlayPage.Person, Person = person };
+
+        Assert.Equal(1, Count(Texts(screen, false), "Not a member"));
     }
 
     [Theory]
@@ -144,5 +196,15 @@ public class RosterMarkersTests
         var guest = Instance([Person("Jo", RosterStanding.Ordinary, false)]);
 
         Assert.False(member.LooksTheSameAs(guest));
+    }
+
+    [Fact]
+    public void TheInvitationAnswerCountsAsADifferenceBetweenTwoRosters()
+    {
+        var invited = Instance([Person("Jo", RosterStanding.Ordinary, false, Invitation.Invited)]);
+        var asked = Instance([Person("Jo", RosterStanding.Ordinary, false, Invitation.AskedToJoin)]);
+
+        Assert.False(invited.LooksTheSameAs(asked));
+        Assert.True(invited.LooksTheSameAs(Instance([Person("Jo", RosterStanding.Ordinary, false, Invitation.Invited)])));
     }
 }

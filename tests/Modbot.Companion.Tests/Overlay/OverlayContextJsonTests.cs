@@ -69,6 +69,32 @@ public class OverlayContextJsonTests
     }
 
     [Fact]
+    public void ARosterRowAndASummaryCarryTheInvitationByNameAndAnOlderServerLeavesItNull()
+    {
+        const string roster = """
+            {"instanceId":"39911","members":[
+              {"subjectId":"usr_a","displayName":"Rin","standing":"Ordinary","priorActions":0,"flags":[],"isMember":false,"invitation":"AskedToJoin"},
+              {"subjectId":"usr_b","displayName":"Mei","standing":"Ordinary","priorActions":0,"flags":[],"isMember":false,"invitation":"Invited"},
+              {"subjectId":"usr_c","displayName":"Kai","standing":"Ordinary","priorActions":0,"flags":[],"isMember":false,"invitation":"NotInvited"},
+              {"subjectId":"usr_d","displayName":"Jo","standing":"Member","priorActions":0,"flags":[],"isMember":true,"invitation":null},
+              {"subjectId":"usr_e","displayName":"Ash","standing":"Ordinary","priorActions":0,"flags":[],"isMember":false}
+            ]}
+            """;
+        const string summary = """{"subjectId":"usr_a","displayName":"Rin","standing":"Ordinary","priorActions":0,"joinedAt":null,"flags":[],"roles":[],"invitation":"Invited"}""";
+        const string olderSummary = """{"subjectId":"usr_a","displayName":"Rin","standing":"Ordinary","priorActions":0,"joinedAt":null,"flags":[],"roles":[]}""";
+
+        var context = JsonSerializer.Deserialize<InstanceContext>(roster, Json)!;
+
+        Assert.Equal(Invitation.AskedToJoin, context.Members[0].Invitation);
+        Assert.Equal(Invitation.Invited, context.Members[1].Invitation);
+        Assert.Equal(Invitation.NotInvited, context.Members[2].Invitation);
+        Assert.Null(context.Members[3].Invitation);
+        Assert.Null(context.Members[4].Invitation);
+        Assert.Equal(Invitation.Invited, JsonSerializer.Deserialize<UserSummary>(summary, Json)!.Invitation);
+        Assert.Null(JsonSerializer.Deserialize<UserSummary>(olderSummary, Json)!.Invitation);
+    }
+
+    [Fact]
     public void ARosterRowCarriesThePicturePathAndAServerThatSendsNoneLeavesItNull()
     {
         const string roster = """
