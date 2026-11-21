@@ -171,6 +171,12 @@ internal sealed class DesktopChatWindow : Window
     /// <summary>Which window it is placed beside when it comes up with no saved spot, and the screen it falls back to when VRChat's cannot be found.</summary>
     public Window? Beside { get; set; }
 
+    /// <summary>
+    /// How far, in screen pixels, a window that has no saved spot opens from where the first one would:
+    /// left and down, so each pop-up chat sits a step off the last (<see cref="Modbot.Companion.Chat.ChatCascade"/>).
+    /// </summary>
+    public (int Left, int Down) Shift { get; set; }
+
     /// <summary>The X, pressed.</summary>
     public event Action? CloseTapped;
 
@@ -470,9 +476,9 @@ internal sealed class DesktopChatWindow : Window
         var height = (int)(Height * screen.Scaling);
 
         if (Beside is { IsVisible: true } beside && Screens.ScreenFromVisual(beside)?.Bounds == screen.Bounds)
-            Put(area, beside.Position.X - width - EdgeMargin, beside.Position.Y, width, height);
+            Put(area, beside.Position.X - width - EdgeMargin + Shift.Left, beside.Position.Y + Shift.Down, width, height);
         else
-            Put(area, area.Right - width - EdgeMargin, area.Y + ((area.Height - height) / 2), width, height);
+            Put(area, area.Right - width - EdgeMargin + Shift.Left, area.Y + ((area.Height - height) / 2) + Shift.Down, width, height);
     }
 
     /// <summary>
