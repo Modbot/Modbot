@@ -13,7 +13,7 @@ namespace Modbot.Companion.App;
 
 /// <summary>
 /// Owns Dictate: the controller behind the button, its microphone and its speech engine, the
-/// one download of the speech model, and the chat panel the text goes to.
+/// one download of the speech model, and the pop-up chat each dictation opens.
 /// </summary>
 /// <remarks>
 /// <para>Nothing here runs until somebody taps Dictate. The controller is built the first time it
@@ -44,7 +44,6 @@ internal sealed partial class CompanionHost
     private Task<string?>? _speechModelFetch;
 
     private ChatAvailability? _chatAvailability;
-    private ChatSession? _chatSession;
     private volatile ServerPairing? _chatPairing;
     private readonly DispatcherTimer _chatAsk = new() { Interval = ChatAskEvery };
     private readonly CancellationTokenSource _chatStop = new();
@@ -80,22 +79,28 @@ internal sealed partial class CompanionHost
     }
 
     /// <summary>
-    /// Builds the chat client, the conversation behind the panel and the question "is AI Chat on?",
-    /// and asks it. Once, after the saved pairings are connected.
+    /// Builds the chat client, the list of pop-up chats and the question "is AI Chat on?", and asks
+    /// it. Once, after the saved pairings are connected.
     /// </summary>
     private void StartChat()
     {
         var client = new HttpChatClient(_http!);
 
         _chatAvailability = new ChatAvailability(client, () => _chatPairing);
-        _chatSession = new ChatSession(client, () => _chatPairing, LogDictation);
 
-        // Both can change on a worker thread, so what they draw is handed to the window's thread.
+        // Every pop-up chat gets a conversation of its own. The button says Sending until the answer
+        // begins, or says why it could not.
+        _chatPopups = new ChatPopups(() =>
+        {
+            var session = new ChatSession(client, () => _chatPairing, LogDictation);
+            session.AnswerStarted += problem => _dictation?.SendEnded(problem);
+
+            return session;
+        });
+        _chatPopups.Closed += ChatPopupClosed;
+
+        // It can change on a worker thread, so what it draws is handed to the window's thread.
         _chatAvailability.Changed += () => Dispatcher.UIThread.Post(ChatAvailabilityChanged);
-        _chatSession.Changed += () => Dispatcher.UIThread.Post(ShowChat);
-
-        // The button says Sending until the answer begins, or says why it could not.
-        _chatSession.AnswerStarted += problem => _dictation?.SendEnded(problem);
 
         StartFeedback();
 
@@ -133,66 +138,12 @@ internal sealed partial class CompanionHost
         ShowButton();
     }
 
-    /// <summary>Shows the chat panel and puts the dictated words into the conversation, the open one if the panel was already up.</summary>
-    private void AskChat(string text)
-    {
-        if (_chatSession is not { } session || (_chatHost is null && _desktopChat is null))
-        {
-            LogDictation("the chat panel is not up, so what was said was not sent", null);
-            _dictation?.SendEnded("The chat panel is not up");
-            return;
-        }
-
-        // The words go onto the conversation at once (the first part of asking runs here), so the panel
-        // opens already showing them and the waiting line under them.
-        _ = CrashGuard.RunAsync("asking AI Chat", () => session.AskAsync(text));
-
-        try
-        {
-            var screen = new ChatScreen(session.Lines);
-            _chatHost?.Show(screen);
-            _desktopChat?.Show(screen);
-        }
-        catch (Exception ex)
-        {
-            LogDictation("the chat panel could not be shown", ex);
-        }
-    }
-
-    /// <summary>Draws the conversation on the panels while they are up; an ended one puts the window on the monitor away.</summary>
-    private void ShowChat()
-    {
-        if (_chatSession is not { } session)
-            return;
-
-        var screen = new ChatScreen(session.Lines);
-
-        if (_chatHost is { Hidden: false } host)
-            host.Update(screen);
-
-        if (_desktopChat is not { Hidden: false } desktop)
-            return;
-
-        if (session.Lines.Count == 0)
-            desktop.Dismiss();
-        else
-            desktop.Update(screen);
-    }
-
-    /// <summary>The X on the window on the monitor: the conversation ends and both panels go away.</summary>
-    private void CloseChat()
-    {
-        _desktopChat?.Dismiss();
-        _chatHost?.Hide();
-        _chatSession?.Close();
-    }
-
-    /// <summary>Stops asking, and lets go of the conversation.</summary>
+    /// <summary>Stops asking, and closes every pop-up chat.</summary>
     private void StopChat()
     {
         _chatAsk.Stop();
         _chatStop.Cancel();
-        _chatSession?.Close();
+        _chatPopups?.CloseAll();
     }
 
     /// <summary>

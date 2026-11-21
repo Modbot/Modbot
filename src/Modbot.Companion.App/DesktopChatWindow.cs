@@ -25,7 +25,7 @@ namespace Modbot.Companion.App;
 /// activated and a click on it is answered "do not activate", as the notification window is. There
 /// is nothing to type into; the words come from Dictate.</para>
 /// <para><strong>Its own strip.</strong> Grab it to move the window unless it is locked; the X at the
-/// top right ends the conversation and puts the headset panel away too. In edit mode the strip also
+/// top right ends this chat and takes its window and its headset panel down; the other chats stay. In edit mode the strip also
 /// has the lock and the hand, which are the desktop overlay's own two switches (one setting,
 /// <see cref="DesktopOverlaySettings"/>), and the shared resize corner (<see cref="ResizeCorner"/>) makes the window bigger, up to twice its
 /// first size, while the window is neither locked nor click-through. With the hand on, clicks go through to the game everywhere but the strip.</para>

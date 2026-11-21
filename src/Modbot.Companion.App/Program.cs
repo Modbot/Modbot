@@ -382,7 +382,6 @@ internal sealed partial class CompanionHost : IOverlayListener
     private OverlayHost? _overlayHost;
     private NotificationHost? _notifyHost;
     private ButtonHost? _buttonHost;
-    private ChatHost? _chatHost;
     private OverlayPreviewWindow? _preview;
 
     /// <summary>Modbot's tab in the SteamVR dashboard; null where it could not be set up.</summary>
@@ -426,8 +425,6 @@ internal sealed partial class CompanionHost : IOverlayListener
     /// <summary>The window that sits over VRChat on a monitor, and the key that brings it up.</summary>
     private DesktopOverlayWindow? _desktopOverlay;
 
-    /// <summary>The chat window beside it, kept put away until Dictate has something to show.</summary>
-    private DesktopChatWindow? _desktopChat;
     private EscapeBubbleWindow? _escapeBubble;
 
     /// <summary>Modbot's bubble in VRChat's HUD row, kept while the desktop overlay is on.</summary>
@@ -2223,7 +2220,6 @@ internal sealed partial class CompanionHost : IOverlayListener
             OpenVrSession.Shared.GripTake = CompanionSettings.GripTake(_state?.Settings.OverlayGripSensitivity ?? CompanionSettings.DefaultGripSensitivity);
 
             MakeButtonHost();
-            MakeChatHost();
 
             StartHeadsetPaletteWatch();
             AttachOverlay();
@@ -2293,24 +2289,6 @@ internal sealed partial class CompanionHost : IOverlayListener
         };
         _buttonHost.ShortcutHeld += TogglePanel;
         _buttonHost.Shown = _state?.Settings.OverlayButtonOn is not false;
-    }
-
-    /// <summary>
-    /// The chat panel comes up with the panel and goes with it, and stays put away until something
-    /// shows it. It draws nothing and touches no graphics card while it is hidden.
-    /// </summary>
-    private void MakeChatHost()
-    {
-        if (_chatHost is not null)
-            return;
-
-        _chatHost = ChatHost.Create(placement: _state?.Settings.OverlayChatSpot);
-        _chatHost.EditMode = _state?.Settings.OverlayEditMode is true;
-        _chatHost.PushStep = PushStep(_state?.Settings.OverlayPushSpeed);
-        _chatHost.PlacementChanged += ChatPlacementChanged;
-
-        // The X ends the conversation: the next dictation starts a new one.
-        _chatHost.Closed += () => _chatSession?.Close();
     }
 
     /// <summary>
@@ -2696,9 +2674,9 @@ internal sealed partial class CompanionHost : IOverlayListener
             {
                 var now = System.Diagnostics.Stopwatch.GetElapsedTime(_inputClock);
                 _notifyHost?.PollInput(now);
-                _chatHost?.PollInput(now, _notifyHost?.Busy);
-                _buttonHost?.PollInput(now, _chatHost?.Busy ?? _notifyHost?.Busy, StickInUse);
-                _overlayHost?.PollInput(now, _buttonHost?.Busy ?? _chatHost?.Busy ?? _notifyHost?.Busy);
+                var chatBusy = PollChatInput(now);
+                _buttonHost?.PollInput(now, chatBusy ?? _notifyHost?.Busy, StickInUse);
+                _overlayHost?.PollInput(now, _buttonHost?.Busy ?? chatBusy ?? _notifyHost?.Busy);
 
                 // Faster while a list is moving, slow again once it stops.
                 var scrolling = _overlayHost?.Scrolling is true;
@@ -2733,8 +2711,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         if (_buttonHost is not null)
             _buttonHost.PushStep = PushStep(speed);
 
-        if (_chatHost is not null)
-            _chatHost.PushStep = PushStep(speed);
+        SetChatPushStep(PushStep(speed));
 
         Render();
     }
@@ -2944,10 +2921,10 @@ internal sealed partial class CompanionHost : IOverlayListener
     private bool StickInUse(Hand hand)
         => _overlayHost?.Holding is not null
             || _notifyHost?.Holding is not null
-            || _chatHost?.Holding is not null
+            || ChatHolding()
             || _overlayHost?.Busy == hand
             || _notifyHost?.Busy == hand
-            || _chatHost?.Busy == hand
+            || ChatBusyWith(hand)
             || (hand == Hand.Right
                 && _overlayHost is { OnList: true, Placement: var placement }
                 && placement.Anchor != OverlayAnchor.RightHand);
@@ -3027,7 +3004,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         }
     }
 
-    /// <summary>Takes the chat panel down; it goes with the panel it belongs to.</summary>
+    /// <summary>Takes the pop-up chats down; they go with the panel they belong to.</summary>
     private void DisposeChat()
     {
         // A move not yet written is written now, so switching the panel off does not lose it.
@@ -3038,33 +3015,8 @@ internal sealed partial class CompanionHost : IOverlayListener
                 Log.Warning("The chat panel's spot could not be saved to {Path}", _settingsPath);
         }
 
-        _chatHost?.Dispose();
-        _chatHost = null;
-        _chatSession?.Close();
-        _chatAttachTriedAt = DateTimeOffset.MinValue;
-    }
-
-    /// <summary>
-    /// Attaches the chat panel once the headset panel is up, and again after a VR runtime that
-    /// closed is back. Its own attach, because it is an overlay of its own; a failure puts only
-    /// the chat panel away.
-    /// </summary>
-    private void AttachChat()
-    {
-        if (_chatHost is null)
-            return;
-
-        _chatAttachTriedAt = _clock.UtcNow;
-
-        try
-        {
-            _chatHost.Start();
-        }
-        catch (Exception ex) when (PanelRetries.IsPanelFailure(ex))
-        {
-            Log.Warning(ex, "The chat panel could not start ({Reason}); the panel carries on without it", PanelRetries.ShortReason(ex));
-            DisposeChat();
-        }
+        // Every chat goes with the headset panel: its panel is let go of, and its conversation ends.
+        _chatPopups?.CloseAll();
     }
 
     /// <summary>
@@ -3189,8 +3141,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         if (_buttonHost is not null)
             _buttonHost.Look = _headsetLook;
 
-        if (_chatHost is not null)
-            _chatHost.Look = _headsetLook;
+        SetChatLook(_headsetLook);
 
         if (_desktopNotify is not null)
             _desktopNotify.Look = _popUpLook;
@@ -3219,14 +3170,10 @@ internal sealed partial class CompanionHost : IOverlayListener
         if (_buttonHost is not null)
             _buttonHost.EditMode = on;
 
-        if (_chatHost is not null)
-            _chatHost.EditMode = on;
+        SetChatEditMode(on);
 
         if (_desktopOverlay is not null)
             _desktopOverlay.EditMode = on;
-
-        if (_desktopChat is not null)
-            _desktopChat.EditMode = on;
 
         if (_desktopNotify is not null)
             _desktopNotify.EditMode = on;
@@ -3281,7 +3228,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         else if (_desktopOverlay is not null)
         {
             _desktopOverlay.Apply(desktopOverlay);
-            _desktopChat?.Apply(desktopOverlay);
+            ApplyToChatWindows(desktopOverlay);
             ApplyDictateShortcut();
 
             if (before.ShortcutOrDefault != desktopOverlay.ShortcutOrDefault)
@@ -3366,21 +3313,6 @@ internal sealed partial class CompanionHost : IOverlayListener
             _desktopOverlay.NameTyped += (list, name) => _overlay?.SetName(list, name);
             _desktopOverlay.HeadsUpTyped += words => _overlay?.SetHeadsUpText(words);
 
-            // The chat window for Dictate's answers: put away until something is dictated, in the
-            // look the overlay is in, with the overlay's own lock and hand.
-            var overlay = _desktopOverlay;
-            _desktopChat = new DesktopChatWindow(_state.Settings.DesktopChatSpot)
-            {
-                Beside = overlay,
-                EditMode = _state.Settings.OverlayEditMode,
-            };
-            _desktopChat.Apply(settings);
-            _desktopChat.UseLook(overlay.Look);
-            overlay.LookChanged += () => _desktopChat?.UseLook(overlay.Look);
-            _desktopChat.SwitchPressed += SetDesktopOverlay;
-            _desktopChat.SpotChanged += DesktopChatSpotChanged;
-            _desktopChat.CloseTapped += CloseChat;
-
             _desktopOverlayShortcut = new DesktopOverlayShortcut(ToggleDesktopOverlay);
             _desktopOverlayShortcut.Ask(settings.ShortcutOrDefault);
             _desktopOverlay.DictatePressed += ToggleDictateFromDesktop;
@@ -3404,8 +3336,6 @@ internal sealed partial class CompanionHost : IOverlayListener
             _dictateShortcut = null;
             _escapeBubbleHost?.Stop();
             _escapeBubbleHost = null;
-            _desktopChat?.Close();
-            _desktopChat = null;
             _desktopOverlay?.Close();
             _desktopOverlay = null;
             return;
@@ -3437,12 +3367,8 @@ internal sealed partial class CompanionHost : IOverlayListener
             SaveDesktopChatSpot();
         }
 
-        if (_desktopChat is not null)
-        {
-            _desktopChat.Dismiss();
-            _desktopChat.Close();
-            _desktopChat = null;
-        }
+        // The chats' windows go with it; a chat that had only a window ends.
+        CloseChatWindows();
 
         if (_desktopOverlay is not null)
         {
@@ -3651,8 +3577,6 @@ internal sealed partial class CompanionHost : IOverlayListener
     private DateTimeOffset _notifyAttachTriedAt = DateTimeOffset.MinValue;
 
     private DateTimeOffset _buttonAttachTriedAt = DateTimeOffset.MinValue;
-
-    private DateTimeOffset _chatAttachTriedAt = DateTimeOffset.MinValue;
 
     /// <summary>
     /// Attaches to SteamVR if it is running, and says so once. Never launches it: a program that
@@ -3932,19 +3856,8 @@ internal sealed partial class CompanionHost : IOverlayListener
                 ShowButton();
             }
 
-            // The chat panel follows the panel the same way. Attached it stays put away until
-            // something shows it.
-            if (_chatHost is not null)
-            {
-                _chatHost.Poll();
-
-                if (_overlayHost?.Status.State is OverlayRuntimeState.Running
-                    && _chatHost.Status.State is not OverlayRuntimeState.Running
-                    && _clock.UtcNow - _chatAttachTriedAt >= OverlayAttachInterval)
-                {
-                    AttachChat();
-                }
-            }
+            // Each chat panel follows the panel the same way.
+            PollChatHosts();
 
             if (_notifyHost is not null)
             {
@@ -4137,7 +4050,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         _overlay?.Dispose();
         _overlayHost?.Dispose();
         _buttonHost?.Dispose();
-        _chatHost?.Dispose();
+        DisposeChatHosts();
         _notifyHost?.Dispose();
         _dashboardLoop.Stop();
         _dashboard?.Dispose();
