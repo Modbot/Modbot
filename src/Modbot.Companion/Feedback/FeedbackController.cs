@@ -30,8 +30,8 @@ public enum FeedbackState
 
 /// <summary>
 /// What a tap on Feedback does, apart from drawing it: speak, have the words tidied, show a draft,
-/// and save it only when the person sends it. Has no window of its own, so the desktop and the
-/// headset can both drive it.
+/// and save it only when the person sends it. Has no window of its own, so the desktop window can
+/// drive it.
 /// </summary>
 /// <remarks>
 /// <para><strong>The speech.</strong> The microphone, the speech engine and the speech model are

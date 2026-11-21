@@ -67,8 +67,8 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
     private static XR? _xrApi;
     private static Vulkan.Vk? _vkApi;
 
-    /// <summary>The main panel, the notification panel, the show and hide button, the chat panel and the feedback panel, in that order.</summary>
-    internal const int PanelCount = 5;
+    /// <summary>The main panel, the notification panel, the show and hide button and the chat panel, in that order.</summary>
+    internal const int PanelCount = 4;
 
     private const int MainPanel = 0;
 
@@ -77,8 +77,6 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
     private const int ButtonPanelIndex = 2;
 
     private const int ChatPanelIndex = 3;
-
-    private const int FeedbackPanelIndex = 4;
 
     private readonly float _widthInMetres;
     private readonly ILogger _log;
@@ -125,12 +123,10 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
             new PanelState(notificationResolution ?? resolution),
             new PanelState(buttonResolution ?? OverlayButton.PanelPixels),
             new PanelState(chatResolution ?? ChatHost.TexturePixels),
-            new PanelState(chatResolution ?? ChatHost.TexturePixels),
         ];
         NotificationPanel = new PanelRuntime(this, NotifyPanel);
         ButtonPanel = new PanelRuntime(this, ButtonPanelIndex);
         ChatPanel = new PanelRuntime(this, ChatPanelIndex);
-        FeedbackPanel = new PanelRuntime(this, FeedbackPanelIndex);
     }
 
     /// <summary>
@@ -150,12 +146,6 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
     /// placement and its own on and off.
     /// </summary>
     public IOverlayRuntime ChatPanel { get; }
-
-    /// <summary>
-    /// The feedback panel, as a runtime of its own: the same session, its own layer, its own
-    /// placement and its own on and off. Its texture is the chat panel's size.
-    /// </summary>
-    public IOverlayRuntime FeedbackPanel { get; }
 
     private static readonly Lock SharedGate = new();
 

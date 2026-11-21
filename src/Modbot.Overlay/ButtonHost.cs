@@ -311,9 +311,6 @@ public sealed class ButtonHost : IDisposable
     /// <summary>Raised when a controller's trigger clicks the Dictate row. UI thread.</summary>
     public event Action? DictatePressed;
 
-    /// <summary>Raised when a controller's trigger clicks the Feedback button beside Dictate. UI thread.</summary>
-    public event Action? FeedbackPressed;
-
     /// <summary>How long each step of the moving Dictate picture lasts.</summary>
     private const double FrameMilliseconds = 150;
 
@@ -371,7 +368,7 @@ public sealed class ButtonHost : IDisposable
     /// </param>
     public void PollInput(TimeSpan now, Hand? elsewhere = null, Func<Hand, bool>? stickInUse = null)
     {
-        _frame = _drawn.PicturesMove ? (int)(now.TotalMilliseconds / FrameMilliseconds) % 8 : 0;
+        _frame = _drawn.DictateMoves ? (int)(now.TotalMilliseconds / FrameMilliseconds) % 8 : 0;
 
         if (_runtime.Status.State is not OverlayRuntimeState.Running)
         {
@@ -423,7 +420,6 @@ public sealed class ButtonHost : IDisposable
         // is a press, the bar's switches are the lock and the hand (edit mode only).
         var pressed = false;
         var dictatePressed = false;
-        var feedbackPressed = false;
         foreach (var click in result.Clicks)
         {
             switch (TargetAt(click.Across, click.Down))
@@ -433,9 +429,6 @@ public sealed class ButtonHost : IDisposable
                     break;
                 case OverlayTarget.DictateButton:
                     dictatePressed = true;
-                    break;
-                case OverlayTarget.FeedbackButton:
-                    feedbackPressed = true;
                     break;
                 case OverlayTarget.Lock when EditMode:
                     Switch(Placement with { Locked = !Placement.Locked });
@@ -455,9 +448,6 @@ public sealed class ButtonHost : IDisposable
 
         if (dictatePressed)
             DictatePressed?.Invoke();
-
-        if (feedbackPressed)
-            FeedbackPressed?.Invoke();
 
         if (held)
             ShortcutHeld?.Invoke();

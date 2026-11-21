@@ -33,10 +33,4 @@ public enum OverlayKind
     /// dictation opens it, grabbed, moved, resized and closed with the X, like the others.
     /// </summary>
     Chat,
-
-    /// <summary>
-    /// The feedback panel: the draft of what was spoken, to look over, change the kind of and send.
-    /// Hidden until a draft is ready, grabbed, moved, locked, made click-through and resized like the others.
-    /// </summary>
-    Feedback,
 }

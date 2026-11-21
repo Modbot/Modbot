@@ -46,10 +46,6 @@ public enum DictateState
 /// <param name="Level">How loud the voice is, 0 to <see cref="DictationController.LevelSteps"/>, while <paramref name="Dictate"/> is listening.</param>
 /// <param name="Notice">A few words that take the place of the Dictate label for a few seconds ("Nothing heard", "Could not send"), or null.</param>
 /// <param name="Frame">Which of 8 steps the moving picture is at. Set by the button's host while something moves, never by the caller.</param>
-/// <param name="Feedback">The Feedback button beside Dictate on the card's lower row. <see cref="DictateState.Off"/> leaves it out.</param>
-/// <param name="FeedbackLabel">What the Feedback button says: what it is doing, or what a tap will do.</param>
-/// <param name="FeedbackPercent">The words beside the Feedback label while the speech model comes down, or empty.</param>
-/// <param name="FeedbackLevel">How loud the voice is, 0 to <see cref="DictationController.LevelSteps"/>, while Feedback is listening.</param>
 public sealed record ButtonScreen(
     bool PanelShown,
     string Shortcut,
@@ -58,11 +54,7 @@ public sealed record ButtonScreen(
     int Percent = 0,
     int Frame = 0,
     int Level = 0,
-    string? Notice = null,
-    DictateState Feedback = DictateState.Off,
-    string FeedbackLabel = "Feedback",
-    string FeedbackPercent = "",
-    int FeedbackLevel = 0)
+    string? Notice = null)
 {
     /// <summary>The panel is up: the button offers to hide it.</summary>
     public static ButtonScreen Shown { get; } = new(true, OverlayButton.DefaultShortcut);
@@ -116,24 +108,4 @@ public sealed record ButtonScreen(
     /// Listening is not one: it changes only as the voice does, when the screen itself changes.
     /// </summary>
     public bool DictateMoves => Dictate is DictateState.Writing or DictateState.Sending or DictateState.GettingReady;
-
-    /// <summary>
-    /// The screen with the Feedback button set. A <paramref name="picture"/> of <see cref="DictateState.Off"/>
-    /// leaves it out. The caller works out the words, so this card knows nothing of where Feedback is up to.
-    /// </summary>
-    public ButtonScreen WithFeedback(DictateState picture, string label, string percent = "", int level = 0) => picture is DictateState.Off
-        ? this with { Feedback = DictateState.Off, FeedbackLabel = "Feedback", FeedbackPercent = "", FeedbackLevel = 0 }
-        : this with
-        {
-            Feedback = picture,
-            FeedbackLabel = label,
-            FeedbackPercent = percent,
-            FeedbackLevel = Math.Clamp(level, 0, DictationController.LevelSteps),
-        };
-
-    /// <summary>Whether the Feedback button has a picture that turns on its own.</summary>
-    public bool FeedbackMoves => Feedback is DictateState.Writing or DictateState.Sending or DictateState.GettingReady;
-
-    /// <summary>Whether either lower-row picture turns on its own, which the host redraws each step.</summary>
-    public bool PicturesMove => DictateMoves || FeedbackMoves;
 }

@@ -2,8 +2,6 @@ using Avalonia.Threading;
 using Modbot.Companion.App.Feedback;
 using Modbot.Companion.Dictation;
 using Modbot.Companion.Feedback;
-using Modbot.Overlay;
-using Modbot.Overlay.Views;
 using Serilog;
 
 namespace Modbot.Companion.App;
@@ -30,9 +28,6 @@ internal sealed partial class CompanionHost
     private FeedbackController? _feedback;
     private FeedbackDraftWindow? _feedbackDraft;
 
-    /// <summary>Whether the Feedback that is under way was started from the headset button, so its draft opens in the headset.</summary>
-    private bool _feedbackFromHeadset;
-
     /// <summary>Redraws the button ten times a second while listening, so the level follows the voice.</summary>
     private readonly DispatcherTimer _feedbackLevel = new() { Interval = TimeSpan.FromMilliseconds(100) };
 
@@ -42,7 +37,7 @@ internal sealed partial class CompanionHost
     /// <summary>What a tap on Feedback drives. Built the first time it is asked for, which opens no microphone.</summary>
     internal FeedbackController Feedback => _feedback ??= MakeFeedback();
 
-    /// <summary>What the Feedback buttons show: nothing while it is not offered.</summary>
+    /// <summary>What the Feedback button shows: nothing while it is not offered.</summary>
     private FeedbackCard FeedbackCardNow() => FeedbackAvailable ? FeedbackCard.Of(Feedback) : FeedbackCard.Off;
 
     /// <summary>Builds the client and the question "may this device's owner send feedback?". Once, with the chat.</summary>
@@ -72,30 +67,12 @@ internal sealed partial class CompanionHost
         ShowButton();
     }
 
-    /// <summary>The Feedback button on the strip or the main window: a tap, only while the button is offered.</summary>
+    /// <summary>The Feedback button on the main window: a tap, only while the button is offered.</summary>
     private void ToggleFeedback()
     {
         if (FeedbackAvailable)
             Feedback.Toggle();
     }
-
-    /// <summary>The headset button's Feedback tap: the same as the others, but the draft then opens in the headset.</summary>
-    private void ToggleFeedbackFromHeadset()
-    {
-        if (!FeedbackAvailable)
-            return;
-
-        // Set before the toggle: it can reach the draft before this method returns.
-        _feedbackFromHeadset = Feedback.State is FeedbackState.Idle || _feedbackFromHeadset;
-        Feedback.Toggle();
-    }
-
-    /// <summary>The screen with the headset button's Feedback row set from the controller. The row is left out while Feedback is not offered.</summary>
-    internal static ButtonScreen WithFeedback(ButtonScreen screen, FeedbackCard card)
-        => screen.WithFeedback(card.Picture, card.Label, card.PercentText, card.Level);
-
-    /// <summary>Hands the desktop overlay's strip what its Feedback button should say.</summary>
-    private void ShowDesktopFeedback() => _desktopOverlay?.SetFeedback(FeedbackCardNow());
 
     /// <summary>Hands the main window what its Feedback button should say.</summary>
     private void ShowMainFeedback() => Window.SetFeedback(FeedbackCardNow());
@@ -138,38 +115,13 @@ internal sealed partial class CompanionHost
         return controller;
     }
 
-    /// <summary>The headset panel's Send: the same send as the draft window's.</summary>
-    private void FeedbackPanelSent(string kind, string title, string details)
-    {
-        if (_feedback is { } controller)
-            _ = CrashGuard.RunAsync("sending feedback", () => controller.SendAsync(kind, title, details));
-    }
-
-    /// <summary>The headset panel's Cancel or X: the draft is dropped and nothing is saved.</summary>
-    private void FeedbackPanelCancelled() => _feedback?.Cancel();
-
-    /// <summary>Opens the draft window, or the headset panel when the headset button started it, on <paramref name="draft"/>. Nothing is saved until Send.</summary>
+    /// <summary>Opens the draft window on <paramref name="draft"/>. Nothing is saved until Send.</summary>
     private void ShowFeedbackDraft(FeedbackController controller, FeedbackDraft draft)
     {
         // The button went away while the words were being tidied: nothing is offered, nothing is kept.
         if (!FeedbackAvailable)
         {
             controller.Abandon();
-            return;
-        }
-
-        if (_feedbackFromHeadset && _feedbackHost is { } panel)
-        {
-            try
-            {
-                panel.Show(FeedbackScreen.Of(draft));
-            }
-            catch (Exception ex)
-            {
-                LogFeedback("the draft panel could not be shown", ex);
-                controller.Cancel();
-            }
-
             return;
         }
 
@@ -201,18 +153,6 @@ internal sealed partial class CompanionHost
     /// <summary>Keeps the draft window to what the controller says: its reason, locked while sending, closed once the draft is over.</summary>
     private void FollowDraft(FeedbackController controller)
     {
-        var headset = _feedbackFromHeadset && _feedbackHost is not null;
-
-        // Nothing is under way any more, so the next tap, wherever it is, decides again.
-        if (controller.State is FeedbackState.Idle)
-            _feedbackFromHeadset = false;
-
-        if (headset)
-        {
-            FollowHeadsetDraft(controller, _feedbackHost!);
-            return;
-        }
-
         if (_feedbackDraft is not { } window)
         {
             // A draft is ready and has no window yet (or its window was closed while it was being sent
@@ -234,38 +174,11 @@ internal sealed partial class CompanionHost
         window.CloseFromHost();
     }
 
-    /// <summary>The same for the headset panel: its reason, locked while sending, put away once the draft is over.</summary>
-    private void FollowHeadsetDraft(FeedbackController controller, FeedbackHost panel)
-    {
-        if (controller.State is FeedbackState.Draft or FeedbackState.Sending)
-        {
-            if (panel.Hidden)
-            {
-                // A draft is ready and the panel is not up yet.
-                if (controller.State is FeedbackState.Draft && controller.Draft is { } kept)
-                    ShowFeedbackDraft(controller, kept);
-
-                return;
-            }
-
-            panel.SetProblem(controller.Problem);
-            panel.SetSending(controller.State is FeedbackState.Sending);
-            return;
-        }
-
-        if (!panel.Hidden)
-            panel.Hide();
-    }
-
-    /// <summary>Closes the microphone, the draft window and the headset panel and drops what was heard. Safe to call when Feedback never started.</summary>
+    /// <summary>Closes the microphone and the draft window and drops what was heard. Safe to call when Feedback never started.</summary>
     private void StopFeedback()
     {
         _feedbackLevel.Stop();
         _feedback?.Abandon();
-        _feedbackFromHeadset = false;
-
-        if (_feedbackHost is { Hidden: false } panel)
-            panel.Hide();
 
         _feedbackDraft?.CloseFromHost();
         _feedbackDraft = null;

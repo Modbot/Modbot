@@ -79,7 +79,6 @@ public sealed class FallbackOverlayRuntime : IOverlayRuntime, IOverlayKeyboard, 
                 OverlayKind.Notification => openXr.NotificationPanel,
                 OverlayKind.Button => openXr.ButtonPanel,
                 OverlayKind.Chat => openXr.ChatPanel,
-                OverlayKind.Feedback => openXr.FeedbackPanel,
                 _ => openXr,
             });
     }

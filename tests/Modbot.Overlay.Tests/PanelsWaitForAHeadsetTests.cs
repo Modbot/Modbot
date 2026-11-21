@@ -368,56 +368,6 @@ public class PanelsWaitForAHeadsetTests
         });
     }
 
-    private static FeedbackHost FeedbackPanel(ScriptedRuntime runtime)
-        => new(runtime, () => new CountedRenderer(), () => new CountedSurface());
-
-    [Fact]
-    public void TheFeedbackPanelMakesNoTextureWhileNoHeadsetIsRunningOrItIsPutAway()
-    {
-        AvaloniaTestHost.Run(() =>
-        {
-            Forget();
-            var runtime = new ScriptedRuntime();
-            using var host = FeedbackPanel(runtime);
-
-            host.Start();
-            host.Show(new FeedbackScreen(null, "Title", "Words"));
-
-            Assert.False(host.IsDrawing);
-            Assert.Equal(0, CountedSurface.Made);
-
-            // A headset that arrives while the panel is put away gets no texture either.
-            host.Hide();
-            runtime.Answer = new(OverlayRuntimeState.Running, Detail: "Attached.");
-            host.Start();
-
-            Assert.False(host.IsDrawing);
-            Assert.Equal(0, CountedSurface.Made);
-        });
-    }
-
-    [Fact]
-    public void TheFeedbackPanelDrawsWhatItWasHoldingWhenAHeadsetArrives()
-    {
-        AvaloniaTestHost.Run(() =>
-        {
-            Forget();
-            var runtime = new ScriptedRuntime();
-            using var host = FeedbackPanel(runtime);
-
-            host.Start();
-            host.Show(new FeedbackScreen(null, "Title", "Words"));
-            Assert.Equal(0, host.FramesDrawn);
-
-            runtime.Answer = new(OverlayRuntimeState.Running, Detail: "Attached.");
-            host.Start();
-
-            Assert.True(host.IsDrawing);
-            Assert.Equal(1, host.FramesDrawn);
-            Assert.Equal("Title", host.Showing.Title);
-        });
-    }
-
     [Fact]
     public void BuildingTheOrdinaryPanelsMakesNoTextureYet()
     {
@@ -427,14 +377,11 @@ public class PanelsWaitForAHeadsetTests
             // and two textures on the spot; now it makes the runtimes and nothing else.
             using var panel = OverlayHost.Create(Size);
             using var popUps = NotificationHost.Create(Size);
-            using var feedback = FeedbackHost.Create();
 
             Assert.False(panel.IsDrawing);
             Assert.False(popUps.IsDrawing);
-            Assert.False(feedback.IsDrawing);
             Assert.Equal(0, panel.FramesDrawn);
             Assert.Equal(0, popUps.FramesDrawn);
-            Assert.Equal(0, feedback.FramesDrawn);
         });
     }
 }

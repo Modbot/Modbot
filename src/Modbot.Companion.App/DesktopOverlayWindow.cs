@@ -8,7 +8,6 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
-using Modbot.Companion.App.Feedback;
 using Modbot.Companion.Presentation;
 using Modbot.Overlay;
 using Modbot.Overlay.Driving;
@@ -176,13 +175,6 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     private ButtonScreen _dictate = ButtonScreen.Shown;
     private int _dictateFrame;
 
-    // The Feedback button next to Dictate: there while the paired server lets this device's owner
-    // send feedback (AI Chat does not matter). Drawn like Dictate's, from its own card.
-    private readonly Button _feedbackButton = SwitchButton();
-    private readonly DispatcherTimer _feedbackMotion = new() { Interval = TimeSpan.FromMilliseconds(150) };
-    private FeedbackCard _feedback = FeedbackCard.Off;
-    private int _feedbackFrame;
-
     // The Close button's caption, kept so it can stand in for the icon the VRChat look gives it.
     private readonly object? _closeCaption;
 
@@ -242,9 +234,6 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 
     /// <summary>The Dictate button on the strip, pressed.</summary>
     public event Action? DictatePressed;
-
-    /// <summary>The Feedback button on the strip, pressed.</summary>
-    public event Action? FeedbackPressed;
 
     /// <summary>The name searched for, as typed here while the Name filter is open, with its list.</summary>
     public event Action<OverlayPage, string>? NameTyped;
@@ -366,15 +355,9 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             _dictateFrame++;
             PaintDictate();
         };
-        _feedbackMotion.Tick += (_, _) =>
-        {
-            _feedbackFrame++;
-            PaintFeedback();
-        };
         Closed += (_, _) =>
         {
             _dictateMotion.Stop();
-            _feedbackMotion.Stop();
             _glideWatch.Stop();
         };
         _followWatch.Tick += (_, _) => FollowVRChatSafely();
@@ -516,15 +499,8 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         ToolTip.SetTip(_dictateButton, "Dictate");
         DockPanel.SetDock(_dictateButton, Dock.Right);
 
-        _feedbackButton.IsVisible = false;
-        _feedbackButton.VerticalAlignment = VerticalAlignment.Center;
-        _feedbackButton.Click += (_, _) => FeedbackPressed?.Invoke();
-        ToolTip.SetTip(_feedbackButton, "Feedback");
-        DockPanel.SetDock(_feedbackButton, Dock.Right);
-
         _buttons.Children.Add(close);
         _buttons.Children.Add(_dictateButton);
-        _buttons.Children.Add(_feedbackButton);
         _buttons.Children.Add(switches);
         PaintClose();
         PaintStrip();
@@ -1302,7 +1278,6 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         Paint(_lockButton, _settings.Locked, on => PanelFrame.LockIcon(on, Foreground(on)));
         Paint(_throughButton, _settings.ClickThrough, on => PanelFrame.HandIcon(on, Foreground(on), Background(on)));
         PaintDictate();
-        PaintFeedback();
 
         IBrush Foreground(bool on) => v is null
             ? on ? Ui.T.AccentForegroundBrush : Ui.T.TextBrush
@@ -1349,44 +1324,24 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     }
 
     /// <summary>The Dictate button drawn as the look in use draws the strip's other buttons, with the picture for its state.</summary>
-    private void PaintDictate() => PaintMicrophone(
-        _dictateButton,
-        _dictate.Dictate,
-        _dictateFrame,
-        _dictate.Level,
-        _dictate.DictateLabel,
-        "Dictate",
-        _dictate.DictatePercent);
-
-    /// <summary>The Feedback button next to Dictate, drawn the same way from its own card.</summary>
-    private void PaintFeedback() => PaintMicrophone(
-        _feedbackButton,
-        _feedback.Picture,
-        _feedbackFrame,
-        _feedback.Level,
-        _feedback.Label,
-        FeedbackCard.Idle,
-        _feedback.PercentText);
-
-    /// <summary>A microphone button on the strip, with the picture for its state and its words while there are some.</summary>
-    private void PaintMicrophone(Button button, DictateState state, int frame, int level, string label, string idleLabel, string percent)
+    private void PaintDictate()
     {
         var v = _look.VRChat;
 
-        button.Classes.Set("vrchat", v is not null);
-        button.Background = v is null ? Ui.T.Surface2Brush : v.Button;
-        button.BorderBrush = v is null ? Ui.T.Border2Brush : v.RaisedEdge;
-        button.Height = v is null ? Ui.T.Density.ControlHeight : VRChatLook.RoundButton;
-        button.Width = double.NaN;
-        button.MinWidth = button.Height;
-        button.CornerRadius = new CornerRadius(v is null ? Ui.T.Density.Radius : VRChatLook.RoundButton / 2);
-        button.BorderThickness = new Thickness(v is null ? Ui.T.Density.Hairline : VRChatLook.EdgeWidth);
-        button.Padding = new Thickness(v is null ? 6 : 9);
-        button.Margin = new Thickness(0, 0, 8, 0);
+        _dictateButton.Classes.Set("vrchat", v is not null);
+        _dictateButton.Background = v is null ? Ui.T.Surface2Brush : v.Button;
+        _dictateButton.BorderBrush = v is null ? Ui.T.Border2Brush : v.RaisedEdge;
+        _dictateButton.Height = v is null ? Ui.T.Density.ControlHeight : VRChatLook.RoundButton;
+        _dictateButton.Width = double.NaN;
+        _dictateButton.MinWidth = _dictateButton.Height;
+        _dictateButton.CornerRadius = new CornerRadius(v is null ? Ui.T.Density.Radius : VRChatLook.RoundButton / 2);
+        _dictateButton.BorderThickness = new Thickness(v is null ? Ui.T.Density.Hairline : VRChatLook.EdgeWidth);
+        _dictateButton.Padding = new Thickness(v is null ? 6 : 9);
+        _dictateButton.Margin = new Thickness(0, 0, 8, 0);
 
         var ink = v?.Icon ?? Ui.T.TextBrush;
         var bright = v?.Bright ?? Ui.T.AccentBrush;
-        var picture = ButtonView.Dictation(state, frame, ink, bright, level);
+        var picture = ButtonView.Dictation(_dictate.Dictate, _dictateFrame, ink, bright, _dictate.Level);
         picture.Width = picture.Height = 24;
 
         var row = new StackPanel
@@ -1399,37 +1354,15 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 
         // The picture alone while it is only a microphone; the stage in words as soon as there is one
         // (or a notice), with how far the model has come, or how loud the voice is.
-        if (state is not DictateState.Idle || label != idleLabel)
-            row.Children.Add(Ui.Text(label, Ui.T.Density.TextSmall, ink, FontWeight.Medium, wrap: false));
+        if (_dictate.Dictate is not DictateState.Idle || _dictate.DictateLabel != "Dictate")
+            row.Children.Add(Ui.Text(_dictate.DictateLabel, Ui.T.Density.TextSmall, ink, FontWeight.Medium, wrap: false));
 
-        if (percent.Length > 0)
-            row.Children.Add(Ui.Text(percent, Ui.T.Density.TextSmall, ink, FontWeight.Medium, wrap: false));
-        else if (state is DictateState.Listening)
-            row.Children.Add(ButtonView.Meter(level, bright, v?.Edge ?? Ui.T.Surface3Brush, 4, 12));
+        if (_dictate.DictatePercent.Length > 0)
+            row.Children.Add(Ui.Text(_dictate.DictatePercent, Ui.T.Density.TextSmall, ink, FontWeight.Medium, wrap: false));
+        else if (_dictate.Dictate is DictateState.Listening)
+            row.Children.Add(ButtonView.Meter(_dictate.Level, bright, v?.Edge ?? Ui.T.Surface3Brush, 4, 12));
 
-        button.Content = row;
-    }
-
-    /// <summary>
-    /// What the Feedback button on the strip shows, from the card the controller last gave: not offered
-    /// hides it, and the picture moves a step each 150 ms while the card says it has something moving.
-    /// </summary>
-    internal void SetFeedback(FeedbackCard card)
-    {
-        _feedback = card;
-        _feedbackButton.IsVisible = card.Offered;
-
-        if (card.Moves)
-        {
-            _feedbackMotion.Start();
-        }
-        else
-        {
-            _feedbackMotion.Stop();
-            _feedbackFrame = 0;
-        }
-
-        PaintFeedback();
+        _dictateButton.Content = row;
     }
 
     /// <summary>Starts or stops watching the mouse, and lets clicks through again only when it should.</summary>

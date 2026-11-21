@@ -459,17 +459,6 @@ public static class PanelFrame
     /// <param name="wide">How many times wider than ordinary the box is.</param>
     /// <param name="tall">How many times taller than ordinary the box is.</param>
     public static Control Chat(Control log, PanelBar bar, PanelCursor? cursor, double side, double wide = 1, double tall = 1)
-        => Boxed("Chat", new OverlayTarget.CloseChat(), log, bar, cursor, side, wide, tall);
-
-    /// <summary>
-    /// The feedback panel: the chat panel's box with the heading Feedback, whose X throws the draft away,
-    /// and the draft under them.
-    /// </summary>
-    /// <param name="draft">What <see cref="FeedbackView.Build"/> made.</param>
-    public static Control Feedback(Control draft, PanelBar bar, PanelCursor? cursor, double side, double wide = 1, double tall = 1)
-        => Boxed("Feedback", new OverlayTarget.CloseFeedback(), draft, bar, cursor, side, wide, tall);
-
-    private static Control Boxed(string headingText, OverlayTarget closeTarget, Control log, PanelBar bar, PanelCursor? cursor, double side, double wide, double tall)
     {
         ArgumentNullException.ThrowIfNull(log);
 
@@ -480,7 +469,7 @@ public static class PanelFrame
 
         var heading = new TextBlock
         {
-            Text = headingText,
+            Text = "Chat",
             VerticalAlignment = VerticalAlignment.Center,
             FontSize = T.Density.TextBase,
             FontFamily = new FontFamily(DesignTokens.FontFamily),
@@ -490,7 +479,7 @@ public static class PanelFrame
 
         var close = new Border
         {
-            Tag = closeTarget,
+            Tag = new OverlayTarget.CloseChat(),
             Width = CloseSide,
             Height = CloseSide,
             HorizontalAlignment = HorizontalAlignment.Right,
