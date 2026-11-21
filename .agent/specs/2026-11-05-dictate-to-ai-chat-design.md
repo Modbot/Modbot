@@ -32,7 +32,7 @@ changes. The developer switch that stood in for this (an environment variable) i
 
 ## 3. How it behaves
 
-- **Tap, model missing.** The model is fetched (about 108 MB, once). The button shows the
+- **Tap, model missing.** The model is fetched (about 251 MB, once). The button shows the
   percentage. When it is ready the button goes back to idle; the moderator taps again to speak, so
   nobody is recorded the moment a download ends.
 - **Tap, model present.** The microphone opens, shared, the one picked for phrase listening or the
@@ -54,7 +54,8 @@ changes. The developer switch that stood in for this (an environment variable) i
 - **Audio is kept in memory only.** From the first tap to the text being written, and then it is
   dropped. It is never saved to disk and never sent anywhere. Only the text goes on, and only to
   the chat the moderator is typing into.
-- **The engine.** Moonshine tiny, English, 8-bit (MIT, Useful Sensors), run by sherpa-onnx, which
+- **The engine.** Moonshine base, English, 8-bit (MIT, Useful Sensors; it was tiny until
+  2026-11-20, when tiny missed fast, short speech), run by sherpa-onnx, which
   the client already uses to listen for a phrase. It runs on the processor. It is loaded to write
   one recording out and let go of straight after.
 - **One download.** The only thing Dictate fetches: the model, once, on the first tap, from the
