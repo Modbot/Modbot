@@ -20,8 +20,8 @@ namespace Modbot.Companion.App;
 /// panels taken down there (<see cref="StartChat"/> hands it over). The input loop reads
 /// <see cref="_chatPanelList"/>, a copy that is replaced, never changed, so a chat closed in the middle
 /// of a turn does not upset the turn.</para>
-/// <para>Only the first chat remembers where it was put (the saved spots); later ones open a step
-/// off the last (<see cref="ChatCascade"/>) and are forgotten when closed.</para>
+/// <para>Every chat remembers where it was put, under its number (the saved spots); a number nobody
+/// has moved a chat in opens a step off the last (<see cref="ChatCascade"/>).</para>
 /// </remarks>
 internal sealed partial class CompanionHost
 {
@@ -93,14 +93,13 @@ internal sealed partial class CompanionHost
 
         if (_overlayHost is not null)
         {
-            var host = ChatHost.Create(number, placement: number == 1 ? settings.OverlayChatSpot : null);
+            var host = ChatHost.Create(number, placement: settings.OverlayChatSpotFor(number));
             panels.Host = host;
             host.EditMode = settings.OverlayEditMode;
             host.PushStep = PushStep(settings.OverlayPushSpeed);
             host.Look = _headsetLook;
 
-            if (number == 1)
-                host.PlacementChanged += ChatPlacementChanged;
+            host.PlacementChanged += placement => ChatPlacementChanged(number, placement);
 
             // The X ends this conversation and no other.
             host.Closed += () => ClosePopup(popup);
@@ -109,7 +108,7 @@ internal sealed partial class CompanionHost
 
         if (_desktopOverlay is { } overlay)
         {
-            var window = new DesktopChatWindow(number == 1 ? settings.DesktopChatSpot : null)
+            var window = new DesktopChatWindow(settings.DesktopChatSpotFor(number))
             {
                 Beside = overlay,
                 EditMode = settings.OverlayEditMode,
@@ -128,8 +127,7 @@ internal sealed partial class CompanionHost
             window.MicTapped += () => ToggleChatMic(panels);
             window.TextSent += text => _ = CrashGuard.RunAsync("asking AI Chat", () => panels.Input!.SendAsync(text));
 
-            if (number == 1)
-                window.SpotChanged += DesktopChatSpotChanged;
+            window.SpotChanged += spot => DesktopChatSpotChanged(number, spot);
         }
 
         // Attached now, not at the next look, so the panel is up when the words are. A failure ends the

@@ -168,6 +168,38 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public DesktopChatSpot? DesktopChatSpot { get; init; }
 
     /// <summary>
+    /// Where each pop-up chat after the first was last left in the headset, by number, saved as the
+    /// <c>overlayChatSpots</c> object. The first chat keeps <see cref="OverlayChatSpot"/>.
+    /// </summary>
+    public ChatSpots<OverlayPlacement> OverlayChatSpots { get; init; } = ChatSpots<OverlayPlacement>.None;
+
+    /// <summary>
+    /// Where each pop-up chat window after the first was last left on a monitor, by number, saved as
+    /// the <c>desktopChatSpots</c> object. The first chat keeps <see cref="DesktopChatSpot"/>.
+    /// </summary>
+    public ChatSpots<DesktopChatSpot> DesktopChatSpots { get; init; } = ChatSpots<DesktopChatSpot>.None;
+
+    /// <summary>Where pop-up chat <paramref name="number"/> was last left in the headset, or null when nobody has moved it.</summary>
+    public OverlayPlacement? OverlayChatSpotFor(int number)
+        => number == 1 ? OverlayChatSpot : OverlayChatSpots.For(number);
+
+    /// <summary>Where pop-up chat <paramref name="number"/>'s window was last left on a monitor, or null when nobody has moved it.</summary>
+    public DesktopChatSpot? DesktopChatSpotFor(int number)
+        => number == 1 ? DesktopChatSpot : DesktopChatSpots.For(number);
+
+    /// <summary>These settings with where pop-up chat <paramref name="number"/> was left in the headset replaced.</summary>
+    public CompanionSettings WithOverlayChatSpot(int number, OverlayPlacement placement)
+        => number == 1
+            ? this with { OverlayChatSpot = placement }
+            : this with { OverlayChatSpots = OverlayChatSpots.With(number, placement.Clamped()) };
+
+    /// <summary>These settings with where pop-up chat <paramref name="number"/>'s window was left on a monitor replaced.</summary>
+    public CompanionSettings WithDesktopChatSpot(int number, DesktopChatSpot spot)
+        => number == 1
+            ? this with { DesktopChatSpot = spot }
+            : this with { DesktopChatSpots = DesktopChatSpots.With(number, spot.Clamped()) };
+
+    /// <summary>
     /// The stick shortcut for the show and hide button, from the SteamVR page's <strong>Shortcut</strong>
     /// and <strong>Hold time</strong> choices, written as <c>"overlayButtonStick"</c> (<c>"right"</c>,
     /// <c>"left"</c> or <c>"off"</c>), <c>"overlayButtonDirection"</c> (<c>"back"</c>, <c>"forward"</c>,
@@ -320,6 +352,10 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
 
     public const string DesktopChatSpotField = "desktopChatSpot";
 
+    public const string OverlayChatSpotsField = "overlayChatSpots";
+
+    public const string DesktopChatSpotsField = "desktopChatSpots";
+
     public const string OverlayButtonStickField = "overlayButtonStick";
 
     public const string OverlayButtonDirectionField = "overlayButtonDirection";
@@ -398,6 +434,9 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             OverlayButtonSpots = ButtonSpots.FromJson(shape?.OverlayButtonSpots),
             OverlayChatSpot = shape?.OverlayChatSpot is { } chatSpot ? OverlayPlacement.FromJson(chatSpot) : null,
             DesktopChatSpot = DesktopChatSpot.FromJson(shape?.DesktopChatSpot),
+            OverlayChatSpots = ChatSpots<OverlayPlacement>.FromJson(
+                shape?.OverlayChatSpots, spot => spot is JsonObject ? OverlayPlacement.FromJson(spot) : null),
+            DesktopChatSpots = ChatSpots<DesktopChatSpot>.FromJson(shape?.DesktopChatSpots, DesktopChatSpot.FromJson),
             OverlayButtonShortcut = new ButtonShortcut(
                 ButtonShortcut.ParseStick(shape?.OverlayButtonStick),
                 ButtonShortcut.ParseDirection(shape?.OverlayButtonDirection),
@@ -580,6 +619,20 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     {
         ArgumentNullException.ThrowIfNull(spot);
         return SaveField(path, DesktopChatSpotField, spot.ToJson());
+    }
+
+    /// <summary>Writes where the later pop-up chats were left in the headset as the <c>overlayChatSpots</c> object, keeping every other field.</summary>
+    public static bool SaveOverlayChatSpots(string path, ChatSpots<OverlayPlacement> spots)
+    {
+        ArgumentNullException.ThrowIfNull(spots);
+        return SaveField(path, OverlayChatSpotsField, spots.ToJson(placement => placement.Clamped().ToJson()));
+    }
+
+    /// <summary>Writes where the later pop-up chat windows were left on a monitor as the <c>desktopChatSpots</c> object, keeping every other field.</summary>
+    public static bool SaveDesktopChatSpots(string path, ChatSpots<DesktopChatSpot> spots)
+    {
+        ArgumentNullException.ThrowIfNull(spots);
+        return SaveField(path, DesktopChatSpotsField, spots.ToJson(spot => spot.ToJson()));
     }
 
     /// <summary>
@@ -817,6 +870,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("overlayButtonSpots")] JsonObject? OverlayButtonSpots = null,
         [property: JsonPropertyName("overlayChatSpot")] JsonObject? OverlayChatSpot = null,
         [property: JsonPropertyName("desktopChatSpot")] JsonObject? DesktopChatSpot = null,
+        [property: JsonPropertyName("overlayChatSpots")] JsonObject? OverlayChatSpots = null,
+        [property: JsonPropertyName("desktopChatSpots")] JsonObject? DesktopChatSpots = null,
         [property: JsonPropertyName("overlayButtonStick")] string? OverlayButtonStick = null,
         [property: JsonPropertyName("overlayButtonDirection")] string? OverlayButtonDirection = null,
         [property: JsonPropertyName("overlayButtonHold")] int? OverlayButtonHold = null,

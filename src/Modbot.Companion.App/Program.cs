@@ -2640,11 +2640,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         _chatSpotSave.Tick += (_, _) =>
         {
             _chatSpotSave.Stop();
-            if (_state?.Settings.OverlayChatSpot is not { } spot)
-                return;
-
-            if (!CompanionSettings.SaveOverlayChatSpot(_settingsPath, spot))
-                Log.Warning("The chat panel's spot could not be saved to {Path}", _settingsPath);
+            SaveOverlayChatSpots();
         };
         _desktopChatSpotSave.Tick += (_, _) =>
         {
@@ -2829,34 +2825,59 @@ internal sealed partial class CompanionHost : IOverlayListener
     }
 
     /// <summary>
-    /// A controller moved or resized the chat panel or pressed a switch on its bar: kept, and saved
-    /// once it settles. The host already has the placement, so it is not placed again from here.
+    /// A controller moved or resized pop-up chat <paramref name="number"/> or pressed a switch on its bar:
+    /// kept under that number, and saved once it settles. The host already has the placement, so it is
+    /// not placed again from here.
     /// </summary>
-    private void ChatPlacementChanged(OverlayPlacement placement)
+    private void ChatPlacementChanged(int number, OverlayPlacement placement)
     {
         if (_state is null)
             return;
 
-        _state.Settings = _state.Settings with { OverlayChatSpot = placement };
+        _state.Settings = _state.Settings.WithOverlayChatSpot(number, placement);
         _chatSpotSave.Stop();
         _chatSpotSave.Start();
     }
 
-    /// <summary>The chat window on a monitor was moved or resized: kept, and saved once it settles.</summary>
-    private void DesktopChatSpotChanged(DesktopChatSpot spot)
+    /// <summary>Pop-up chat <paramref name="number"/>'s window on a monitor was moved or resized: kept under that number, and saved once it settles.</summary>
+    private void DesktopChatSpotChanged(int number, DesktopChatSpot spot)
     {
         if (_state is null)
             return;
 
-        _state.Settings = _state.Settings with { DesktopChatSpot = spot };
+        _state.Settings = _state.Settings.WithDesktopChatSpot(number, spot);
         _desktopChatSpotSave.Stop();
         _desktopChatSpotSave.Start();
     }
 
+    /// <summary>Writes every pop-up chat's headset spot: the first one's own field, and the later ones' object when there is one.</summary>
+    private void SaveOverlayChatSpots()
+    {
+        if (_state is null)
+            return;
+
+        var settings = _state.Settings;
+
+        if (settings.OverlayChatSpot is { } spot && !CompanionSettings.SaveOverlayChatSpot(_settingsPath, spot))
+            Log.Warning("The chat panel's spot could not be saved to {Path}", _settingsPath);
+
+        if (settings.OverlayChatSpots.Count > 0 && !CompanionSettings.SaveOverlayChatSpots(_settingsPath, settings.OverlayChatSpots))
+            Log.Warning("The later chat panels' spots could not be saved to {Path}", _settingsPath);
+    }
+
+    /// <summary>Writes every pop-up chat window's spot: the first one's own field, and the later ones' object when there is one.</summary>
     private void SaveDesktopChatSpot()
     {
-        if (_state?.Settings.DesktopChatSpot is { } spot && !CompanionSettings.SaveDesktopChatSpot(_settingsPath, spot))
+        if (_state is null)
+            return;
+
+        var settings = _state.Settings;
+
+        if (settings.DesktopChatSpot is { } spot && !CompanionSettings.SaveDesktopChatSpot(_settingsPath, spot))
             Log.Warning("The chat window's spot could not be saved to {Path}", _settingsPath);
+
+        if (settings.DesktopChatSpots.Count > 0 && !CompanionSettings.SaveDesktopChatSpots(_settingsPath, settings.DesktopChatSpots))
+            Log.Warning("The later chat windows' spots could not be saved to {Path}", _settingsPath);
     }
 
     /// <summary>
@@ -3011,8 +3032,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         if (_chatSpotSave.IsEnabled)
         {
             _chatSpotSave.Stop();
-            if (_state?.Settings.OverlayChatSpot is { } spot && !CompanionSettings.SaveOverlayChatSpot(_settingsPath, spot))
-                Log.Warning("The chat panel's spot could not be saved to {Path}", _settingsPath);
+            SaveOverlayChatSpots();
         }
 
         // Every chat goes with the headset panel: its panel is let go of, and its conversation ends.
