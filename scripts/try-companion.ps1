@@ -98,7 +98,9 @@ if ($savedDataFolder) {
     [Environment]::SetEnvironmentVariable($dataFolderVariable, $null)
 }
 try {
-    Start-Process -FilePath $exe -WorkingDirectory $out
+    # Started through Explorer so Modbot is not a child of this shell: a session or terminal that
+    # stops its child processes when it closes would otherwise take Modbot down with it.
+    & explorer.exe $exe
 }
 finally {
     if ($savedDataFolder) {
