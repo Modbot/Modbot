@@ -237,7 +237,7 @@ public sealed partial class OverlayView
         var marks = new List<Control>();
 
         if (member.TrustRank is { } rank)
-            marks.Add(RankPill(rank, T.Density.TextSmall));
+            marks.Add(RankRowMark(rank));
 
         if (member.EighteenPlus == true)
             marks.Add(EighteenPlusChip());
@@ -299,7 +299,7 @@ public sealed partial class OverlayView
 
         // The rank, as on the Instance list, so a row the Rank filter kept says why it was kept.
         if (person is not null && ListFiltering.RankOf(person) is { } rank)
-            marks.Add(RankPill(rank, T.Density.TextSmall));
+            marks.Add(RankRowMark(rank));
 
         // Modbot's 18+ mark, as on the Instance list. Only on those the server says carry it.
         if (person?.EighteenPlus == true)

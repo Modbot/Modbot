@@ -1780,19 +1780,23 @@ public sealed partial class OverlayView
         };
     }
 
+    /// <summary>The rank's VRChat colour as a dot, the one thing a row says of a rank: no words.</summary>
+    private static Ellipse RankDot(TrustRank rank) => new()
+    {
+        Width = 8,
+        Height = 8,
+        VerticalAlignment = VerticalAlignment.Center,
+        Fill = DesignTokens.Brush(Color.Parse(TrustRanks.Colour(rank))),
+    };
+
     /// <summary>
     /// A trust rank as the mock draws a small mark: a dark, half see-through pill with the rank's
     /// VRChat colour as a dot and its name in bold. The colour is the same one every surface uses.
+    /// A people-list row draws <see cref="RankRowMark"/> instead.
     /// </summary>
     private Control RankPill(TrustRank rank, double size)
     {
-        var dot = new Ellipse
-        {
-            Width = 8,
-            Height = 8,
-            VerticalAlignment = VerticalAlignment.Center,
-            Fill = DesignTokens.Brush(Color.Parse(TrustRanks.Colour(rank))),
-        };
+        var dot = RankDot(rank);
 
         var name = Text(TrustRanks.Name(rank), T.Density.TextTiny, T.TextBrush, FontWeight.Bold);
         name.VerticalAlignment = VerticalAlignment.Center;
@@ -1813,6 +1817,18 @@ public sealed partial class OverlayView
             },
         };
     }
+
+    /// <summary>A rank on a people-list row: the dark pill with only the rank's coloured dot in it, no words.</summary>
+    private Control RankRowMark(TrustRank rank) => new Border
+    {
+        Background = VRChatLook.PillGround,
+        BorderBrush = T.BorderBrush,
+        BorderThickness = new Thickness(1),
+        CornerRadius = new CornerRadius(VRChatLook.PillRadius),
+        Padding = new Thickness(8, 2),
+        VerticalAlignment = VerticalAlignment.Center,
+        Child = RankDot(rank),
+    };
 
     /// <summary>
     /// The kind of the heads-up standing on a person, for the chip on their row: Keep an eye before

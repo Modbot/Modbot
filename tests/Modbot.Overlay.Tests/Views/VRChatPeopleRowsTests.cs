@@ -427,6 +427,23 @@ public class VRChatPeopleRowsTests
     }
 
     [Theory]
+    [InlineData(Modbot.Core.Users.TrustRank.KnownUser)]
+    [InlineData(Modbot.Core.Users.TrustRank.TrustedUser)]
+    public void ARowShowsARankAsOnlyItsColouredDotAndTheHeadsetRowStillSaysTheName(Modbot.Core.Users.TrustRank rank)
+    {
+        var name = Modbot.Core.Users.TrustRanks.Name(rank);
+        var colour = Color.Parse(Modbot.Core.Users.TrustRanks.Colour(rank));
+        var screen = Screen([Kai with { TrustRank = rank }]);
+
+        var dots = Draw(screen, root => root.GetLogicalDescendants().OfType<Avalonia.Controls.Shapes.Ellipse>()
+            .Count(e => e.Fill is ISolidColorBrush brush && brush.Color == colour));
+
+        Assert.True(dots >= 1, "The rank's coloured dot is not on the row.");
+        Assert.DoesNotContain(name, Texts(screen));
+        Assert.Contains(name, Texts(screen, OverlayLook.Headset));
+    }
+
+    [Theory]
     // Not 380: with the wider font a Linux runner falls back to, the room left after the picture, the
     // time and the button is under what the rank and the 18+ mark want, so they are cut there. That is
     // the narrowest-panel rule (nothing overlaps, nothing runs past the line), not a promise of the row.
