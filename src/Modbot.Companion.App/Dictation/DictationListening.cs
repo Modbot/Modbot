@@ -57,6 +57,8 @@ internal sealed class DictationListening : IDictationRecorder, IDictationRecogni
     private volatile float _level;
     private float[] _mono = new float[4_096];
     private bool _limitRaised;
+    private volatile bool _flowingRaised;
+    private volatile int _round;
 
     /// <param name="model">The pinned model.</param>
     /// <param name="folder">The companion's <c>dictation</c> folder.</param>
@@ -84,6 +86,9 @@ internal sealed class DictationListening : IDictationRecorder, IDictationRecogni
     public event Action? LimitReached;
 
     /// <inheritdoc />
+    public event Action? Flowing;
+
+    /// <inheritdoc />
     public float Level => _level;
 
     /// <inheritdoc />
@@ -97,13 +102,15 @@ internal sealed class DictationListening : IDictationRecorder, IDictationRecogni
             _heard.Clear();
             _resampler.Reset();
             _limitRaised = false;
+            _flowingRaised = false;
+            _round++;
             _level = 0;
         }
 
         try
         {
             var wanted = _microphone();
-            _open = new PhraseListening.SharedMicrophone(Arrived, BufferMilliseconds, wanted?.Id);
+            _open = new PhraseListening.SharedMicrophone(Arrived, BufferMilliseconds, wanted?.Id, Flowed);
             _log($"listening started (microphone: {wanted?.Name ?? "the Windows default"})", null);
             return null;
         }
@@ -170,6 +177,26 @@ internal sealed class DictationListening : IDictationRecorder, IDictationRecogni
         {
             _log("The microphone could not be closed cleanly.", ex);
         }
+    }
+
+    /// <summary>
+    /// A buffer from Windows, silent or not, on Windows' own thread: the first one of a recording says
+    /// the microphone is running. Raised from another thread, as the limit is, for the same reason.
+    /// </summary>
+    private void Flowed()
+    {
+        if (_flowingRaised)
+            return;
+
+        _flowingRaised = true;
+        var round = _round;
+
+        ThreadPool.QueueUserWorkItem(_ =>
+        {
+            // Not if the recording it was for has ended and another begun.
+            if (round == _round)
+                Flowing?.Invoke();
+        });
     }
 
     /// <summary>

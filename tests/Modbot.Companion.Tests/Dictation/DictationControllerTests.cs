@@ -13,11 +13,96 @@ public class DictationControllerTests
     {
         var rig = new Rig();
 
-        rig.Controller.Toggle();
+        await rig.StartListening();
 
         Assert.Equal(DictationState.Listening, rig.Controller.State);
         Assert.Equal(1, rig.Recorder.Starts);
+    }
+
+    [Fact]
+    public async Task ATapShowsStartingUntilTheMicrophoneDeliversItsFirstSound()
+    {
+        var rig = new Rig { Recorder = { FlowsAtOnce = false } };
+
+        rig.Controller.Toggle();
+        Assert.Equal(DictationState.Starting, rig.Controller.State);
+
         await rig.Controller.WhenSettled;
+        Assert.Equal(1, rig.Recorder.Starts);
+        Assert.Equal(DictationState.Starting, rig.Controller.State);
+
+        rig.Recorder.RaiseFlowing();
+        Assert.Equal(DictationState.Listening, rig.Controller.State);
+    }
+
+    [Fact]
+    public async Task WordsSaidWhileTheButtonSaysStartingAreKept()
+    {
+        var rig = new Rig { Recorder = { FlowsAtOnce = false, Heard = Speech }, Recognizer = { Says = "hello there" } };
+        var said = new List<string>();
+        rig.Controller.Finished += said.Add;
+
+        await rig.StartListening();
+        Assert.Equal(DictationState.Starting, rig.Controller.State);
+
+        rig.Controller.Toggle();
+        await rig.Controller.WhenSettled;
+
+        Assert.Equal(["hello there"], said);
+        Assert.Equal(1, rig.Recorder.Stops);
+    }
+
+    [Fact]
+    public async Task TheMicrophoneStaysOpenForAMomentAfterTheTapToStop()
+    {
+        var rig = new Rig(TimeSpan.FromMilliseconds(300)) { Recorder = { Heard = Speech }, Recognizer = { Says = "hello" } };
+
+        await rig.StartListening();
+        rig.Controller.Toggle();
+
+        Assert.Equal(DictationState.Writing, rig.Controller.State);
+        Assert.Equal(0, rig.Recorder.Stops);
+
+        await rig.Controller.WhenSettled;
+        Assert.Equal(1, rig.Recorder.Stops);
+        Assert.Equal(1, rig.Recognizer.Calls);
+    }
+
+    [Fact]
+    public async Task ATapWhileTheMicrophoneListensOnDoesNothingMore()
+    {
+        var rig = new Rig(TimeSpan.FromMilliseconds(300)) { Recorder = { Heard = Speech }, Recognizer = { Says = "hello" } };
+        var said = new List<string>();
+        rig.Controller.Finished += said.Add;
+
+        await rig.StartListening();
+        rig.Controller.Toggle();
+        rig.Controller.Toggle();
+        Assert.Equal(DictationState.Writing, rig.Controller.State);
+        await rig.Controller.WhenSettled;
+
+        Assert.Equal(["hello"], said);
+        Assert.Equal(1, rig.Recorder.Starts);
+        Assert.Equal(1, rig.Recorder.Stops);
+        Assert.Equal(1, rig.Recognizer.Calls);
+    }
+
+    [Fact]
+    public async Task AbandonWhileTheMicrophoneListensOnWritesNothingOut()
+    {
+        var rig = new Rig(TimeSpan.FromHours(1)) { Recorder = { Heard = Speech }, Recognizer = { Says = "hello" } };
+        var said = new List<string>();
+        rig.Controller.Finished += said.Add;
+
+        await rig.StartListening();
+        rig.Controller.Toggle();
+        rig.Controller.Abandon();
+        await rig.Controller.WhenSettled;
+
+        Assert.Empty(said);
+        Assert.Equal(DictationState.Idle, rig.Controller.State);
+        Assert.Equal(1, rig.Recorder.Stops);
+        Assert.Equal(0, rig.Recognizer.Calls);
     }
 
     [Fact]
@@ -27,7 +112,7 @@ public class DictationControllerTests
         var said = new List<string>();
         rig.Controller.Finished += said.Add;
 
-        rig.Controller.Toggle();
+        await rig.StartListening();
         rig.Controller.Toggle();
         await rig.Controller.WhenSettled;
 
@@ -46,7 +131,7 @@ public class DictationControllerTests
         var said = new List<string>();
         rig.Controller.Finished += said.Add;
 
-        rig.Controller.Toggle();
+        await rig.StartListening();
         rig.Controller.Toggle();
         await rig.Controller.WhenSettled;
 
@@ -60,7 +145,7 @@ public class DictationControllerTests
     {
         var rig = new Rig { Recorder = { Heard = Silence } };
 
-        rig.Controller.Toggle();
+        await rig.StartListening();
         rig.Controller.Toggle();
         await rig.Controller.WhenSettled;
 
@@ -72,7 +157,7 @@ public class DictationControllerTests
     {
         var rig = new Rig { Recorder = { Heard = Speech }, Recognizer = { Says = "hello" } };
 
-        rig.Controller.Toggle();
+        await rig.StartListening();
         rig.Controller.Toggle();
         await rig.Controller.WhenSettled;
         rig.Controller.SendEnded("The server could not be reached");
@@ -86,10 +171,10 @@ public class DictationControllerTests
     {
         var rig = new Rig { Recorder = { Heard = Speech }, Recognizer = { Says = "hello" } };
 
-        rig.Controller.Toggle();
+        await rig.StartListening();
         rig.Controller.Toggle();
         await rig.Controller.WhenSettled;
-        rig.Controller.Toggle();
+        await rig.StartListening();
 
         Assert.Equal(DictationState.Listening, rig.Controller.State);
     }
@@ -107,7 +192,7 @@ public class DictationControllerTests
         var said = new List<string>();
         rig.Controller.Finished += said.Add;
 
-        rig.Controller.Toggle();
+        await rig.StartListening();
         rig.Controller.Toggle();
         await rig.Controller.WhenSettled;
 
@@ -153,7 +238,7 @@ public class DictationControllerTests
     {
         var rig = new Rig { ModelPresent = false };
 
-        rig.Controller.Toggle();
+        await rig.StartListening();
         rig.Controller.Toggle();
         rig.Controller.Toggle();
 
@@ -172,7 +257,7 @@ public class DictationControllerTests
     {
         var rig = new Rig { Recorder = { Heard = Speech }, Recognizer = { Hold = new TaskCompletionSource() } };
 
-        rig.Controller.Toggle();
+        await rig.StartListening();
         rig.Controller.Toggle();
         Assert.Equal(DictationState.Writing, rig.Controller.State);
 
@@ -192,7 +277,7 @@ public class DictationControllerTests
         var said = new List<string>();
         rig.Controller.Finished += said.Add;
 
-        rig.Controller.Toggle();
+        await rig.StartListening();
         rig.Recorder.RaiseLimit();
         await rig.Controller.WhenSettled;
 
@@ -222,7 +307,7 @@ public class DictationControllerTests
         var said = new List<string>();
         rig.Controller.Finished += said.Add;
 
-        rig.Controller.Toggle();
+        await rig.StartListening();
         rig.Controller.Toggle();
         await rig.Controller.WhenSettled;
 
@@ -232,22 +317,24 @@ public class DictationControllerTests
     }
 
     [Fact]
-    public void AMicrophoneThatWillNotOpenLeavesAProblemAndStaysIdle()
+    public async Task AMicrophoneThatWillNotOpenLeavesAProblemAndStaysIdle()
     {
         var rig = new Rig { Recorder = { StartProblem = "No microphone." } };
 
         rig.Controller.Toggle();
+        await rig.Controller.WhenSettled;
 
         Assert.Equal(DictationState.Idle, rig.Controller.State);
         Assert.Equal("No microphone.", rig.Controller.Problem);
+        Assert.Equal("Could not listen", rig.Controller.Notice);
     }
 
     [Fact]
-    public void AbandonClosesTheMicrophoneAndWritesNothingOut()
+    public async Task AbandonClosesTheMicrophoneAndWritesNothingOut()
     {
         var rig = new Rig { Recorder = { Heard = Speech } };
 
-        rig.Controller.Toggle();
+        await rig.StartListening();
         rig.Controller.Abandon();
 
         Assert.Equal(DictationState.Idle, rig.Controller.State);
@@ -255,9 +342,106 @@ public class DictationControllerTests
         Assert.Equal(0, rig.Recognizer.Calls);
     }
 
+    [Fact]
+    public async Task ASlowMicrophoneDoesNotHoldTheButtonUp()
+    {
+        var rig = new Rig { Recorder = { StartHold = new TaskCompletionSource(), FlowsAtOnce = false } };
+
+        rig.Controller.Toggle();
+        await rig.Recorder.StartEntered.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        // These would wait for the microphone if it opened under the controller's lock.
+        var state = await Task.Run(() => rig.Controller.State, TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        Assert.Equal(DictationState.Starting, state);
+
+        rig.Recorder.StartHold.SetResult();
+        await rig.Controller.WhenSettled;
+        rig.Recorder.RaiseFlowing();
+
+        Assert.Equal(DictationState.Listening, rig.Controller.State);
+    }
+
+    [Fact]
+    public async Task ATapToStopWhileTheMicrophoneOpensKeepsTheWordsHeardAfterItOpens()
+    {
+        var rig = new Rig { Recorder = { StartHold = new TaskCompletionSource(), Heard = Speech }, Recognizer = { Says = "hello" } };
+        var said = new List<string>();
+        rig.Controller.Finished += said.Add;
+
+        rig.Controller.Toggle();
+        await rig.Recorder.StartEntered.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await Task.Run(rig.Controller.Toggle, TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        Assert.Equal(DictationState.Writing, rig.Controller.State);
+
+        rig.Recorder.StartHold.SetResult();
+        await rig.Controller.WhenSettled;
+
+        Assert.Equal(["hello"], said);
+        Assert.Equal(1, rig.Recorder.Starts);
+        Assert.Equal(1, rig.Recorder.Stops);
+    }
+
+    [Fact]
+    public async Task ATapToStopRightAfterTheFirstStillOpensTheMicrophoneAndWritesWhatItHeard()
+    {
+        var rig = new Rig { Recorder = { Heard = Speech }, Recognizer = { Says = "hello" } };
+        var said = new List<string>();
+        rig.Controller.Finished += said.Add;
+
+        // The second tap may land before or after the microphone opens; the words are kept either way.
+        rig.Controller.Toggle();
+        rig.Controller.Toggle();
+        await rig.Controller.WhenSettled;
+
+        Assert.Equal(["hello"], said);
+        Assert.Equal(1, rig.Recorder.Starts);
+        Assert.Equal(1, rig.Recorder.Stops);
+    }
+
+    [Fact]
+    public async Task ATapToStopWhenTheMicrophoneCannotOpenShowsTheProblem()
+    {
+        var rig = new Rig { Recorder = { StartProblem = "No microphone." } };
+        var said = new List<string>();
+        rig.Controller.Finished += said.Add;
+
+        rig.Controller.Toggle();
+        rig.Controller.Toggle();
+        await rig.Controller.WhenSettled;
+
+        Assert.Empty(said);
+        Assert.Equal(DictationState.Idle, rig.Controller.State);
+        Assert.Equal("No microphone.", rig.Controller.Problem);
+        Assert.Equal(DictationController.CouldNotListen, rig.Controller.Notice);
+        Assert.Equal(0, rig.Recorder.Stops);
+    }
+
+    [Fact]
+    public async Task AbandonWhileTheMicrophoneOpensClosesItAgain()
+    {
+        var rig = new Rig { Recorder = { StartHold = new TaskCompletionSource(), Heard = Speech }, Recognizer = { Says = "hello" } };
+        var said = new List<string>();
+        rig.Controller.Finished += said.Add;
+
+        rig.Controller.Toggle();
+        await rig.Recorder.StartEntered.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        rig.Controller.Abandon();
+        Assert.Equal(DictationState.Idle, rig.Controller.State);
+
+        rig.Recorder.StartHold.SetResult();
+        await rig.Controller.WhenSettled;
+
+        Assert.Empty(said);
+        Assert.Equal(DictationState.Idle, rig.Controller.State);
+        Assert.Equal(1, rig.Recorder.Starts);
+        Assert.Equal(1, rig.Recorder.Stops);
+        Assert.Equal(0, rig.Recognizer.Calls);
+    }
+
     private sealed class Rig
     {
-        public Rig()
+        /// <param name="listenOnFor">How long the microphone listens on after the tap to stop; none unless a test is about it.</param>
+        public Rig(TimeSpan? listenOnFor = null)
         {
             Controller = new DictationController(
                 Recorder,
@@ -268,7 +452,15 @@ public class DictationControllerTests
                     PrepareCalls++;
                     return Prepared.Task;
                 },
-                (_, _) => { });
+                (_, _) => { },
+                listenOnFor: listenOnFor ?? TimeSpan.Zero);
+        }
+
+        /// <summary>A tap, then waits until the microphone has been opened.</summary>
+        public async Task StartListening()
+        {
+            Controller.Toggle();
+            await Controller.WhenSettled;
         }
 
         public FakeRecorder Recorder { get; } = new();
@@ -288,11 +480,22 @@ public class DictationControllerTests
     {
         public event Action? LimitReached;
 
+        public event Action? Flowing;
+
+        /// <summary>Whether the first sound arrives as soon as the microphone opens; otherwise a test raises it.</summary>
+        public bool FlowsAtOnce { get; set; } = true;
+
         public float[] Heard { get; set; } = [];
 
         public float Level => 0;
 
         public string? StartProblem { get; set; }
+
+        /// <summary>When set, opening waits on it, like a microphone that is slow to open.</summary>
+        public TaskCompletionSource? StartHold { get; set; }
+
+        /// <summary>Completes when opening has begun.</summary>
+        public TaskCompletionSource StartEntered { get; } = new();
 
         public int Starts { get; private set; }
 
@@ -300,10 +503,17 @@ public class DictationControllerTests
 
         public string? Start()
         {
+            StartEntered.TrySetResult();
+            StartHold?.Task.GetAwaiter().GetResult();
+
             if (StartProblem is not null)
                 return StartProblem;
 
             Starts++;
+
+            if (FlowsAtOnce)
+                Flowing?.Invoke();
+
             return null;
         }
 
@@ -314,6 +524,8 @@ public class DictationControllerTests
         }
 
         public void RaiseLimit() => LimitReached?.Invoke();
+
+        public void RaiseFlowing() => Flowing?.Invoke();
     }
 
     private sealed class FakeRecognizer : IDictationRecognizer

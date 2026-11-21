@@ -18,6 +18,9 @@ public enum DictateState
     /// <summary>Ready to listen: a microphone.</summary>
     Idle,
 
+    /// <summary>The microphone is starting and not yet hearing: the same ring, labelled Starting.</summary>
+    Starting,
+
     /// <summary>Listening: the microphone, with sound arcs and a meter that follow how loud the voice is.</summary>
     Listening,
 
@@ -82,6 +85,7 @@ public sealed record ButtonScreen(
         {
             Dictate = DictateState.Listening, Percent = 0, Level = Math.Clamp(level, 0, DictationController.LevelSteps), Notice = null,
         },
+        DictationState.Starting => this with { Dictate = DictateState.Starting, Percent = 0, Level = 0, Notice = null },
         DictationState.Writing => this with { Dictate = DictateState.Writing, Percent = 0, Level = 0, Notice = null },
         DictationState.Sending => this with { Dictate = DictateState.Sending, Percent = 0, Level = 0, Notice = null },
         DictationState.Preparing => this with { Dictate = DictateState.GettingReady, Percent = percent, Level = 0, Notice = null },
@@ -93,6 +97,7 @@ public sealed record ButtonScreen(
         ? notice
         : Dictate switch
         {
+            DictateState.Starting => "Starting",
             DictateState.Listening => "Listening",
             DictateState.Writing => "Writing",
             DictateState.Sending => "Sending",
@@ -107,5 +112,5 @@ public sealed record ButtonScreen(
     /// Whether the Dictate button has a picture that turns on its own, which the host redraws each step.
     /// Listening is not one: it changes only as the voice does, when the screen itself changes.
     /// </summary>
-    public bool DictateMoves => Dictate is DictateState.Writing or DictateState.Sending or DictateState.GettingReady;
+    public bool DictateMoves => Dictate is DictateState.Starting or DictateState.Writing or DictateState.Sending or DictateState.GettingReady;
 }

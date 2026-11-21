@@ -1861,27 +1861,17 @@ public sealed partial class OverlayView
     public const string CompanionRunningName = "Companion running";
 
     /// <summary>
-    /// A small monitor in one colour, for somebody whose Modbot companion is running now. No words: the
-    /// picture is the whole mark, and a screen reader says <see cref="CompanionRunningName"/>.
+    /// The Modbot logo, for somebody whose Modbot companion is running now, as tall as the rank block beside
+    /// it. No words: the picture is the whole mark, and a screen reader says <see cref="CompanionRunningName"/>.
     /// </summary>
     private Control CompanionRunningMark()
     {
-        var mark = new Viewbox
-        {
-            Width = 14,
-            Height = 14,
-            VerticalAlignment = VerticalAlignment.Center,
-            Child = new Avalonia.Controls.Shapes.Path
-            {
-                Data = Geometry.Parse("M3 4 H21 V16 H3 Z M9 20 H15 M12 16 V20"),
-                Stroke = T.OkBrush,
-                StrokeThickness = 2.4,
-                StrokeLineCap = PenLineCap.Round,
-                StrokeJoin = PenLineJoin.Round,
-                Width = 24,
-                Height = 24,
-            },
-        };
+        // As tall as the rank block: a line of words in the same size, and the block's padding and edge around it.
+        var line = Text(" ", T.Density.TextTiny, T.TextBrush, FontWeight.Bold);
+        line.Measure(Size.Infinity);
+
+        var mark = ModbotMark.Create(line.DesiredSize.Height + 6);
+        mark.VerticalAlignment = VerticalAlignment.Center;
 
         AutomationProperties.SetName(mark, CompanionRunningName);
 

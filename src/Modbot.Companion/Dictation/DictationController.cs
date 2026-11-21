@@ -9,10 +9,13 @@ public enum DictationState
     /// <summary>The speech model is being fetched. Taps are ignored until it is ready.</summary>
     Preparing,
 
+    /// <summary>A tap has started the microphone and it has not yet delivered its first sound. What is said now is kept.</summary>
+    Starting,
+
     /// <summary>The microphone is open and sound is being gathered.</summary>
     Listening,
 
-    /// <summary>The microphone is closed and the sound is being written out as text.</summary>
+    /// <summary>The tap to stop has been made and the sound is being written out as text. The microphone stays open a moment more, so the last words are not cut off.</summary>
     Writing,
 
     /// <summary>The words are written and on their way to AI Chat; the answer has not begun. A tap behaves as at idle.</summary>
@@ -24,6 +27,12 @@ public interface IDictationRecorder
 {
     /// <summary>Raised, on any thread, when a recording has reached its limit and should be stopped.</summary>
     event Action? LimitReached;
+
+    /// <summary>
+    /// Raised, on any thread, once per <see cref="Start"/>, when the microphone has delivered its first
+    /// sound (silence included), so what is said from then on is certain to be heard.
+    /// </summary>
+    event Action? Flowing;
 
     /// <summary>Opens the microphone. Returns null when it opened, otherwise a sentence saying why not.</summary>
     string? Start();
@@ -47,11 +56,14 @@ public interface IDictationRecognizer
 /// the microphone and the engine behind it.
 /// </summary>
 /// <remarks>
-/// <para><strong>The taps.</strong> Idle with the model on the disk: start listening. Idle without
+/// <para><strong>The taps.</strong> Idle with the model on the disk: start the microphone, which
+/// takes a moment, so the button says Starting until the microphone has delivered its first sound and
+/// then Listening; whatever is said while it says Starting is kept. Idle without
 /// it: fetch it (the button shows the progress), then go back to idle, so the person taps again
-/// when they are ready to speak rather than being recorded the moment a download ends. Listening:
-/// stop and write out what was said. Preparing and writing: ignored. Sending: the same as idle, so a
-/// stuck send never keeps the button from being used.</para>
+/// when they are ready to speak rather than being recorded the moment a download ends. Starting or
+/// listening: stop and write out what was said, after a moment more of listening so the last words
+/// are not cut off (the button says Writing through it). Preparing and writing: ignored. Sending: the
+/// same as idle, so a stuck send never keeps the button from being used.</para>
 /// <para><strong>What comes out.</strong> <see cref="Finished"/> with the text, only when there is
 /// some. A recording that was quiet all the way through, or that the engine heard nothing in, ends
 /// back at idle having sent nothing at all. The sound itself never leaves this class's recorder
@@ -89,6 +101,16 @@ public sealed class DictationController
     /// <summary>How long a notice stays on the button.</summary>
     public static readonly TimeSpan NoticeFor = TimeSpan.FromSeconds(4);
 
+    /// <summary>How much longer the microphone listens after the tap to stop, so the last words are kept.</summary>
+    public static readonly TimeSpan ListenOnFor = TimeSpan.FromSeconds(1.5);
+
+    private static TaskCompletionSource Done()
+    {
+        var done = new TaskCompletionSource();
+        done.SetResult();
+        return done;
+    }
+
     /// <summary>The model's rate, for counting seconds of sound.</summary>
     private const int SamplesPerSecond = 16_000;
 
@@ -99,8 +121,14 @@ public sealed class DictationController
     private readonly Func<IProgress<double>, Task<string?>> _prepare;
     private readonly Action<string, Exception?> _log;
     private readonly TimeSpan _noticeFor;
+    private readonly TimeSpan _listenOnFor;
 
     private DictationState _state;
+    private bool _microphoneOpen;
+    private bool _flowed;
+    private bool _opening;
+    private CancellationTokenSource? _listenOn;
+    private TaskCompletionSource _opened = Done();
     private int _percent;
     private string? _problem;
     private string? _notice;
@@ -111,13 +139,15 @@ public sealed class DictationController
     /// <param name="prepare">Fetches the model, reporting 0 to 1. Answers null when it is ready, otherwise a sentence saying why not.</param>
     /// <param name="log">One-line notes: each stage and each failure. Never the words, never the sound.</param>
     /// <param name="noticeFor">How long a notice stays; <see cref="NoticeFor"/> when not given.</param>
+    /// <param name="listenOnFor">How much longer to listen after the tap to stop; <see cref="ListenOnFor"/> when not given.</param>
     public DictationController(
         IDictationRecorder recorder,
         IDictationRecognizer recognizer,
         Func<bool> modelPresent,
         Func<IProgress<double>, Task<string?>> prepare,
         Action<string, Exception?> log,
-        TimeSpan? noticeFor = null)
+        TimeSpan? noticeFor = null,
+        TimeSpan? listenOnFor = null)
     {
         ArgumentNullException.ThrowIfNull(recorder);
         ArgumentNullException.ThrowIfNull(recognizer);
@@ -131,7 +161,9 @@ public sealed class DictationController
         _prepare = prepare;
         _log = log;
         _noticeFor = noticeFor ?? NoticeFor;
+        _listenOnFor = listenOnFor ?? ListenOnFor;
         _recorder.LimitReached += Finish;
+        _recorder.Flowing += Flowed;
     }
 
     /// <summary>Raised whenever <see cref="State"/>, <see cref="Percent"/>, <see cref="Notice"/> or <see cref="Problem"/> changes.</summary>
@@ -216,15 +248,11 @@ public sealed class DictationController
 
                     if (_modelPresent())
                     {
-                        if (_recorder.Start() is { } why)
-                        {
-                            _problem = why;
-                            Notify(CouldNotListen);
-                        }
-                        else
-                        {
-                            _state = DictationState.Listening;
-                        }
+                        // Opening the microphone takes a moment, so it is done off the caller's
+                        // thread while the button says Starting.
+                        _state = DictationState.Starting;
+                        _opened = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                        _work = Task.Run(Open);
                     }
                     else
                     {
@@ -236,8 +264,9 @@ public sealed class DictationController
 
                     break;
 
+                case DictationState.Starting:
                 case DictationState.Listening:
-                    changed = StartWriting();
+                    changed = StartWriting(_listenOnFor);
                     break;
 
                 default:
@@ -257,10 +286,15 @@ public sealed class DictationController
 
         lock (_gate)
         {
-            changed = _state is DictationState.Listening;
+            // Writing with a listen-on still to run counts too: the microphone is still open.
+            changed = _state is DictationState.Starting or DictationState.Listening
+                || (_state is DictationState.Writing && _listenOn is not null);
+
             if (changed)
             {
-                _recorder.Stop();
+                _listenOn?.Cancel();
+                _listenOn = null;
+                CloseMicrophone();
                 _state = DictationState.Idle;
                 _log("listening stopped without writing (shutting down or chat went off)", null);
             }
@@ -270,26 +304,164 @@ public sealed class DictationController
             Changed?.Invoke();
     }
 
-    /// <summary>The recording hit its limit: the same as a second tap.</summary>
+    /// <summary>The recording hit its limit: the same as a second tap, with nothing more to listen on for.</summary>
     private void Finish()
     {
         bool changed;
 
         lock (_gate)
-            changed = _state is DictationState.Listening && StartWriting();
+            changed = (_state is DictationState.Starting or DictationState.Listening) && StartWriting(TimeSpan.Zero);
 
         if (changed)
             Changed?.Invoke();
     }
 
-    /// <summary>Listening to writing. Held under the lock by the caller.</summary>
-    private bool StartWriting()
+    /// <summary>The microphone has delivered its first sound: Starting becomes Listening.</summary>
+    private void Flowed()
     {
-        var samples = _recorder.Stop();
+        bool changed;
+
+        lock (_gate)
+        {
+            _flowed = true;
+            changed = _state is DictationState.Starting && _microphoneOpen;
+            if (changed)
+                _state = DictationState.Listening;
+        }
+
+        if (changed)
+            Changed?.Invoke();
+    }
+
+    /// <summary>Opens the microphone for a tap that found the model ready. Runs off the caller's thread.</summary>
+    private void Open()
+    {
+        lock (_gate)
+        {
+            // Abandoned before it got going, or already open or opening for an earlier tap: nothing to open.
+            // A stop tap that came first still needs the microphone, for the tail and for what it hears.
+            if (_opening)
+                return;
+
+            if (!WantsMicrophone() || _microphoneOpen)
+            {
+                _opened.TrySetResult();
+                return;
+            }
+
+            _opening = true;
+            _flowed = false;
+        }
+
+        // Opening can take a while, so the lock is not held: the button must still be able to paint
+        // Starting, and a second tap must not freeze.
+        string? why;
+
+        try
+        {
+            why = _recorder.Start();
+        }
+        catch (Exception ex)
+        {
+            _log("the microphone could not be opened", ex);
+            why = $"The microphone could not be opened: {ex.Message}";
+        }
+
+        var changed = false;
+
+        lock (_gate)
+        {
+            _opening = false;
+
+            if (!WantsMicrophone())
+            {
+                // Abandoned while the microphone opened: it is open now, so shut it again.
+                if (why is null)
+                    _recorder.Stop();
+            }
+            else if (why is not null)
+            {
+                _listenOn?.Cancel();
+                _listenOn = null;
+                _problem = why;
+                _state = DictationState.Idle;
+                Notify(CouldNotListen);
+                changed = true;
+            }
+            else
+            {
+                // Opened. Writing here means the stop tap came first: it closes the microphone after its tail.
+                _microphoneOpen = true;
+                changed = _flowed && _state is DictationState.Starting;
+                if (changed)
+                    _state = DictationState.Listening;
+            }
+
+            _opened.TrySetResult();
+        }
+
+        if (changed)
+            Changed?.Invoke();
+    }
+
+    /// <summary>Whether a tap is waiting on the microphone: starting, or stopped with its tail still to run. Held under the lock by the caller.</summary>
+    private bool WantsMicrophone() =>
+        _state is DictationState.Starting || (_state is DictationState.Writing && _listenOn is not null);
+
+    /// <summary>Starting or listening to writing. Held under the lock by the caller.</summary>
+    /// <param name="listenOn">How much longer the microphone stays open before what it heard is written out.</param>
+    private bool StartWriting(TimeSpan listenOn)
+    {
         _state = DictationState.Writing;
-        _log($"listening stopped ({samples.Length / (double)SamplesPerSecond:0.0} seconds of sound)", null);
-        _work = Task.Run(() => Write(samples));
+        var cancel = _listenOn = new CancellationTokenSource();
+        var opened = _opened.Task;
+        _work = Task.Run(() => ListenOnThenWrite(listenOn, cancel, opened));
         return true;
+    }
+
+    /// <summary>Keeps listening for <paramref name="listenOn"/>, then closes the microphone and writes out what it heard.</summary>
+    /// <param name="opened">Completes once the microphone has been opened (or given up on): a stop tap that came before that waits for it, so the words are kept.</param>
+    private async Task ListenOnThenWrite(TimeSpan listenOn, CancellationTokenSource cancel, Task opened)
+    {
+        await opened.ConfigureAwait(false);
+
+        if (listenOn > TimeSpan.Zero)
+        {
+            try
+            {
+                await Task.Delay(listenOn, cancel.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+        }
+
+        float[] samples;
+
+        lock (_gate)
+        {
+            // Abandoned while it listened on.
+            if (_listenOn != cancel)
+                return;
+
+            _listenOn = null;
+            samples = _microphoneOpen ? CloseMicrophone() : [];
+        }
+
+        cancel.Dispose();
+        _log($"listening stopped ({samples.Length / (double)SamplesPerSecond:0.0} seconds of sound)", null);
+        Write(samples);
+    }
+
+    /// <summary>Closes the microphone and hands over what it heard. Held under the lock by the caller.</summary>
+    private float[] CloseMicrophone()
+    {
+        if (!_microphoneOpen)
+            return [];
+
+        _microphoneOpen = false;
+        return _recorder.Stop();
     }
 
     /// <summary>

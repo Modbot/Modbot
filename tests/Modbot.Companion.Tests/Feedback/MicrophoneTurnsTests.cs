@@ -65,4 +65,23 @@ public class MicrophoneTurnsTests
         Assert.Equal(0, dictateLimits);
         Assert.Equal(1, feedbackLimits);
     }
+
+    [Fact]
+    public void TheFirstSoundIsToldOnlyToTheOneThatHoldsTheMicrophone()
+    {
+        var inner = new FakeRecorder();
+        var turns = new MicrophoneTurns();
+        var dictate = turns.Wrap(inner, "Dictate");
+        var feedback = turns.Wrap(inner, "Feedback");
+        var dictateSounds = 0;
+        var feedbackSounds = 0;
+        dictate.Flowing += () => dictateSounds++;
+        feedback.Flowing += () => feedbackSounds++;
+
+        feedback.Start();
+        inner.RaiseFlowing();
+
+        Assert.Equal(0, dictateSounds);
+        Assert.Equal(1, feedbackSounds);
+    }
 }

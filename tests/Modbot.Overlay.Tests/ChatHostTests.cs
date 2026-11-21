@@ -258,6 +258,15 @@ public class ChatHostTests
     }
 
     [Fact]
+    public void AChatMicrophoneButtonSaysStartingAndMovesWhileItStarts()
+    {
+        var starting = new ChatMicScreen(DictateState.Starting);
+
+        Assert.Equal("Starting", starting.Label);
+        Assert.True(starting.Moves);
+    }
+
+    [Fact]
     public void TheResizeCornerIsThereInEditModeOnly()
     {
         AvaloniaTestHost.Run(() =>

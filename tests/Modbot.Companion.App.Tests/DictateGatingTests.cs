@@ -44,6 +44,12 @@ public class DictateGatingTests
             remove { }
         }
 
+        public event Action? Flowing
+        {
+            add { }
+            remove { }
+        }
+
         public float Level => 0;
 
         public string? Start() => null;

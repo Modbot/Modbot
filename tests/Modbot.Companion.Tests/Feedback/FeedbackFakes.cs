@@ -14,6 +14,8 @@ internal sealed class FakeRecorder : IDictationRecorder
 {
     public event Action? LimitReached;
 
+    public event Action? Flowing;
+
     public float[] Sound { get; set; } = Heard.Speech;
 
     public float Level => 0;
@@ -35,6 +37,8 @@ internal sealed class FakeRecorder : IDictationRecorder
     }
 
     public void RaiseLimit() => LimitReached?.Invoke();
+
+    public void RaiseFlowing() => Flowing?.Invoke();
 }
 
 internal sealed class FakeRecognizer : IDictationRecognizer

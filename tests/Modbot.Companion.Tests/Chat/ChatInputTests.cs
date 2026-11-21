@@ -63,7 +63,7 @@ public class ChatInputTests
     }
 
     [Fact]
-    public void WhileOneChatListensAnotherOnesMicrophoneButtonSaysSoAndDoesNotOpenIt()
+    public async Task WhileOneChatListensAnotherOnesMicrophoneButtonSaysSoAndDoesNotOpenIt()
     {
         var recorder = new Recorder();
         var turns = new MicrophoneTurns();
@@ -71,7 +71,10 @@ public class ChatInputTests
         var second = Chat(recorder: turns.Wrap(recorder, "Chat 2")).Chat;
 
         first.Input.Dictation.Toggle();
+        await first.Input.Dictation.WhenSettled;
+        recorder.RaiseFlowing();
         second.Input.Dictation.Toggle();
+        await second.Input.Dictation.WhenSettled;
 
         Assert.Equal(DictationState.Listening, first.Input.Dictation.State);
         Assert.Equal(DictationState.Idle, second.Input.Dictation.State);
@@ -83,6 +86,7 @@ public class ChatInputTests
     private static async Task Say(OneChat chat)
     {
         chat.Input.Dictation.Toggle();
+        await chat.Input.Dictation.WhenSettled;
         chat.Input.Dictation.Toggle();
         await chat.Input.Dictation.WhenSettled;
         await chat.Asking();
@@ -97,7 +101,8 @@ public class ChatInputTests
             new Recognizer(says),
             () => true,
             _ => Task.FromResult<string?>(null),
-            (_, _) => { });
+            (_, _) => { },
+            listenOnFor: TimeSpan.Zero);
 
         return (new OneChat(new ChatInput(controller, session), session, client), client);
     }
@@ -121,6 +126,10 @@ public class ChatInputTests
             add { }
             remove { }
         }
+
+        public event Action? Flowing;
+
+        public void RaiseFlowing() => Flowing?.Invoke();
 
         public string? Start()
         {

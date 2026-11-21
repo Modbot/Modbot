@@ -127,13 +127,31 @@ public class FeedbackControllerTests
     }
 
     [Fact]
+    public async Task ATapShowsStartingUntilTheMicrophoneDeliversItsFirstSound()
+    {
+        var rig = new Rig();
+
+        rig.Controller.Toggle();
+        Assert.Equal(FeedbackState.Starting, rig.Controller.State);
+
+        await rig.Controller.WhenSettled;
+        Assert.Equal(FeedbackState.Starting, rig.Controller.State);
+
+        rig.Recorder.RaiseFlowing();
+        Assert.Equal(FeedbackState.Listening, rig.Controller.State);
+    }
+
+    [Fact]
     public async Task FeedbackAndDictateCannotListenAtTheSameTime()
     {
         var rig = new Rig();
         var dictate = rig.DictateController();
 
         rig.Controller.Toggle();
+        await rig.Controller.WhenSettled;
+        rig.Recorder.RaiseFlowing();
         dictate.Toggle();
+        await dictate.WhenSettled;
 
         Assert.Equal(FeedbackState.Listening, rig.Controller.State);
         Assert.Equal(DictationState.Idle, dictate.State);
@@ -150,7 +168,10 @@ public class FeedbackControllerTests
         var dictate = rig.DictateController();
 
         dictate.Toggle();
+        await dictate.WhenSettled;
+        rig.Recorder.RaiseFlowing();
         rig.Controller.Toggle();
+        await rig.Controller.WhenSettled;
 
         Assert.Equal(DictationState.Listening, dictate.State);
         Assert.Equal(FeedbackState.Idle, rig.Controller.State);
@@ -160,6 +181,8 @@ public class FeedbackControllerTests
         await dictate.WhenSettled;
         dictate.SendEnded(null);
         rig.Controller.Toggle();
+        await rig.Controller.WhenSettled;
+        rig.Recorder.RaiseFlowing();
 
         Assert.Equal(FeedbackState.Listening, rig.Controller.State);
         await rig.Controller.WhenSettled;
@@ -178,7 +201,8 @@ public class FeedbackControllerTests
                 _ => Task.FromResult<string?>(null),
                 Client,
                 () => Pairing,
-                (_, _) => { });
+                (_, _) => { },
+                listenOnFor: TimeSpan.Zero);
         }
 
         public MicrophoneTurns Turns { get; }
@@ -192,12 +216,13 @@ public class FeedbackControllerTests
         public FeedbackController Controller { get; }
 
         public DictationController DictateController()
-            => new(Turns.Wrap(Recorder, "Dictate"), Recognizer, () => true, _ => Task.FromResult<string?>(null), (_, _) => { });
+            => new(Turns.Wrap(Recorder, "Dictate"), Recognizer, () => true, _ => Task.FromResult<string?>(null), (_, _) => { }, listenOnFor: TimeSpan.Zero);
 
         /// <summary>Two taps, then waits for the writing out and the tidying. The tidying starts inside the first wait, so there are two.</summary>
         public async Task SpeakAsync()
         {
             Controller.Toggle();
+            await Controller.WhenSettled;
             Controller.Toggle();
             await Controller.WhenSettled;
             await Controller.WhenSettled;

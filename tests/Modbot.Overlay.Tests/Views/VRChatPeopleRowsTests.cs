@@ -498,6 +498,41 @@ public class VRChatPeopleRowsTests
     }
 
     [Fact]
+    public void TheCompanionMarkOnARowIsTheModbotLogoAsTallAsTheRankBlock()
+    {
+        var screen = Screen([Kai with { TrustRank = Modbot.Core.Users.TrustRank.KnownUser, CompanionRunning = true }]);
+
+        var (logo, block, pieces, wide) = Draw(screen, root =>
+        {
+            var mark = root.GetLogicalDescendants().OfType<Control>().First(c => Avalonia.Automation.AutomationProperties.GetName(c) == OverlayView.CompanionRunningName);
+            var rank = root.GetLogicalDescendants().OfType<Avalonia.Controls.Shapes.Ellipse>().First().GetLogicalAncestors().OfType<Border>().First();
+
+            return (mark.Bounds.Height, rank.Bounds.Height, mark.GetLogicalDescendants().OfType<Avalonia.Controls.Shapes.Path>().Count(), mark.Bounds.Width);
+        });
+
+        // Not a monitor line: the logo's five pieces, at the rank block's height.
+        Assert.Equal(5, pieces);
+        Assert.Equal(block, logo, 0.5);
+        Assert.InRange(wide, logo * 0.9, logo);
+    }
+
+    [Fact]
+    public void TheCompanionMarkOnThePersonCardIsTheModbotLogo()
+    {
+        var card = Screen([Kai]) with
+        {
+            Page = OverlayPage.Person,
+            Person = new UserSummary("usr_Kai", "Kai", RosterStanding.Ordinary, 0, null, [], [], CompanionRunning: true),
+        };
+
+        var pieces = Draw(card, root => root.GetLogicalDescendants().OfType<Control>()
+            .First(c => Avalonia.Automation.AutomationProperties.GetName(c) == OverlayView.CompanionRunningName)
+            .GetLogicalDescendants().OfType<Avalonia.Controls.Shapes.Path>().Count());
+
+        Assert.Equal(5, pieces);
+    }
+
+    [Fact]
     public void TheRankBlockIsAsTallAsTheOtherMarksOnTheRowWithTheDotInIt()
     {
         var screen = Screen([Kai with { TrustRank = Modbot.Core.Users.TrustRank.KnownUser, EighteenPlus = true }]);

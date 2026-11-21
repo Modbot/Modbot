@@ -191,14 +191,14 @@ public static class ButtonView
 
     /// <summary>
     /// The Dictate picture on a 24-unit square: a microphone; with sound arcs that follow how loud the
-    /// voice is (<paramref name="level"/>) while listening; a ring of dots that turns while writing,
-    /// sending or getting ready.
+    /// voice is (<paramref name="level"/>) while listening; a ring of dots that turns while starting,
+    /// writing, sending or getting ready.
     /// </summary>
     public static Control Dictation(DictateState state, int frame, IBrush ink, IBrush bright, int level = 0)
     {
         var canvas = new Canvas { Width = 24, Height = 24 };
 
-        if (state is DictateState.Writing or DictateState.Sending or DictateState.GettingReady)
+        if (state is DictateState.Starting or DictateState.Writing or DictateState.Sending or DictateState.GettingReady)
         {
             for (var i = 0; i < 8; i++)
             {

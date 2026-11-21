@@ -12,6 +12,9 @@ public enum FeedbackState
     /// <summary>The speech model is being fetched. Taps are ignored until it is ready.</summary>
     Preparing,
 
+    /// <summary>The microphone is starting and has not yet delivered its first sound.</summary>
+    Starting,
+
     /// <summary>The microphone is open and sound is being gathered.</summary>
     Listening,
 
@@ -85,6 +88,7 @@ public sealed class FeedbackController
     /// <param name="pairing">The server feedback goes to, or null when there is none.</param>
     /// <param name="log">One-line notes: each stage and each failure. Never the words, never the sound.</param>
     /// <param name="noticeFor">How long a notice stays; <see cref="DictationController.NoticeFor"/> when not given.</param>
+    /// <param name="listenOnFor">How much longer the microphone listens after the tap to stop; <see cref="DictationController.ListenOnFor"/> when not given.</param>
     public FeedbackController(
         IDictationRecorder recorder,
         IDictationRecognizer recognizer,
@@ -93,7 +97,8 @@ public sealed class FeedbackController
         IFeedbackClient client,
         Func<ServerPairing?> pairing,
         Action<string, Exception?> log,
-        TimeSpan? noticeFor = null)
+        TimeSpan? noticeFor = null,
+        TimeSpan? listenOnFor = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(pairing);
@@ -104,7 +109,7 @@ public sealed class FeedbackController
         _log = log;
         _noticeFor = noticeFor ?? DictationController.NoticeFor;
 
-        _speech = new DictationController(recorder, recognizer, modelPresent, prepare, log, noticeFor);
+        _speech = new DictationController(recorder, recognizer, modelPresent, prepare, log, noticeFor, listenOnFor);
         _speech.Changed += () => Changed?.Invoke();
         _speech.Finished += BeginTidy;
     }
@@ -126,6 +131,7 @@ public sealed class FeedbackController
                     _ => _speech.State switch
                     {
                         DictationState.Preparing => FeedbackState.Preparing,
+                        DictationState.Starting => FeedbackState.Starting,
                         DictationState.Listening => FeedbackState.Listening,
                         DictationState.Writing => FeedbackState.Writing,
 

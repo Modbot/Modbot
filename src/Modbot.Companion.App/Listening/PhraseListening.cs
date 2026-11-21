@@ -634,7 +634,8 @@ internal sealed class PhraseListening : IDisposable
         private readonly WasapiRecorder _recorder;
         private readonly MMDevice? _picked;
 
-        public SharedMicrophone(SoundArrived arrived, int bufferMilliseconds, string? microphoneId)
+        /// <param name="flowing">Called for every buffer Windows hands over, silent ones included, before it is looked at. Null for none.</param>
+        public SharedMicrophone(SoundArrived arrived, int bufferMilliseconds, string? microphoneId, Action? flowing = null)
         {
             var builder = new WasapiRecorderBuilder()
 
@@ -672,6 +673,8 @@ internal sealed class PhraseListening : IDisposable
 
             _recorder.DataAvailable += (buffer, flags, _, _) =>
             {
+                flowing?.Invoke();
+
                 // Windows says "this stretch was silence" rather than sending the zeros. Nothing to
                 // listen to, and nothing to hand on.
                 if (flags.HasFlag(AudioClientBufferFlags.Silent))

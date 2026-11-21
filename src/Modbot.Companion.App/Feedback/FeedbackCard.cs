@@ -23,6 +23,7 @@ internal sealed record FeedbackCard(FeedbackState? State, int Percent = 0, int L
     /// <summary>What the button says: what it is doing, or what a tap will do. A notice takes its place while at idle.</summary>
     public string Label => State switch
     {
+        FeedbackState.Starting => "Starting",
         FeedbackState.Listening => "Listening",
         FeedbackState.Writing => "Writing",
         FeedbackState.Tidying => "Tidying",
@@ -39,6 +40,7 @@ internal sealed record FeedbackCard(FeedbackState? State, int Percent = 0, int L
     public DictateState Picture => State switch
     {
         null => DictateState.Off,
+        FeedbackState.Starting => DictateState.Starting,
         FeedbackState.Listening => DictateState.Listening,
         FeedbackState.Writing or FeedbackState.Tidying => DictateState.Writing,
         FeedbackState.Sending => DictateState.Sending,
@@ -47,7 +49,7 @@ internal sealed record FeedbackCard(FeedbackState? State, int Percent = 0, int L
     };
 
     /// <summary>Whether the picture turns on its own, which the window redraws each step.</summary>
-    public bool Moves => Picture is DictateState.Writing or DictateState.Sending or DictateState.GettingReady;
+    public bool Moves => Picture is DictateState.Starting or DictateState.Writing or DictateState.Sending or DictateState.GettingReady;
 
     public static FeedbackCard Of(FeedbackController controller)
         => new(controller.State, controller.Percent, controller.Level, controller.Notice);

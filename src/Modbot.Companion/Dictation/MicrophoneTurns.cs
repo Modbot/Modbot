@@ -40,9 +40,16 @@ public sealed class MicrophoneTurns
                 if (Holds())
                     LimitReached?.Invoke();
             };
+            _inner.Flowing += () =>
+            {
+                if (Holds())
+                    Flowing?.Invoke();
+            };
         }
 
         public event Action? LimitReached;
+
+        public event Action? Flowing;
 
         public float Level => _inner.Level;
 

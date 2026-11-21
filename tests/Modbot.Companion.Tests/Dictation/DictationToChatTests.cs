@@ -65,11 +65,12 @@ public class DictationToChatTests
     }
 
     private static DictationController Controller(Recognizer recognizer)
-        => new(new Recorder(), recognizer, () => true, _ => Task.FromResult<string?>(null), (_, _) => { });
+        => new(new Recorder(), recognizer, () => true, _ => Task.FromResult<string?>(null), (_, _) => { }, listenOnFor: TimeSpan.Zero);
 
     private static async Task Dictate(DictationController controller)
     {
         controller.Toggle();
+        await controller.WhenSettled;
         controller.Toggle();
         await controller.WhenSettled;
     }
@@ -81,6 +82,12 @@ public class DictationToChatTests
         private static readonly float[] Speech = Enumerable.Repeat(0.3f, 16_000).ToArray();
 
         public event Action? LimitReached
+        {
+            add { }
+            remove { }
+        }
+
+        public event Action? Flowing
         {
             add { }
             remove { }

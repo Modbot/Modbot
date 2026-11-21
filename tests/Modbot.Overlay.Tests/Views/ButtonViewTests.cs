@@ -225,6 +225,8 @@ public class ButtonViewTests
         var shown = ButtonScreen.Shown;
 
         Assert.Equal(DictateState.Idle, shown.WithDictate(DictationState.Idle, 0).Dictate);
+        Assert.Equal(DictateState.Starting, shown.WithDictate(DictationState.Starting, 0).Dictate);
+        Assert.True(shown.WithDictate(DictationState.Starting, 0).DictateMoves);
         Assert.Equal(DictateState.Listening, shown.WithDictate(DictationState.Listening, 0).Dictate);
         Assert.Equal(DictateState.Writing, shown.WithDictate(DictationState.Writing, 0).Dictate);
 
@@ -239,6 +241,7 @@ public class ButtonViewTests
         var shown = ButtonScreen.Shown;
 
         Assert.Equal("Dictate", shown.WithDictate(DictationState.Idle, 0).DictateLabel);
+        Assert.Equal("Starting", shown.WithDictate(DictationState.Starting, 0).DictateLabel);
         Assert.Equal("Listening", shown.WithDictate(DictationState.Listening, 0).DictateLabel);
         Assert.Equal("Writing", shown.WithDictate(DictationState.Writing, 0).DictateLabel);
         Assert.Equal("Sending", shown.WithDictate(DictationState.Sending, 0).DictateLabel);
@@ -254,6 +257,8 @@ public class ButtonViewTests
     [Theory]
     [InlineData(DictateState.Idle, true, "Dictate")]
     [InlineData(DictateState.Idle, false, "Dictate")]
+    [InlineData(DictateState.Starting, true, "Starting")]
+    [InlineData(DictateState.Starting, false, "Starting")]
     [InlineData(DictateState.Listening, true, "Listening")]
     [InlineData(DictateState.Writing, false, "Writing")]
     [InlineData(DictateState.Sending, true, "Sending")]

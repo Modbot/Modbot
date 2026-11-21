@@ -26,6 +26,7 @@ public class FeedbackCardTests
     }
 
     [Theory]
+    [InlineData(FeedbackState.Starting, "Starting", DictateState.Starting, true)]
     [InlineData(FeedbackState.Listening, "Listening", DictateState.Listening, false)]
     [InlineData(FeedbackState.Writing, "Writing", DictateState.Writing, true)]
     [InlineData(FeedbackState.Tidying, "Tidying", DictateState.Writing, true)]

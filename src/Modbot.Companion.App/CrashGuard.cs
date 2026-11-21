@@ -52,6 +52,8 @@ internal static class CrashGuard
             e.SetObserved();
         };
 
+        // A process that is killed leaves no line; one that closes leaves this one, so the two can be told apart in the log.
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => Log.Information("Modbot is closing");
     }
 
     /// <summary>
