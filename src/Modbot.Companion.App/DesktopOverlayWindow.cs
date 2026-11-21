@@ -1251,8 +1251,14 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             Dismiss();
     }
 
+    /// <summary>
+    /// Never takes the keyboard. A button that held it after a click would answer the space bar,
+    /// so a space typed into a heads-up or a name would press Dictate or Close instead of landing in
+    /// the words.
+    /// </summary>
     internal static Button SwitchButton() => new()
     {
+        Focusable = false,
         Width = Ui.T.Density.ControlHeight,
         Height = Ui.T.Density.ControlHeight,
         Padding = new Thickness(6),

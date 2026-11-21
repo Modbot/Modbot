@@ -52,6 +52,7 @@ public sealed partial class MainWindow
         {
             _feedbackWired = true;
             _feedbackButton.IsVisible = false;
+            _feedbackButton.Focusable = false;
             _feedbackButton.HorizontalAlignment = HorizontalAlignment.Stretch;
             _feedbackButton.HorizontalContentAlignment = HorizontalAlignment.Left;
             _feedbackButton.Height = Ui.T.Density.ControlHeight;
