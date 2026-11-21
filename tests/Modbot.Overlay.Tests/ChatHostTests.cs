@@ -215,6 +215,49 @@ public class ChatHostTests
     }
 
     [Fact]
+    public void ThePanelHasTheMicrophoneButtonOnlyWhenItsScreenCarriesOne()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (without, _) = Build();
+            using var plain = without;
+            var (with, _) = Build(new ChatScreen([new ChatLine(true, "Hello", ChatLineState.Done)], new ChatMicScreen(DictateState.Idle)));
+            using var mic = with;
+
+            Assert.Null(Find(without, t => t is OverlayTarget.ChatMic));
+            Assert.NotNull(Find(with, t => t is OverlayTarget.ChatMic));
+        });
+    }
+
+    [Fact]
+    public void ATapOnTheMicrophoneButtonRaisesMicTappedAndKeepsThePanelUp()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build(new ChatScreen([new ChatLine(true, "Hello", ChatLineState.Done)], new ChatMicScreen(DictateState.Idle)));
+            using var chat = host;
+            var taps = 0;
+            host.MicTapped += () => taps++;
+
+            Press(host, runtime, Find(host, t => t is OverlayTarget.ChatMic)!.Value, at: 0);
+
+            Assert.Equal(1, taps);
+            Assert.False(host.Hidden);
+        });
+    }
+
+    [Fact]
+    public void AScreenLooksDifferentWhenItsMicrophoneButtonDoes()
+    {
+        var lines = new[] { new ChatLine(true, "Hello", ChatLineState.Done) };
+        var idle = new ChatScreen(lines, new ChatMicScreen(DictateState.Idle));
+
+        Assert.True(idle.LooksTheSameAs(new ChatScreen(lines, new ChatMicScreen(DictateState.Idle))));
+        Assert.False(idle.LooksTheSameAs(new ChatScreen(lines, new ChatMicScreen(DictateState.Listening, Level: 3))));
+        Assert.False(idle.LooksTheSameAs(new ChatScreen(lines)));
+    }
+
+    [Fact]
     public void TheResizeCornerIsThereInEditModeOnly()
     {
         AvaloniaTestHost.Run(() =>
