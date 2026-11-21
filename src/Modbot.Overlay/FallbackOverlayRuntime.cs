@@ -63,22 +63,25 @@ public sealed class FallbackOverlayRuntime : IOverlayRuntime, IOverlayKeyboard, 
     /// <param name="notificationResolution">The notification panel's. Smaller: a pop-up is three lines.</param>
     /// <param name="buttonResolution">The show and hide button's. Smaller still.</param>
     /// <param name="chatResolution">The chat panel's.</param>
+    /// <param name="chatNumber">Which pop-up chat a chat panel is, from 1. Each is its own overlay in SteamVR. On OpenXR only number 1 has a panel for now; the others wait for the dynamic panels and show nowhere there.</param>
     public static FallbackOverlayRuntime CreateFor(
         OverlayKind kind,
         int resolution = OverlayHost.DefaultResolution,
         int notificationResolution = OverlayHost.NotificationTexture,
         int buttonResolution = OverlayButton.PanelPixels,
-        int chatResolution = ChatHost.TexturePixels)
+        int chatResolution = ChatHost.TexturePixels,
+        int chatNumber = 1)
     {
         var openXr = OpenXrOverlayRuntime.Shared(resolution, notificationResolution, buttonResolution, chatResolution);
 
         return new FallbackOverlayRuntime(
-            new OpenVrOverlayRuntime(kind),
+            new OpenVrOverlayRuntime(kind, chatNumber: chatNumber),
             kind switch
             {
                 OverlayKind.Notification => openXr.NotificationPanel,
                 OverlayKind.Button => openXr.ButtonPanel,
-                OverlayKind.Chat => openXr.ChatPanel,
+                OverlayKind.Chat when chatNumber <= 1 => openXr.ChatPanel,
+                OverlayKind.Chat => new HeadlessOverlayRuntime(),
                 _ => openXr,
             });
     }

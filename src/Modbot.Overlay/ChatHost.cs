@@ -1,6 +1,7 @@
 using System.Numerics;
 using Avalonia;
 using Avalonia.Controls;
+using Modbot.Companion.Chat;
 using Modbot.Companion.Overlay;
 using Modbot.Overlay.Interaction;
 using Modbot.Overlay.OpenVr;
@@ -112,7 +113,8 @@ public sealed class ChatHost : IDisposable
         Func<IFrameRenderer> renderer,
         Func<IOverlaySurface> surface,
         OverlayPlacement? placement = null,
-        int resolution = TexturePixels)
+        int resolution = TexturePixels,
+        OverlayPlacement? home = null)
     {
         ArgumentNullException.ThrowIfNull(runtime);
         ArgumentNullException.ThrowIfNull(renderer);
@@ -137,13 +139,13 @@ public sealed class ChatHost : IDisposable
 
         Width = resolution;
         Height = resolution;
-        _interaction = Interaction(placement);
+        _interaction = Interaction(placement, home);
         _runtime.Place(_interaction.Placement);
     }
 
-    private OverlayInteraction Interaction(OverlayPlacement? placement) => new(
-        placement ?? DefaultPlacement,
-        home: DefaultPlacement,
+    private OverlayInteraction Interaction(OverlayPlacement? placement, OverlayPlacement? home = null) => new(
+        placement ?? home ?? DefaultPlacement,
+        home: home ?? DefaultPlacement,
         keepAnchor: OverlayAnchor.Head)
     {
         IsOnBar = (across, down) => EditMode && TargetAt(across, down) is OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough,
@@ -162,21 +164,26 @@ public sealed class ChatHost : IDisposable
 
     /// <summary>The ordinary construction, at the chat panel's own texture.</summary>
     /// <remarks>
-    /// Nothing here touches a graphics card: the texture and the renderer follow the first answer
-    /// that says a headset is running.
+    /// <para>Nothing here touches a graphics card: the texture and the renderer follow the first answer
+    /// that says a headset is running.</para>
+    /// <para><paramref name="number"/> is which pop-up chat this is, from 1. It picks the overlay's key
+    /// in SteamVR and, with no saved <paramref name="placement"/>, where the panel first opens and where
+    /// two quick grips send it back to: a step off the last one (<see cref="ChatCascade"/>).</para>
     /// </remarks>
     public static ChatHost Create(
+        int number = 1,
         int resolution = TexturePixels,
         IOverlayRuntime? runtime = null,
         OverlayPlacement? placement = null)
         => new(
-            runtime ?? FallbackOverlayRuntime.CreateFor(OverlayKind.Chat, chatResolution: resolution),
+            runtime ?? FallbackOverlayRuntime.CreateFor(OverlayKind.Chat, chatResolution: resolution, chatNumber: number),
             () => new AvaloniaFrameRenderer(resolution, resolution),
             () => OperatingSystem.IsWindows()
                 ? D3D11OverlaySurface.Create(resolution, resolution)
                 : new MemoryOverlaySurface(resolution, resolution),
             placement,
-            resolution);
+            resolution,
+            home: ChatCascade.ForHeadset(DefaultPlacement, number));
 
     public OverlayRuntimeStatus Status => _runtime.Status;
 

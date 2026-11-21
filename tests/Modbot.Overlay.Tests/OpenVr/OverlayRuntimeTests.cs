@@ -60,6 +60,30 @@ public class OverlayRuntimeTests
     }
 
     [Fact]
+    public void EachPopupChatIsItsOwnOverlayAndNumberOneKeepsTheOldKey()
+    {
+        using var one = new OpenVrOverlayRuntime(OverlayKind.Chat);
+        using var two = new OpenVrOverlayRuntime(OverlayKind.Chat, chatNumber: 2);
+        using var twelve = new OpenVrOverlayRuntime(OverlayKind.Chat, chatNumber: 12);
+
+        Assert.Equal(OpenVrOverlayRuntime.ChatOverlayKey, one.Key);
+        Assert.Equal(OpenVrOverlayRuntime.ChatOverlayKey + ".2", two.Key);
+        Assert.Equal(OpenVrOverlayRuntime.ChatOverlayKey + ".12", twelve.Key);
+        Assert.Equal("Modbot chat", OpenVrOverlayRuntime.ChatOverlayName(1));
+        Assert.Equal("Modbot chat 2", OpenVrOverlayRuntime.ChatOverlayName(2));
+    }
+
+    [Fact]
+    public void ANumberMeansNothingToThePanelsThatAreNotChats()
+    {
+        using var main = new OpenVrOverlayRuntime(chatNumber: 3);
+        using var button = new OpenVrOverlayRuntime(OverlayKind.Button, chatNumber: 3);
+
+        Assert.Equal(OpenVrOverlayRuntime.OverlayKey, main.Key);
+        Assert.Equal(OpenVrOverlayRuntime.ButtonOverlayKey, button.Key);
+    }
+
+    [Fact]
     public void TheHeadlessRuntimeStandsInForAMachineWithNoHeadset()
     {
         using var runtime = new HeadlessOverlayRuntime();

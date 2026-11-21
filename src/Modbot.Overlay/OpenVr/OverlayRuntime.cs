@@ -157,6 +157,7 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime, IOverlayKeyboard
     private readonly OpenVrSession _session;
     private readonly string _overlayName;
     private readonly float _widthInMetres;
+    private readonly int _chatNumber;
 
     private ulong _handle;
     private int _generation;
@@ -177,19 +178,22 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime, IOverlayKeyboard
     /// <param name="overlayName">What SteamVR calls it in its own lists. Null takes the kind's name.</param>
     /// <param name="widthInMetres">The starting width, until a placement says otherwise.</param>
     /// <param name="session">The attachment to share. Null takes the client's one.</param>
+    /// <param name="chatNumber">Which pop-up chat a <see cref="OverlayKind.Chat"/> overlay is, from 1. Number 1 keeps the key and name the one chat panel always had; each other number gets its own, so the pop-ups are separate overlays in SteamVR.</param>
     public OpenVrOverlayRuntime(
         OverlayKind kind = OverlayKind.Main,
         string? overlayName = null,
         float widthInMetres = DefaultWidthInMetres,
-        OpenVrSession? session = null)
+        OpenVrSession? session = null,
+        int chatNumber = 1)
     {
         _kind = kind;
         _session = session ?? OpenVrSession.Shared;
+        _chatNumber = kind is OverlayKind.Chat ? Math.Max(chatNumber, 1) : 1;
         _overlayName = overlayName ?? kind switch
         {
             OverlayKind.Notification => "Modbot notifications",
             OverlayKind.Button => "Modbot button",
-            OverlayKind.Chat => "Modbot chat",
+            OverlayKind.Chat => ChatOverlayName(_chatNumber),
             _ => "Modbot",
         };
         _widthInMetres = widthInMetres;
@@ -204,9 +208,17 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime, IOverlayKeyboard
     {
         OverlayKind.Notification => NotificationOverlayKey,
         OverlayKind.Button => ButtonOverlayKey,
-        OverlayKind.Chat => ChatOverlayKey,
+        OverlayKind.Chat => ChatOverlayKeyFor(_chatNumber),
         _ => OverlayKey,
     };
+
+    /// <summary>The key of pop-up chat <paramref name="number"/>: number 1 keeps <see cref="ChatOverlayKey"/>, the rest add the number.</summary>
+    public static string ChatOverlayKeyFor(int number)
+        => number <= 1 ? ChatOverlayKey : ChatOverlayKey + "." + number.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>What SteamVR calls pop-up chat <paramref name="number"/> in its own lists.</summary>
+    public static string ChatOverlayName(int number)
+        => number <= 1 ? "Modbot chat" : "Modbot chat " + number.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>The width this overlay was built with, before any placement moved it.</summary>
     public float StartingWidth => _widthInMetres;
