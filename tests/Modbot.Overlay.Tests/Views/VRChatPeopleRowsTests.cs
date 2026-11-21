@@ -505,7 +505,7 @@ public class VRChatPeopleRowsTests
         var (logo, block, pieces, wide) = Draw(screen, root =>
         {
             var mark = root.GetLogicalDescendants().OfType<Control>().First(c => Avalonia.Automation.AutomationProperties.GetName(c) == OverlayView.CompanionRunningName);
-            var rank = root.GetLogicalDescendants().OfType<Avalonia.Controls.Shapes.Ellipse>().First().GetLogicalAncestors().OfType<Border>().First();
+            var rank = root.GetLogicalDescendants().OfType<Avalonia.Controls.Shapes.Ellipse>().First(e => e.Width == 8).GetLogicalAncestors().OfType<Border>().First();
 
             return (mark.Bounds.Height, rank.Bounds.Height, mark.GetLogicalDescendants().OfType<Avalonia.Controls.Shapes.Path>().Count(), mark.Bounds.Width);
         });
@@ -539,7 +539,7 @@ public class VRChatPeopleRowsTests
 
         var (block, chip, dotCentre, blockCentre) = Draw(screen, root =>
         {
-            var dot = root.GetLogicalDescendants().OfType<Avalonia.Controls.Shapes.Ellipse>().First();
+            var dot = root.GetLogicalDescendants().OfType<Avalonia.Controls.Shapes.Ellipse>().First(e => e.Width == 8);
             var rank = dot.GetLogicalAncestors().OfType<Border>().First();
             var eighteen = root.GetLogicalDescendants().OfType<TextBlock>().First(t => t.Text == "18+").GetLogicalAncestors().OfType<Border>().First();
             return (rank.Bounds.Height, eighteen.Bounds.Height, dot.TranslatePoint(new Point(4, 4), rank)!.Value.Y, rank.Bounds.Height / 2);

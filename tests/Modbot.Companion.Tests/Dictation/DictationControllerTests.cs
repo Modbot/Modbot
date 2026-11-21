@@ -301,7 +301,8 @@ public class DictationControllerTests
     {
         var rig = new Rig { ModelPresent = false };
 
-        await rig.StartListening();
+        // The first tap starts the fetch, which waits on Prepared; waiting for it to settle here would hang.
+        rig.Controller.Toggle();
         rig.Controller.Toggle();
         rig.Controller.Toggle();
 

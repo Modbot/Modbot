@@ -1242,7 +1242,10 @@ public class CompanionSourceGuardTests
         var microphone = File.ReadAllText(EverythingTheClientShips().Single(f => Path.GetFileName(f) == DictationFile));
 
         Assert.Contains("controller.Finished += text =>", host, StringComparison.Ordinal);
-        Assert.Contains("session.AskAsync(text)", host, StringComparison.Ordinal);
+        // The words reach the conversation through the pop-up chats' own ask, which sends text only.
+        var popups = File.ReadAllText(EverythingTheClientShips().Single(f => Path.GetFileName(f) == "CompanionHost.ChatPopups.cs"));
+        Assert.Contains("AskChat(text)", host, StringComparison.Ordinal);
+        Assert.Contains("session.AskAsync(text)", popups, StringComparison.Ordinal);
         Assert.DoesNotContain("float[]", host, StringComparison.Ordinal);
         Assert.DoesNotContain("ChatClient", microphone, StringComparison.Ordinal);
         Assert.DoesNotContain("ChatSession", microphone, StringComparison.Ordinal);

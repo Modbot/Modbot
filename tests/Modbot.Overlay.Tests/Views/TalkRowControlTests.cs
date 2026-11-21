@@ -141,7 +141,9 @@ public class TalkRowControlTests
             var panel = LaidOut(WithClip(Showing with { Side = TalkSide.VRChat })).GetVisualDescendants().OfType<StackPanel>()
                 .Single(p => p.Children.OfType<Border>().Count(b => b.Tag is OverlayTarget.Talk) == 2);
             var last = panel.Children.OfType<Border>().Last();
-            return (last.Opacity == 0 && last.Tag is null, last.Bounds.Left >= discord[1].Bounds.Right);
+            // Both are measured inside the same row, so the comparison is between neighbours.
+            var mute = panel.Children.OfType<Border>().ElementAt(1);
+            return (last.Opacity == 0 && last.Tag is null, last.Bounds.Left >= mute.Bounds.Right);
         });
 
         Assert.True(hidden);
