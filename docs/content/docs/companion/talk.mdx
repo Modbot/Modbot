@@ -13,6 +13,7 @@ around you hearing it, and then talk to the instance again without fumbling for 
 | **Talk in VRChat** | opened last | closed first |
 | **Discord Mute** | left alone | Discord's Toggle Mute pressed once |
 | **Discord Deafen** | left alone | Discord's Toggle Deafen pressed once |
+| **VRChat Mute** | muted, or opened again | left alone |
 
 The side being closed always goes first. If VRChat's microphone cannot be muted, Discord is
 **not** opened, so a private conversation never reaches the instance because half a swap worked.
@@ -44,20 +45,25 @@ keys nothing else uses.
 ## On the headset panel
 
 With it on, three small icons sit under the tabs of the main panel, on every screen, on the same row
-as **Clip** (or alone when Clips is off), and stay when you are not in a group's instance.
+as **Clip** (or alone when Clips is off), and stay when you are not in a group's instance. **Clip** is
+only as wide as its icon and word, at the left; the three icons are a group of their own at the right.
 
 | Icon | Says |
 |---|---|
 | First, the side you are on | The Discord logo for **Talking in Discord**, the VRChat logo for **Talking in VRChat**, and two arrows when neither is. Tapping it moves you to the other side. |
-| Second, a microphone | **Discord Mute**; struck through while **Discord Muted** is on. |
-| Third, headphones | **Discord Deafen**; struck through while **Discord Deafened** is on. |
+| Second, a microphone | **Discord Mute**; struck through while **Discord Muted** is on. On VRChat's side it is **VRChat Mute** instead, and is struck through while **VRChat Muted** is on. |
+| Third, headphones | **Discord Deafen**; struck through while **Discord Deafened** is on. On VRChat's side it is not drawn, and its place stays empty so nothing moves. |
 
-An icon on a side, or a Discord switch that is on, is drawn in a colour of its own. When
+An icon on a side, or a switch that is on, is drawn in a colour of its own. When
 something fails, one line under the row says what, for example that VRChat did not answer.
+
+VRChat's own Mute is the same button press as the Talk swap uses, so it needs the same OSC and
+**Toggle Voice** set-up. VRChat has no way to turn its volume down from outside, so there is no
+Deafen for VRChat.
 
 ## On the keyboard
 
-The same three buttons can be keys that work while VRChat has the keyboard. In the same Settings
+The swap, **Discord Mute** and **Discord Deafen** buttons can be keys that work while VRChat has the keyboard. In the same Settings
 card, record **Talk in Discord or VRChat hotkey**, **Discord Mute hotkey** and **Discord Deafen
 hotkey**. They start unset, and a hotkey is only claimed from Windows while Talk in Discord or
 VRChat is on and a key is recorded.

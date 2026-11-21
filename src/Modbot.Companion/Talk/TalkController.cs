@@ -53,13 +53,15 @@ public sealed record TalkResult(bool Ok, string? Problem = null)
 /// <param name="DiscordMuted">Discord muted, as remembered from Modbot's own presses.</param>
 /// <param name="DiscordDeafened">Discord deafened, as remembered from Modbot's own presses.</param>
 /// <param name="Problem">The last failure in one sentence, or null.</param>
-public sealed record TalkState(bool On, bool? VRChatMuted, bool DiscordMuted, bool DiscordDeafened, string? Problem)
+/// <param name="VRChatMuteHeld">VRChat was muted by its own Mute button while on VRChat's side, so that is still the side.</param>
+public sealed record TalkState(bool On, bool? VRChatMuted, bool DiscordMuted, bool DiscordDeafened, string? Problem, bool VRChatMuteHeld = false)
 {
     public static TalkState None { get; } = new(false, null, false, false, null);
 
     /// <summary>
     /// Talk in Discord is VRChat muted and Discord open; Talk in VRChat is the opposite. Anything
-    /// else (both open, both shut, VRChat not heard from) is neither.
+    /// else (both open, both shut, VRChat not heard from) is neither, except that muting VRChat with
+    /// its own button while on VRChat's side leaves it on VRChat's side (<paramref name="VRChatMuteHeld"/>).
     /// </summary>
     public TalkSide Side
     {
@@ -69,6 +71,7 @@ public sealed record TalkState(bool On, bool? VRChatMuted, bool DiscordMuted, bo
             return VRChatMuted switch
             {
                 true when discordOpen => TalkSide.Discord,
+                true when VRChatMuteHeld => TalkSide.VRChat,
                 false when !discordOpen => TalkSide.VRChat,
                 _ => TalkSide.Neither,
             };
@@ -120,6 +123,7 @@ public sealed class TalkController
 
     private DiscordState _discord = DiscordState.Start;
     private string? _problem;
+    private bool _vrchatMuteHeld;
 
     /// <param name="vrchat">VRChat's microphone.</param>
     /// <param name="keys">Presses keys.</param>
@@ -142,7 +146,8 @@ public sealed class TalkController
         _vrchat.Muted,
         _discord.Muted,
         _discord.Deafened,
-        _problem ?? _vrchat.Problem);
+        _problem ?? _vrchat.Problem,
+        _vrchatMuteHeld);
 
     /// <summary>VRChat muted, then Discord opened.</summary>
     public Task<TalkResult> TalkInDiscordAsync(CancellationToken cancellationToken = default)
@@ -168,6 +173,7 @@ public sealed class TalkController
         TalkButton.Swap => SwapAsync(cancellationToken),
         TalkButton.DiscordMute => ToggleDiscordMuteAsync(cancellationToken),
         TalkButton.DiscordDeafen => ToggleDiscordDeafenAsync(cancellationToken),
+        TalkButton.VRChatMute => ToggleVRChatMuteAsync(cancellationToken),
         _ => throw new ArgumentOutOfRangeException(nameof(button)),
     };
 
@@ -196,11 +202,25 @@ public sealed class TalkController
     public Task<TalkResult> ToggleDiscordDeafenAsync(CancellationToken cancellationToken = default)
         => RunAsync(() => PressAsync(deafen: true, cancellationToken));
 
+    /// <summary>
+    /// VRChat's microphone muted if it is open, open if it is muted. The side stays VRChat's while it is muted
+    /// this way, so the button can say so; any other action ends that.
+    /// </summary>
+    public Task<TalkResult> ToggleVRChatMuteAsync(CancellationToken cancellationToken = default)
+        => RunAsync(async () =>
+        {
+            var mute = _vrchat.Muted != true;
+            var result = await SetVRChatMutedAsync(mute, cancellationToken).ConfigureAwait(false);
+            _vrchatMuteHeld = result.Ok && mute;
+            return result;
+        });
+
     private async Task<TalkResult> RunAsync(Func<Task<TalkResult>> action)
     {
         await _one.WaitAsync().ConfigureAwait(false);
         try
         {
+            _vrchatMuteHeld = false;
             var result = _settings().On ? await action().ConfigureAwait(false) : TalkResult.Failed(Off);
             _problem = result.Problem;
             return result;

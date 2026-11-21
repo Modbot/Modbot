@@ -1744,7 +1744,7 @@ public sealed partial class OverlayView
             marks.Add(TagChip(member.Invitation is { } invitation ? InvitationWords(invitation) : "Not in group", T.Palette.Warn, T.WarnBrush));
 
         if (isNew)
-            marks.Add(TagChip("New", T.Palette.Ok, T.OkBrush));
+            marks.Add(TagChip("New", T.Palette.Info, T.InfoBrush));
 
         return marks;
     }
@@ -1835,16 +1835,27 @@ public sealed partial class OverlayView
     }
 
     /// <summary>A rank on a people-list row: the dark pill with only the rank's coloured dot in it, no words.</summary>
-    private Control RankRowMark(TrustRank rank) => new Border
+    private Control RankRowMark(TrustRank rank)
     {
-        Background = VRChatLook.PillGround,
-        BorderBrush = T.BorderBrush,
-        BorderThickness = new Thickness(1),
-        CornerRadius = new CornerRadius(VRChatLook.PillRadius),
-        Padding = new Thickness(8, 2),
-        VerticalAlignment = VerticalAlignment.Center,
-        Child = RankDot(rank),
-    };
+        // A line of words as tall as the old pill's, so the pill is a block with the dot in it and not a
+        // thin strip. The line is never seen.
+        var line = Text(" ", T.Density.TextTiny, T.TextBrush, FontWeight.Bold);
+        line.Opacity = 0;
+
+        var dot = RankDot(rank);
+        dot.HorizontalAlignment = HorizontalAlignment.Center;
+
+        return new Border
+        {
+            Background = VRChatLook.PillGround,
+            BorderBrush = T.BorderBrush,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(VRChatLook.PillRadius),
+            Padding = new Thickness(8, 2),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new Grid { Children = { line, dot } },
+        };
+    }
 
     /// <summary>The words a screen reader gives the mark that says somebody's companion is running.</summary>
     public const string CompanionRunningName = "Companion running";
@@ -2278,7 +2289,7 @@ public sealed partial class OverlayView
     /// <para><strong>And it says when a clip landed</strong>, for a few seconds, because that is
     /// the only way to find out from inside VR.</para>
     /// </remarks>
-    /// <param name="shared">The Talk icons are on the same row, so the bar takes the room they leave and a long caption wraps.</param>
+    /// <param name="shared">The Talk icons are on the same row, so the bar is only as wide as its icon and word, and a long caption wraps in the room they leave.</param>
     private Control SaveClipBar(ClipButton clip, bool shared = false)
     {
         var captionBrush = clip.State switch
@@ -2316,7 +2327,7 @@ public sealed partial class OverlayView
             CornerRadius = T.CornerRadius,
 
             // A target a hand in a headset can land on without aiming.
-            MinWidth = shared ? 120 : 240,
+            MinWidth = shared ? 0 : 240,
             MinHeight = T.Density.RowHeight,
             Padding = new Thickness(16, 8),
 

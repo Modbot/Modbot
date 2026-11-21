@@ -162,6 +162,26 @@ public class RosterMarkersTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void NewIsNotTheSameColourAsTheEighteenPlusMark(bool inVRChatLook)
+    {
+        var person = new RosterMember("usr_Jo", "Jo", RosterStanding.Member, 0, [], IsMember: true, EighteenPlus: true);
+        var screen = Instance([person], new Dictionary<string, DateTimeOffset?> { ["usr_Jo"] = Now.AddSeconds(-30) });
+
+        var (isNew, eighteen) = AvaloniaTestHost.Run(() =>
+        {
+            var blocks = OverlayView.Build(screen, null, inVRChatLook ? VRChatLook() : OverlayLook.Headset)
+                .GetLogicalDescendants().OfType<TextBlock>().ToList();
+            return (
+                ((Avalonia.Media.ISolidColorBrush)blocks.Single(t => t.Text == "New").Foreground!).Color,
+                ((Avalonia.Media.ISolidColorBrush)blocks.Single(t => t.Text == "18+").Foreground!).Color);
+        });
+
+        Assert.NotEqual(eighteen, isNew);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void TheModeratorIsNeverNewToThemself(bool inVRChatLook)
     {
         var texts = Texts(

@@ -10,7 +10,7 @@ using Modbot.Overlay.Interaction;
 namespace Modbot.Overlay.Views;
 
 /// <summary>
-/// Save a clip and the Talk buttons on one row: the three Talk buttons are small icons beside it.
+/// Clip and the Talk buttons on one row, in two groups: Clip at one side, the audio icons at the other.
 /// </summary>
 public sealed partial class OverlayView
 {
@@ -51,39 +51,56 @@ public sealed partial class OverlayView
         + "M4,14 L8,14 L8,20 L6,20 C4.9,20 4,19.1 4,18 Z M20,14 L16,14 L16,20 L18,20 C19.1,20 20,19.1 20,18 Z";
 
     /// <summary>
-    /// Save a clip with the Talk icons on its row, each saying where things stand now and coloured for
-    /// it: the swap icon in the accent colour on a side, the Discord Mute and Discord Deafen icons struck
-    /// through in the warning colour while on. A failure, if there is one, is the one line under them.
+    /// Clip with the Talk icons on its row, each saying where things stand now and coloured for
+    /// it: the swap icon in the accent colour on a side, the Mute and Deafen icons struck through in the
+    /// warning colour while on. A failure, if there is one, is the one line under them.
     /// </summary>
     /// <remarks>
     /// <para>Inside a headset there is no settings screen and no notification, so the row is the only place
     /// a failed press can say what went wrong. The icons are drawn only while Talk in Discord or VRChat is
     /// on; either part is left out when it is off.</para>
     /// <para>Each icon carries the words it used to say as its automation name.</para>
+    /// <para>Clip is only as wide as its icon and word, on its own at the left. The swap icon, Mute and
+    /// Deafen are the audio group at the right, with a gap between the two groups. While the microphone is
+    /// on VRChat's side Mute is VRChat's and Deafen is not drawn but keeps its place, so the row does not
+    /// shift; VRChat has no volume to turn down.</para>
     /// </remarks>
     private Control ClipsAndTalk(ClipButton clips, TalkRow talk)
     {
         if (!talk.IsVisible)
             return SaveClipBar(clips);
 
-        var row = new Grid
+        var inVRChat = talk.Side is TalkSide.VRChat;
+        var swapGlyph = talk.Side switch { TalkSide.Discord => DiscordGlyph, TalkSide.VRChat => VRChatGlyph, _ => SwapGlyph };
+
+        var audio = new StackPanel
         {
-            ColumnDefinitions = new ColumnDefinitions(clips.IsVisible ? "*,Auto,Auto,Auto" : "Auto,Auto,Auto"),
-            ColumnSpacing = 8,
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Children =
+            {
+                TalkIconFor(talk.SwapCaption, TalkButton.Swap, swapGlyph, filled: talk.Side is not TalkSide.Neither, active: talk.Side is not TalkSide.Neither, struck: false, T.AccentForegroundBrush),
+                inVRChat
+                    ? TalkIconFor(talk.VRChatMuteCaption, TalkButton.VRChatMute, MicrophoneGlyph, filled: false, talk.VRChatMuted, struck: talk.VRChatMuted, T.DangerBrush)
+                    : TalkIconFor(talk.MuteCaption, TalkButton.DiscordMute, MicrophoneGlyph, filled: false, talk.DiscordMuted, struck: talk.DiscordMuted, T.DangerBrush),
+                TalkIconFor(talk.DeafenCaption, TalkButton.DiscordDeafen, HeadphonesGlyph, filled: false, talk.DiscordDeafened, struck: talk.DiscordDeafened, T.DangerBrush, hidden: inVRChat),
+            },
         };
 
-        var column = 0;
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions(clips.IsVisible ? "*,Auto" : "Auto") };
+
         if (clips.IsVisible)
         {
             var save = SaveClipBar(clips, shared: true);
-            Grid.SetColumn(save, column++);
+            save.HorizontalAlignment = HorizontalAlignment.Left;
             row.Children.Add(save);
+
+            // The gap that keeps the two groups apart.
+            audio.Margin = new Thickness(24, 0, 0, 0);
+            Grid.SetColumn(audio, 1);
         }
 
-        var swapGlyph = talk.Side switch { TalkSide.Discord => DiscordGlyph, TalkSide.VRChat => VRChatGlyph, _ => SwapGlyph };
-        row.Children.Add(TalkIconFor(talk.SwapCaption, TalkButton.Swap, column++, swapGlyph, filled: talk.Side is not TalkSide.Neither, active: talk.Side is not TalkSide.Neither, struck: false, T.AccentForegroundBrush));
-        row.Children.Add(TalkIconFor(talk.MuteCaption, TalkButton.DiscordMute, column++, MicrophoneGlyph, filled: false, talk.DiscordMuted, struck: talk.DiscordMuted, T.DangerBrush));
-        row.Children.Add(TalkIconFor(talk.DeafenCaption, TalkButton.DiscordDeafen, column, HeadphonesGlyph, filled: false, talk.DiscordDeafened, struck: talk.DiscordDeafened, T.DangerBrush));
+        row.Children.Add(audio);
 
         if (talk.Problem is not { Length: > 0 } problem)
             return Backed(row, fill: true);
@@ -97,8 +114,9 @@ public sealed partial class OverlayView
 
     /// <param name="caption">What the button used to say: its automation name.</param>
     /// <param name="filled">The icon is a solid mark (the Discord or VRChat logo), not a line drawing.</param>
-    /// <param name="struck">A line through the icon, for a Discord switch that is on.</param>
-    private Control TalkIconFor(string caption, TalkButton button, int column, string glyph, bool filled, bool active, bool struck, IBrush activeBrush)
+    /// <param name="struck">A line through the icon, for a switch that is on.</param>
+    /// <param name="hidden">Not drawn and not a target, but it keeps the room it takes.</param>
+    private Control TalkIconFor(string caption, TalkButton button, string glyph, bool filled, bool active, bool struck, IBrush activeBrush, bool hidden = false)
     {
         var brush = active ? activeBrush : T.TextBrush;
 
@@ -112,7 +130,9 @@ public sealed partial class OverlayView
 
         var border = new Border
         {
-            Tag = new OverlayTarget.Talk(button),
+            Tag = hidden ? null : new OverlayTarget.Talk(button),
+            Opacity = hidden ? 0 : 1,
+            IsHitTestVisible = !hidden,
             Background = T.Surface2Brush,
             BorderBrush = active ? activeBrush : T.Border2Brush,
             BorderThickness = new Thickness(T.Density.Hairline),
@@ -125,8 +145,9 @@ public sealed partial class OverlayView
             Child = content,
         };
 
-        AutomationProperties.SetName(border, caption);
-        Grid.SetColumn(border, column);
+        if (!hidden)
+            AutomationProperties.SetName(border, caption);
+
         return border;
     }
 

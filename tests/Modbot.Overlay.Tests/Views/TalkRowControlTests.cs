@@ -11,7 +11,7 @@ using Modbot.Overlay.Views;
 namespace Modbot.Overlay.Tests.Views;
 
 /// <summary>
-/// The Talk icons beside Save a clip on the panel: where they are, when they are there at all, what each
+/// The Talk icons beside Clip on the panel: where they are, when they are there at all, what each
 /// is called, and that a hand in a headset can hit each one.
 /// </summary>
 public class TalkRowControlTests
@@ -82,11 +82,12 @@ public class TalkRowControlTests
         });
     }
 
+    private static OverlayScreen WithClip(TalkRow talk) => Screen(talk) with { Clips = new ClipButton(ClipButtonState.Ready, "Clip", CanPress: true) };
+
     [Fact]
-    public void TheIconsSitOnTheSameRowAsSaveAClip()
+    public void TheIconsSitOnTheSameRowAsClip()
     {
-        var screen = Screen(Showing) with { Clips = new ClipButton(ClipButtonState.Ready, "Clip", CanPress: true) };
-        var targets = Targets(screen);
+        var targets = Targets(WithClip(Showing));
 
         var save = Assert.Single(targets, t => t.Target is OverlayTarget.SaveClip);
         var icons = targets.Where(t => t.Target is OverlayTarget.Talk).ToList();
@@ -94,9 +95,68 @@ public class TalkRowControlTests
         Assert.Equal(3, icons.Count);
         Assert.All(icons, icon =>
         {
-            Assert.True(save.Bounds.Right <= icon.Bounds.Left, "An icon is not to the right of Save a clip.");
-            Assert.True(icon.Bounds.Center.Y > save.Bounds.Top && icon.Bounds.Center.Y < save.Bounds.Bottom, "An icon is not on Save a clip's row.");
+            Assert.True(save.Bounds.Right <= icon.Bounds.Left, "An icon is not to the right of Clip.");
+            Assert.True(icon.Bounds.Center.Y > save.Bounds.Top && icon.Bounds.Center.Y < save.Bounds.Bottom, "An icon is not on Clip's row.");
         });
+    }
+
+    [Fact]
+    public void ClipIsOnlyAsWideAsItsIconAndWord()
+    {
+        var save = Assert.Single(Targets(WithClip(Showing)), t => t.Target is OverlayTarget.SaveClip);
+
+        // The icon, the word and the padding: not the room the audio icons leave.
+        Assert.True(save.Bounds.Width < 160, $"Clip is stretched: {save.Bounds.Width}");
+        Assert.True(save.Bounds.Height >= 40, $"Too short to hit in VR: {save.Bounds.Height}");
+    }
+
+    [Fact]
+    public void ClipAndTheAudioIconsAreTwoGroupsWithAGapBetween()
+    {
+        var targets = Targets(WithClip(Showing));
+        var save = Assert.Single(targets, t => t.Target is OverlayTarget.SaveClip);
+        var icons = targets.Where(t => t.Target is OverlayTarget.Talk).OrderBy(t => t.Bounds.Left).ToList();
+
+        Assert.True(icons[0].Bounds.Left - save.Bounds.Right >= 24, "No clear gap between Clip and the audio icons.");
+
+        // The audio icons are close together, much closer than they are to Clip.
+        Assert.True(icons[1].Bounds.Left - icons[0].Bounds.Right <= 12);
+        Assert.True(icons[2].Bounds.Left - icons[1].Bounds.Right <= 12);
+    }
+
+    [Fact]
+    public void OnVRChatsSideTheMuteIsVRChatsAndTheDeafenIsGoneButKeepsItsPlace()
+    {
+        var discord = Buttons(WithClip(Showing));
+        var vrchat = Buttons(WithClip(Showing with { Side = TalkSide.VRChat }));
+
+        Assert.Equal([TalkButton.Swap, TalkButton.VRChatMute], vrchat.Select(b => ((OverlayTarget.Talk)b.Target).Button));
+
+        // Nothing moves: the swap and the mute are where they were, and the Deafen's place is left empty.
+        Assert.Equal(discord[0].Bounds, vrchat[0].Bounds);
+        Assert.Equal(discord[1].Bounds, vrchat[1].Bounds);
+
+        var (hidden, deafenSpace) = AvaloniaTestHost.Run(() =>
+        {
+            var panel = LaidOut(WithClip(Showing with { Side = TalkSide.VRChat })).GetVisualDescendants().OfType<StackPanel>()
+                .Single(p => p.Children.OfType<Border>().Count(b => b.Tag is OverlayTarget.Talk) == 2);
+            var last = panel.Children.OfType<Border>().Last();
+            return (last.Opacity == 0 && last.Tag is null, last.Bounds.Left >= discord[1].Bounds.Right);
+        });
+
+        Assert.True(hidden);
+        Assert.True(deafenSpace);
+    }
+
+    [Fact]
+    public void OnVRChatsSideTheMuteSaysItIsVRChatsAndIsStruckWhileVRChatIsMuted()
+    {
+        string? Name(bool muted) => AvaloniaTestHost.Run(() => AutomationProperties.GetName(
+            LaidOut(Screen(new TalkRow(true, TalkSide.VRChat, false, false, null, VRChatMuted: muted)))
+                .GetVisualDescendants().OfType<Border>().Single(b => b.Tag is OverlayTarget.Talk { Button: TalkButton.VRChatMute })));
+
+        Assert.Equal("VRChat Mute", Name(false));
+        Assert.Equal("VRChat Muted", Name(true));
     }
 
     [Fact]
@@ -147,11 +207,11 @@ public class TalkRowControlTests
     public void ItSaysWhereThingsStand()
     {
         // The icons carry the words they used to say as their automation names.
-        var names = AvaloniaTestHost.Run(() => LaidOut(Screen(new TalkRow(true, TalkSide.VRChat, true, true, null)))
+        var names = AvaloniaTestHost.Run(() => LaidOut(Screen(new TalkRow(true, TalkSide.Neither, true, true, null)))
             .GetVisualDescendants().OfType<Border>().Where(b => b.Tag is OverlayTarget.Talk)
             .Select(b => AutomationProperties.GetName(b)).ToList());
 
-        Assert.Contains("Talking in VRChat", names);
+        Assert.Contains("Talk in Discord", names);
         Assert.Contains("Discord Muted", names);
         Assert.Contains("Discord Deafened", names);
     }

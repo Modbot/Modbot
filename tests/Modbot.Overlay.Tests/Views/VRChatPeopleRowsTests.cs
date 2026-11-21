@@ -497,6 +497,25 @@ public class VRChatPeopleRowsTests
         Assert.True(e.Name.Right <= e.Whole.Left + 0.5, "The name runs into the marks.");
     }
 
+    [Fact]
+    public void TheRankBlockIsAsTallAsTheOtherMarksOnTheRowWithTheDotInIt()
+    {
+        var screen = Screen([Kai with { TrustRank = Modbot.Core.Users.TrustRank.KnownUser, EighteenPlus = true }]);
+
+        var (block, chip, dotCentre, blockCentre) = Draw(screen, root =>
+        {
+            var dot = root.GetLogicalDescendants().OfType<Avalonia.Controls.Shapes.Ellipse>().First();
+            var rank = dot.GetLogicalAncestors().OfType<Border>().First();
+            var eighteen = root.GetLogicalDescendants().OfType<TextBlock>().First(t => t.Text == "18+").GetLogicalAncestors().OfType<Border>().First();
+            return (rank.Bounds.Height, eighteen.Bounds.Height, dot.TranslatePoint(new Point(4, 4), rank)!.Value.Y, rank.Bounds.Height / 2);
+        });
+
+        // As tall as a mark with words in it, not a strip the dot's own height.
+        Assert.True(block >= chip, $"The rank block is shorter than the 18+ mark: {block} against {chip}.");
+        Assert.True(block <= chip + 8, $"The rank block is much taller than the 18+ mark: {block} against {chip}.");
+        Assert.InRange(dotCentre, blockCentre - 2, blockCentre + 2);
+    }
+
     [Theory]
     // Not 380: with the wider font a Linux runner falls back to, the room left after the picture, the
     // time and the button is under what the rank and the 18+ mark want, so they are cut there. That is

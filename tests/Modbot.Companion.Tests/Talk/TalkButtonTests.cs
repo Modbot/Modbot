@@ -4,7 +4,7 @@ using Modbot.Companion.Talk;
 namespace Modbot.Companion.Tests.Talk;
 
 /// <summary>
-/// The three buttons (swap, Discord Mute, Discord Deafen): which side the microphone is on, what the
+/// The buttons (swap, Discord Mute, Discord Deafen, VRChat Mute): which side the microphone is on, what the
 /// VR panel's row says about it, and what a press does, over a made-up VRChat and keyboard.
 /// </summary>
 public class TalkButtonTests
@@ -149,6 +149,86 @@ public class TalkButtonTests
     }
 
     [Fact]
+    public async Task VRChatMuteTapsVRChatsMicrophoneAndNeverTouchesDiscord()
+    {
+        var (talk, mic, log) = Make(vrchatMuted: false);
+
+        var muted = await talk.PressButtonAsync(TalkButton.VRChatMute, TestContext.Current.CancellationToken);
+
+        Assert.True(muted.Ok);
+        Assert.Equal(["tap"], log);
+        Assert.True(mic.Muted);
+        Assert.True(talk.State.VRChatMuted);
+
+        var open = await talk.PressButtonAsync(TalkButton.VRChatMute, TestContext.Current.CancellationToken);
+
+        Assert.True(open.Ok);
+        Assert.Equal(["tap", "tap"], log);
+        Assert.False(mic.Muted);
+        Assert.False(talk.State.DiscordMuted);
+        Assert.False(talk.State.DiscordDeafened);
+    }
+
+    [Fact]
+    public async Task MutingVRChatOnVRChatsSideLeavesItOnVRChatsSide()
+    {
+        var (talk, _, _) = Make(vrchatMuted: true);
+        await talk.SwapAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(TalkSide.VRChat, talk.State.Side);
+
+        await talk.PressButtonAsync(TalkButton.VRChatMute, TestContext.Current.CancellationToken);
+
+        Assert.True(talk.State.VRChatMuted);
+        Assert.Equal(TalkSide.VRChat, talk.State.Side);
+        Assert.True(TalkRowRule.For(talk.State).VRChatMuted);
+
+        await talk.PressButtonAsync(TalkButton.VRChatMute, TestContext.Current.CancellationToken);
+
+        Assert.False(talk.State.VRChatMuted);
+        Assert.Equal(TalkSide.VRChat, talk.State.Side);
+    }
+
+    [Fact]
+    public async Task AnyOtherPressAfterMutingVRChatEndsThatSide()
+    {
+        var (talk, _, _) = Make(vrchatMuted: true);
+        await talk.SwapAsync(TestContext.Current.CancellationToken);
+        await talk.PressButtonAsync(TalkButton.VRChatMute, TestContext.Current.CancellationToken);
+
+        await talk.PressButtonAsync(TalkButton.Swap, TestContext.Current.CancellationToken);
+
+        Assert.Equal(TalkSide.Discord, talk.State.Side);
+    }
+
+    [Fact]
+    public async Task VRChatMuteWhileVRChatSaysNothingSaysWhy()
+    {
+        var mic = new SilentMic();
+        var talk = new TalkController(mic, new FakeKeys([]), () => On, TimeSpan.Zero);
+
+        var result = await talk.PressButtonAsync(TalkButton.VRChatMute, TestContext.Current.CancellationToken);
+
+        Assert.False(result.Ok);
+        Assert.Equal(TalkController.DidntAnswer, result.Problem);
+        Assert.Equal(1, mic.Taps);
+    }
+
+    private sealed class SilentMic : IVRChatMic
+    {
+        public int Taps { get; private set; }
+
+        public bool? Muted => null;
+
+        public string? Problem => null;
+
+        public Task<MicTap> TapAsync(CancellationToken cancellationToken)
+        {
+            Taps++;
+            return Task.FromResult(new MicTap(true, null));
+        }
+    }
+
+    [Fact]
     public async Task AHotkeyLetsGoOfItsOwnModifiersBeforeAnythingIsPressed()
     {
         var (talk, _, log) = Make(vrchatMuted: true);
@@ -221,6 +301,14 @@ public class TalkButtonTests
     public void TheMuteButtonSaysWhetherItIsOn(bool muted, string caption)
     {
         Assert.Equal(caption, new TalkRow(true, TalkSide.Neither, muted, false, null).MuteCaption);
+    }
+
+    [Theory]
+    [InlineData(false, "VRChat Mute")]
+    [InlineData(true, "VRChat Muted")]
+    public void TheVRChatMuteButtonSaysWhetherItIsOn(bool muted, string caption)
+    {
+        Assert.Equal(caption, new TalkRow(true, TalkSide.VRChat, false, false, null, VRChatMuted: muted).VRChatMuteCaption);
     }
 
     [Theory]
