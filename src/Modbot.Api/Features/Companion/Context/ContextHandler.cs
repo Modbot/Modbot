@@ -394,7 +394,7 @@ public static class ContextHandler
             .AsNoTracking()
             .Where(d => d.RevokedAt == null && d.LastSeenAt >= heardSince)
             .Join(
-                database.Users.Where(u => !u.IsDisabled && u.VRChatUserId != null && subjectIds.Contains(u.VRChatUserId)),
+                database.Users.Where(u => !u.IsDisabled && u.DeletedAt == null && u.VRChatUserId != null && subjectIds.Contains(u.VRChatUserId)),
                 d => d.IssuedToUserId,
                 u => u.Id,
                 (d, u) => u.VRChatUserId!)
