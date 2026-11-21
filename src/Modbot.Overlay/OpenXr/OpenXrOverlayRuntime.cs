@@ -67,7 +67,11 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
     private static XR? _xrApi;
     private static Vulkan.Vk? _vkApi;
 
-    /// <summary>The main panel, the notification panel, the show and hide button and the chat panel, in that order.</summary>
+    /// <summary>
+    /// The main panel, the notification panel, the show and hide button and the first chat panel, in
+    /// that order. These four have their swapchains from the moment the session attaches; every
+    /// further chat panel (<see cref="ChatPanelFor"/>) is made when it is asked for.
+    /// </summary>
     internal const int PanelCount = 4;
 
     private const int MainPanel = 0;
@@ -81,8 +85,11 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
     private readonly float _widthInMetres;
     private readonly ILogger _log;
     private readonly LatestTracking _tracking = new();
-    private readonly PanelState[] _panels;
+    private readonly int _chatResolution;
     private readonly Lock _gate = new();
+
+    // Replaced whole, only ever longer, and only under _gate: a reader keeps the array it took.
+    private volatile PanelState[] _panels;
 
     private volatile Attachment? _attachment;
     private volatile OverlayRuntimeStatus _status = new(OverlayRuntimeState.NotStarted, Detail: "OpenXR has not been looked for yet.");
@@ -113,6 +120,7 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
         ArgumentOutOfRangeException.ThrowIfLessThan(chatResolution ?? 1, 1);
 
         _widthInMetres = widthInMetres;
+        _chatResolution = chatResolution ?? ChatHost.TexturePixels;
         _log = log ?? Log.ForContext<OpenXrOverlayRuntime>();
 
         // Each panel keeps its own size: the swapchains are made once, at these, and the sub-image
@@ -122,7 +130,7 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
             new PanelState(resolution),
             new PanelState(notificationResolution ?? resolution),
             new PanelState(buttonResolution ?? OverlayButton.PanelPixels),
-            new PanelState(chatResolution ?? ChatHost.TexturePixels),
+            new PanelState(_chatResolution),
         ];
         NotificationPanel = new PanelRuntime(this, NotifyPanel);
         ButtonPanel = new PanelRuntime(this, ButtonPanelIndex);
@@ -146,6 +154,44 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
     /// placement and its own on and off.
     /// </summary>
     public IOverlayRuntime ChatPanel { get; }
+
+    /// <summary>
+    /// Pop-up chat number <paramref name="number"/> (from 1), as a runtime of its own on the same
+    /// session. Number 1 is <see cref="ChatPanel"/>; each higher number gets a panel the first time
+    /// it is asked for, with no limit on how many.
+    /// </summary>
+    /// <remarks>
+    /// The panel's swapchain is made by the frame thread when the panel is started and let go when
+    /// it is disposed, so a chat that is closed gives its graphics memory back.
+    /// </remarks>
+    public IOverlayRuntime ChatPanelFor(int number)
+    {
+        if (number <= 1)
+            return ChatPanel;
+
+        var index = ChatPanelIndexFor(number);
+        lock (_gate)
+        {
+            var panels = _panels;
+            if (panels.Length <= index)
+            {
+                var grown = new PanelState[index + 1];
+                panels.CopyTo(grown, 0);
+                for (var i = panels.Length; i < grown.Length; i++)
+                    grown[i] = new PanelState(_chatResolution);
+
+                _panels = grown;
+            }
+        }
+
+        return new PanelRuntime(this, index);
+    }
+
+    /// <summary>Where chat number <paramref name="number"/> sits in the panels: chat 1 is the fourth, chat 2 the fifth, and so on.</summary>
+    public static int ChatPanelIndexFor(int number) => ChatPanelIndex + Math.Max(number, 1) - 1;
+
+    /// <summary>How many panels there are right now.</summary>
+    public int PanelsMade => _panels.Length;
 
     private static readonly Lock SharedGate = new();
 
@@ -310,6 +356,10 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
                 _panels[panel].Wanted = false;
                 _wanted--;
             }
+
+            // A chat number is used again once its chat is closed; the next one starts shown.
+            if (panel >= PanelCount)
+                _panels[panel].Visible = true;
 
             if (_wanted > 0)
                 return;
@@ -977,18 +1027,30 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
         var beginInfo = new FrameBeginInfo { Type = StructureType.FrameBeginInfo };
         CheckXr(a.Xr.BeginFrame(a.Session, &beginInfo), a.RuntimeName, "xrBeginFrame");
 
+        // The panels as they are for this whole frame: a chat opened meanwhile waits for the next.
+        var panels = _panels;
+        a.GrowPanels(panels.Length);
+
         // One of each per panel, all on this frame's stack. A panel points at exactly one of its
         // quad and its cylinder, and only the panels with something to show are counted in.
-        var quads = stackalloc CompositionLayerQuad[PanelCount];
-        var cylinders = stackalloc CompositionLayerCylinderKHR[PanelCount];
-        var fades = stackalloc CompositionLayerColorScaleBiasKHR[PanelCount];
-        var layers = stackalloc nint[PanelCount];
+        var quads = stackalloc CompositionLayerQuad[panels.Length];
+        var cylinders = stackalloc CompositionLayerCylinderKHR[panels.Length];
+        var fades = stackalloc CompositionLayerColorScaleBiasKHR[panels.Length];
+        var layers = stackalloc nint[panels.Length];
         var shown = 0u;
 
-        for (var index = 0; index < PanelCount; index++)
+        for (var index = 0; index < panels.Length; index++)
         {
-            var state = _panels[index];
+            var state = panels[index];
             var gpu = a.Panels[index];
+
+            // The extra chat panels have a swapchain only while they are wanted. Made and let go
+            // here, on the frame thread, which is the only one that touches them.
+            if (index >= PanelCount)
+                FollowChatPanel(a, state, gpu, index);
+
+            if (gpu.Uploader is null)
+                continue;
 
             // The copy is the only work that depends on content, and it happens only when the
             // compositor drew. Everything else is the same frame resubmitted.
@@ -1082,6 +1144,46 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
         CheckXr(a.Xr.EndFrame(a.Session, &endInfo), a.RuntimeName, "xrEndFrame");
     }
 
+    /// <summary>Gives a chat panel past the first its swapchain while it is wanted and takes it away when it is not.</summary>
+    private void FollowChatPanel(Attachment a, PanelState state, Attachment.PanelGpu gpu, int index)
+    {
+        if (state.Wanted)
+        {
+            // A failure here is this panel's alone: it is logged once and not tried again until the
+            // chat is closed, and the other panels carry on.
+            if (gpu.Uploader is not null || gpu.Failed)
+                return;
+
+            try
+            {
+                var size = state.Resolution;
+                CreateSwapchain(a, gpu, size);
+                gpu.Uploader = VulkanUploader.Create(
+                    a.Vk, a.PhysicalDevice, a.Device, a.Queue, a.QueueFamily, (uint)size, (uint)size, a.Format);
+                _log.Debug("Panel {Panel}: swapchain of {Count} {Format} images at {Size}x{Size}",
+                    index, gpu.Images.Length, a.Format.Name, size);
+            }
+            catch (Exception ex)
+            {
+                _log.Warning(ex, "OpenXR panel {Panel} could not be made", index);
+                a.ReleaseGpu(gpu);
+                gpu.Failed = true;
+            }
+
+            return;
+        }
+
+        if (gpu.Uploader is null && !gpu.Failed)
+            return;
+
+        a.ReleaseGpu(gpu);
+        gpu.Failed = false;
+
+        // A picture the closed chat left behind must not be the first thing the next one shows.
+        state.Pending.TryTake(state.Scratch);
+        _log.Debug("Panel {Panel} let go", index);
+    }
+
     /// <summary>
     /// The space the placement's anchor names: the head is VIEW, the world is LOCAL, a hand is
     /// that hand's own space — where the controller is, not where it points, so a panel worn on
@@ -1170,7 +1272,33 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
         public bool SessionRunning;
 
         /// <summary>What each panel owns on the graphics card, in the same order as the panels.</summary>
-        public PanelGpu[] Panels { get; } = [.. Enumerable.Range(0, PanelCount).Select(_ => new PanelGpu())];
+        public PanelGpu[] Panels { get; private set; } = [.. Enumerable.Range(0, PanelCount).Select(_ => new PanelGpu())];
+
+        /// <summary>Makes room for chat panels past the first. Frame thread only.</summary>
+        public void GrowPanels(int count)
+        {
+            if (Panels.Length >= count)
+                return;
+
+            var grown = new PanelGpu[count];
+            Panels.CopyTo(grown, 0);
+            for (var i = Panels.Length; i < count; i++)
+                grown[i] = new PanelGpu();
+
+            Panels = grown;
+        }
+
+        /// <summary>Lets go of one panel's swapchain and staging buffer. Frame thread only.</summary>
+        public void ReleaseGpu(PanelGpu panel)
+        {
+            panel.Uploader?.Dispose();
+            panel.Uploader = null;
+            if (panel.Swapchain.Handle != 0)
+                Xr.DestroySwapchain(panel.Swapchain);
+            panel.Swapchain = default;
+            panel.Images = [];
+            panel.Uploaded = false;
+        }
 
         /// <summary>One panel's swapchain, its images and the staging buffer that fills them.</summary>
         public sealed class PanelGpu
@@ -1179,6 +1307,9 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
             public Vulkan.Image[] Images = [];
             public VulkanUploader? Uploader;
             public bool Uploaded;
+
+            /// <summary>A chat panel's swapchain could not be made; not tried again until the chat closes.</summary>
+            public bool Failed;
         }
 
         public void Dispose()
