@@ -100,6 +100,10 @@ public abstract record OverlayTarget
     /// <remarks>Handled by the chat panel's own host, never by the drive loop.</remarks>
     public sealed record CloseChat : OverlayTarget;
 
+    /// <summary>The microphone button at the foot of the chat panel. A tap here starts or stops dictating into that chat.</summary>
+    /// <remarks>Handled by the chat panel's own host, never by the drive loop.</remarks>
+    public sealed record ChatMic : OverlayTarget;
+
     /// <summary>The chat panel's messages: the list a drag or the right stick scrolls. A tap here does nothing.</summary>
     public sealed record ChatLog : OverlayTarget;
 

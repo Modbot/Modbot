@@ -22,8 +22,13 @@ namespace Modbot.Companion.App;
 /// <see cref="ChatView"/>, the same code the headset panel uses, so the two cannot disagree about
 /// what a conversation looks like.</para>
 /// <para><strong>It never takes the keyboard from VRChat.</strong> It is shown without being
-/// activated and a click on it is answered "do not activate", as the notification window is. There
-/// is nothing to type into; the words come from Dictate.</para>
+/// activated and a click on it is answered "do not activate", as the notification window is. The one
+/// exception is the text box: a click in it takes the keyboard (the window is activated, the way a
+/// window you type into is), and the window gives it back, and is never activated again, once it
+/// loses the front.</para>
+/// <para><strong>Its own text box and microphone</strong> at the foot, for this chat only: Enter or Send
+/// raises <see cref="TextSent"/>, a tap on the microphone raises <see cref="MicTapped"/>, and the host
+/// sends both to this window's own conversation.</para>
 /// <para><strong>Its own strip.</strong> Grab it to move the window unless it is locked; the X at the
 /// top right ends this chat and takes its window and its headset panel down; the other chats stay. In edit mode the strip also
 /// has the lock and the hand, which are the desktop overlay's own two switches (one setting,
@@ -48,6 +53,10 @@ internal sealed class DesktopChatWindow : Window
     private readonly Border _frame = new();
     private readonly Border _strip = new();
     private readonly ContentControl _log = new();
+    private readonly Border _foot = new();
+    private readonly TextBox _input = Ui.Input("Message");
+    private readonly Button _send = Ui.Button("Send", primary: true);
+    private readonly ContentControl _mic = new() { VerticalAlignment = VerticalAlignment.Center };
     private readonly Border _grip = ResizeCorner.Create();
     private readonly Button _lockButton = DesktopOverlayWindow.SwitchButton();
     private readonly Button _throughButton = DesktopOverlayWindow.SwitchButton();
@@ -69,6 +78,9 @@ internal sealed class DesktopChatWindow : Window
     private bool _everDrawn;
     private bool _styled;
     private bool _passingClicks;
+
+    // While the person is typing in the text box: the window may then be activated and takes the keyboard.
+    private bool _keyboard;
     private int _drawnFrame;
 
     // Following the newest words: on until the log is scrolled up, on again at its end.
@@ -126,8 +138,31 @@ internal sealed class DesktopChatWindow : Window
             },
         };
 
+        _input.KeyDown += (_, e) =>
+        {
+            if (e.Key is Key.Enter && e.KeyModifiers == KeyModifiers.None)
+            {
+                SendTyped();
+                e.Handled = true;
+            }
+        };
+        _input.PointerPressed += (_, _) => TakeKeyboard();
+        _send.Click += (_, _) => SendTyped();
+        Deactivated += (_, _) => GiveKeyboardBack();
+
+        var foot = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), Margin = new Thickness(8, 6, 8, 8) };
+        _input.Margin = new Thickness(0, 0, 6, 0);
+        _send.Margin = new Thickness(0, 0, 6, 0);
+        Grid.SetColumn(_send, 1);
+        Grid.SetColumn(_mic, 2);
+        foot.Children.Add(_input);
+        foot.Children.Add(_send);
+        foot.Children.Add(_mic);
+        _foot.Child = foot;
+
         DockPanel.SetDock(_strip, Dock.Top);
-        _frame.Child = new DockPanel { Children = { _strip, _log } };
+        DockPanel.SetDock(_foot, Dock.Bottom);
+        _frame.Child = new DockPanel { Children = { _strip, _foot, _log } };
 
         _grip.PointerPressed += GripPressed;
         _grip.PointerMoved += GripMoved;
@@ -149,7 +184,7 @@ internal sealed class DesktopChatWindow : Window
         _throughWatch.Tick += (_, _) => WatchTheMouse();
         _typing.Tick += (_, _) =>
         {
-            if (!_screen.IsTyping || TypingFrame() == _drawnFrame)
+            if (!_screen.Moves || TypingFrame() == _drawnFrame)
                 return;
 
             Draw();
@@ -179,6 +214,12 @@ internal sealed class DesktopChatWindow : Window
 
     /// <summary>The X, pressed.</summary>
     public event Action? CloseTapped;
+
+    /// <summary>Words typed into the text box and sent, with Enter or Send. Never blank.</summary>
+    public event Action<string>? TextSent;
+
+    /// <summary>The microphone button, tapped.</summary>
+    public event Action? MicTapped;
 
     /// <summary>The lock or the hand, pressed: the settings as they should now be.</summary>
     public event Action<DesktopOverlaySettings>? SwitchPressed;
@@ -273,7 +314,7 @@ internal sealed class DesktopChatWindow : Window
             Hide();
     }
 
-    private int TypingFrame() => _screen.IsTyping ? (int)(Environment.TickCount64 / ChatView.FrameMilliseconds) % ChatView.Frames : 0;
+    private int TypingFrame() => _screen.Moves ? (int)(Environment.TickCount64 / ChatView.FrameMilliseconds) % ChatView.Frames : 0;
 
     private void Draw()
     {
@@ -282,6 +323,20 @@ internal sealed class DesktopChatWindow : Window
 
         var tree = ChatView.Build(_screen, _offset, _drawnFrame, _look);
         _log.Content = tree;
+
+        _foot.IsVisible = _screen.Mic is not null;
+
+        if (_screen.Mic is { } mic)
+        {
+            var button = ChatView.MicButton(mic, _drawnFrame, _look);
+            button.Height = Ui.T.Density.ControlHeight;
+            button.PointerPressed += (_, e) =>
+            {
+                MicTapped?.Invoke();
+                e.Handled = true;
+            };
+            _mic.Content = button;
+        }
 
         if (!IsVisible)
             return;
@@ -307,6 +362,66 @@ internal sealed class DesktopChatWindow : Window
         PaintHoverStyle();
         PaintButtons();
         PaintEdit();
+        PaintFoot();
+    }
+
+    /// <summary>The foot's text box and Send in the look in use: the same colours as the strip's buttons.</summary>
+    private void PaintFoot()
+    {
+        var v = _look.VRChat;
+
+        _foot.Background = v is null ? Ui.T.Surface2Brush : v.Bar(_settings.Alpha);
+
+        if (v is null)
+        {
+            _input.Background = Ui.T.BackgroundBrush;
+            _input.Foreground = Ui.T.TextBrush;
+            _input.BorderBrush = Ui.T.Border2Brush;
+            Ui.SetPrimary(_send, true);
+            return;
+        }
+
+        _input.Background = v.Button;
+        _input.Foreground = v.Text;
+        _input.BorderBrush = v.RaisedEdge;
+        _send.Background = v.Selected;
+        _send.BorderBrush = v.RaisedBrightEdge;
+
+        if (_send.Content is TextBlock caption)
+            caption.Foreground = v.SelectedText;
+    }
+
+    /// <summary>Sends what was typed, if there is anything, and empties the box.</summary>
+    private void SendTyped()
+    {
+        var text = _input.Text?.Trim();
+        if (string.IsNullOrEmpty(text))
+            return;
+
+        _input.Text = string.Empty;
+        TextSent?.Invoke(text);
+    }
+
+    /// <summary>A click in the text box: the window may be activated now, and is, so the keys come here and not to the game.</summary>
+    private void TakeKeyboard()
+    {
+        if (_keyboard)
+            return;
+
+        _keyboard = true;
+        ApplyStyle();
+        Activate();
+        _input.Focus();
+    }
+
+    /// <summary>The window lost the front: it goes back to never being activated.</summary>
+    private void GiveKeyboardBack()
+    {
+        if (!_keyboard)
+            return;
+
+        _keyboard = false;
+        ApplyStyle();
     }
 
     /// <summary>The ground and the strip, in the look in use: VRChat's panel and bar, or the plain thinned-out ground.</summary>
@@ -577,7 +692,10 @@ internal sealed class DesktopChatWindow : Window
         try
         {
             var style = (long)GetWindowLongPtrW(handle, GwlExStyle);
-            var wanted = (style | WsExNoActivate | WsExToolWindow) & ~WsExTransparent;
+            var wanted = (style | WsExToolWindow) & ~(WsExTransparent | WsExNoActivate);
+            if (!_keyboard)
+                wanted |= WsExNoActivate;
+
             if (_passingClicks)
                 wanted |= WsExTransparent;
 
@@ -591,9 +709,9 @@ internal sealed class DesktopChatWindow : Window
         }
     }
 
-    private static IntPtr KeepFocusOnTheGame(IntPtr window, uint message, IntPtr wParam, IntPtr lParam, ref bool handled)
+    private IntPtr KeepFocusOnTheGame(IntPtr window, uint message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        if (message != WmMouseActivate)
+        if (message != WmMouseActivate || _keyboard)
             return IntPtr.Zero;
 
         handled = true;

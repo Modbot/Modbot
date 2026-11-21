@@ -458,7 +458,8 @@ public static class PanelFrame
     /// <param name="side">The panel's design size in pixels before it is made wider or taller.</param>
     /// <param name="wide">How many times wider than ordinary the box is.</param>
     /// <param name="tall">How many times taller than ordinary the box is.</param>
-    public static Control Chat(Control log, PanelBar bar, PanelCursor? cursor, double side, double wide = 1, double tall = 1)
+    /// <param name="foot">What goes along the foot of the box under the messages (<see cref="ChatView.Foot"/>), or null for nothing.</param>
+    public static Control Chat(Control log, PanelBar bar, PanelCursor? cursor, double side, double wide = 1, double tall = 1, Control? foot = null)
     {
         ArgumentNullException.ThrowIfNull(log);
 
@@ -508,10 +509,16 @@ public static class PanelFrame
         top.Children.Add(heading);
         top.Children.Add(close);
 
-        var inside = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), Margin = new Thickness(10) };
+        var inside = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto"), Margin = new Thickness(10) };
         Grid.SetRow(log, 1);
         inside.Children.Add(top);
         inside.Children.Add(log);
+
+        if (foot is not null)
+        {
+            Grid.SetRow(foot, 2);
+            inside.Children.Add(foot);
+        }
 
         var box = new Panel
         {

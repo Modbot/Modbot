@@ -28,6 +28,9 @@ public static class ChatView
 
     private const double DotSize = 9;
 
+    /// <summary>The microphone picture on the chat's button, in layout pixels.</summary>
+    private const double MicPicture = 28;
+
     /// <summary>The room kept clear on the far side of a bubble, so the two sides read apart.</summary>
     private const double SideRoom = 40;
 
@@ -71,6 +74,88 @@ public static class ChatView
 
         list.Offset = Math.Clamp(offset, 0, list.MaxOffset);
         return list.Offset;
+    }
+
+    /// <summary>
+    /// What goes under the messages on the headset panel: the chat's own microphone button across its
+    /// width, or null for a screen with none. The headset has no keyboard, so there is no text box here.
+    /// </summary>
+    public static Control? Foot(ChatScreen screen, int frame, OverlayLook look)
+    {
+        ArgumentNullException.ThrowIfNull(screen);
+        ArgumentNullException.ThrowIfNull(look);
+
+        if (screen.Mic is not { } mic)
+            return null;
+
+        var button = MicButton(mic, frame, look);
+        button.HorizontalAlignment = HorizontalAlignment.Stretch;
+        button.Margin = new Thickness(0, 6, 0, 0);
+
+        return button;
+    }
+
+    /// <summary>
+    /// The chat's microphone button: the Dictate picture, what it says (Dictate, Listening, Writing,
+    /// Sending, Getting ready or a notice) and, while listening, the level meter. One target
+    /// (<see cref="OverlayTarget.ChatMic"/>), so a ray or a click on any part of it is a tap.
+    /// </summary>
+    public static Border MicButton(ChatMicScreen mic, int frame, OverlayLook look)
+    {
+        ArgumentNullException.ThrowIfNull(mic);
+        ArgumentNullException.ThrowIfNull(look);
+
+        var t = look.Tokens;
+        var v = look.VRChat;
+
+        var ink = v?.Icon ?? t.TextBrush;
+        var bright = v?.Bright ?? t.AccentBrush;
+        var track = v?.Edge ?? t.Surface3Brush;
+
+        var row = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+
+        row.Children.Add(new Viewbox
+        {
+            Width = MicPicture,
+            Height = MicPicture,
+            Child = ButtonView.Dictation(mic.State, frame, ink, bright, mic.Level),
+        });
+
+        var label = Words(mic.Label, v?.Text ?? t.TextBrush, t);
+        label.TextWrapping = TextWrapping.NoWrap;
+        label.FontWeight = FontWeight.SemiBold;
+        label.VerticalAlignment = VerticalAlignment.Center;
+        row.Children.Add(label);
+
+        if (mic.PercentText.Length > 0)
+        {
+            var percent = Words(mic.PercentText, v?.Subtext ?? t.TextDimBrush, t);
+            percent.VerticalAlignment = VerticalAlignment.Center;
+            row.Children.Add(percent);
+        }
+        else if (mic.State is DictateState.Listening)
+        {
+            var meter = ButtonView.Meter(mic.Level, bright, track, 6, 14);
+            meter.VerticalAlignment = VerticalAlignment.Center;
+            row.Children.Add(meter);
+        }
+
+        return new Border
+        {
+            Tag = new OverlayTarget.ChatMic(),
+            Background = v?.Button ?? t.Surface2Brush,
+            BorderBrush = v?.RaisedEdge ?? t.Border2Brush,
+            BorderThickness = new Thickness(v is null ? t.Density.Hairline : VRChatLook.EdgeWidth),
+            CornerRadius = new CornerRadius(t.Density.Radius * 2),
+            Padding = new Thickness(10, 6),
+            Child = row,
+        };
     }
 
     private static Control Row(ChatLine line, int frame, DesignTokens t)
