@@ -253,12 +253,6 @@ public sealed partial class OverlayView
             ? new FillStack { Spacing = V is null ? 12 : 14 }
             : new StackPanel { Spacing = V is null ? 12 : 14 };
 
-        // Whose community this is, said once at the top rather than repeated on every card below.
-        // The name and the icon, because that is what a moderator knows their group by; the
-        // server's address is a fallback and never the first thing said. In VRChat's look the
-        // title strip above already carries the group's name and icon, so inside a group's instance
-        // this says nothing at all, and anywhere else it is the large heading alone: the strip
-        // carries the small "not synced" tag instead of a second copy of the heading.
         // Dictate is the first thing on the panel, at the top like the desktop window's strip. In VRChat's
         // look the title strip holds it instead (HeadsetFrame).
         if (V is null && screen.Dictate is { } dictateCard)
@@ -268,6 +262,12 @@ public sealed partial class OverlayView
             stack.Children.Add(dictate);
         }
 
+        // Whose community this is, said once at the top rather than repeated on every card below.
+        // The name and the icon, because that is what a moderator knows their group by; the
+        // server's address is a fallback and never the first thing said. In VRChat's look the
+        // title strip above already carries the group's name and icon, so inside a group's instance
+        // this says nothing at all, and anywhere else it is the large heading alone: the strip
+        // carries the small "not synced" tag instead of a second copy of the heading.
         if (V is null)
             stack.Children.Add(GroupLine(screen, icon));
         else if (screen.GroupLabel is null)
