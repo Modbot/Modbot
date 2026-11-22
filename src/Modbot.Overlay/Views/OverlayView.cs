@@ -1705,10 +1705,16 @@ public sealed partial class OverlayView
         // what used to send a person's flags drifting away from the person they belong to.
         name.MaxWidth = 220;
 
-        var line = new StackPanel
+        // The line gives way where it must (flags first, then the name) instead of running past the
+        // row's end and under the time on its right.
+        var flagChip = member.Flags.Count > 0 ? FlagChip(string.Join(" · ", member.Flags)) : null;
+
+        var line = new InlineRow
         {
-            Orientation = Orientation.Horizontal,
             Spacing = 10,
+            NameText = name,
+            NameFloor = T.Density.TextBase * 4,
+            Flag = flagChip,
             Children = { badge, name },
         };
 
@@ -1721,17 +1727,24 @@ public sealed partial class OverlayView
         }
 
         if (member.EighteenPlus == true)
-            line.Children.Add(EighteenPlusChip());
+        {
+            var eighteen = EighteenPlusChip();
+            line.Optional.Add(eighteen);
+            line.Children.Add(eighteen);
+        }
 
         // Somebody who just left is on the way out, so neither "New" nor the group mark is the news about them.
         if (!left)
         {
             foreach (var mark in ArrivalMarks(member, isNew))
+            {
+                line.Optional.Add(mark);
                 line.Children.Add(mark);
+            }
         }
 
-        if (member.Flags.Count > 0)
-            line.Children.Add(FlagChip(string.Join(" · ", member.Flags)));
+        if (flagChip is not null)
+            line.Children.Add(flagChip);
 
         if (headsUp is { } kind)
             line.Children.Add(HeadsUpChip(HeadsUpRules.Name(kind)));
@@ -1741,12 +1754,12 @@ public sealed partial class OverlayView
             // Greyed by fading everything about the person, in the colours the look already has,
             // so it follows the palette on the desktop window and the headset's own on a headset.
             // The tag and the countdown stay at full strength: they are what the row now says.
-            line.Opacity = LeftRowOpacity;
+            foreach (var child in line.Children)
+                child.Opacity = LeftRowOpacity;
 
-            return Row(
-                new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = { line, LeftChip() } },
-                member.SubjectId,
-                seconds + "s");
+            line.Children.Add(LeftChip());
+
+            return Row(line, member.SubjectId, seconds + "s");
         }
 
         return Row(line, member.SubjectId, joined, canAdd ? AddHeadsUpPress(member.SubjectId) : null);
