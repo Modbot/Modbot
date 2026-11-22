@@ -16,6 +16,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Modbot.Overlay\Modbot.Overlay.csproj" />
+    <!-- The companion app's own windows (the desktop overlay, notifications and chat, and the main
+         window) are drawn as they are, through InternalsVisibleTo in its project file. -->
+    <ProjectReference Include="..\..\src\Modbot.Companion.App\Modbot.Companion.App.csproj" />
   </ItemGroup>
 
   <ItemGroup>

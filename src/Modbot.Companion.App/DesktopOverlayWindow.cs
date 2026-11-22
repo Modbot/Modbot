@@ -1143,7 +1143,7 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     }
 
     /// <summary>Switches the whole window to a look, when it is not the one it is in.</summary>
-    private void UseColours(OverlayColours? colours)
+    internal void UseColours(OverlayColours? colours)
     {
         if (colours == _colours)
             return;

@@ -95,6 +95,8 @@
   <ItemGroup>
     <!-- The window's tests register the brand's fonts, which are internal, before they draw it. -->
     <InternalsVisibleTo Include="Modbot.Companion.App.Tests" />
+    <!-- The UI board (tools/ui-board) draws the real windows from made-up state. -->
+    <InternalsVisibleTo Include="Modbot.UiBoard" />
   </ItemGroup>
 
   <!-- The overlay project ships OpenVR for both platforms, so a plain build and the tests have
