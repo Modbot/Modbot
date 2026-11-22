@@ -29,16 +29,21 @@ internal sealed class BoardApp : Application
 internal static class Program
 {
     private const string Usage = """
-        ui-board [--out <folder>]
+        ui-board [--out <folder>] [--watch [--port <number>]]
 
         Draws every Modbot client surface from made-up data into <folder> (default
         tools/ui-board/out): one picture per tile, manifest.json and board.html.
+
+        --watch  keeps running: serves the folder on http://localhost:<port>/ (default 5190) and
+                 draws it again when a source file under the overlay or the companion is saved.
         """;
 
     [STAThread]
     private static int Main(string[] args)
     {
         string? outArg = null;
+        var watch = false;
+        var port = 5190;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -46,6 +51,12 @@ internal static class Program
             {
                 case "--out" when i + 1 < args.Length:
                     outArg = args[++i];
+                    break;
+                case "--watch":
+                    watch = true;
+                    break;
+                case "--port" when i + 1 < args.Length && int.TryParse(args[i + 1], out port):
+                    i++;
                     break;
                 default:
                     Console.Error.WriteLine(Usage);
@@ -55,6 +66,10 @@ internal static class Program
 
         var folder = Path.GetFullPath(outArg ?? DefaultFolder());
 
+        // The watcher draws nothing itself: it starts a copy of this tool for every draw (see Watch).
+        if (watch)
+            return Watch.Run(RepoFolder() ?? throw new InvalidOperationException("Run --watch from a checkout of Modbot."), folder, port);
+
         // The same offscreen start-up the overlay's tests use: Skia drawing for real, the embedded
         // font, no window. This thread becomes Avalonia's UI thread.
         OverlayHost.ConfigureOffscreen<BoardApp>().ConfigureFonts(Brand.RegisterFonts).SetupWithoutStarting();
@@ -62,15 +77,19 @@ internal static class Program
         return Board.Render(folder) == 0 ? 0 : 2;
     }
 
-    /// <summary>tools/ui-board/out in the checkout this was built from, found by looking upward for the solution file.</summary>
+    /// <summary>tools/ui-board/out in the checkout this was built from, or out in the current folder.</summary>
     private static string DefaultFolder()
+        => RepoFolder() is { } repo ? Path.Combine(repo, "tools", "ui-board", "out") : Path.Combine(Directory.GetCurrentDirectory(), "out");
+
+    /// <summary>The checkout this was built from, found by looking upward for the solution file.</summary>
+    private static string? RepoFolder()
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
         {
             if (File.Exists(Path.Combine(dir.FullName, "Modbot.slnx")))
-                return Path.Combine(dir.FullName, "tools", "ui-board", "out");
+                return dir.FullName;
         }
 
-        return Path.Combine(Directory.GetCurrentDirectory(), "out");
+        return null;
     }
 }
