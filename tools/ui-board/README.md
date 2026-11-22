@@ -56,8 +56,8 @@ Pictures are shown at their size relative to each other, not at their texture's 
 in one place, `Sizes.cs`, and the slider multiplies it:
 
 - A headset panel is as wide as in the headset: its width in metres (read from the product's own
-  constants: main panel 0.45, button panel 0.16 for the card plus its clear ground, pop-ups 0.35 for
-  the box plus the bar's room, chat 0.55) times 1000 pixels per metre (`PixelsPerMetre`).
+  constants: main panel 0.45, button panel 0.28 (the card's 0.16 with its clear ground), pop-ups 0.41
+  (the box's 0.35 with the bar's room), chat 0.55) times 1000 pixels per metre (`PixelsPerMetre`).
 - A window is its own pixel size times 1 (`WindowScale`): its size on a 1920x1080 VRChat window.
 
 So the Hide and Show panel comes out small next to the main panel, as it is in the headset.

@@ -55,7 +55,7 @@ internal static class Board
         var version = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
             string.Join('|', Names.Tiles.Select(t => $"{t.Id}={drawn[t.Id].Hash}")) + body + Template)))[..12];
 
-        WriteAtomic(Path.Combine(folder, "board.html"), Template.Replace("%BODY%", body).Replace("%VERSION%", version));
+        WriteAtomic(Path.Combine(folder, "board.html"), Template.Replace("%BODY%", body).Replace("%VERSION%", version).Replace("%PAGE%", PageId));
         WriteAtomic(Path.Combine(folder, "manifest.json"), JsonSerializer.Serialize(new
         {
             version,
@@ -146,6 +146,9 @@ internal static class Board
 
     private static string Html(string text) => WebUtility.HtmlEncode(text);
 
+    /// <summary>Names the page's own script and style, so a page that is open can tell its code changed and load again.</summary>
+    private static readonly string PageId = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Template)))[..12];
+
     private const string Template = """
         <!doctype html>
         <html lang="en">
@@ -181,7 +184,7 @@ internal static class Board
         #full img { margin: auto; max-width: none; }
         </style>
         </head>
-        <body data-version="%VERSION%">
+        <body data-version="%VERSION%" data-page="%PAGE%">
         <div id="board">
         %BODY%</div>
         <div id="full" hidden><img alt=""></div>
@@ -245,6 +248,7 @@ internal static class Board
         async function refresh() {
           const html = await (await fetch('board.html?t=' + Date.now(), { cache: 'no-store' })).text();
           const doc = new DOMParser().parseFromString(html, 'text/html');
+          if (doc.body.dataset.page !== document.body.dataset.page) { location.reload(); return; }
           const next = doc.getElementById('board');
           const before = new Map([...document.querySelectorAll('figure')].map(f => [f.dataset.id, f]));
           const loading = [];
@@ -258,7 +262,12 @@ internal static class Board
           }
 
           await Promise.all(loading);
-          for (const [figure, old] of keep) figure.replaceWith(old);
+          // A kept picture takes the new size and caption, which can change while its picture does not.
+          for (const [figure, old] of keep) {
+            old.setAttribute('style', figure.getAttribute('style') || '');
+            old.querySelector('figcaption').innerHTML = figure.querySelector('figcaption').innerHTML;
+            figure.replaceWith(old);
+          }
           document.getElementById('board').replaceWith(next);
           version = doc.body.dataset.version;
           show();
