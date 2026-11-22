@@ -1,7 +1,9 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Presentation;
 using Modbot.Overlay.Views;
@@ -22,9 +24,12 @@ internal static class Looks
 
     public static OverlayLook Headset => OverlayLook.Headset;
 
+    /// <summary>VRChat's colours as the desktop windows take them.</summary>
+    public static OverlayColours VRChatColours { get; } =
+        OverlayColours.From(SamplePalette) ?? throw new InvalidOperationException("The sample palette was refused as unreadable.");
+
     /// <summary>VRChat's colours, the way the desktop window and the headset's VRChat look take them.</summary>
-    public static OverlayLook VRChat { get; } = OverlayLook.FromColours(
-        OverlayColours.From(SamplePalette) ?? throw new InvalidOperationException("The sample palette was refused as unreadable."));
+    public static OverlayLook VRChat { get; } = OverlayLook.FromColours(VRChatColours);
 
     private static PaletteColour Hex(string text)
         => PaletteColour.TryParse(text, out var colour) ? colour : throw new FormatException(text);
@@ -46,6 +51,31 @@ internal static class Drawing
         stage.Arrange(new Rect(0, 0, width, height));
         target.Render(stage);
         return target;
+    }
+
+    /// <summary>
+    /// Draws a window that is up as it is on screen, then closes it. Its ground is see-through, so it
+    /// goes over the backdrop like the others. <paramref name="topOnly"/> keeps just that many pixels
+    /// from the top (the strip along the top of the overlay).
+    /// </summary>
+    public static RenderTargetBitmap OfWindow(Window window, int? topOnly = null)
+    {
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            using var frame = window.CaptureRenderedFrame() ?? throw new InvalidOperationException("The window drew no picture.");
+
+            var width = frame.PixelSize.Width;
+            var height = Math.Min(frame.PixelSize.Height, topOnly ?? int.MaxValue);
+            var picture = new Image { Source = frame, Width = width, Height = frame.PixelSize.Height, Stretch = Stretch.None };
+
+            // A canvas keeps the picture at its own size, at the top left, and the crop cuts the rest off.
+            return Draw(new Canvas { ClipToBounds = true, Children = { picture } }, width, height);
+        }
+        finally
+        {
+            window.Close();
+        }
     }
 
     /// <summary>Draws <paramref name="root"/> as wide as asked and as tall as it needs, like a window that sizes to its content.</summary>

@@ -1,9 +1,30 @@
 using Avalonia;
+using Modbot.Companion.App;
 using Modbot.Overlay;
 
 namespace Modbot.UiBoard;
 
-internal sealed class BoardApp : Application;
+/// <summary>
+/// The same theme the companion starts with: without one a button or a text box has no template and
+/// draws nothing. Not the companion's own application class, which would start the whole client.
+/// </summary>
+internal sealed class BoardApp : Application
+{
+    public override void Initialize()
+    {
+        Styles.Add(new Avalonia.Themes.Fluent.FluentTheme());
+        RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark;
+
+        var accent = Ui.T.Palette.Accent;
+        Resources["SystemAccentColor"] = accent;
+        Resources["SystemAccentColorDark1"] = accent;
+        Resources["SystemAccentColorDark2"] = accent;
+        Resources["SystemAccentColorDark3"] = accent;
+        Resources["SystemAccentColorLight1"] = accent;
+        Resources["SystemAccentColorLight2"] = accent;
+        Resources["SystemAccentColorLight3"] = accent;
+    }
+}
 
 internal static class Program
 {
@@ -36,7 +57,7 @@ internal static class Program
 
         // The same offscreen start-up the overlay's tests use: Skia drawing for real, the embedded
         // font, no window. This thread becomes Avalonia's UI thread.
-        OverlayHost.ConfigureOffscreen<BoardApp>().SetupWithoutStarting();
+        OverlayHost.ConfigureOffscreen<BoardApp>().ConfigureFonts(Brand.RegisterFonts).SetupWithoutStarting();
 
         return Board.Render(folder) == 0 ? 0 : 2;
     }

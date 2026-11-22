@@ -52,26 +52,40 @@ internal static class Names
             new Tile(id + "-vr-vrchat", name, Side.Vr, VRChatLook),
         ]);
 
+    /// <summary>A surface in the headset and in VRChat's window, each in the two looks: the four side by side in one row.</summary>
+    private static Row Both(string id, string name)
+        => new(name,
+        [
+            new Tile(id + "-vr", name, Side.Vr, ModbotLook),
+            new Tile(id + "-desktop", name, Side.Desktop, ModbotLook),
+            new Tile(id + "-vr-vrchat", name, Side.Vr, VRChatLook),
+            new Tile(id + "-desktop-vrchat", name, Side.Desktop, VRChatLook),
+        ]);
+
     public static IReadOnlyList<Group> Groups { get; } =
     [
         new Group(VrAndDesktop,
         [
-            Vr("overlay-instance", Overlay + ": Instance list"),
-            Vr("overlay-auditlog", Overlay + ": Audit Log"),
-            Vr("overlay-choices", Overlay + ": Instance list, Rank choices open"),
+            Both("overlay-instance", Overlay + ": Instance list"),
+            Both("overlay-auditlog", Overlay + ": Audit Log"),
+            Both("overlay-choices", Overlay + ": Instance list, Rank choices open"),
+
+            // The Hide / Show button panel exists in the headset only.
             Vr("button-hide", ButtonPanel + ": Hide"),
             Vr("button-show", ButtonPanel + ": Show"),
-            Vr("button-dictate-idle", ButtonPanel + ": Dictate, ready"),
-            Vr("button-dictate-starting", ButtonPanel + ": Dictate, starting"),
-            Vr("button-dictate-listening", ButtonPanel + ": Dictate, listening"),
-            Vr("button-dictate-writing", ButtonPanel + ": Dictate, writing"),
-            Vr("button-dictate-sending", ButtonPanel + ": Dictate, sending"),
-            Vr("button-dictate-getting-ready", ButtonPanel + ": Dictate, getting ready"),
-            Vr("button-dictate-notice", ButtonPanel + ": Dictate, short notice"),
-            Vr("notifications", Notifications),
-            Vr("chat-empty", ChatPopUp + ": no messages"),
-            Vr("chat-conversation", ChatPopUp + ": conversation"),
-            Vr("chat-error", ChatPopUp + ": answer failed"),
+
+            // The desktop's Dictate button sits on the overlay's top strip, so its tiles are that strip.
+            Both("button-dictate-idle", "Dictate button: ready"),
+            Both("button-dictate-starting", "Dictate button: starting"),
+            Both("button-dictate-listening", "Dictate button: listening"),
+            Both("button-dictate-writing", "Dictate button: writing"),
+            Both("button-dictate-sending", "Dictate button: sending"),
+            Both("button-dictate-getting-ready", "Dictate button: getting ready"),
+            Both("button-dictate-notice", "Dictate button: short notice"),
+            Both("notifications", Notifications),
+            Both("chat-empty", ChatPopUp + ": no messages"),
+            Both("chat-conversation", ChatPopUp + ": conversation"),
+            Both("chat-error", ChatPopUp + ": answer failed"),
         ]),
     ];
 

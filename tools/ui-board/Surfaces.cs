@@ -13,6 +13,7 @@ internal static partial class Surfaces
         var draws = new Dictionary<string, Func<RenderTargetBitmap>>();
 
         AddVr(draws);
+        AddDesktop(draws);
 
         foreach (var tile in Names.Tiles)
         {
