@@ -131,7 +131,11 @@ public sealed class GroupMemberSync
         var result = await _gate.ExecuteAsync(
             endpoint,
             (client, token) => client.Groups.GetGroupMembersWithHttpInfoAsync(
-                groupId, n: _options.PageSize, offset: offset, sort: VRChatGroupSearchSort.JoinedAtasc, cancellationToken: token),
+                groupId,
+                n: _options.PageSize,
+                offset: offset,
+                sort: VRChatGroupSearchSort.JoinedAtasc,
+                cancellationToken: token),
             VRChatCallPriority.Background,
             ct).ConfigureAwait(false);
 
