@@ -87,9 +87,38 @@ public sealed record GroupMemberSyncOptions
     /// </summary>
     public TimeSpan AuditLogSilentAfter { get; init; } = TimeSpan.FromHours(1);
 
+    /// <summary>
+    /// How many fewer members than VRChat's own count a finished sweep may have listed and still be
+    /// believed. The bigger of this and <see cref="MissingFractionAllowed"/> is the allowance.
+    /// </summary>
+    /// <remarks>
+    /// An empty page ends a sweep, but an empty page is also what a cut-short list looks like. A
+    /// sweep that listed far fewer people than the group's own count marks nobody as left and starts
+    /// over (2026-11-21: one sweep stopped around three-quarters of the way and marked about 1,270
+    /// real members as left). The allowance covers the people who really joined or left while the
+    /// sweep ran, and the count being read a few minutes before or after the sweep.
+    /// </remarks>
+    public int MissingMembersAllowed { get; init; } = 25;
+
+    /// <summary>
+    /// The same allowance as a fraction of VRChat's count, so a big group is not held to a number
+    /// made for a small one. See <see cref="MissingMembersAllowed"/>.
+    /// </summary>
+    public double MissingFractionAllowed { get; init; } = 0.03;
+
+    /// <summary>
+    /// How old VRChat's count may be and still be used to check a finished sweep. A count older than
+    /// this is not compared against: the group-info poll that reads it has stopped, and a stale number
+    /// would hold every sweep back for a change that is real.
+    /// </summary>
+    public TimeSpan ReportedCountMaxAge { get; init; } = TimeSpan.FromHours(1);
+
     /// <summary>Applies spec 4.2.1: configuration may only make the producer slower.</summary>
     public GroupMemberSyncOptions Clamped() => this with
     {
+        MissingMembersAllowed = Math.Max(0, MissingMembersAllowed),
+        MissingFractionAllowed = Math.Clamp(MissingFractionAllowed, 0, 1),
+        ReportedCountMaxAge = ReportedCountMaxAge < TimeSpan.FromMinutes(1) ? TimeSpan.FromMinutes(1) : ReportedCountMaxAge,
         PageDelay = PageDelay < PacingFloor ? PacingFloor : PageDelay,
         RestBetweenSweeps = RestBetweenSweeps < PacingFloor ? PacingFloor : RestBetweenSweeps,
         RetryInterval = RetryInterval < PacingFloor ? PacingFloor : RetryInterval,

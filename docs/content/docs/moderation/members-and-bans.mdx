@@ -207,3 +207,7 @@ The sweeps are a backup. If VRChat's audit log missed a change, the next sweep n
 difference and records it with **Sync** as its source and no "who", because a list cannot say who
 changed it. A sweep waits a couple of minutes for the audit log first, so the same change is not
 recorded twice.
+
+A member list that stops early would look like everyone after that point had left. So when a member
+sweep finishes, Modbot compares how many people it listed with the member count VRChat reports for
+the group. If it listed far fewer, nobody is marked as left and the sweep starts over.

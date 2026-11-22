@@ -69,6 +69,15 @@ public sealed class FakeGroups
 
     public HttpStatusCode MembersStatus { get; set; } = HttpStatusCode.OK;
 
+    /// <summary>When set, the member list answers as if it ended after this many members: an empty page from there on.</summary>
+    public int? MembersEndAfter { get; set; }
+
+    /// <summary>When set, no member page is longer than this, whatever size the request asked for.</summary>
+    public int? MembersPageCap { get; set; }
+
+    /// <summary>When set, the member list answers 200 with no list in it at all.</summary>
+    public bool MembersAnswerWithoutAList { get; set; }
+
     public HttpStatusCode BansStatus { get; set; } = HttpStatusCode.OK;
 
     public List<PageQuery> MemberQueries { get; } = [];
@@ -194,10 +203,22 @@ public sealed class FakeGroups
                 Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<int?>(),
                 Arg.Any<GroupSearchSort?>(), Arg.Any<string?>(),
                 Arg.Any<CancellationToken>())
-            .Returns(call => Task.FromResult(Page(
-                Members, MemberQueries, MembersStatus,
-                call.ArgAt<int?>(1) ?? 60,
-                call.ArgAt<int?>(2) ?? 0)));
+            .Returns(call =>
+            {
+                if (MembersAnswerWithoutAList)
+                {
+                    MemberQueries.Add(new PageQuery(call.ArgAt<int?>(1) ?? 60, call.ArgAt<int?>(2) ?? 0));
+
+                    return Task.FromResult(new ApiResponse<List<GroupMember>>(
+                        HttpStatusCode.OK, new Multimap<string, string>(), null!, "null"));
+                }
+
+                return Task.FromResult(Page(
+                    MembersEndAfter is { } end ? Members.Take(end).ToList() : Members,
+                    MemberQueries, MembersStatus,
+                    Math.Min(call.ArgAt<int?>(1) ?? 60, MembersPageCap ?? int.MaxValue),
+                    call.ArgAt<int?>(2) ?? 0));
+            });
 
         groups
             .GetGroupBansWithHttpInfoAsync(

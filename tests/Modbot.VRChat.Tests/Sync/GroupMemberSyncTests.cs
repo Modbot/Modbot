@@ -672,6 +672,190 @@ public class GroupMemberSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
         Assert.Null((await MemberRowAsync("usr_0002"))!.LeftAt);
     }
 
+    /// <summary>VRChat's own member count for the group, as the group-info poll stores it.</summary>
+    private async Task ReportCountAsync(int memberCount, TimeSpan? age = null)
+    {
+        await using var context = Database.NewContext();
+
+        context.GroupMemberCounts.Add(new GroupMemberCount
+        {
+            GroupId = GroupId,
+            CountedAt = Clock.UtcNow - (age ?? TimeSpan.Zero),
+            MemberCount = memberCount,
+            OnlineMemberCount = 0,
+        });
+
+        await context.SaveChangesAsync(Ct);
+    }
+
+    private async Task<int> LeftRowsAsync()
+    {
+        await using var context = Database.NewContext();
+
+        return await context.GroupMembers.CountAsync(m => m.GroupId == GroupId && m.LeftAt != null, Ct);
+    }
+
+    /// <summary>
+    /// The list ending early answers the same empty page the real end does. The sweep that read
+    /// only part of the list must not mark the rest as left (2026-11-21, about 1,270 members), and
+    /// the next sweep, with the whole list back, finishes normally.
+    /// </summary>
+    [Fact]
+    public async Task ASweepCutShortAgainstVRChatsCountMarksNobodyAsLeftAndStartsOver()
+    {
+        Seed(VRChat.Groups, 250);
+        await SweepMembersAsync();
+
+        RestMembers();
+        await ReportCountAsync(250);
+        VRChat.Groups.MembersEndAfter = 150;
+
+        var cut = await SweepMembersAsync();
+
+        Assert.Equal(SyncOutcome.Failed, cut.Outcome);
+        Assert.False(cut.SweepComplete);
+        Assert.Equal(0, await LeftRowsAsync());
+        Assert.Empty(await FactsOfTypeAsync(FactType.MemberLeft));
+
+        var settings = await SettingsAsync();
+        Assert.Null(settings.MemberSweepStartedAt);
+        Assert.Equal(0, settings.MemberSweepOffset);
+        Assert.Equal(250, settings.MemberSweepCount);
+
+        VRChat.Groups.MembersEndAfter = null;
+
+        var whole = await SweepMembersAsync();
+
+        Assert.True(whole.SweepComplete);
+        Assert.Equal(0, whole.MarkedGone);
+        Assert.Equal(0, await LeftRowsAsync());
+    }
+
+    /// <summary>
+    /// People really leave while a sweep runs, and the count is read a few minutes apart from it,
+    /// so a list a little under VRChat's count is the list, and the leaver is marked.
+    /// </summary>
+    [Fact]
+    public async Task ASweepWithinTheAllowanceOfVRChatsCountStillMarksTheLeaver()
+    {
+        Seed(VRChat.Groups, 100);
+        await SweepMembersAsync();
+
+        RestMembers();
+        await ReportCountAsync(100);
+        VRChat.Groups.Members.RemoveAll(m => m.UserId == "usr_0042");
+
+        var second = await SweepMembersAsync();
+
+        Assert.True(second.SweepComplete);
+        Assert.Equal(1, second.MarkedGone);
+        Assert.NotNull((await MemberRowAsync("usr_0042"))!.LeftAt);
+    }
+
+    /// <summary>
+    /// A count the group-info poll took long ago says nothing about the group now, so it is not
+    /// compared against: the sweep finishes and the leaver is marked.
+    /// </summary>
+    [Fact]
+    public async Task AStaleCountFromVRChatDoesNotHoldASweepBack()
+    {
+        Seed(VRChat.Groups, 100);
+        await SweepMembersAsync();
+
+        RestMembers();
+        await ReportCountAsync(1000, age: TimeSpan.FromHours(3));
+        VRChat.Groups.Members.RemoveAll(m => m.UserId == "usr_0042");
+
+        var second = await SweepMembersAsync();
+
+        Assert.True(second.SweepComplete);
+        Assert.Equal(1, second.MarkedGone);
+    }
+
+    /// <summary>
+    /// A 200 with no list is not an empty page. Read as one it ended the sweep at once and marked
+    /// everyone not yet listed as left; now it is a failed page, tried again from the same offset.
+    /// </summary>
+    [Fact]
+    public async Task AnAnswerWithNoListIsAFailedPageNotTheEndOfTheSweep()
+    {
+        Seed(VRChat.Groups, 230);
+        await SweepMembersAsync();
+
+        RestMembers();
+        await RunMemberSweepAsync();
+        VRChat.Groups.MembersAnswerWithoutAList = true;
+
+        var broken = await RunMemberSweepAsync();
+
+        Assert.Equal(SyncOutcome.Failed, broken.Outcome);
+        Assert.False(broken.SweepComplete);
+        Assert.Equal(0, await LeftRowsAsync());
+
+        var settings = await SettingsAsync();
+        Assert.NotNull(settings.MemberSweepStartedAt);
+        Assert.Equal(95, settings.MemberSweepOffset);
+
+        VRChat.Groups.MembersAnswerWithoutAList = false;
+
+        var whole = await SweepMembersAsync();
+
+        Assert.True(whole.SweepComplete);
+        Assert.Equal(0, whole.MarkedGone);
+        Assert.Equal(95, VRChat.Groups.MemberQueries[^3].Offset);
+    }
+
+    /// <summary>
+    /// A page shorter than asked for is not the end -- only an empty page is. If VRChat caps a page
+    /// below the size Modbot asks for, every member is still read and the sweep ends on the empty page.
+    /// </summary>
+    [Fact]
+    public async Task APageShorterThanAskedForIsNotTheEndOfTheList()
+    {
+        Seed(VRChat.Groups, 250);
+        VRChat.Groups.MembersPageCap = 60;
+
+        var finished = await SweepMembersAsync();
+
+        Assert.True(finished.SweepComplete);
+        Assert.Equal([0, 60, 120, 180, 240, 250], VRChat.Groups.MemberQueries.Select(q => q.Offset));
+
+        await using var context = Database.NewContext();
+        Assert.Equal(250, await context.GroupMembers.CountAsync(m => m.GroupId == GroupId && m.LeftAt == null, Ct));
+    }
+
+    /// <summary>
+    /// Members wrongly marked as left (by the bug above) come back on the next whole sweep: the mark
+    /// is cleared and they count as members again. Their join date is the one on record, so no join
+    /// is written for them; a leave that was already written stays in the log, which is a cleanup.
+    /// </summary>
+    [Fact]
+    public async Task MembersWronglyMarkedLeftComeBackWithoutAJoinAndKeepTheLeaveAlreadyWritten()
+    {
+        Seed(VRChat.Groups, 4);
+        await SweepMembersAsync();
+
+        RestMembers();
+        var hidden = VRChat.Groups.Members.Where(m => m.UserId is "usr_0001" or "usr_0002").ToList();
+        VRChat.Groups.Members.RemoveAll(hidden.Contains);
+        await SweepMembersAsync();
+
+        RestMembers();
+        var settled = await SweepMembersAsync();
+
+        Assert.Equal(2, settled.FactsWritten);
+        Assert.Equal(2, (await FactsOfTypeAsync(FactType.MemberLeft)).Count);
+
+        RestMembers();
+        VRChat.Groups.Members.AddRange(hidden);
+        await SweepMembersAsync();
+
+        Assert.Equal(0, await LeftRowsAsync());
+        Assert.Null((await MemberRowAsync("usr_0001"))!.LeftAt);
+        Assert.Empty(await FactsOfTypeAsync(FactType.MemberJoined));
+        Assert.Equal(2, (await FactsOfTypeAsync(FactType.MemberLeft)).Count);
+    }
+
     /// <summary>
     /// A group Modbot's account is the only member of lists nobody every time. That is the group as
     /// it is, not a list that went empty, so every sweep finishes.

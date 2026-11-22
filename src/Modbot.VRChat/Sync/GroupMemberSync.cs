@@ -23,7 +23,9 @@ namespace Modbot.VRChat.Sync;
 /// front (spec 4.2.4), and a 5,000-member sweep is fifty short transactions rather than one long
 /// one. The sweep ends at the first empty page (audit-log research §7.1: no offset cap), and
 /// that pass does the end-of-sweep work: marking rows not seen this sweep as left, writing the
-/// first-ever sweep's snapshot, and settling changes that were waiting for the audit log.
+/// first-ever sweep's snapshot, and settling changes that were waiting for the audit log. An empty
+/// page is not proof the whole list was read, so that pass first checks what it listed against
+/// VRChat's own member count; a sweep that fell short marks nobody as left and starts over.
 /// </para>
 /// <para>
 /// <strong>Facts are inferred, and the audit log records first.</strong> Everything this class
@@ -130,7 +132,17 @@ public sealed class GroupMemberSync
         if (!result.Success)
             return await FailedAsync(settings, result, started, ct).ConfigureAwait(false);
 
-        var page = result.Value ?? [];
+        // An answer with no list in it is not an empty page. Read as one it ended the sweep on the
+        // spot, and everyone not yet listed this sweep was marked as left.
+        if (result.Value is not { } page)
+        {
+            _log.Warning("Member sweep got no list from VRChat at offset {Offset}; the same page is tried again", offset);
+
+            return await RecordPollAsync(
+                settings,
+                new SweepRunResult(SyncOutcome.Failed, SweepStarted: started, Offset: offset, Message: "VRChat answered without a member list"),
+                ct).ConfigureAwait(false);
+        }
 
         if (page.Count == 0)
             return await FinishSweepAsync(settings, groupId, now, started, ct).ConfigureAwait(false);
@@ -388,6 +400,42 @@ public sealed class GroupMemberSync
             .ConfigureAwait(false);
 
         var seen = listed + (ownListed ? 1 : 0);
+
+        // The empty page that ends a sweep proves nothing about how far the sweep got: a list cut
+        // short answers it too. VRChat's own count for the group, read by the group-info poll, is the
+        // check. A sweep that listed far fewer people than that read only part of the list, so it
+        // marks nobody as left and starts over. No fresh count means there is nothing to check against.
+        var reported = await _db.GroupMemberCounts
+            .AsNoTracking()
+            .Where(c => c.GroupId == groupId && c.CountedAt >= now - _options.ReportedCountMaxAge)
+            .OrderByDescending(c => c.CountedAt)
+            .Select(c => (int?)c.MemberCount)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        if (reported is { } vrchatCount)
+        {
+            var allowed = Math.Max(
+                _options.MissingMembersAllowed,
+                (int)Math.Ceiling(vrchatCount * _options.MissingFractionAllowed));
+
+            if (seen < vrchatCount - allowed)
+            {
+                _log.Warning(
+                    "The member sweep listed {Listed} members but VRChat counts {Reported} (up to {Allowed} fewer is accepted). Nobody is marked as left; the sweep will run again",
+                    seen, vrchatCount, allowed);
+
+                settings.MemberSweepStartedAt = null;
+                settings.MemberSweepOffset = 0;
+                settings.MemberSweepSeenSoFar = 0;
+
+                return await RecordPollAsync(
+                    settings,
+                    new SweepRunResult(SyncOutcome.Failed, PagesRead: 1, SweepStarted: started,
+                        Message: $"listed {seen} where VRChat counts {vrchatCount}"),
+                    ct).ConfigureAwait(false);
+            }
+        }
 
         foreach (var row in gone)
         {
