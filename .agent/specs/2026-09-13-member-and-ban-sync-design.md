@@ -30,6 +30,18 @@ read from VRChat. If it listed fewer than that count minus an allowance (the big
 is marked, the cursor starts over after the usual rest, and the log says at which offset the list
 ended. A count older than `ReportedCountMaxAge`, or none, skips the check.
 
+**A ban sweep that fell short lifts nothing.** The ban sweep has the same flaw (an empty page, or a
+200 with no list in it, ends the sweep and every ban not listed is lifted) and VRChat has no ban
+count to check against (`GET /groups/{id}/bans` returns a bare list; the SDK's `Group` carries
+`MemberCount` and `OnlineMemberCount` only). So the check is Modbot's own last full sweep
+(`BanSweepCount`). Before lifting anything, a sweep after the first compares what it listed with that
+count. If it listed fewer than the count minus an allowance (the bigger of `MissingBansAllowed` and
+`MissingFractionAllowed` of the count, plus the bans the audit log itself recorded as lifted since
+the last sweep began), no ban is lifted, the cursor starts over after the usual rest, and the log says
+at which offset the list ended. A real mass unban that VRChat's audit log did not record is held back
+the same way: bans are kept rather than wrongly lifted, and the log line shows why. A 200 with no list
+in it is a failed page, tried again at the same offset, never an empty page.
+
 The list never includes the account doing the asking. Left at that, the Members list was always one
 short of the count VRChat shows for the group, and the missing one was Modbot's own account (seen
 2026-09-27: 5 against 4 on the test group, 4,791 against 4,790 on a live one). So the group-info poll,

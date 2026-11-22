@@ -222,5 +222,182 @@ public class GroupBanSyncTests(PostgresFixture fixture) : SyncTestBase(fixture)
         Assert.True((await SweepBansAsync()).SweepComplete);
     }
 
+    /// <summary>
+    /// A 200 with no list in it is not an empty page. Read as one it ended the sweep and lifted every
+    /// ban not yet listed. It is a failed page now: the cursor stays and the same page is tried again.
+    /// </summary>
+    [Fact]
+    public async Task AnAnswerWithNoListIsAFailedPageAndLiftsNothing()
+    {
+        for (var i = 0; i < 150; i++)
+            VRChat.Groups.Bans.Add(Ban($"usr_{i:000}"));
+
+        await SweepBansAsync();
+        RestBans();
+
+        var first = await RunBanSweepAsync();
+        Assert.Equal(95, first.Offset);
+
+        VRChat.Groups.BansAnswerWithoutAList = true;
+        var none = await RunBanSweepAsync();
+
+        Assert.Equal(SyncOutcome.Failed, none.Outcome);
+        Assert.False(none.SweepComplete);
+        Assert.Equal(95, none.Offset);
+        Assert.Contains("without a ban list", none.Message);
+        Assert.Equal(95, (await SettingsAsync()).BanSweepOffset);
+        Assert.Equal(0, await LiftedRowsAsync());
+
+        VRChat.Groups.BansAnswerWithoutAList = false;
+        var whole = await SweepBansAsync();
+
+        Assert.True(whole.SweepComplete);
+        Assert.Equal(0, whole.MarkedGone);
+        Assert.Equal(0, await LiftedRowsAsync());
+    }
+
+    /// <summary>
+    /// The list ending early answers the same empty page the real end does, and VRChat has no ban count
+    /// to catch it. A sweep that listed far fewer bans than the last full one lifts nothing and starts
+    /// over after a rest, and the next sweep, with the whole list back, finishes normally.
+    /// </summary>
+    [Fact]
+    public async Task ASweepCutShortAgainstTheLastSweepLiftsNothingAndStartsOverAfterARest()
+    {
+        for (var i = 0; i < 200; i++)
+            VRChat.Groups.Bans.Add(Ban($"usr_{i:000}"));
+
+        await SweepBansAsync();
+
+        RestBans();
+        VRChat.Groups.BansEndAfter = 100;
+
+        var cut = await SweepBansAsync();
+
+        Assert.Equal(SyncOutcome.Failed, cut.Outcome);
+        Assert.False(cut.SweepComplete);
+        Assert.Equal(Clock.UtcNow + BanOptions.Clamped().RestBetweenSweeps, cut.RestUntil);
+        Assert.Equal(100, cut.Offset);
+        Assert.Contains("listed 100 where the last sweep listed 200", cut.Message);
+        Assert.Contains("offset 100 after about 2 pages", cut.Message);
+
+        Assert.Equal(0, await LiftedRowsAsync());
+        Assert.Empty(await FactsOfTypeAsync(FactType.MemberUnbanned));
+
+        await using (var context = Database.NewContext())
+            Assert.Equal(0, await context.GroupBans.CountAsync(b => b.WaitingFacts != null, Ct));
+
+        var settings = await SettingsAsync();
+        Assert.Null(settings.BanSweepStartedAt);
+        Assert.Equal(0, settings.BanSweepOffset);
+        Assert.Equal(0, settings.BanSweepSeenSoFar);
+        Assert.Equal(200, settings.BanSweepCount);
+
+        VRChat.Groups.BansEndAfter = null;
+
+        var whole = await SweepBansAsync();
+
+        Assert.True(whole.SweepComplete);
+        Assert.Equal(0, whole.MarkedGone);
+        Assert.Equal(0, await LiftedRowsAsync());
+    }
+
+    /// <summary>People really get unbanned between sweeps, so a list a little under the last one is the list.</summary>
+    [Fact]
+    public async Task AShortfallWithinTheAllowanceStillLiftsTheMissingBans()
+    {
+        for (var i = 0; i < 100; i++)
+            VRChat.Groups.Bans.Add(Ban($"usr_{i:000}"));
+
+        await SweepBansAsync();
+
+        RestBans();
+        VRChat.Groups.Bans.RemoveAll(b => b.UserId is "usr_010" or "usr_020" or "usr_030");
+
+        var second = await SweepBansAsync();
+
+        Assert.True(second.SweepComplete);
+        Assert.Equal(3, second.MarkedGone);
+        Assert.Equal(3, await LiftedRowsAsync());
+        Assert.NotNull((await BanRowAsync("usr_020"))!.LiftedAt);
+    }
+
+    /// <summary>
+    /// Unbans VRChat's own audit log recorded are real, so they widen the allowance: twelve gone from
+    /// the list is more than ten allowed, but twelve unbans in the audit log explain every one.
+    /// </summary>
+    [Fact]
+    public async Task ABigShortfallCoveredByUnbansInTheAuditLogStillLiftsThem()
+    {
+        for (var i = 0; i < 100; i++)
+            VRChat.Groups.Bans.Add(Ban($"usr_{i:000}"));
+
+        await SweepBansAsync();
+
+        RestBans();
+
+        var gone = Enumerable.Range(0, 12).Select(i => $"usr_{i:000}").ToList();
+        VRChat.Groups.Bans.RemoveAll(b => gone.Contains(b.UserId));
+
+        foreach (var userId in gone)
+        {
+            VRChat.Groups.Add(Entry(
+                $"gaud_unban_{userId}", Clock.UtcNow.AddMinutes(-3), GroupAuditLogEvents.UserUnban, target: userId));
+        }
+
+        await RunAuditLogAsync();
+
+        var second = await SweepBansAsync();
+
+        Assert.True(second.SweepComplete);
+        Assert.Equal(12, second.MarkedGone);
+        Assert.Equal(12, await LiftedRowsAsync());
+    }
+
+    /// <summary>The same twelve gone with no audit-log unbans behind them is a list cut short.</summary>
+    [Fact]
+    public async Task ABigShortfallWithNothingInTheAuditLogIsHeldBack()
+    {
+        for (var i = 0; i < 100; i++)
+            VRChat.Groups.Bans.Add(Ban($"usr_{i:000}"));
+
+        await SweepBansAsync();
+
+        RestBans();
+        VRChat.Groups.Bans.RemoveAll(b => string.CompareOrdinal(b.UserId, "usr_012") < 0);
+
+        var second = await SweepBansAsync();
+
+        Assert.Equal(SyncOutcome.Failed, second.Outcome);
+        Assert.False(second.SweepComplete);
+        Assert.Equal(0, await LiftedRowsAsync());
+    }
+
+    /// <summary>The zero-list check rests too, like the cut-short one, so a persistent empty list does not run sweeps back to back.</summary>
+    [Fact]
+    public async Task ASweepThatListsNobodyAfterAFullOneLiftsNothingAndRests()
+    {
+        for (var i = 0; i < 5; i++)
+            VRChat.Groups.Bans.Add(Ban($"usr_{i:000}"));
+
+        await SweepBansAsync();
+
+        RestBans();
+        VRChat.Groups.Bans.Clear();
+
+        var empty = await SweepBansAsync();
+
+        Assert.Equal(SyncOutcome.Failed, empty.Outcome);
+        Assert.Equal(Clock.UtcNow + BanOptions.Clamped().RestBetweenSweeps, empty.RestUntil);
+        Assert.Equal(0, await LiftedRowsAsync());
+        Assert.Null((await SettingsAsync()).BanSweepStartedAt);
+    }
+
+    private async Task<int> LiftedRowsAsync()
+    {
+        await using var context = Database.NewContext();
+        return await context.GroupBans.CountAsync(b => b.GroupId == GroupId && b.LiftedAt != null, Ct);
+    }
+
     private static JsonObject Payload(ModbotEvent fact) => JsonNode.Parse(fact.Data)!.AsObject();
 }

@@ -20,7 +20,10 @@ namespace Modbot.VRChat.Sync;
 /// The same shape as <see cref="GroupMemberSync"/>, and the same rules: one page and one save
 /// per pass, a cursor a restart resumes from, an empty page ends the sweep, the first sweep
 /// writes a snapshot and no bans, and every ban or unban it infers waits for the audit log's
-/// turn before it is written (member and ban sync design §4).
+/// turn before it is written (member and ban sync design §4). An empty page is not proof the
+/// whole list was read: a list cut short answers it too. So a sweep that listed far fewer bans
+/// than the last full one lifts nothing and starts over after a rest, and an answer with no list
+/// in it is a failed page, not an empty one.
 /// </para>
 /// <para>
 /// This is the table that makes the Bans page the group's ban list rather than Modbot's memory
@@ -116,7 +119,17 @@ public sealed class GroupBanSync
         if (!result.Success)
             return await FailedAsync(settings, result, started, ct).ConfigureAwait(false);
 
-        var page = result.Value ?? [];
+        // An answer with no list in it is not an empty page. Read as one it ended the sweep on the
+        // spot, and every ban not yet listed this sweep was marked as lifted.
+        if (result.Value is not { } page)
+        {
+            _log.Warning("Ban sweep got no list from VRChat at offset {Offset}; the same page is tried again", offset);
+
+            return await RecordPollAsync(
+                settings,
+                new SweepRunResult(SyncOutcome.Failed, SweepStarted: started, Offset: offset, Message: "VRChat answered without a ban list"),
+                ct).ConfigureAwait(false);
+        }
 
         if (page.Count == 0)
             return await FinishSweepAsync(settings, groupId, now, started, ct).ConfigureAwait(false);
@@ -269,18 +282,73 @@ public sealed class GroupBanSync
         if (seen == 0 && settings.BanSweepCount > 0)
         {
             _log.Warning(
-                "The ban sweep listed nobody, but the last full sweep listed {Count}. No ban is marked as lifted; the sweep will run again",
+                "The ban sweep listed nobody, but the last full sweep listed {Count}. No ban is marked as lifted; the sweep will run again after a rest",
                 settings.BanSweepCount);
 
             settings.BanSweepStartedAt = null;
             settings.BanSweepOffset = 0;
             settings.BanSweepSeenSoFar = 0;
 
+            // The rest is carried on the result and waited by the service: the cursor has no
+            // field for it, so a restart skips it (once per boot).
             return await RecordPollAsync(
                 settings,
                 new SweepRunResult(SyncOutcome.Failed, PagesRead: 1, SweepStarted: started,
+                    RestUntil: now + _options.RestBetweenSweeps,
                     Message: $"listed nobody where the last sweep listed {settings.BanSweepCount}"),
                 ct).ConfigureAwait(false);
+        }
+
+        // The empty page that ends a sweep proves nothing about how far the sweep got: a list cut
+        // short answers it too, and VRChat gives no ban count to check against. So the check is
+        // Modbot's own last full sweep. A sweep that listed far fewer bans than that read only part
+        // of the list, so it lifts nothing and starts over. The first sweep has nothing to compare
+        // with, and neither does a sweep after one that listed nobody.
+        if (!firstSweep && settings.BanSweepCount > 0)
+        {
+            // Bans the audit log itself recorded as lifted since the last sweep began are real, so
+            // they widen the allowance. The inferred unbans this sweep writes are not counted.
+            var unbannedSince = settings.BanSweepPreviousStartedAt is { } since
+                ? await _db.Events.AsNoTracking()
+                    .Where(e => e.SubjectPlatform == FactPlatform.VRChat
+                        && e.Source == FactSource.AuditLog
+                        && e.Type == FactType.MemberUnbanned
+                        && e.OccurredAt >= since)
+                    .Select(e => e.SubjectId)
+                    .Distinct()
+                    .CountAsync(ct)
+                    .ConfigureAwait(false)
+                : 0;
+
+            var allowed = Math.Max(
+                _options.MissingBansAllowed,
+                (int)Math.Ceiling(settings.BanSweepCount * _options.MissingFractionAllowed)) + unbannedSince;
+
+            if (seen < settings.BanSweepCount - allowed)
+            {
+                // Where the list ended, so one line in the log shows whether a cut-off repeats at
+                // the same offset. The page count is worked out from the bans read (the cursor
+                // keeps no page counter), so it is rounded up.
+                var endedAtOffset = settings.BanSweepOffset;
+                var pagesRead = (settings.BanSweepSeenSoFar + _options.PageSize - 1) / _options.PageSize;
+
+                _log.Warning(
+                    "The ban sweep listed {Listed} bans but the last full sweep listed {Count} (up to {Allowed} fewer is accepted, counting {Unbanned} lifted in the audit log). The empty page that ended the list came at offset {Offset}, after about {Pages} pages and {RowsRead} bans read. No ban is marked as lifted; the sweep will run again after a rest",
+                    seen, settings.BanSweepCount, allowed, unbannedSince, endedAtOffset, pagesRead, settings.BanSweepSeenSoFar);
+
+                var lastCount = settings.BanSweepCount;
+
+                settings.BanSweepStartedAt = null;
+                settings.BanSweepOffset = 0;
+                settings.BanSweepSeenSoFar = 0;
+
+                return await RecordPollAsync(
+                    settings,
+                    new SweepRunResult(SyncOutcome.Failed, PagesRead: 1, SweepStarted: started, Offset: endedAtOffset,
+                        RestUntil: now + _options.RestBetweenSweeps,
+                        Message: $"listed {seen} where the last sweep listed {lastCount}; the list ended at offset {endedAtOffset} after about {pagesRead} pages"),
+                    ct).ConfigureAwait(false);
+            }
         }
 
         var gone = await _db.GroupBans

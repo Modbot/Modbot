@@ -212,3 +212,7 @@ A member list that stops early would look like everyone after that point had lef
 sweep finishes, Modbot compares how many people it listed with the member count VRChat reports for
 the group. If it listed far fewer, nobody is marked as left and the sweep starts over after its usual
 rest.
+
+VRChat gives no count of bans, so a ban sweep is compared with the last full ban sweep instead. If it
+listed far fewer bans than that, no ban is marked as lifted and the sweep starts over after its usual
+rest. Bans that VRChat's audit log recorded as lifted are not counted as missing.

@@ -170,8 +170,27 @@ public sealed record GroupBanSyncOptions
     /// <inheritdoc cref="GroupMemberSyncOptions.AuditLogSilentAfter"/>
     public TimeSpan AuditLogSilentAfter { get; init; } = TimeSpan.FromHours(1);
 
+    /// <summary>
+    /// How many fewer bans than the last full sweep listed a finished sweep may have listed and still
+    /// be believed. The bigger of this and <see cref="MissingFractionAllowed"/> is the allowance, and
+    /// bans the audit log recorded as lifted since the last sweep began are added to it.
+    /// </summary>
+    /// <remarks>
+    /// The same check as <see cref="GroupMemberSyncOptions.MissingMembersAllowed"/>, against Modbot's
+    /// own last full sweep, because VRChat gives no count of a group's bans.
+    /// </remarks>
+    public int MissingBansAllowed { get; init; } = 10;
+
+    /// <summary>
+    /// The same allowance as a fraction of the last sweep's count, so a long ban list is not held to
+    /// a number made for a short one. See <see cref="MissingBansAllowed"/>.
+    /// </summary>
+    public double MissingFractionAllowed { get; init; } = 0.05;
+
     public GroupBanSyncOptions Clamped() => this with
     {
+        MissingBansAllowed = Math.Max(0, MissingBansAllowed),
+        MissingFractionAllowed = Math.Clamp(MissingFractionAllowed, 0, 1),
         PageDelay = PageDelay < PacingFloor ? PacingFloor : PageDelay,
         RestBetweenSweeps = RestBetweenSweeps < PacingFloor ? PacingFloor : RestBetweenSweeps,
         RetryInterval = RetryInterval < PacingFloor ? PacingFloor : RetryInterval,

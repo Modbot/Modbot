@@ -118,7 +118,7 @@ public abstract class GroupSweepService : BackgroundService
                     break;
 
                 case { Outcome: SyncOutcome.Failed, RestUntil: { } until }:
-                    // A member sweep that was turned down (it read only part of the list) rests
+                    // A sweep that was turned down (it read only part of the list) rests
                     // like a finished one; a sweep that ran again at once would be back to back.
                     next = Jittered(until > now ? until - now : Pace.RetryInterval);
                     phase = "retrying";

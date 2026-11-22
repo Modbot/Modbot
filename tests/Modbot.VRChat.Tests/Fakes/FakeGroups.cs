@@ -80,6 +80,12 @@ public sealed class FakeGroups
 
     public HttpStatusCode BansStatus { get; set; } = HttpStatusCode.OK;
 
+    /// <summary>When set, the ban list answers as if it ended after this many bans: an empty page from there on.</summary>
+    public int? BansEndAfter { get; set; }
+
+    /// <summary>When set, the ban list answers 200 with no list in it at all.</summary>
+    public bool BansAnswerWithoutAList { get; set; }
+
     public List<PageQuery> MemberQueries { get; } = [];
 
     public List<PageQuery> BanQueries { get; } = [];
@@ -224,10 +230,22 @@ public sealed class FakeGroups
             .GetGroupBansWithHttpInfoAsync(
                 Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<int?>(),
                 Arg.Any<CancellationToken>())
-            .Returns(call => Task.FromResult(Page(
-                Bans, BanQueries, BansStatus,
-                call.ArgAt<int?>(1) ?? 60,
-                call.ArgAt<int?>(2) ?? 0)));
+            .Returns(call =>
+            {
+                if (BansAnswerWithoutAList)
+                {
+                    BanQueries.Add(new PageQuery(call.ArgAt<int?>(1) ?? 60, call.ArgAt<int?>(2) ?? 0));
+
+                    return Task.FromResult(new ApiResponse<List<GroupMember>>(
+                        HttpStatusCode.OK, new Multimap<string, string>(), null!, "null"));
+                }
+
+                return Task.FromResult(Page(
+                    BansEndAfter is { } end ? Bans.Take(end).ToList() : Bans,
+                    BanQueries, BansStatus,
+                    call.ArgAt<int?>(1) ?? 60,
+                    call.ArgAt<int?>(2) ?? 0));
+            });
 
         groups
             .GetGroupAuditLogsWithHttpInfoAsync(
