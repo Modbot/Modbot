@@ -596,6 +596,7 @@ public class GroupMemberSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
         var empty = await SweepMembersAsync();
 
         Assert.Equal(SyncOutcome.Failed, empty.Outcome);
+        Assert.Equal(Clock.UtcNow + MemberOptions.Clamped().RestBetweenSweeps, empty.RestUntil);
         Assert.Null((await MemberRowAsync("usr_0002"))!.LeftAt);
         Assert.Null((await SettingsAsync()).MemberSweepStartedAt);
     }
@@ -714,6 +715,12 @@ public class GroupMemberSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
 
         Assert.Equal(SyncOutcome.Failed, cut.Outcome);
         Assert.False(cut.SweepComplete);
+
+        // The service waits this before the next sweep, so a persistent shortfall does not run
+        // sweeps back to back, and the message says where the list ended.
+        Assert.Equal(Clock.UtcNow + MemberOptions.Clamped().RestBetweenSweeps, cut.RestUntil);
+        Assert.Equal(150, cut.Offset);
+        Assert.Contains("offset 150 after about 2 pages", cut.Message);
         Assert.Equal(0, await LeftRowsAsync());
         Assert.Empty(await FactsOfTypeAsync(FactType.MemberLeft));
 

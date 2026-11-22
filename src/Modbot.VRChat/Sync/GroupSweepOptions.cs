@@ -94,8 +94,9 @@ public sealed record GroupMemberSyncOptions
     /// <remarks>
     /// An empty page ends a sweep, but an empty page is also what a cut-short list looks like. A
     /// sweep that listed far fewer people than the group's own count marks nobody as left and starts
-    /// over (2026-11-21: one sweep stopped around three-quarters of the way and marked about 1,270
-    /// real members as left). The allowance covers the people who really joined or left while the
+    /// over (2026-11-21: a sweep listed about 1,270 fewer members than VRChat counts and marked them
+    /// as left; why the list came up short is not proven, so the rejected sweep's log line says
+    /// where the list ended). The allowance covers the people who really joined or left while the
     /// sweep ran, and the count being read a few minutes before or after the sweep.
     /// </remarks>
     public int MissingMembersAllowed { get; init; } = 25;

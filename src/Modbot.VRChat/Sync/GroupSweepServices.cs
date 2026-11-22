@@ -117,6 +117,13 @@ public abstract class GroupSweepService : BackgroundService
                     phase = "cold-stopped";
                     break;
 
+                case { Outcome: SyncOutcome.Failed, RestUntil: { } until }:
+                    // A member sweep that was turned down (it read only part of the list) rests
+                    // like a finished one; a sweep that ran again at once would be back to back.
+                    next = Jittered(until > now ? until - now : Pace.RetryInterval);
+                    phase = "retrying";
+                    break;
+
                 case { Outcome: SyncOutcome.Failed }:
                     next = Pace.RetryInterval;
                     phase = "retrying";
@@ -219,7 +226,7 @@ public abstract class GroupSweepService : BackgroundService
 
     private static string Describe(SweepRunResult result) => result switch
     {
-        { RestUntil: not null } => "resting between syncs",
+        { RestUntil: not null, Outcome: not SyncOutcome.Failed } => "resting between syncs",
         { SweepComplete: true, FirstSweep: true } => "first sync finished",
         { SweepComplete: true } =>
             $"sync finished: {result.MarkedGone} no longer listed, {result.FactsWritten} recorded",

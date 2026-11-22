@@ -374,7 +374,7 @@ public sealed class GroupMemberSync
             // Marking everyone as left on that evidence would write thousands of false leaves;
             // starting over costs a rest.
             _log.Warning(
-                "The member sweep listed nobody, but the last full sweep listed {Count}. Nobody is marked as left; the sweep will run again",
+                "The member sweep listed nobody, but the last full sweep listed {Count}. Nobody is marked as left; the sweep will run again after a rest",
                 stillMembers);
 
             settings.MemberSweepStartedAt = null;
@@ -384,6 +384,7 @@ public sealed class GroupMemberSync
             return await RecordPollAsync(
                 settings,
                 new SweepRunResult(SyncOutcome.Failed, PagesRead: 1, SweepStarted: started,
+                    RestUntil: now + _options.RestBetweenSweeps,
                     Message: $"listed nobody where the last sweep listed {stillMembers}"),
                 ct).ConfigureAwait(false);
         }
@@ -421,18 +422,27 @@ public sealed class GroupMemberSync
 
             if (seen < vrchatCount - allowed)
             {
+                // Where the list ended, so one line in the log shows whether a cut-off repeats at
+                // the same offset. The page count is worked out from the members read (the cursor
+                // keeps no page counter), so it is rounded up.
+                var endedAtOffset = settings.MemberSweepOffset;
+                var pagesRead = (settings.MemberSweepSeenSoFar + _options.PageSize - 1) / _options.PageSize;
+
                 _log.Warning(
-                    "The member sweep listed {Listed} members but VRChat counts {Reported} (up to {Allowed} fewer is accepted). Nobody is marked as left; the sweep will run again",
-                    seen, vrchatCount, allowed);
+                    "The member sweep listed {Listed} members but VRChat counts {Reported} (up to {Allowed} fewer is accepted). The empty page that ended the list came at offset {Offset}, after about {Pages} pages and {RowsRead} members read. Nobody is marked as left; the sweep will run again after a rest",
+                    seen, vrchatCount, allowed, endedAtOffset, pagesRead, settings.MemberSweepSeenSoFar);
 
                 settings.MemberSweepStartedAt = null;
                 settings.MemberSweepOffset = 0;
                 settings.MemberSweepSeenSoFar = 0;
 
+                // The rest is carried on the result and waited by the service: the cursor has no
+                // field for it, so a restart skips it (once per boot, like the zero-list check).
                 return await RecordPollAsync(
                     settings,
-                    new SweepRunResult(SyncOutcome.Failed, PagesRead: 1, SweepStarted: started,
-                        Message: $"listed {seen} where VRChat counts {vrchatCount}"),
+                    new SweepRunResult(SyncOutcome.Failed, PagesRead: 1, SweepStarted: started, Offset: endedAtOffset,
+                        RestUntil: now + _options.RestBetweenSweeps,
+                        Message: $"listed {seen} where VRChat counts {vrchatCount}; the list ended at offset {endedAtOffset} after about {pagesRead} pages"),
                     ct).ConfigureAwait(false);
             }
         }
