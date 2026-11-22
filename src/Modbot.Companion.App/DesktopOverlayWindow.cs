@@ -103,7 +103,8 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     private readonly Border _syncTag;
 
     // What the strip is made of, laid out again when the look changes.
-    private readonly StackPanel _title = new() { Orientation = Orientation.Horizontal, Spacing = 8, IsHitTestVisible = false };
+    private readonly DockPanel _title = new() { LastChildFill = true, IsHitTestVisible = false };
+    private StripLayout? _strip;
     private readonly DockPanel _buttons = new() { LastChildFill = false };
 
     private OverlayScreen? _drawn;
@@ -482,9 +483,16 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         // the buttons answer a press by moving the window, the buttons answer for themselves. Where
         // the buttons go, and where the title goes, is laid out for the look in use (PaintStrip).
         _title.VerticalAlignment = VerticalAlignment.Center;
+        // The icon and the tag keep their own size and the name takes what they leave, cut with an
+        // ellipsis when the strip is short (the strip gives the title only what the buttons leave).
+        _groupIconFrame.Margin = new Thickness(0, 0, 8, 0);
+        DockPanel.SetDock(_groupIconFrame, Dock.Left);
+        _syncTag.Margin = new Thickness(8, 0, 0, 0);
+        DockPanel.SetDock(_syncTag, Dock.Right);
+        _groupName.HorizontalAlignment = HorizontalAlignment.Left;
         _title.Children.Add(_groupIconFrame);
-        _title.Children.Add(_groupName);
         _title.Children.Add(_syncTag);
+        _title.Children.Add(_groupName);
 
         var handle = new Border { Background = Brushes.Transparent };
         handle.PointerPressed += (_, e) =>
@@ -502,6 +510,7 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         _buttons.Children.Add(close);
         _buttons.Children.Add(_dictateButton);
         _buttons.Children.Add(switches);
+        _strip = new StripLayout { Children = { handle, _title, _buttons } };
         PaintClose();
         PaintStrip();
 
@@ -511,8 +520,70 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             Background = Ui.T.Surface2Brush,
             BorderBrush = Ui.T.BorderBrush,
             BorderThickness = new Thickness(0, 0, 0, Ui.T.Density.Hairline),
-            Child = new Grid { Children = { handle, _title, _buttons } },
+            Child = _strip,
         };
+    }
+
+    /// <summary>
+    /// The strip: the handle under everything, the buttons on the sides, and the title in what the buttons
+    /// leave. The title is in the middle of the strip when it fits there, and moves over to the free side
+    /// when a wide button (Dictate saying "Getting ready 42%") takes more than its share; what still does
+    /// not fit is cut with an ellipsis, never drawn under a button.
+    /// </summary>
+    private sealed class StripLayout : Panel
+    {
+        /// <summary>The room kept clear of the title at each end whatever the buttons are, so it sits in the middle whether or not the lock and the hand show.</summary>
+        public double MinSide { get; set; }
+
+        /// <summary>Put the title in the middle of the strip (VRChat's look) rather than at its left end.</summary>
+        public bool Centered { get; set; }
+
+        private const double Gap = 8;
+
+        private double _titleLeft;
+        private double _titleWidth;
+
+        protected override Size MeasureOverride(Size availableSize)
+        {
+            var handle = Children[0];
+            var title = Children[1];
+            var buttons = Children[2];
+
+            buttons.Measure(availableSize);
+
+            double left = 0, right = 0;
+            foreach (var button in ((DockPanel)buttons).Children.Where(child => child.IsVisible))
+            {
+                if (DockPanel.GetDock(button) == Dock.Left)
+                    left += button.DesiredSize.Width;
+                else
+                    right += button.DesiredSize.Width;
+            }
+
+            var before = left > 0 ? Math.Max(left + Gap, MinSide) : MinSide;
+            var after = right > 0 ? Math.Max(right + Gap, MinSide) : MinSide;
+
+            var total = double.IsInfinity(availableSize.Width) ? buttons.DesiredSize.Width : availableSize.Width;
+            var span = Math.Max(0, total - before - after);
+
+            title.Measure(new Size(span, availableSize.Height));
+            _titleWidth = Math.Min(title.DesiredSize.Width, span);
+            _titleLeft = Centered
+                ? Math.Clamp((total - _titleWidth) / 2, before, Math.Max(before, total - after - _titleWidth))
+                : before;
+
+            handle.Measure(new Size(total, availableSize.Height));
+
+            return new Size(total, Math.Max(title.DesiredSize.Height, buttons.DesiredSize.Height));
+        }
+
+        protected override Size ArrangeOverride(Size finalSize)
+        {
+            Children[0].Arrange(new Rect(finalSize));
+            Children[1].Arrange(new Rect(_titleLeft, 0, _titleWidth, finalSize.Height));
+            Children[2].Arrange(new Rect(finalSize));
+            return finalSize;
+        }
     }
 
     private StackPanel? _switches;
@@ -679,17 +750,18 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             // Room each side for the two buttons the lock and the hand make at most, so the title
             // is in the middle of the bar whether or not they are showing.
             var reserve = (VRChatLook.RoundButton * 2) + 6 + 12;
-            _title.HorizontalAlignment = HorizontalAlignment.Center;
-            _title.Margin = new Thickness(reserve, 0);
-            _title.MaxWidth = double.PositiveInfinity;
+            _strip!.MinSide = reserve;
+            _strip.Centered = true;
+            _strip.InvalidateMeasure();
             DockPanel.SetDock(_switches, Dock.Left);
             _switches.Margin = default;
             _switches.Spacing = 8;
             return;
         }
 
-        _title.HorizontalAlignment = HorizontalAlignment.Left;
-        _title.Margin = default;
+        _strip!.MinSide = 0;
+        _strip.Centered = false;
+        _strip.InvalidateMeasure();
         DockPanel.SetDock(_switches, Dock.Right);
         _switches.Margin = new Thickness(0, 0, 8, 0);
         _switches.Spacing = 6;

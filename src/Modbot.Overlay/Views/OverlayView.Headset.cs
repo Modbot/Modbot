@@ -64,10 +64,11 @@ public sealed partial class OverlayView
         var v = V!;
         var inner = VRChatLook.FrameRadius - VRChatLook.EdgeWidth;
 
-        var title = new StackPanel
+        // A dock, so the name takes what the picture and the Dictate button leave and is cut with an
+        // ellipsis, never drawn under the button.
+        var title = new DockPanel
         {
-            Orientation = Orientation.Horizontal,
-            Spacing = 8,
+            LastChildFill = true,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             MinHeight = StripIconSize,
@@ -77,15 +78,18 @@ public sealed partial class OverlayView
         {
             if (icon?.Invoke(screen.GroupIconUrl) is { } image)
             {
-                title.Children.Add(new Border
+                var picture = new Border
                 {
                     Width = StripIconSize,
                     Height = StripIconSize,
+                    Margin = new Thickness(0, 0, 8, 0),
                     CornerRadius = new CornerRadius(VRChatLook.PillRadius),
                     ClipToBounds = true,
                     VerticalAlignment = VerticalAlignment.Center,
                     Child = new Image { Source = image, Stretch = Stretch.UniformToFill },
-                });
+                };
+                DockPanel.SetDock(picture, Avalonia.Controls.Dock.Left);
+                title.Children.Add(picture);
             }
 
             var name = Text(group, 20, v.Heading, FontWeight.ExtraBold);
