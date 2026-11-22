@@ -275,6 +275,33 @@ public sealed class DailyTotalsJob
             ct);
     }
 
+    /// <summary>
+    /// The days the given facts touch, for a repair that deletes named facts (the false leave repair).
+    /// </summary>
+    /// <remarks>
+    /// Same reason as <see cref="DaysTouchedBySubjectAsync"/>: the day a fact belongs to is decided
+    /// here and nowhere else. Fact ids come from one sequence, so the id alone names a fact.
+    /// </remarks>
+    public async Task<IReadOnlyList<DateOnly>> DaysTouchedByFactsAsync(
+        IReadOnlyCollection<long> factIds,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(factIds);
+
+        if (factIds.Count == 0)
+            return [];
+
+        var facts = WindowedFacts("@types", observedSince: false, extraFilter: "AND e.id = ANY(@ids)");
+
+        return await QueryAsync<DateOnly>(
+            DaysTouchedSql(facts),
+            [
+                Param("types", TypeValues(DailyTotalMetrics.ComputedTypes)),
+                Param("ids", factIds.ToArray()),
+            ],
+            ct);
+    }
+
     private static string DaysTouchedSql(string windowedFacts) => $"""
         SELECT DISTINCT (gs)::date AS "Value"
         FROM (
