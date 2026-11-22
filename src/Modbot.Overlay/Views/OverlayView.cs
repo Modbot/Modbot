@@ -216,17 +216,30 @@ public sealed partial class OverlayView
         // only ever drawn because they switched Clips on themselves.
         //
         // The Talk buttons are the same: swapping the microphone is something to do in any instance.
+        // So is Dictate, which is on the panel wherever AI Chat is.
         if (screen.IsIdle && !screen.ShowIdleCard)
         {
-            if (!screen.Clips.IsVisible && !screen.Talk.IsVisible)
+            if (!screen.Clips.IsVisible && !screen.Talk.IsVisible && screen.Dictate is null)
                 return new Border { Background = Brushes.Transparent };
+
+            var idle = new StackPanel { Spacing = V is null ? 12 : 14 };
+
+            if (screen.Dictate is { } idleDictate)
+            {
+                var dictate = DictateButton(idleDictate);
+                dictate.HorizontalAlignment = HorizontalAlignment.Left;
+                idle.Children.Add(dictate);
+            }
+
+            if (screen.Clips.IsVisible || screen.Talk.IsVisible)
+                idle.Children.Add(ClipsAndTalk(screen.Clips, screen.Talk));
 
             return new Border
             {
                 Background = Brushes.Transparent,
                 Padding = new Thickness(20),
                 HorizontalAlignment = HorizontalAlignment.Left,
-                Child = ClipsAndTalk(screen.Clips, screen.Talk),
+                Child = idle,
             };
         }
 
@@ -246,6 +259,15 @@ public sealed partial class OverlayView
         // title strip above already carries the group's name and icon, so inside a group's instance
         // this says nothing at all, and anywhere else it is the large heading alone: the strip
         // carries the small "not synced" tag instead of a second copy of the heading.
+        // Dictate is the first thing on the panel, at the top like the desktop window's strip. In VRChat's
+        // look the title strip holds it instead (HeadsetFrame).
+        if (V is null && screen.Dictate is { } dictateCard)
+        {
+            var dictate = DictateButton(dictateCard);
+            dictate.HorizontalAlignment = HorizontalAlignment.Right;
+            stack.Children.Add(dictate);
+        }
+
         if (V is null)
             stack.Children.Add(GroupLine(screen, icon));
         else if (screen.GroupLabel is null)

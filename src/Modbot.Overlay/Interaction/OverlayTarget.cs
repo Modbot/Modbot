@@ -208,8 +208,8 @@ public abstract record OverlayTarget
     /// </remarks>
     public sealed record PanelButton : OverlayTarget;
 
-    /// <summary>The Dictate button under the show and hide button. Tapping it starts or stops dictating.</summary>
-    /// <remarks>Handled by the button's own host, like <see cref="PanelButton"/>.</remarks>
+    /// <summary>The Dictate button under the show and hide button, and the one at the top of the main panel. Tapping it starts or stops dictating.</summary>
+    /// <remarks>Handled by the host of the panel it is on, like <see cref="PanelButton"/>.</remarks>
     public sealed record DictateButton : OverlayTarget;
 }
 

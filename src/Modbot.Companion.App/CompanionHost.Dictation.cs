@@ -71,7 +71,7 @@ internal sealed partial class CompanionHost
         return screen.WithDictate(controller.State, controller.Percent, controller.Level, controller.Notice);
     }
 
-    /// <summary>The desktop overlay's Dictate key and button: a tap, only while the button would be offered.</summary>
+    /// <summary>The desktop overlay's Dictate key and button, and the headset main panel's: a tap, only while the button would be offered.</summary>
     private void ToggleDictateFromDesktop()
     {
         if (DictateAvailable)

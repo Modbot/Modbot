@@ -134,6 +134,11 @@ public enum OverlayPage
 /// The moderator's own VRChat id as this PC's log reading last said, or null while it is not known. The
 /// desktop window's list puts their own row first, in a banner of its own. Never sent anywhere.
 /// </param>
+/// <param name="Dictate">
+/// The Dictate button at the top of the headset panel: the same card as the button panel's Dictate row,
+/// with <see cref="ButtonScreen.Dictate"/> never <see cref="DictateState.Off"/>. Null leaves the panel
+/// without one. Set by the panel's host, never by the drive loop, so the desktop window draws none.
+/// </param>
 public sealed record OverlayScreen(
     string? GroupLabel,
     Cached<InstanceContext> Roster,
@@ -168,7 +173,8 @@ public sealed record OverlayScreen(
     TalkRow Talk = default,
     bool OtherGroup = false,
     bool PinOwnRow = false,
-    bool CanMarkAvatar = false)
+    bool CanMarkAvatar = false,
+    ButtonScreen? Dictate = null)
 {
     private static readonly IReadOnlyDictionary<string, DateTimeOffset?> NoArrivals = new Dictionary<string, DateTimeOffset?>();
 
@@ -263,6 +269,7 @@ public sealed record OverlayScreen(
             && GroupIconUrl == other.GroupIconUrl
             && Clips == other.Clips
             && Talk == other.Talk
+            && Dictate == other.Dictate
             && ShowIdleCard == other.ShowIdleCard
             && NotSynced == other.NotSynced
             && OtherGroup == other.OtherGroup

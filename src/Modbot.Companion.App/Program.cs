@@ -2245,6 +2245,8 @@ internal sealed partial class CompanionHost : IOverlayListener
             _overlayHost.Tapped += target => _overlay?.Tap(target);
             _overlayHost.NameTyped += (list, name) => _overlay?.SetName(list, name);
             _overlayHost.HeadsUpTyped += words => _overlay?.SetHeadsUpText(words);
+            _overlayHost.DictatePressed += ToggleDictateFromDesktop;
+            ShowHeadsetDictate();
             // Saved once a change has settled rather than on every tick of a drag or a held grip: a
             // panel being moved changes thirty times a second, and the file needs the last one.
             _overlayHost.PlacementChanged += placement =>
@@ -2903,6 +2905,7 @@ internal sealed partial class CompanionHost : IOverlayListener
     private void ShowButton()
     {
         ShowDesktopDictate();
+        ShowHeadsetDictate();
         ShowMainFeedback();
 
         if (_buttonHost is null || _overlayHost is null)
@@ -2926,6 +2929,18 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         var card = WithDictateIfOffered(ButtonScreen.Shown, DictateAvailable, () => Dictation);
         overlay.SetDictate(card);
+    }
+
+    /// <summary>
+    /// What the Dictate button at the top of the headset's main panel says: the same card as the button
+    /// panel's Dictate row and the desktop strip's button, so the three always agree.
+    /// </summary>
+    private void ShowHeadsetDictate()
+    {
+        if (_overlayHost is not { } panel)
+            return;
+
+        panel.SetDictate(WithDictateIfOffered(ButtonScreen.Shown, DictateAvailable, () => Dictation));
     }
 
     /// <summary>The button's stick shortcut as the settings have it.</summary>

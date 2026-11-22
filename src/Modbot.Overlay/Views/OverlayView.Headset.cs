@@ -110,12 +110,23 @@ public sealed partial class OverlayView
             });
         }
 
+        Control stripContent = title;
+
+        // Dictate on the right of the strip, the title in the room that is left, like the window's strip.
+        if (screen.Dictate is { } card)
+        {
+            var dictate = DictateButton(card);
+            dictate.VerticalAlignment = VerticalAlignment.Center;
+            DockPanel.SetDock(dictate, Avalonia.Controls.Dock.Right);
+            stripContent = new DockPanel { Children = { dictate, title } };
+        }
+
         var strip = new Border
         {
             Background = v.Bar(),
             CornerRadius = new CornerRadius(inner, inner, 0, 0),
             Padding = new Thickness(14, 8),
-            Child = title,
+            Child = stripContent,
         };
 
         return new Border

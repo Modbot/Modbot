@@ -262,6 +262,29 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// <summary>A trigger press on the panel, with what it landed on (null for the empty ground).</summary>
     public event Action<OverlayTarget?>? Tapped;
 
+    /// <summary>Raised when a controller's trigger clicks the Dictate button at the top of the panel. UI thread.</summary>
+    public event Action? DictatePressed;
+
+    /// <summary>How long each step of the moving Dictate picture lasts.</summary>
+    private const double DictateFrameMilliseconds = 150;
+
+    // The Dictate card the companion last gave, or null while it is off, and which of 8 steps its
+    // picture is at, read from the clock in PollInput.
+    private ButtonScreen? _dictate;
+    private int _dictateFrame;
+
+    /// <summary>
+    /// What the Dictate button at the top of the panel shows, from the card the controller last gave: off
+    /// takes the button away. Drawn again at once if it looks different. UI thread only, like <see cref="Update"/>.
+    /// </summary>
+    public void SetDictate(ButtonScreen card)
+    {
+        ArgumentNullException.ThrowIfNull(card);
+
+        _dictate = card.Dictate is DictateState.Off ? null : card;
+        Draw();
+    }
+
     /// <summary>
     /// How far the list the page is showing is scrolled, in pixels of the panel's layout (the texture's pixels
     /// where the panel is not scaled).
@@ -451,6 +474,14 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             return;
         }
 
+        // The Dictate picture turns while the card says something is moving; drawn again when its step changes.
+        var dictateStep = _dictate?.DictateMoves is true ? (int)(now.TotalMilliseconds / DictateFrameMilliseconds) % 8 : 0;
+        if (dictateStep != _dictateFrame)
+        {
+            _dictateFrame = dictateStep;
+            Draw();
+        }
+
         _lastTracking = _runtime.ReadTracking();
 
         // The test remote's made-up controller, standing in for one hand while it has something to
@@ -535,6 +566,11 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
                     _swallowTap = false;
                     ShownScroll.Reset();
                     DrawScrolled();
+                    break;
+
+                // Dictate is the companion's business, not the drive loop's: it starts the microphone.
+                case OverlayTarget.DictateButton:
+                    DictatePressed?.Invoke();
                     break;
 
                 // Out of edit mode the bar is not there to press, laid out or not.
@@ -1039,6 +1075,10 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         // A runtime with no keyboard: the Name filter has nothing to type with here.
         if (next is not null && !CanType)
             next = next with { NoKeyboard = true };
+
+        // Dictate is at the top of this panel only; the desktop window draws its own.
+        if (next is not null && _dictate is { } dictate)
+            next = next with { Dictate = dictate with { Frame = _dictateFrame } };
 
         // The lists move by pixels here, from the top again when the driver says it is another list.
         if (next is not null)

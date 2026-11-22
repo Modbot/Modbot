@@ -98,9 +98,10 @@ public static class ChatView
     /// <summary>
     /// The chat's microphone button: the Dictate picture, what it says (Dictate, Listening, Writing,
     /// Sending, Getting ready or a notice) and, while listening, the level meter. One target
-    /// (<see cref="OverlayTarget.ChatMic"/>), so a ray or a click on any part of it is a tap.
+    /// (<see cref="OverlayTarget.ChatMic"/>, or <paramref name="target"/> where another panel draws it),
+    /// so a ray or a click on any part of it is a tap.
     /// </summary>
-    public static Border MicButton(ChatMicScreen mic, int frame, OverlayLook look)
+    public static Border MicButton(ChatMicScreen mic, int frame, OverlayLook look, OverlayTarget? target = null)
     {
         ArgumentNullException.ThrowIfNull(mic);
         ArgumentNullException.ThrowIfNull(look);
@@ -148,7 +149,7 @@ public static class ChatView
 
         return new Border
         {
-            Tag = new OverlayTarget.ChatMic(),
+            Tag = target ?? new OverlayTarget.ChatMic(),
             Background = v?.Button ?? t.Surface2Brush,
             BorderBrush = v?.RaisedEdge ?? t.Border2Brush,
             BorderThickness = new Thickness(v is null ? t.Density.Hairline : VRChatLook.EdgeWidth),
