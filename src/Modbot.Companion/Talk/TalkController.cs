@@ -151,7 +151,7 @@ public sealed class TalkController
     /// for, so two quick presses go there and back.
     /// </summary>
     public Task<TalkResult> SwapAsync(CancellationToken cancellationToken = default)
-        => RunAsync(() => State.Side == TalkSide.Discord
+        => RunAsync(side => side == TalkSide.Discord
             ? TalkInVRChatNowAsync(cancellationToken)
             : TalkInDiscordNowAsync(cancellationToken));
 
@@ -203,13 +203,21 @@ public sealed class TalkController
             return result;
         });
 
-    private async Task<TalkResult> RunAsync(Func<Task<TalkResult>> action)
+    private Task<TalkResult> RunAsync(Func<Task<TalkResult>> action)
+        => RunAsync(_ => action());
+
+    /// <summary>
+    /// Runs one action in its turn. The side is read here, before an action ends the "muted in VRChat" hold,
+    /// so an action that depends on it sees the side the button showed.
+    /// </summary>
+    private async Task<TalkResult> RunAsync(Func<TalkSide, Task<TalkResult>> action)
     {
         await _one.WaitAsync().ConfigureAwait(false);
         try
         {
+            var side = State.Side;
             _vrchatMuteHeld = false;
-            var result = _settings().On ? await action().ConfigureAwait(false) : TalkResult.Failed(Off);
+            var result = _settings().On ? await action(side).ConfigureAwait(false) : TalkResult.Failed(Off);
             _problem = result.Problem;
             return result;
         }
