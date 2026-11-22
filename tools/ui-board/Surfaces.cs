@@ -14,6 +14,7 @@ internal static partial class Surfaces
 
         AddVr(draws);
         AddDesktop(draws);
+        AddCompanion(draws);
 
         foreach (var tile in Names.Tiles)
         {

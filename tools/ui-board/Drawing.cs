@@ -59,17 +59,30 @@ internal static class Drawing
     /// from the top (the strip along the top of the overlay).
     /// </summary>
     public static RenderTargetBitmap OfWindow(Window window, int? topOnly = null)
+        => OfWindowPart(window, _ => null, topOnly);
+
+    /// <summary>
+    /// Draws a window that is up, then closes it, keeping only the rectangle <paramref name="part"/>
+    /// names (found while the window is still up). A null rectangle keeps the whole window.
+    /// </summary>
+    public static RenderTargetBitmap OfWindowPart(Window window, Func<Window, Rect?> part, int? topOnly = null)
     {
         try
         {
             Dispatcher.UIThread.RunJobs();
+            var keep = part(window);
             using var frame = window.CaptureRenderedFrame() ?? throw new InvalidOperationException("The window drew no picture.");
 
-            var width = frame.PixelSize.Width;
-            var height = Math.Min(frame.PixelSize.Height, topOnly ?? int.MaxValue);
-            var picture = new Image { Source = frame, Width = width, Height = frame.PixelSize.Height, Stretch = Stretch.None };
+            var left = keep is { } k ? (int)Math.Floor(k.X) : 0;
+            var top = keep is { } t ? (int)Math.Floor(t.Y) : 0;
+            var width = keep is { } w ? (int)Math.Ceiling(w.Width) : frame.PixelSize.Width;
+            var height = Math.Min(keep is { } h ? (int)Math.Ceiling(h.Height) : frame.PixelSize.Height, topOnly ?? int.MaxValue);
+            var picture = new Image { Source = frame, Width = frame.PixelSize.Width, Height = frame.PixelSize.Height, Stretch = Stretch.None };
 
-            // A canvas keeps the picture at its own size, at the top left, and the crop cuts the rest off.
+            Canvas.SetLeft(picture, -left);
+            Canvas.SetTop(picture, -top);
+
+            // A canvas keeps the picture at its own size, and the crop cuts what is outside the rectangle off.
             return Draw(new Canvas { ClipToBounds = true, Children = { picture } }, width, height);
         }
         finally

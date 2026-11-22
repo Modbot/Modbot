@@ -44,6 +44,8 @@ internal static class Names
 
     public const string VrAndDesktop = "VR and desktop";
 
+    public const string CompanionApp = "Companion app";
+
     /// <summary>A surface drawn in the headset's two looks, so the pair can be compared with the desktop's.</summary>
     private static Row Vr(string id, string name)
         => new(name,
@@ -61,6 +63,31 @@ internal static class Names
             new Tile(id + "-vr-vrchat", name, Side.Vr, VRChatLook),
             new Tile(id + "-desktop-vrchat", name, Side.Desktop, VRChatLook),
         ]);
+
+    /// <summary>One card of the companion's Settings page: the heading it carries in the window (how the tool finds it) and its tile.</summary>
+    internal sealed record SettingsCard(string Title, string Id, string Name);
+
+    /// <summary>The Settings page's cards, top to bottom.</summary>
+    public static IReadOnlyList<SettingsCard> SettingsCards { get; } =
+    [
+        Card("Settings", "general", "Start with Windows and Close to tray"),
+        Card("Desktop overlay", "desktop-overlay"),
+        Card("Notification overlay", "notification-overlay"),
+        Card("Notifications", "notifications"),
+        Card("Tell me about", "tell-me-about"),
+        Card("Voice", "voice"),
+        Card("Clips", "clips"),
+        Card("Listening", "listening"),
+        Card("Talk in Discord or VRChat", "talk"),
+        Card("VRChat log folder", "log-folder"),
+        Card("Restart", "restart"),
+    ];
+
+    private static SettingsCard Card(string title, string id, string? name = null)
+        => new(title, "companion-settings-" + id, "Settings: " + (name ?? title));
+
+    private static Row One(string id, string name)
+        => new(name, [new Tile(id, name, Side.Companion)]);
 
     public static IReadOnlyList<Group> Groups { get; } =
     [
@@ -86,6 +113,18 @@ internal static class Names
             Both("chat-empty", ChatPopUp + ": no messages"),
             Both("chat-conversation", ChatPopUp + ": conversation"),
             Both("chat-error", ChatPopUp + ": answer failed"),
+        ]),
+
+        // The companion app's own window: its pages as it opens, then each Settings card on its own.
+        new Group(CompanionApp,
+        [
+            One("companion-servers", "Servers"),
+            One("companion-add-server", "Servers: Add a server"),
+            One("companion-audit-log", "Audit Log"),
+            One("companion-steamvr", "SteamVR"),
+            One("companion-log", "Log"),
+            One("companion-credits", "Credits"),
+            .. SettingsCards.Select(card => One(card.Id, card.Name)),
         ]),
     ];
 
