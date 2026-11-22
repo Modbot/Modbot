@@ -88,6 +88,9 @@ public sealed class FakeGroups
 
     public List<PageQuery> MemberQueries { get; } = [];
 
+    /// <summary>The <c>sort</c> each member page was asked for, in order. Null is "no sort given".</summary>
+    public List<GroupSearchSort?> MemberSorts { get; } = [];
+
     public List<PageQuery> BanQueries { get; } = [];
 
     public int MemberRequests => MemberQueries.Count;
@@ -211,6 +214,8 @@ public sealed class FakeGroups
                 Arg.Any<CancellationToken>())
             .Returns(call =>
             {
+                MemberSorts.Add(call.ArgAt<GroupSearchSort?>(3));
+
                 if (MembersAnswerWithoutAList)
                 {
                     MemberQueries.Add(new PageQuery(call.ArgAt<int?>(1) ?? 60, call.ArgAt<int?>(2) ?? 0));

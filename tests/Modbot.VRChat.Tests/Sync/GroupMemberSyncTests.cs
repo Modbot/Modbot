@@ -5,6 +5,7 @@ using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 using Modbot.VRChat.Sync;
 using Modbot.VRChat.Tests.Fakes;
+using VRChatGroupSearchSort = VRChat.API.Model.GroupSearchSort;
 
 namespace Modbot.VRChat.Tests.Sync;
 
@@ -53,6 +54,21 @@ public class GroupMemberSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
         Assert.Equal("list-diff", Payload(fact)["source"]!.GetValue<string>());
 
         Assert.Equal(230, (await SettingsAsync()).MemberSweepCount);
+    }
+
+    /// <summary>
+    /// VRChat's default order shifted between page requests (2026-11-22: 3,634 distinct people seen
+    /// across a walk of a 4,931 list), so every page asks for oldest joiner first by name.
+    /// </summary>
+    [Fact]
+    public async Task EveryMemberPageAsksForOldestJoinerFirst()
+    {
+        Seed(VRChat.Groups, 230);
+
+        await SweepMembersAsync();
+
+        Assert.NotEmpty(VRChat.Groups.MemberSorts);
+        Assert.All(VRChat.Groups.MemberSorts, sort => Assert.Equal(VRChatGroupSearchSort.JoinedAtasc, sort));
     }
 
     /// <summary>
@@ -903,9 +919,15 @@ public class GroupMemberSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
         Assert.Null((await MemberRowAsync("usr_0000"))!.LeftAt);
     }
 
+    /// <summary>
+    /// The group-info poll, which stores VRChat's count and Modbot's own row. The count is the
+    /// seeded list plus that row, like VRChat's, since the sweep's guard compares against it.
+    /// </summary>
     private async Task PollOwnMembershipAsync()
     {
-        VRChat.Groups.Group = GroupInfoSnapshotTests.Group();
+        var group = GroupInfoSnapshotTests.Group();
+        group.MemberCount = VRChat.Groups.Members.Count + 1;
+        VRChat.Groups.Group = group;
         VRChat.Groups.GroupJson = """{"myMember":{"userId":"usr_bot","membershipStatus":"member"}}""";
         await RunGroupInfoAsync();
     }

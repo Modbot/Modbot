@@ -9,6 +9,7 @@ using Modbot.Core.Time;
 using Modbot.VRChat.Users;
 using Serilog;
 using VRChatGroupMember = VRChat.API.Model.GroupMember;
+using VRChatGroupSearchSort = VRChat.API.Model.GroupSearchSort;
 
 namespace Modbot.VRChat.Sync;
 
@@ -122,10 +123,15 @@ public sealed class GroupMemberSync
         // the group because VRChat's limits are sometimes per-resource (spec 4.3.1).
         var endpoint = new VRChatEndpoint(VRChatEndpointClass.GroupsMembers, groupId, "GetGroupMembers");
 
+        // Oldest joiner first, asked for by name. Left to VRChat's default order the list shifted
+        // between page requests on 2026-11-22: a sweep walked all 4,931 offsets yet saw only 3,634
+        // distinct people, so the guard rejected it every time. Joined-at ascending puts new
+        // joiners at the end, so they cannot push anyone from one page into the next. Not yet
+        // confirmed on live; see .agent/research/2026-11-22-member-sweep-order.md.
         var result = await _gate.ExecuteAsync(
             endpoint,
             (client, token) => client.Groups.GetGroupMembersWithHttpInfoAsync(
-                groupId, n: _options.PageSize, offset: offset, cancellationToken: token),
+                groupId, n: _options.PageSize, offset: offset, sort: VRChatGroupSearchSort.JoinedAtasc, cancellationToken: token),
             VRChatCallPriority.Background,
             ct).ConfigureAwait(false);
 
