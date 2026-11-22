@@ -503,6 +503,63 @@ public class OverlayHostInputTests
         });
     }
 
+    [Fact]
+    public void TheDictateButtonIsOnThePanelWhileTheCardOffersItAndGoneWhileItDoesNot()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, _) = Build();
+            Assert.Null(FindDictate(host));
+
+            host.SetDictate(ButtonScreen.Shown with { Dictate = DictateState.Idle });
+            Assert.NotNull(FindDictate(host));
+
+            host.SetDictate(ButtonScreen.Shown with { Dictate = DictateState.Off });
+            Assert.Null(FindDictate(host));
+        });
+    }
+
+    [Fact]
+    public void AClickOnTheDictateButtonIsDictateAndNotATap()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+            var taps = new List<OverlayTarget?>();
+            var presses = 0;
+            host.Tapped += taps.Add;
+            host.DictatePressed += () => presses++;
+            host.SetDictate(ButtonScreen.Shown with { Dictate = DictateState.Idle });
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(Centre)));
+            host.PollInput(TimeSpan.Zero);
+            var button = FindDictate(host) ?? throw new InvalidOperationException("No Dictate button on the panel.");
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(button.Across, button.Down), click: true));
+            host.PollInput(TimeSpan.FromMilliseconds(50));
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(AimAtPanel(button.Across, button.Down)));
+            host.PollInput(TimeSpan.FromMilliseconds(100));
+
+            Assert.Equal(1, presses);
+            Assert.DoesNotContain(taps, t => t is OverlayTarget.DictateButton);
+        });
+    }
+
+    private static (float Across, float Down)? FindDictate(OverlayHost host)
+    {
+        // Sweep the panel for the button, using the host's own hit testing.
+        for (var down = 0.01f; down < 1f; down += 0.01f)
+        {
+            for (var across = 0.02f; across < 1f; across += 0.02f)
+            {
+                if (host.TargetAt(across, down) is OverlayTarget.DictateButton)
+                    return (across, down);
+            }
+        }
+
+        return null;
+    }
+
     private static (float Across, float Down) FindRow(OverlayHost host, string subjectId)
     {
         // Sweep the panel for the row, using the host's own hit testing.
