@@ -50,7 +50,7 @@ A tile that throws shows its error on the board and the others still draw.
 ## Limits
 
 - The data is made up. Nothing here reads a server, a log or VRChat.
-- Moving Dictate states (listening, writing and so on) are drawn at their first frame.
+- Moving Dictate states: the VR tiles are drawn part-way round (step 2 of 8); the desktop tiles show the window's own picture at its first step, so a moving state can differ between the two only by that step.
 - The desktop Dictate tiles are the overlay window's top 64 pixels, where the button is.
 - The Debug page and the companion's pop-ups, tray menu and command palette are not on the board.
 - Pictures are one scale; the page shows them at most 480 pixels wide, a click opens the full size.

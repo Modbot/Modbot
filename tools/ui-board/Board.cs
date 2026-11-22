@@ -158,15 +158,17 @@ internal static class Board
           const next = doc.getElementById('board');
           const before = new Map([...document.querySelectorAll('figure')].map(f => [f.dataset.id, f]));
           const loading = [];
+          const keep = [];
 
           for (const figure of next.querySelectorAll('figure')) {
             const old = before.get(figure.dataset.id);
-            if (old && old.dataset.hash === figure.dataset.hash) { figure.replaceWith(old); continue; }
+            if (old && old.dataset.hash === figure.dataset.hash) { keep.push([figure, old]); continue; }
             const img = figure.querySelector('img');
             if (img) loading.push(new Promise(done => { const p = new Image(); p.onload = p.onerror = done; p.src = img.getAttribute('src'); }));
           }
 
           await Promise.all(loading);
+          for (const [figure, old] of keep) figure.replaceWith(old);
           document.getElementById('board').replaceWith(next);
           version = doc.body.dataset.version;
           document.getElementById('version').textContent = version;
