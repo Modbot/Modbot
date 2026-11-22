@@ -1705,8 +1705,9 @@ public sealed partial class OverlayView
         // what used to send a person's flags drifting away from the person they belong to.
         name.MaxWidth = 220;
 
-        // The line gives way where it must (flags first, then the name) instead of running past the
-        // row's end and under the time on its right.
+        // Only the name and the flag chip give way when the line is too long, so it never runs past the
+        // row's end and under the time on its right; the rank and the marks keep their width. Room left
+        // over goes to the name first, then the flag chip.
         var flagChip = member.Flags.Count > 0 ? FlagChip(string.Join(" · ", member.Flags)) : null;
 
         var line = new InlineRow
@@ -1714,6 +1715,7 @@ public sealed partial class OverlayView
             Spacing = 10,
             NameText = name,
             NameFloor = T.Density.TextBase * 4,
+            FlagFloor = T.Density.TextBase * 3,
             Flag = flagChip,
             Children = { badge, name },
         };
@@ -1727,20 +1729,13 @@ public sealed partial class OverlayView
         }
 
         if (member.EighteenPlus == true)
-        {
-            var eighteen = EighteenPlusChip();
-            line.Optional.Add(eighteen);
-            line.Children.Add(eighteen);
-        }
+            line.Children.Add(EighteenPlusChip());
 
         // Somebody who just left is on the way out, so neither "New" nor the group mark is the news about them.
         if (!left)
         {
             foreach (var mark in ArrivalMarks(member, isNew))
-            {
-                line.Optional.Add(mark);
                 line.Children.Add(mark);
-            }
         }
 
         if (flagChip is not null)

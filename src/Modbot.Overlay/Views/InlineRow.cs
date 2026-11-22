@@ -10,15 +10,14 @@ namespace Modbot.Overlay.Views;
 /// <remarks>
 /// A horizontal stack measures every child with all the width it wants, so a long flag reason such as
 /// "12 kicks or bans · 15 warns" was drawn past the end of the row and under the time on its right.
-/// Here the name and the flag chip start at their smallest (<see cref="NameFloor"/>, <see cref="FlagFloor"/>;
-/// their words end in "…"). If the line still does not fit, the <see cref="Optional"/> marks are left out,
-/// last first, and as a last resort the flag chip goes. Whatever room is then left goes back to the name,
-/// then the flag chip, up to the width they want. Nothing is ever drawn past the edge.
+/// Here only the name and the flag chip give way: they start at their smallest (<see cref="NameFloor"/>,
+/// <see cref="FlagFloor"/>; their words end in "…") and whatever room is left goes back to the name first,
+/// then the flag chip, up to the width they want. The badge, the rank and the marks always keep their
+/// width. If the line is still too wide with both at their smallest, its end is cut at the edge of the
+/// row, never drawn past it.
 /// </remarks>
 internal sealed class InlineRow : Panel
 {
-    private const double FlagFloor = 100;
-
     private double _lastWidth = double.NaN;
     private double[] _widths = [];
 
@@ -34,8 +33,8 @@ internal sealed class InlineRow : Panel
     /// <summary>The flag chip. Must be one of the children.</summary>
     public Control? Flag { get; init; }
 
-    /// <summary>Marks that are left out, last first, when the line has no room for them.</summary>
-    public HashSet<Control> Optional { get; } = [];
+    /// <summary>The smallest the flag chip is trimmed to, padding included, in pixels.</summary>
+    public double FlagFloor { get; init; } = 40;
 
     public InlineRow()
     {
@@ -129,17 +128,8 @@ internal sealed class InlineRow : Panel
         if (flag >= 0)
             _widths[flag] = Math.Min(wanted[flag], FlagFloor);
 
-        // Too long even so: leave out marks, last first, then the flag chip itself.
-        for (var i = count - 1; i >= 0 && Used() > available; i--)
-        {
-            if (Children[i] is { } mark && Optional.Contains(mark))
-                _widths[i] = 0;
-        }
-
-        if (Used() > available && flag >= 0)
-            _widths[flag] = 0;
-
-        // Whatever room is left goes back to the name, then to the flag chip.
+        // Whatever room is left goes back to the name, then to the flag chip. If there is none, the end
+        // of the line is cut at the row's edge (the panel clips), so the rank and the marks stay whole.
         foreach (var i in new[] { name, flag })
         {
             if (i < 0 || _widths[i] <= 0)
