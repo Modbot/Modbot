@@ -3,13 +3,10 @@ namespace Modbot.Companion.Talk;
 /// <summary>Which side the microphone is on.</summary>
 public enum TalkSide
 {
-    /// <summary>Neither, or not known: both closed, both open, or VRChat has not said.</summary>
-    Neither,
-
-    /// <summary>Talk in Discord: VRChat muted and Discord's microphone open.</summary>
+    /// <summary>Talk in Discord: VRChat's microphone is muted.</summary>
     Discord,
 
-    /// <summary>Talk in VRChat: VRChat unmuted and Discord's microphone shut.</summary>
+    /// <summary>Talk in VRChat: VRChat's microphone is unmuted, or VRChat has not said yet.</summary>
     VRChat,
 }
 
@@ -47,13 +44,8 @@ public readonly record struct TalkRow(
     /// <summary>Off, so there is no row.</summary>
     public static TalkRow None { get; } = default;
 
-    /// <summary>The swap button's words: the side being talked in, or the side a press goes to.</summary>
-    public string SwapCaption => Side switch
-    {
-        TalkSide.Discord => "Talking in Discord",
-        TalkSide.VRChat => "Talking in VRChat",
-        _ => "Talk in Discord",
-    };
+    /// <summary>The swap button's words: the side being talked in.</summary>
+    public string SwapCaption => Side == TalkSide.Discord ? "Talking in Discord" : "Talking in VRChat";
 
     /// <summary>The Discord Mute button's words.</summary>
     public string MuteCaption => DiscordMuted ? "Discord Muted" : "Discord Mute";

@@ -15,8 +15,6 @@ namespace Modbot.Overlay.Views;
 public sealed partial class OverlayView
 {
     // Drawn on a 24-unit square, like the eye on the show and hide button.
-    private const string SwapGlyph = "M4,8 L18,8 M14,4 L18,8 L14,12 M20,16 L6,16 M10,12 L6,16 L10,20";
-
     // A clapperboard with its striped arm lifted, the Lucide one.
     private const string ClapperGlyph =
         "M20.2,6 L3,11 L2.1,8.6 C1.8,7.5 2.4,6.4 3.4,6.1 L16.9,2.1 C18,1.8 19.1,2.4 19.4,3.4 Z "
@@ -71,7 +69,7 @@ public sealed partial class OverlayView
             return SaveClipBar(clips);
 
         var inVRChat = talk.Side is TalkSide.VRChat;
-        var swapGlyph = talk.Side switch { TalkSide.Discord => DiscordGlyph, TalkSide.VRChat => VRChatGlyph, _ => SwapGlyph };
+        var swapGlyph = talk.Side is TalkSide.Discord ? DiscordGlyph : VRChatGlyph;
 
         var audio = new StackPanel
         {
@@ -79,7 +77,7 @@ public sealed partial class OverlayView
             Spacing = 8,
             Children =
             {
-                TalkIconFor(talk.SwapCaption, TalkButton.Swap, swapGlyph, filled: talk.Side is not TalkSide.Neither, active: talk.Side is not TalkSide.Neither, struck: false, T.AccentForegroundBrush),
+                TalkIconFor(talk.SwapCaption, TalkButton.Swap, swapGlyph, filled: true, active: true, struck: false, T.AccentForegroundBrush),
                 inVRChat
                     ? TalkIconFor(talk.VRChatMuteCaption, TalkButton.VRChatMute, MicrophoneGlyph, filled: false, talk.VRChatMuted, struck: talk.VRChatMuted, T.DangerBrush)
                     : TalkIconFor(talk.MuteCaption, TalkButton.DiscordMute, MicrophoneGlyph, filled: false, talk.DiscordMuted, struck: talk.DiscordMuted, T.DangerBrush),

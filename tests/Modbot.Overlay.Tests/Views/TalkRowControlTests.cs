@@ -176,8 +176,7 @@ public class TalkRowControlTests
     [Theory]
     [InlineData(TalkSide.Discord)]
     [InlineData(TalkSide.VRChat)]
-    [InlineData(TalkSide.Neither)]
-    public void TheSwapButtonShowsALogoOrArrowsAndNoLetter(TalkSide side)
+    public void TheSwapButtonShowsALogoAndNoLetter(TalkSide side)
     {
         var (words, filled) = AvaloniaTestHost.Run(() =>
         {
@@ -190,8 +189,8 @@ public class TalkRowControlTests
 
         Assert.Empty(words);
 
-        // A solid mark on a side; the two arrows, which are lines, when on neither.
-        Assert.Equal(side is not TalkSide.Neither, filled);
+        // Always a solid mark, never lines.
+        Assert.True(filled);
     }
 
     [Fact]
@@ -209,11 +208,11 @@ public class TalkRowControlTests
     public void ItSaysWhereThingsStand()
     {
         // The icons carry the words they used to say as their automation names.
-        var names = AvaloniaTestHost.Run(() => LaidOut(Screen(new TalkRow(true, TalkSide.Neither, true, true, null)))
+        var names = AvaloniaTestHost.Run(() => LaidOut(Screen(new TalkRow(true, TalkSide.Discord, true, true, null)))
             .GetVisualDescendants().OfType<Border>().Where(b => b.Tag is OverlayTarget.Talk)
             .Select(b => AutomationProperties.GetName(b)).ToList());
 
-        Assert.Contains("Talk in Discord", names);
+        Assert.Contains("Talking in Discord", names);
         Assert.Contains("Discord Muted", names);
         Assert.Contains("Discord Deafened", names);
     }
@@ -221,7 +220,7 @@ public class TalkRowControlTests
     [Fact]
     public void AFailureIsTheOneLineUnderTheButtons()
     {
-        var texts = AvaloniaTestHost.Run(() => LaidOut(Screen(new TalkRow(true, TalkSide.Neither, false, false, "VRChat didn't answer.")))
+        var texts = AvaloniaTestHost.Run(() => LaidOut(Screen(new TalkRow(true, TalkSide.Discord, false, false, "VRChat didn't answer.")))
             .GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList());
 
         Assert.Contains("VRChat didn't answer.", texts);

@@ -59,24 +59,12 @@ public sealed record TalkState(bool On, bool? VRChatMuted, bool DiscordMuted, bo
     public static TalkState None { get; } = new(false, null, false, false, null);
 
     /// <summary>
-    /// Talk in Discord is VRChat muted and Discord open; Talk in VRChat is the opposite. Anything
-    /// else (both open, both shut, VRChat not heard from) is neither, except that muting VRChat with
-    /// its own button while on VRChat's side leaves it on VRChat's side (<paramref name="VRChatMuteHeld"/>).
+    /// Only VRChat's own microphone decides the side, since it is the only state Modbot really knows
+    /// (Discord's is a memory of Modbot's own key presses): muted is Talk in Discord, unmuted or not
+    /// heard from yet is Talk in VRChat. Muting VRChat with its own button while on VRChat's side
+    /// leaves it on VRChat's side (<see cref="VRChatMuteHeld"/>).
     /// </summary>
-    public TalkSide Side
-    {
-        get
-        {
-            var discordOpen = !DiscordMuted && !DiscordDeafened;
-            return VRChatMuted switch
-            {
-                true when discordOpen => TalkSide.Discord,
-                true when VRChatMuteHeld => TalkSide.VRChat,
-                false when !discordOpen => TalkSide.VRChat,
-                _ => TalkSide.Neither,
-            };
-        }
-    }
+    public TalkSide Side => VRChatMuted == true && !VRChatMuteHeld ? TalkSide.Discord : TalkSide.VRChat;
 }
 
 /// <summary>

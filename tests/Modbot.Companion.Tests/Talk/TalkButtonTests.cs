@@ -52,20 +52,31 @@ public class TalkButtonTests
 
     [Theory]
     [InlineData(true, false, false, TalkSide.Discord)]
+    [InlineData(true, true, false, TalkSide.Discord)]
+    [InlineData(true, false, true, TalkSide.Discord)]
     [InlineData(false, true, false, TalkSide.VRChat)]
     [InlineData(false, false, true, TalkSide.VRChat)]
-    [InlineData(false, false, false, TalkSide.Neither)]
-    [InlineData(true, true, false, TalkSide.Neither)]
-    [InlineData(true, false, true, TalkSide.Neither)]
-    public void TheSideIsWhereTheMicrophoneIsOpen(bool vrchatMuted, bool discordMuted, bool discordDeafened, TalkSide side)
+    [InlineData(false, false, false, TalkSide.VRChat)]
+    public void TheSideIsDecidedByVRChatsMicrophoneAlone(bool vrchatMuted, bool discordMuted, bool discordDeafened, TalkSide side)
     {
         Assert.Equal(side, new TalkState(true, vrchatMuted, discordMuted, discordDeafened, null).Side);
     }
 
-    [Fact]
-    public void NeitherSideWhileVRChatHasNotSaidWhatTheMicrophoneIs()
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void TheSideIsVRChatWhileVRChatHasNotSaidWhatTheMicrophoneIs(bool discordMuted, bool discordDeafened)
     {
-        Assert.Equal(TalkSide.Neither, new TalkState(true, null, true, false, null).Side);
+        Assert.Equal(TalkSide.VRChat, new TalkState(true, null, discordMuted, discordDeafened, null).Side);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void VRChatMutedWithItsOwnButtonStaysOnVRChatsSide(bool discordMuted)
+    {
+        Assert.Equal(TalkSide.VRChat, new TalkState(true, true, discordMuted, false, null, VRChatMuteHeld: true).Side);
     }
 
     [Fact]
@@ -108,11 +119,11 @@ public class TalkButtonTests
     }
 
     [Fact]
-    public async Task SwapFromNeitherSideTalksInDiscord()
+    public async Task SwapBeforeVRChatHasAnsweredTalksInDiscord()
     {
-        // Both open: nobody is "in" one place, so the press goes to Discord.
-        var (talk, mic, _) = Make(vrchatMuted: false);
-        Assert.Equal(TalkSide.Neither, talk.State.Side);
+        // VRChat not heard from: the side is VRChat's, so the press goes to Discord.
+        var (talk, mic, _) = Make(vrchatMuted: null);
+        Assert.Equal(TalkSide.VRChat, talk.State.Side);
 
         await talk.SwapAsync(TestContext.Current.CancellationToken);
 
@@ -143,9 +154,12 @@ public class TalkButtonTests
         Assert.Equal(["press mute", "press deafen"], log);
         Assert.True(talk.State.DiscordDeafened);
 
+        // VRChat is muted, so this is Discord's side whatever Discord's own buttons were pressed to: the swap goes to VRChat.
+        Assert.Equal(TalkSide.Discord, talk.State.Side);
+
         await talk.PressButtonAsync(TalkButton.Swap, TestContext.Current.CancellationToken);
 
-        Assert.Equal(TalkSide.Discord, talk.State.Side);
+        Assert.Equal(TalkSide.VRChat, talk.State.Side);
     }
 
     [Fact]
@@ -289,7 +303,6 @@ public class TalkButtonTests
     [Theory]
     [InlineData(TalkSide.Discord, "Talking in Discord")]
     [InlineData(TalkSide.VRChat, "Talking in VRChat")]
-    [InlineData(TalkSide.Neither, "Talk in Discord")]
     public void TheSwapButtonNamesTheSide(TalkSide side, string caption)
     {
         Assert.Equal(caption, new TalkRow(true, side, false, false, null).SwapCaption);
@@ -300,7 +313,7 @@ public class TalkButtonTests
     [InlineData(true, "Discord Muted")]
     public void TheMuteButtonSaysWhetherItIsOn(bool muted, string caption)
     {
-        Assert.Equal(caption, new TalkRow(true, TalkSide.Neither, muted, false, null).MuteCaption);
+        Assert.Equal(caption, new TalkRow(true, TalkSide.Discord, muted, false, null).MuteCaption);
     }
 
     [Theory]
@@ -316,6 +329,6 @@ public class TalkButtonTests
     [InlineData(true, "Discord Deafened")]
     public void TheDeafenButtonSaysWhetherItIsOn(bool deafened, string caption)
     {
-        Assert.Equal(caption, new TalkRow(true, TalkSide.Neither, false, deafened, null).DeafenCaption);
+        Assert.Equal(caption, new TalkRow(true, TalkSide.Discord, false, deafened, null).DeafenCaption);
     }
 }
