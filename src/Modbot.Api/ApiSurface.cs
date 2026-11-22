@@ -561,6 +561,7 @@ public static class ApiSurface
 
         app.MapDataSettings();
         app.MapPurge();
+        app.MapFalseLeaveRepair();
         app.MapSyncSettings();
         app.MapPublicAddressSettings();
         app.MapServerSettings();

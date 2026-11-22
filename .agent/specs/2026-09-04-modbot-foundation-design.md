@@ -1573,6 +1573,14 @@ log ships in M0 even though most of the analytics UI does not.
 **Invariant: daily totals are recomputable from facts; facts are never mutated.** A bug in a metric is a
 re-run, not lost data. A metric invented next year is filled in across all recorded history.
 
+The one recorded exception is the **false leave repair** (`FalseLeaveRepair`). On 2026-11-21 a member
+list that came back short was read as the whole list, and about 1,270 real members were written down as
+having left. The facts were wrong when written, not just misread, so no re-run of a metric could fix them.
+The repair removes them once, from an admin-only address, after saving a copy of them (and of the rows
+that name them) in three backup tables, and then works the affected daily totals out again. The backup
+tables are the record that it ran; a second run is refused. Nothing else may change or delete a fact
+outside a purge (§5.5).
+
 #### 5.2.1 The counted-only path — when *not* to write a fact
 
 One deliberate exception. Some events are **high-cardinality and individually worthless**: nobody

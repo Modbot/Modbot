@@ -68,6 +68,7 @@ public static class AnalyticsServiceCollectionExtensions
 
         services.AddScoped<RetentionPruner>();
         services.AddScoped<IUserPurger, UserPurger>();
+        services.AddScoped<Repairs.FalseLeaveRepair>();
         services.AddScoped<PurgePreviewer>();
         services.AddHostedService<RetentionService>();
 

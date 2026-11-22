@@ -6020,6 +6020,114 @@
         ]
       }
     },
+    "/api/settings/repairs/false-leaves": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Preview the false leave repair",
+        "description": "What the repair would remove, counted from the same selection the repair uses. Nothing is changed.\n\nNeeds the `Administrator` permission.",
+        "operationId": "PreviewFalseLeaveRepair",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FalseLeavePreview"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Run the false leave repair",
+        "description": "Removes the false leave facts (and the rows that name them), after saving a copy in three backup tables, then works the daily totals out again for the days they touched. Runs once: the backup tables are the record, and a second call is refused with 409.\n\nNeeds the `Administrator` permission.",
+        "operationId": "RunFalseLeaveRepair",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FalseLeaveRepairResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/public-address": {
       "get": {
         "tags": [
@@ -56453,6 +56561,92 @@
           "Modbot",
           "Import"
         ]
+      },
+      "FalseLeavePreview": {
+        "required": [
+          "alreadyRan",
+          "windowStart",
+          "leaveFactsInWindow",
+          "qualifying",
+          "linkedFacts",
+          "eventReports",
+          "days",
+          "sampleSubjects"
+        ],
+        "type": "object",
+        "properties": {
+          "alreadyRan": {
+            "type": "boolean"
+          },
+          "windowStart": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "leaveFactsInWindow": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "qualifying": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "linkedFacts": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "eventReports": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "days": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sampleSubjects": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "FalseLeaveRepairResult": {
+        "required": [
+          "ran",
+          "factsDeleted",
+          "linkedFactsDeleted",
+          "eventReportsDeleted",
+          "daysRecomputed",
+          "backupTables"
+        ],
+        "type": "object",
+        "properties": {
+          "ran": {
+            "type": "boolean"
+          },
+          "factsDeleted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "linkedFactsDeleted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "eventReportsDeleted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "daysRecomputed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "backupTables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
       },
       "FeedbackListView": {
         "required": [
