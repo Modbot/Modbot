@@ -11,11 +11,30 @@ internal enum Side
 /// <summary>One picture on the board. <paramref name="Id"/> is its file name (without .png); <paramref name="Look"/> is empty or the look it is drawn in.</summary>
 internal sealed record Tile(string Id, string Name, Side Side, string Look = "");
 
-/// <summary>One surface on the board: its pictures left to right (VR first, then desktop).</summary>
+/// <summary>One surface on the board: its pictures left to right (VR first, then desktop; the Modbot look, then VRChat's).</summary>
 internal sealed record Row(string Name, IReadOnlyList<Tile> Tiles);
 
-/// <summary>A band of rows with a heading.</summary>
-internal sealed record Group(string Name, IReadOnlyList<Row> Rows);
+/// <summary>What a VR picture is a picture of; <see cref="Sizes"/> turns it into the panel's size in the headset.</summary>
+internal enum Panel
+{
+    /// <summary>The main panel: the Instance list and the Audit Log.</summary>
+    Main,
+
+    /// <summary>The small Hide / Show panel.</summary>
+    Button,
+
+    /// <summary>The pop-ups' panel.</summary>
+    Notifications,
+
+    /// <summary>The chat panel.</summary>
+    Chat,
+
+    /// <summary>Not a headset panel: a window, shown at its own pixel size.</summary>
+    Window,
+}
+
+/// <summary>One tab of the board: a page of rows. <paramref name="DefaultPercent"/> is how big the size slider starts, picked so the tab fits one screen.</summary>
+internal sealed record Tab(string Name, Panel Panel, int DefaultPercent, IReadOnlyList<Row> Rows);
 
 /// <summary>
 /// The one list of what the board shows and what each thing is called. A rename is an edit here and
@@ -38,11 +57,12 @@ internal static class Names
     /// <summary>The chat pop-up.</summary>
     public const string ChatPopUp = "Chat pop-up";
 
+    /// <summary>The tab with the chat pop-up's pictures.</summary>
+    public const string Chat = "Chat";
+
     public const string ModbotLook = "Modbot look";
 
     public const string VRChatLook = "VRChat look";
-
-    public const string VrAndDesktop = "VR and desktop";
 
     public const string CompanionApp = "Companion app";
 
@@ -89,14 +109,18 @@ internal static class Names
     private static Row One(string id, string name)
         => new(name, [new Tile(id, name, Side.Companion)]);
 
-    public static IReadOnlyList<Group> Groups { get; } =
+    /// <summary>The tabs across the top of the board, left to right.</summary>
+    public static IReadOnlyList<Tab> Tabs { get; } =
     [
-        new Group(VrAndDesktop,
+        new Tab(Overlay, Panel.Main, 60,
         [
             Both("overlay-instance", Overlay + ": Instance list"),
             Both("overlay-auditlog", Overlay + ": Audit Log"),
             Both("overlay-choices", Overlay + ": Instance list, Rank choices open"),
+        ]),
 
+        new Tab(ButtonPanel, Panel.Button, 70,
+        [
             // The Hide / Show button panel exists in the headset only.
             Vr("button-hide", ButtonPanel + ": Hide"),
             Vr("button-show", ButtonPanel + ": Show"),
@@ -109,14 +133,22 @@ internal static class Names
             Both("button-dictate-sending", "Dictate button: sending"),
             Both("button-dictate-getting-ready", "Dictate button: getting ready"),
             Both("button-dictate-notice", "Dictate button: short notice"),
+        ]),
+
+        new Tab(Notifications, Panel.Notifications, 150,
+        [
             Both("notifications", Notifications),
+        ]),
+
+        new Tab(Chat, Panel.Chat, 60,
+        [
             Both("chat-empty", ChatPopUp + ": no messages"),
             Both("chat-conversation", ChatPopUp + ": conversation"),
             Both("chat-error", ChatPopUp + ": answer failed"),
         ]),
 
         // The companion app's own window: its pages as it opens, then each Settings card on its own.
-        new Group(CompanionApp,
+        new Tab(CompanionApp, Panel.Window, 40,
         [
             One("companion-servers", "Servers"),
             One("companion-add-server", "Servers: Add a server"),
@@ -128,5 +160,5 @@ internal static class Names
         ]),
     ];
 
-    public static IEnumerable<Tile> Tiles => Groups.SelectMany(g => g.Rows).SelectMany(r => r.Tiles);
+    public static IEnumerable<Tile> Tiles => Tabs.SelectMany(t => t.Rows).SelectMany(r => r.Tiles);
 }

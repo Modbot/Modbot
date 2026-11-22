@@ -22,8 +22,11 @@ internal static partial class Surfaces
             draws[id + "-vr-vrchat"] = () => draw(Looks.VRChat);
         }
 
+        // AI Chat is on in the made-up state, so the panel carries its Dictate button, as OverlayHost.SetDictate gives it.
+        var ready = ButtonScreen.Shown with { Dictate = DictateState.Idle };
+
         void Overlay(string id, OverlayScreen screen)
-            => Both(id, look => Drawing.Draw(HeadsetPanel(screen, look), OverlayHost.DefaultResolution, OverlayHost.DefaultResolution));
+            => Both(id, look => Drawing.Draw(HeadsetPanel(screen with { Dictate = ready }, look), OverlayHost.DefaultResolution, OverlayHost.DefaultResolution));
 
         Overlay("overlay-instance", Samples.Roster());
         Overlay("overlay-auditlog", Samples.AuditLog());
