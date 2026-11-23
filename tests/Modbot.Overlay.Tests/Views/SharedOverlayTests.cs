@@ -100,16 +100,19 @@ public class SharedOverlayTests
     }
 
     [Fact]
-    public void TheVRChatLookIsDrawnAtTheTextureWidthWithTheGroupNameInAStrip()
+    public void TheVRChatLookIsDrawnInTheFrameWithTheGroupNameInAStrip()
     {
-        var (size, texts) = AvaloniaTestHost.Run(() =>
+        var (size, texts, panelWidth, scale) = AvaloniaTestHost.Run(() =>
         {
-            var root = OverlayView.BuildForHeadset(Instance(), null, VRChatLook(), 1024);
+            var look = VRChatLook();
+            var root = OverlayView.BuildForHeadset(Instance(), null, look, 1024);
             root.Measure(new Size(1024, 1024));
-            return (root.DesiredSize, Texts(root));
+            return (root.DesiredSize, Texts(root), OverlayView.HeadsetPanelWidth(Instance(), look, 1024), OverlayView.HeadsetScale(look, 1024));
         });
 
-        Assert.Equal(1024, size.Width, 1);
+        // The frame is laid out at the window's 520 and drawn at the headset's scale, so it is not the texture's whole width.
+        Assert.Equal(panelWidth, size.Width, 1);
+        Assert.Equal(VRChatHudLayout.OverlayDesignWidth * scale, size.Width, 1);
         Assert.Contains("Cat Lounge", texts);
         Assert.Contains("Users (3)", texts);
     }
@@ -133,8 +136,8 @@ public class SharedOverlayTests
                 Assert.NotNull(OverlayTargets.At(root, placed.Bounds.Center));
             }
 
-            // The layout is 600 wide drawn at 1024, so something must be further right than 600.
-            Assert.Contains(found, placed => placed.Bounds.Right > OverlayView.HeadsetDesignWidth);
+            // The layout is 520 wide drawn bigger, so something must be further right than 520.
+            Assert.Contains(found, placed => placed.Bounds.Right > VRChatHudLayout.OverlayDesignWidth);
         });
     }
 }

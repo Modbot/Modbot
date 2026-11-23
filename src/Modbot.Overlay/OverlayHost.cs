@@ -265,6 +265,9 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// <summary>Raised when a controller's trigger clicks the Dictate button at the top of the panel. UI thread.</summary>
     public event Action? DictatePressed;
 
+    /// <summary>Raised when a controller's trigger clicks the Close button at the top of the panel. UI thread.</summary>
+    public event Action? CloseRequested;
+
     /// <summary>How long each step of the moving Dictate picture lasts.</summary>
     private const double DictateFrameMilliseconds = 150;
 
@@ -571,6 +574,11 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
                 // Dictate is the companion's business, not the drive loop's: it starts the microphone.
                 case OverlayTarget.DictateButton:
                     DictatePressed?.Invoke();
+                    break;
+
+                // Close puts the panel away, like the window's Close button; the companion hides it.
+                case OverlayTarget.ClosePanel:
+                    CloseRequested?.Invoke();
                     break;
 
                 // Out of edit mode the bar is not there to press, laid out or not.
@@ -1127,7 +1135,8 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             bar,
             next.Cursor,
             Height * placement.Tall,
-            Width * placement.Wide);
+            OverlayView.HeadsetPanelWidth(next, _look, Width, placement.Wide),
+            Math.Max(Width * placement.Wide, Height * placement.Tall));
         if (placement.Longest > 1f)
             root = new Zoom(1.0 / placement.Longest, root);
 

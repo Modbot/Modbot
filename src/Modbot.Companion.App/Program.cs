@@ -2246,6 +2246,11 @@ internal sealed partial class CompanionHost : IOverlayListener
             _overlayHost.NameTyped += (list, name) => _overlay?.SetName(list, name);
             _overlayHost.HeadsUpTyped += words => _overlay?.SetHeadsUpText(words);
             _overlayHost.DictatePressed += ToggleDictateFromDesktop;
+            _overlayHost.CloseRequested += () =>
+            {
+                if (_overlayHost is { Hidden: false })
+                    TogglePanel();
+            };
             ShowHeadsetDictate();
             // Saved once a change has settled rather than on every tick of a drag or a held grip: a
             // panel being moved changes thirty times a second, and the file needs the last one.
@@ -4528,7 +4533,7 @@ internal sealed partial class CompanionHost : IOverlayListener
     /// </remarks>
     private void PutOverlayBack()
     {
-        var placement = OverlayPlacement.StraightAhead;
+        var placement = OverlayPlacement.StraightAhead with { Tall = OverlayPlacement.MainPanelTall };
 
         if (_state is { Settings.OverlayOn: false })
             SetOverlayOn(true);

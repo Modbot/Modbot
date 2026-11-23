@@ -258,7 +258,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     /// Where the headset panel is and how big. Saved as the <c>overlay</c> object whenever a
     /// controller moves it or the settings page changes it, so it is where it was left.
     /// </summary>
-    public OverlayPlacement Overlay { get; init; } = OverlayPlacement.Default;
+    public OverlayPlacement Overlay { get; init; } = OverlayPlacement.MainPanelDefault;
 
     /// <summary>
     /// The notification overlay: whether it is drawn, where on the screen it sits, how big, and
@@ -441,7 +441,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
                 ButtonShortcut.ParseStick(shape?.OverlayButtonStick),
                 ButtonShortcut.ParseDirection(shape?.OverlayButtonDirection),
                 ButtonShortcut.ClampSeconds(shape?.OverlayButtonHold)),
-            Overlay = OverlayPlacement.FromJson(shape?.Overlay),
+            Overlay = shape?.Overlay is null ? OverlayPlacement.MainPanelDefault : OverlayPlacement.FromJson(shape.Overlay),
             NotifyOverlay = NotifyOverlaySettings.FromJson(shape?.NotifyOverlay),
             Voice = voice,
             NotificationFilters = NotificationFilters.FromJson(shape?.NotificationFilters, voice),

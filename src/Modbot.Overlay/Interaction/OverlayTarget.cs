@@ -211,6 +211,10 @@ public abstract record OverlayTarget
     /// <summary>The Dictate button under the show and hide button, and the one at the top of the main panel. Tapping it starts or stops dictating.</summary>
     /// <remarks>Handled by the host of the panel it is on, like <see cref="PanelButton"/>.</remarks>
     public sealed record DictateButton : OverlayTarget;
+
+    /// <summary>The Close button in the main panel's title strip. Tapping it puts the panel away, like the Close button on the desktop window.</summary>
+    /// <remarks>Handled by the host of the panel it is on, like <see cref="DictateButton"/>; it never reaches the drive loop.</remarks>
+    public sealed record ClosePanel : OverlayTarget;
 }
 
 /// <summary>A target and where it was drawn, in panel pixels.</summary>

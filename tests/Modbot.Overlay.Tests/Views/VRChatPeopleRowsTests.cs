@@ -314,8 +314,8 @@ public class VRChatPeopleRowsTests
 
     [Theory]
     // Not the 520 panel width: the font a Linux runner falls back to is wider than Segoe UI and the
-    // last label ends 7 pixels past the cut there. The headset width is the one this promises.
-    [InlineData(OverlayView.HeadsetDesignWidth)]
+    // last label ends 7 pixels past the cut there. A panel 600 wide is the one this promises.
+    [InlineData(600)]
     [InlineData(800)]
     [InlineData(1000)]
     public void ThreeLabelsAfterANameAreShownInFullAtTheHeadsetWidthAndWider(double width)
@@ -327,7 +327,7 @@ public class VRChatPeopleRowsTests
     }
 
     [Theory]
-    [InlineData(OverlayView.HeadsetDesignWidth)]
+    [InlineData(600)]
     [InlineData(800)]
     public void ALongNameIsTrimmedAndTheLabelsStayWhole(double width)
     {

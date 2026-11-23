@@ -77,6 +77,42 @@ public class DictateButtonTests
     }
 
     [Fact]
+    public void TheHeadsetStripHasOneCloseButtonAtItsRightEdgeBesideDictate()
+    {
+        var targets = Targets(() => OverlayView.BuildForHeadset(Screen(Offered), null, VRChatLook(), 1024));
+
+        var close = Assert.Single(targets, t => t.Target is OverlayTarget.ClosePanel);
+        var dictate = Assert.Single(targets, t => t.Target is OverlayTarget.DictateButton);
+
+        Assert.True(close.Bounds.Left >= dictate.Bounds.Right, "Close sits to the right of Dictate");
+        Assert.True(close.Bounds.Right <= OverlayView.HeadsetPanelWidth(Screen(Offered), VRChatLook(), 1024) + 0.5, "Close is inside the frame");
+        Assert.True(close.Bounds.Top < 100, "Close is in the strip at the top");
+    }
+
+    [Fact]
+    public void TheCloseButtonIsThereWithDictateNotOfferedAndNotInTheModbotLook()
+    {
+        var vrchat = Targets(() => OverlayView.BuildForHeadset(Screen(null), null, VRChatLook(), 1024));
+        var modbot = Targets(() => OverlayView.BuildForHeadset(Screen(Offered), null, OverlayLook.Headset, 1024));
+
+        Assert.Single(vrchat, t => t.Target is OverlayTarget.ClosePanel);
+        Assert.DoesNotContain(modbot, t => t.Target is OverlayTarget.ClosePanel);
+    }
+
+    [Fact]
+    public void TheSharedFrameIsLaidOutAtTheDesktopDesignWidth()
+    {
+        var width = AvaloniaTestHost.Run(() =>
+        {
+            var framed = OverlayView.BuildFramed(Screen(Offered), null, VRChatLook());
+            framed.Measure(new Size(2000, 2000));
+            return framed.DesiredSize.Width;
+        });
+
+        Assert.Equal(VRChatHudLayout.OverlayDesignWidth, width, 1);
+    }
+
+    [Fact]
     public void ItSitsAtTheTopOfThePanel()
     {
         var placed = Assert.Single(

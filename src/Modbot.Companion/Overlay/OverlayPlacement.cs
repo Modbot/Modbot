@@ -77,6 +77,16 @@ public sealed record OverlayPlacement(
 
     public static OverlayPlacement Default { get; } = new(OverlayAnchor.Head, new OverlayPose(0.35f, -0.28f, -1.0f), 0.45f);
 
+    /// <summary>
+    /// How tall the main panel starts: 720 over 600, so it has the desktop window's portrait shape (520 by 720)
+    /// and not a square with empty sides. Only the main panel starts this tall; the chat, the pop-ups and the
+    /// button keep <see cref="Default"/>'s square.
+    /// </summary>
+    public const float MainPanelTall = 1.2f;
+
+    /// <summary>Where the main panel starts when nothing is saved: <see cref="Default"/>, as tall as the desktop window is.</summary>
+    public static OverlayPlacement MainPanelDefault { get; } = Default with { Tall = MainPanelTall };
+
     /// <summary>The longer of <see cref="Wide"/> and <see cref="Tall"/>: how many times the square is stretched.</summary>
     public float Longest => Math.Max(Wide, Tall);
 

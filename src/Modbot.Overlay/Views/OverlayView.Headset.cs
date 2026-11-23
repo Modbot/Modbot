@@ -1,153 +1,58 @@
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Layout;
 using Avalonia.Media;
+using Modbot.Companion.Presentation;
 
 namespace Modbot.Overlay.Views;
 
 /// <summary>
-/// The headset panel in VRChat's look: the desktop window's screen, in a frame with the title strip the
-/// window gives it, drawn bigger so it reads from a metre off.
+/// The headset panel in VRChat's look: the main panel's frame and title strip (<see cref="BuildFramed"/>),
+/// the same the desktop window hosts, drawn bigger so it reads from a metre off.
 /// </summary>
 /// <remarks>
-/// <para>The screen itself is the one the desktop window draws (<see cref="Build(OverlayScreen, Func{string?, IImage?}?, OverlayLook)"/>),
-/// so a headset and a window cannot drift apart. What the window has outside it, its own frame and
-/// title strip, is drawn here for the headset, and the grab bar and the controller hints stay with
-/// the panel's frame (<see cref="PanelFrame"/>).</para>
-/// <para>Laid out at <see cref="HeadsetDesignWidth"/> and drawn at the texture's width
+/// <para>The frame is laid out at the desktop window's design size
+/// (<see cref="VRChatHudLayout.OverlayDesignWidth"/>) and drawn at <see cref="HeadsetScale"/> times that
 /// (<see cref="Zoom"/>), which is what makes the words bigger than they were: 18 points of text is
 /// about 1.7 times that on the texture.</para>
 /// </remarks>
 public sealed partial class OverlayView
 {
-    /// <summary>How wide the VRChat look is laid out for a headset, before it is drawn at the texture's width.</summary>
-    public const double HeadsetDesignWidth = 600;
-
-    /// <summary>How big the group's picture is in the title strip.</summary>
-    private const double StripIconSize = 28;
+    /// <summary>
+    /// How many layout pixels across the texture the headset's words are sized against. The frame is laid out
+    /// narrower than that (the window's width), so it takes about 87% of the texture's width and its words
+    /// are the size in the room they have always been.
+    /// </summary>
+    private const double HeadsetWordsBasis = 600;
 
     /// <summary>
-    /// How many times bigger than its layout the headset panel is drawn: the VRChat look is laid out at
-    /// <see cref="HeadsetDesignWidth"/> and drawn at the texture's width, and the Modbot look is not scaled.
+    /// How many times bigger than its layout the headset panel is drawn: the VRChat look is laid out at the
+    /// window's design size and drawn this much bigger, and the Modbot look is not scaled.
     /// A list's scroll is in layout pixels, so a distance on the texture is divided by this to be one.
     /// </summary>
     public static double HeadsetScale(OverlayLook look, double textureWidth)
     {
         ArgumentNullException.ThrowIfNull(look);
-        return look.VRChat is null ? 1 : textureWidth / HeadsetDesignWidth;
+        return look.VRChat is null ? 1 : textureWidth / HeadsetWordsBasis;
     }
 
     /// <summary>
+    /// How wide the panel's own rectangle is on the texture, in pixels: the frame as drawn when the screen is
+    /// framed, and as wide as the texture (times <paramref name="wide"/>) when it is not.
+    /// </summary>
+    public static double HeadsetPanelWidth(OverlayScreen screen, OverlayLook look, double textureWidth, double wide = 1)
+        => IsFramed(screen, look)
+            ? VRChatHudLayout.OverlayDesignWidth * wide * HeadsetScale(look, textureWidth)
+            : textureWidth * wide;
+
+    /// <summary>
     /// The screen as the headset panel draws it. In the Modbot look that is the screen as it has always
-    /// been; in VRChat's look it is the window's screen in a frame, drawn bigger.
+    /// been; in VRChat's look it is the window's screen in the frame, drawn bigger.
     /// </summary>
     /// <param name="textureWidth">How wide the panel's picture is, in pixels.</param>
     /// <param name="wide">How many times wider than ordinary the panel has been made: the frame is that much wider, and the words stay their size.</param>
     public static Control BuildForHeadset(OverlayScreen screen, Func<string?, IImage?>? icon, OverlayLook look, double textureWidth, double wide = 1)
     {
-        ArgumentNullException.ThrowIfNull(screen);
-        ArgumentNullException.ThrowIfNull(look);
+        var framed = BuildFramed(screen, icon, look, wide);
 
-        var view = new OverlayView(look, icon);
-        var content = view.Draw(screen, icon);
-
-        // Nothing is framed that is not a list: the idle screen draws nothing, and the wrist card is
-        // four large lines that are already drawn for a panel a sixth of the size.
-        if (look.VRChat is null || screen.Page is OverlayPage.Wrist || (screen.IsIdle && !screen.ShowIdleCard))
-            return content;
-
-        return new Zoom(textureWidth / HeadsetDesignWidth, view.HeadsetFrame(screen, content, icon, wide));
-    }
-
-    private Control HeadsetFrame(OverlayScreen screen, Control content, Func<string?, IImage?>? icon, double wide)
-    {
-        var v = V!;
-        var inner = VRChatLook.FrameRadius - VRChatLook.EdgeWidth;
-
-        // A dock, so the name takes what the picture and the Dictate button leave and is cut with an
-        // ellipsis, never drawn under the button.
-        var title = new DockPanel
-        {
-            LastChildFill = true,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            MinHeight = StripIconSize,
-        };
-
-        if (screen.GroupLabel is { } group)
-        {
-            if (icon?.Invoke(screen.GroupIconUrl) is { } image)
-            {
-                var picture = new Border
-                {
-                    Width = StripIconSize,
-                    Height = StripIconSize,
-                    Margin = new Thickness(0, 0, 8, 0),
-                    CornerRadius = new CornerRadius(VRChatLook.PillRadius),
-                    ClipToBounds = true,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Child = new Image { Source = image, Stretch = Stretch.UniformToFill },
-                };
-                DockPanel.SetDock(picture, Avalonia.Controls.Dock.Left);
-                title.Children.Add(picture);
-            }
-
-            var name = Text(group, 20, v.Heading, FontWeight.ExtraBold);
-            name.VerticalAlignment = VerticalAlignment.Center;
-            name.MaxWidth = (HeadsetDesignWidth * wide) - 120;
-            title.Children.Add(name);
-        }
-        else if (screen.NotSynced)
-        {
-            // Outside a managed group's instance the body's own heading says "Not in a group instance"
-            // (or "Another group's instance" for a group no paired server manages), so the
-            // strip carries only the small tag that says the lists are not from the group.
-            title.Children.Add(new Border
-            {
-                Background = VRChatLook.PillGround,
-                BorderBrush = v.Edge,
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(VRChatLook.PillRadius),
-                Padding = new Thickness(10, 3),
-                VerticalAlignment = VerticalAlignment.Center,
-                Child = Text(NotSyncedWords, 13, v.Text, FontWeight.Bold),
-            });
-        }
-
-        Control stripContent = title;
-
-        // Dictate on the right of the strip, the title in the room that is left, like the window's strip.
-        if (screen.Dictate is { } card)
-        {
-            var dictate = DictateButton(card);
-            dictate.VerticalAlignment = VerticalAlignment.Center;
-            DockPanel.SetDock(dictate, Avalonia.Controls.Dock.Right);
-            stripContent = new DockPanel { Children = { dictate, title } };
-        }
-
-        var strip = new Border
-        {
-            Background = v.Bar(),
-            CornerRadius = new CornerRadius(inner, inner, 0, 0),
-            Padding = new Thickness(14, 8),
-            Child = stripContent,
-        };
-
-        return new Border
-        {
-            Width = HeadsetDesignWidth * wide,
-            // Fills the room the panel has, like the window does, so a long list is cut at a rounded
-            // bottom edge rather than running out of the frame.
-            VerticalAlignment = VerticalAlignment.Stretch,
-            ClipToBounds = true,
-            Background = v.Panel(),
-            BorderBrush = v.Edge,
-            BorderThickness = new Thickness(VRChatLook.EdgeWidth),
-            CornerRadius = new CornerRadius(VRChatLook.FrameRadius),
-            // With the list scrolled by pixels, the screen under the strip is given what the strip leaves.
-            Child = screen.ScrollOffset is null
-                ? new StackPanel { Children = { strip, content } }
-                : new FillStack { Children = { strip, content } },
-        };
+        return IsFramed(screen, look) ? new Zoom(HeadsetScale(look, textureWidth), framed) : framed;
     }
 }

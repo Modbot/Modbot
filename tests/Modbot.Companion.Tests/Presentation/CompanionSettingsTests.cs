@@ -164,12 +164,16 @@ public class CompanionSettingsTests : IDisposable
     }
 
     [Fact]
-    public void AMissingOrBrokenOverlayObjectIsTheDefaultPlacement()
+    public void AMissingOrBrokenOverlayObjectIsTheMainPanelsDefaultPlacement()
     {
         Write("""{ "overlay": "sideways" }""");
 
-        Assert.Equal(Modbot.Companion.Overlay.OverlayPlacement.Default, CompanionSettings.Load(Path_, NoEnvironment).Overlay);
-        Assert.Equal(Modbot.Companion.Overlay.OverlayPlacement.Default, CompanionSettings.Default.Overlay);
+        Assert.Equal(Modbot.Companion.Overlay.OverlayPlacement.MainPanelDefault, CompanionSettings.Load(Path_, NoEnvironment).Overlay);
+        Assert.Equal(Modbot.Companion.Overlay.OverlayPlacement.MainPanelDefault, CompanionSettings.Default.Overlay);
+
+        // The main panel starts in the desktop window's portrait shape; the everyday default stays square.
+        Assert.Equal(Modbot.Companion.Overlay.OverlayPlacement.MainPanelTall, Modbot.Companion.Overlay.OverlayPlacement.MainPanelDefault.Tall);
+        Assert.Equal(1f, Modbot.Companion.Overlay.OverlayPlacement.Default.Tall);
     }
 
     [Fact]

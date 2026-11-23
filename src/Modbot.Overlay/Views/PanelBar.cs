@@ -172,12 +172,18 @@ public static class PanelFrame
     /// The panel's width in pixels, when it has been made wider or taller than the texture's square;
     /// null is as wide as it is tall. The rectangle sits at the top left of a square as long as its longer side.
     /// </param>
-    public static Control Main(Control content, PanelBar bar, PanelCursor? cursor, double height, double? width = null)
+    /// <param name="canvas">
+    /// How long the square the rectangle sits in is on a side, in pixels, which the bar's size is worked out
+    /// against; null is the longer of the width and the height. It is given when the rectangle is narrower than
+    /// the texture is wide, as the headset's frame is.
+    /// </param>
+    public static Control Main(Control content, PanelBar bar, PanelCursor? cursor, double height, double? width = null, double? canvas = null)
     {
         ArgumentNullException.ThrowIfNull(content);
 
         var across = width ?? height;
-        var size = BarFor(bar, Math.Max(across, height), OverlayPlacement.Default.Width);
+        var side = canvas ?? Math.Max(across, height);
+        var size = BarFor(bar, side, OverlayPlacement.Default.Width);
         content.VerticalAlignment = VerticalAlignment.Top;
 
         // Nothing to show (the idle screen is 0 tall): the bar would sit at the top of the panel
@@ -198,7 +204,7 @@ public static class PanelFrame
         var column = new StackPanel
         {
             VerticalAlignment = VerticalAlignment.Top,
-            Children = { above, BarRow(bar, size, across, Math.Max(across, height), bar.Corner ? MainGrip + MainSize.Padding : 0) },
+            Children = { above, BarRow(bar, size, across, side, bar.Corner ? MainGrip + MainSize.Padding : 0) },
         };
 
         // Narrower than the square it sits in: the column is the rectangle, from the left.
