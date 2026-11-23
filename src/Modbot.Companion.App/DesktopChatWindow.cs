@@ -124,7 +124,10 @@ internal sealed class DesktopChatWindow : Window
         handle.PointerPressed += (_, e) =>
         {
             if (!_settings.Locked && e.GetCurrentPoint(handle).Properties.IsLeftButtonPressed)
+            {
                 BeginMoveDrag(e);
+                this.BackOnScreen();
+            }
         };
 
         DockPanel.SetDock(_closeButton, Dock.Right);

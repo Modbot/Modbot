@@ -1045,12 +1045,22 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
                 break;
             default:
                 if (!_settings.Locked)
-                    BeginMoveDrag(e);
+                    MoveByDrag(e);
 
                 break;
         }
 
         e.Handled = true;
+    }
+
+    /// <summary>
+    /// Windows' own window drag, which returns when the button is let go; the window, with its bar, is then put
+    /// back inside the screen if the drag left any of it outside.
+    /// </summary>
+    private void MoveByDrag(PointerPressedEventArgs e)
+    {
+        BeginMoveDrag(e);
+        this.BackOnScreen();
     }
 
     /// <summary>Starts or stops watching the mouse, and lets clicks through again only when it should.</summary>
@@ -1331,8 +1341,9 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         if (screen?.WorkingArea is { } box)
         {
             Height = Math.Min(Height, box.Height / scaling);
-            left = Math.Max(box.X, Math.Min(left, box.Right - (int)(Width * scaling)));
-            top = Math.Max(box.Y, Math.Min(top, box.Bottom - (int)(Height * scaling)));
+            (left, top) = KeepOnScreen.Inside(
+                new ScreenBox(left, top, (int)(Width * scaling), (int)(Height * scaling)),
+                WindowSnap.Box(box));
         }
 
         Position = new PixelPoint(left, top);
@@ -1431,7 +1442,7 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         if (target is null && OverlayView.OnStrip(e.Source as Visual) && !_settings.Locked
             && e.GetCurrentPoint(_panel).Properties.IsLeftButtonPressed)
         {
-            BeginMoveDrag(e);
+            MoveByDrag(e);
             e.Handled = true;
             return;
         }
