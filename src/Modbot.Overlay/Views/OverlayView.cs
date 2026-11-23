@@ -52,6 +52,9 @@ public sealed partial class OverlayView
     /// </summary>
     private double? _scrollOffset;
 
+    /// <summary>Whether the frame's title strip carries the Dictate button, so the screen under it does not draw a second one.</summary>
+    private bool _stripHoldsDictate;
+
     private OverlayView(OverlayLook look, Func<string?, IImage?>? picture)
     {
         _look = look;
@@ -219,12 +222,14 @@ public sealed partial class OverlayView
         // So is Dictate, which is on the panel wherever AI Chat is.
         if (screen.IsIdle && !screen.ShowIdleCard)
         {
-            if (!screen.Clips.IsVisible && !screen.Talk.IsVisible && screen.Dictate is null)
+            var ownDictate = screen.Dictate is not null && !_stripHoldsDictate;
+
+            if (!screen.Clips.IsVisible && !screen.Talk.IsVisible && !ownDictate)
                 return new Border { Background = Brushes.Transparent };
 
             var idle = new StackPanel { Spacing = V is null ? 12 : 14 };
 
-            if (screen.Dictate is { } idleDictate)
+            if (ownDictate && screen.Dictate is { } idleDictate)
             {
                 var dictate = DictateButton(idleDictate);
                 dictate.HorizontalAlignment = HorizontalAlignment.Left;
@@ -254,8 +259,9 @@ public sealed partial class OverlayView
             : new StackPanel { Spacing = V is null ? 12 : 14 };
 
         // Dictate is the first thing on the panel, at the top like the desktop window's strip. In VRChat's
-        // look the title strip holds it instead (HeadsetFrame).
-        if (V is null && screen.Dictate is { } dictateCard)
+        // look, and in the Modbot look when the desktop window frames it, the title strip holds it instead
+        // (the shared frame, OverlayView.Frame.cs).
+        if (V is null && !_stripHoldsDictate && screen.Dictate is { } dictateCard)
         {
             var dictate = DictateButton(dictateCard);
             dictate.HorizontalAlignment = HorizontalAlignment.Right;

@@ -669,6 +669,15 @@ public static class PanelFrame
             ? new Panel { Children = { frame, new OverlayView.CursorLayer(where) } }
             : frame;
 
+    /// <summary>
+    /// The bar under the desktop window's panel in edit mode: the lock and the hand, drawn as the headset's bar
+    /// is, at half its pixel size (the desktop window is laid out at half the headset's size). One target each
+    /// (<see cref="OverlayTarget.Lock"/>, <see cref="OverlayTarget.ClickThrough"/>) and the bar's own
+    /// (<see cref="OverlayTarget.Bar"/>), so the window can tell a press on a button from a press on the bar.
+    /// </summary>
+    public static Control EditBar(bool locked, bool clickThrough)
+        => Bar(new PanelBar(true, locked, clickThrough), MainSize.Scaled(0.5));
+
     /// <summary>The bar itself: a rounded strip with the lock and the hand on it.</summary>
     private static Control Bar(PanelBar bar, BarSize size)
     {
