@@ -1,4 +1,7 @@
+using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Media.Imaging;
+using Avalonia.VisualTree;
 using Modbot.Companion.App;
 using Modbot.Companion.Presentation;
 using Modbot.Overlay;
@@ -8,12 +11,9 @@ namespace Modbot.UiBoard;
 
 internal static partial class Surfaces
 {
-    /// <summary>How much of the overlay window's top is kept for the Dictate button tiles: the strip and a little under it.</summary>
-    private const int StripPixels = 64;
-
     /// <summary>
     /// Adds what draws the desktop (VRChat's window) tiles of <see cref="Names"/>. These are the real
-    /// windows, shown offscreen and photographed, so the top strip and the window's own frame are the
+    /// windows, shown offscreen and photographed, so the shared frame and its title strip are the
     /// ones the moderator gets. Nothing here starts a watcher: the windows are only built and shown.
     /// </summary>
     private static void AddDesktop(Dictionary<string, Func<RenderTargetBitmap>> draws)
@@ -35,9 +35,12 @@ internal static partial class Surfaces
         Overlay("overlay-auditlog", Samples.AuditLog());
         Overlay("overlay-choices", Samples.RosterWithChoices());
 
-        // The Dictate states are drawn where the desktop has the button: on the strip, so only the strip is kept.
+        // Edit mode on: the lock and the hand are on the bar below the list, and the resize corner shows.
+        Both("overlay-instance-edit", look => Drawing.OfWindow(OverlayWindow(Samples.Roster(), ready, look, editMode: true)));
+
+        // The Dictate states are drawn where the desktop has the button: on the title strip, so only the strip is kept.
         void Dictate(string id, ButtonScreen card)
-            => Both(id, look => Drawing.OfWindow(OverlayWindow(Samples.Roster(), card, look), StripPixels));
+            => Both(id, look => Drawing.OfWindowPart(OverlayWindow(Samples.Roster(), card, look), TitleStrip));
 
         Dictate("button-dictate-idle", ready);
         Dictate("button-dictate-starting", ready with { Dictate = DictateState.Starting });
@@ -57,8 +60,8 @@ internal static partial class Surfaces
         Chat("chat-error", Samples.ChatError());
     }
 
-    /// <summary>The desktop overlay, at its own size, with a screen and the Dictate card, in the Modbot look or VRChat's.</summary>
-    private static DesktopOverlayWindow OverlayWindow(OverlayScreen screen, ButtonScreen dictate, OverlayLook look)
+    /// <summary>The desktop overlay, at its own size, with a screen and the Dictate card, in the Modbot look or VRChat's; with Edit mode on when asked.</summary>
+    private static DesktopOverlayWindow OverlayWindow(OverlayScreen screen, ButtonScreen dictate, OverlayLook look, bool editMode = false)
     {
         var window = new DesktopOverlayWindow();
 
@@ -67,10 +70,21 @@ internal static partial class Surfaces
         window.Apply(new DesktopOverlaySettings(true, DesktopOverlaySettings.DefaultShortcut, DesktopOverlaySettings.MaximumOpacity));
         window.SetDictate(dictate);
         window.Update(screen);
+        window.EditMode = editMode;
 
         // Show, not Open: Open would start the watchers that look for VRChat's window and palette.
         window.Show();
         return window;
+    }
+
+    /// <summary>The window's title strip across its full width, as far down as the strip goes: the part that carries the Dictate button.</summary>
+    private static Rect? TitleStrip(Window window)
+    {
+        var strip = window.GetVisualDescendants().OfType<Control>().FirstOrDefault(c => c.Name == OverlayView.TitleStripName)
+            ?? throw new InvalidOperationException("The overlay window drew no title strip.");
+        var bottom = strip.TranslatePoint(new Point(0, strip.Bounds.Height), window) ?? throw new InvalidOperationException("The title strip is not on the window.");
+
+        return new Rect(0, 0, window.Bounds.Width, bottom.Y);
     }
 
     /// <summary>The desktop notification window with its cards up.</summary>

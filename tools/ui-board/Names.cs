@@ -74,6 +74,14 @@ internal static class Names
             new Tile(id + "-vr-vrchat", name, Side.Vr, VRChatLook),
         ]);
 
+    /// <summary>A surface that exists in VRChat's window only, drawn in the two looks.</summary>
+    private static Row Desktop(string id, string name)
+        => new(name,
+        [
+            new Tile(id + "-desktop", name, Side.Desktop, ModbotLook),
+            new Tile(id + "-desktop-vrchat", name, Side.Desktop, VRChatLook),
+        ]);
+
     /// <summary>A surface in the headset and in VRChat's window, each in the two looks: the four side by side in one row.</summary>
     private static Row Both(string id, string name)
         => new(name,
@@ -117,6 +125,9 @@ internal static class Names
             Both("overlay-instance", Overlay + ": Instance list"),
             Both("overlay-auditlog", Overlay + ": Audit Log"),
             Both("overlay-choices", Overlay + ": Instance list, Rank choices open"),
+
+            // The lock and the hand bar below the list is on the desktop only; the headset's bar shows when a controller points at the panel.
+            Desktop("overlay-instance-edit", Overlay + ": Instance list, Edit mode on"),
         ]),
 
         new Tab(ButtonPanel, Panel.Button, 70,
@@ -125,7 +136,7 @@ internal static class Names
             Vr("button-hide", ButtonPanel + ": Hide"),
             Vr("button-show", ButtonPanel + ": Show"),
 
-            // The desktop's Dictate button sits on the overlay's top strip, so its tiles are that strip.
+            // The desktop's Dictate button sits on the overlay's title strip, so its tiles are that strip.
             Both("button-dictate-idle", "Dictate button: ready"),
             Both("button-dictate-starting", "Dictate button: starting"),
             Both("button-dictate-listening", "Dictate button: listening"),

@@ -55,17 +55,16 @@ internal static class Drawing
 
     /// <summary>
     /// Draws a window that is up as it is on screen, then closes it. Its ground is see-through, so it
-    /// goes over the backdrop like the others. <paramref name="topOnly"/> keeps just that many pixels
-    /// from the top (the strip along the top of the overlay).
+    /// goes over the backdrop like the others.
     /// </summary>
-    public static RenderTargetBitmap OfWindow(Window window, int? topOnly = null)
-        => OfWindowPart(window, _ => null, topOnly);
+    public static RenderTargetBitmap OfWindow(Window window)
+        => OfWindowPart(window, _ => null);
 
     /// <summary>
     /// Draws a window that is up, then closes it, keeping only the rectangle <paramref name="part"/>
     /// names (found while the window is still up). A null rectangle keeps the whole window.
     /// </summary>
-    public static RenderTargetBitmap OfWindowPart(Window window, Func<Window, Rect?> part, int? topOnly = null)
+    public static RenderTargetBitmap OfWindowPart(Window window, Func<Window, Rect?> part)
     {
         try
         {
@@ -76,7 +75,7 @@ internal static class Drawing
             var left = keep is { } k ? (int)Math.Floor(k.X) : 0;
             var top = keep is { } t ? (int)Math.Floor(t.Y) : 0;
             var width = keep is { } w ? (int)Math.Ceiling(w.Width) : frame.PixelSize.Width;
-            var height = Math.Min(keep is { } h ? (int)Math.Ceiling(h.Height) : frame.PixelSize.Height, topOnly ?? int.MaxValue);
+            var height = keep is { } h ? (int)Math.Ceiling(h.Height) : frame.PixelSize.Height;
             var picture = new Image { Source = frame, Width = frame.PixelSize.Width, Height = frame.PixelSize.Height, Stretch = Stretch.None };
 
             Canvas.SetLeft(picture, -left);

@@ -160,6 +160,13 @@ The moderator can move it: the strip along the top is a drag handle (`BeginMoveD
 leave it is **not** saved — the position is per-session, because a saved position on a monitor that
 is no longer plugged in is a window nobody can find.
 
+> **2026-11-22 note.** The window now sits in the same frame and title strip as the headset panel
+> (group picture, name, Dictate, Close), laid out at 520 by 720. The lock and the hand in edit mode
+> are no longer in the strip: they are on a bar below the list, as under the headset panel, and the bar
+> drags the window too. A drag that ends with the window partly off the screen is followed by a
+> snap back inside the screen's working area, so the window and its bar never stay out of reach; it is
+> not held at the edge while the button is down. The chat windows do the same.
+
 **Multi-monitor.** The screen is worked out each time it is summoned, from **the screen Modbot's
 own window is on**. That is as close to "the monitor the moderator is using" as this client can get
 without going looking at other programs' windows, which is a capability it has no other use for and

@@ -59,13 +59,30 @@ internal static partial class Surfaces
         Chat("chat-error", Samples.ChatError());
     }
 
-    /// <summary>The headset panel: what OverlayHost hands the renderer, with the bar drawn but not showing.</summary>
+    /// <summary>
+    /// The headset panel: what OverlayHost hands the renderer at the shape the main panel starts in (tall, like
+    /// the desktop window), with the bar drawn but not showing, shrunk into the texture's square.
+    /// </summary>
     private static Control HeadsetPanel(OverlayScreen screen, OverlayLook look)
-        => PanelFrame.Main(
-            OverlayView.BuildForHeadset(screen, null, look, OverlayHost.DefaultResolution),
-            PanelBar.For(OverlayPlacement.Default, false),
+    {
+        var shape = OverlayPlacement.MainPanelDefault;
+        const double Texture = OverlayHost.DefaultResolution;
+        var side = Texture * shape.Longest;
+
+        var panel = PanelFrame.Main(
+            OverlayView.BuildForHeadset(screen, null, look, Texture, shape.Wide),
+            PanelBar.For(shape, false),
             null,
-            OverlayHost.DefaultResolution);
+            Texture * shape.Tall,
+            OverlayView.HeadsetPanelWidth(screen, look, Texture, shape.Wide),
+            side);
+
+        return new Viewbox
+        {
+            Stretch = Stretch.Fill,
+            Child = new Border { Width = side, Height = side, Child = panel },
+        };
+    }
 
     /// <summary>The headset notification panel: what NotificationHost hands the renderer, with the bar drawn but not showing.</summary>
     private static Control HeadsetNotification(NotificationScreen cards, OverlayLook look)

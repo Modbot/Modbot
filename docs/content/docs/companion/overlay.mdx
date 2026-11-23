@@ -213,6 +213,13 @@ in a headset, in a rounded frame with your group's icon and name across the top.
 panel and its control hints are the headset's own and are unchanged. When Modbot cannot read a
 palette, the headset panel is drawn in the Modbot look.
 
+The frame and the title strip across the top are one and the same on the headset panel and on the
+desktop overlay. The strip holds your group's picture and name, the **Dictate** button when it is
+offered, and a **Close** button, an X, at the right end. In the headset, point at the X and pull the
+trigger to close the panel, as clicking the X does on the desktop. It puts the panel away the same
+way **Hide** on the [show and hide button](#the-show-and-hide-button) does. In the headset the
+strip, and so the X, is there in VRChat's look only, and not while the panel is on a wrist.
+
 The pop-ups follow the same look. The notification overlay in the headset is drawn in VRChat's
 colours when the headset panel is, and in the Modbot look when it is not. The notification overlay
 on a monitor is drawn in VRChat's colours whenever Modbot can read your palette (the **Look** choice
@@ -429,7 +436,7 @@ While you point at the panel a small bar comes up under it with two buttons:
 | Hand | Click-through: the panel ignores your pointer, so pointing and clicking go to VRChat behind it. The bar still answers, so you can press the hand again to turn it off. The hand is struck through and purple while it is on. |
 
 Both are saved with the panel and kept when you restart. The notification panel and the
-[show and hide button](#the-show-and-hide-button) have the same bar, and so does the [desktop overlay](/companion/settings#desktop-overlay), in the strip along its top.
+[show and hide button](#the-show-and-hide-button) have the same bar, and so does the [desktop overlay](/companion/settings#desktop-overlay): it sits just below the list of people, and like the headset's it is there while **Edit mode** is on.
 
 The notification panel is held the same way as the main panel. While it is unlocked it shows a
 dashed box, and you can take hold of it anywhere inside that box, between the pop-ups or with none
@@ -600,6 +607,8 @@ server or quit the client.
   things anyway. To act on something, use the web app.
 - **The panel starts 0.45 metres wide** in the headset, 0.16 metres on a wrist, and is drawn at
   1024 by 1024 pixels either way.
+- **The main panel starts tall**, the same portrait shape as the desktop overlay, not a square with
+  empty sides. The resize corner still makes it wider or taller.
 - **Long names are cut to one line**, so a display name full of line breaks cannot push the rest of
   the panel out of view.
 - **SteamVR, WiVRn or Monado, on Windows or Linux.** The panel is an OpenVR overlay for SteamVR
@@ -622,6 +631,12 @@ the overlay is open, and clicking it opens and closes the overlay, the same as t
 is there whenever the desktop overlay is on and VRChat's window is showing, and is gone when
 either is not, or when you untick **Show Modbot button in VRChat** in the
 [settings](/companion/settings#desktop-overlay).
+
+With **Edit mode** on, the [bar under the panel](#the-bar-under-the-panel) shows just below the list
+of people, with the lock and the hand. You can drag the window by the title strip or by the bar.
+
+A window dragged partly off the screen goes back inside it when you let go, with its bar. It is not
+held at the edge while you drag, only put back at the end. The chat windows do the same.
 
 With **Edit mode** on, the window has the [resize corner](#the-resize-corner) at its bottom right.
 A size you drag it to replaces the automatic fit beside the menu, so a big window can cover VRChat's

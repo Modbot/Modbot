@@ -26,7 +26,8 @@ internal static class Sizes
     /// <summary>How wide a headset panel is in the headset, in metres.</summary>
     private static double Metres(Panel panel) => panel switch
     {
-        Panel.Main => OpenVrOverlayRuntime.DefaultWidthInMetres,
+        // The panel's square is as long on a side as the panel's longer side: the main panel starts tall.
+        Panel.Main => OpenVrOverlayRuntime.DefaultWidthInMetres * OverlayPlacement.MainPanelDefault.Longest,
 
         // The button's width is the card's; the panel is the card with its clear ground around it.
         Panel.Button => OverlayButton.CornerWidth * OverlayButton.CanvasScale,

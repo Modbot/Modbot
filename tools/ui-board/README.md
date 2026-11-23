@@ -30,7 +30,7 @@ One tab per area, across the top:
 
 | Tab | What | Where it is drawn |
 |---|---|---|
-| Overlay | The main panel: Instance list, Audit Log, Rank choices open | `Surfaces.Vr.cs`, `Surfaces.Desktop.cs` |
+| Overlay | The main panel: Instance list, Audit Log, Rank choices open, and the desktop window with Edit mode on (the lock and hand bar below the list) | `Surfaces.Vr.cs`, `Surfaces.Desktop.cs` |
 | Button panel | The Hide and Show panel (headset only) and the Dictate button's states | `Surfaces.Vr.cs`, `Surfaces.Desktop.cs` |
 | Notifications | The pop-ups | `Surfaces.Vr.cs`, `Surfaces.Desktop.cs` |
 | Chat | The chat pop-up | `Surfaces.Vr.cs`, `Surfaces.Desktop.cs` |
@@ -56,7 +56,7 @@ Pictures are shown at their size relative to each other, not at their texture's 
 in one place, `Sizes.cs`, and the slider multiplies it:
 
 - A headset panel is as wide as in the headset: its width in metres (read from the product's own
-  constants: main panel 0.45, button panel 0.28 (the card's 0.16 with its clear ground), pop-ups 0.41
+  constants: main panel 0.45 times 1.2, as it starts tall, button panel 0.28 (the card's 0.16 with its clear ground), pop-ups 0.41
   (the box's 0.35 with the bar's room), chat 0.55) times 1000 pixels per metre (`PixelsPerMetre`).
 - A window is its own pixel size times 1 (`WindowScale`): its size on a 1920x1080 VRChat window.
 
@@ -78,7 +78,7 @@ A tile that throws shows its error on the board and the others still draw.
 
 - The data is made up. Nothing here reads a server, a log or VRChat.
 - Moving Dictate states: the VR tiles are drawn part-way round (step 2 of 8); the desktop tiles show the window's own picture at its first step, so a moving state can differ between the two only by that step.
-- The desktop Dictate tiles are the overlay window's top 64 pixels, where the button is.
+- The desktop Dictate tiles are the overlay window's title strip, cut where the strip ends.
 - The Debug page and the companion's pop-ups, tray menu and command palette are not on the board.
 - The headset's size on the page is a choice (1000 pixels per metre); only the sizes relative to each other are true.
 - Settings cards are cut out of one tall window, so a card taller than the window (3000 pixels) would be cut off.

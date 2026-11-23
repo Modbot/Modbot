@@ -247,8 +247,8 @@ the file:
 | `desktopOverlay.shortcut` | `mod+alt+m` | The keys that bring it up, `mod` meaning Ctrl. A combination the client cannot ask Windows for falls back to the default. |
 | `desktopOverlay.dictateShortcut` | absent | The keys that start and stop [Dictate](/companion/dictate#on-the-desktop), written the same way. Absent means none; a combination the client cannot ask Windows for is read as none. |
 | `desktopOverlay.opacity` | `90` | 20 to 100. |
-| `desktopOverlay.locked` | `false` | The lock in its strip: the window cannot be dragged. |
-| `desktopOverlay.clickThrough` | `false` | The hand in its strip: clicks on the panel go to VRChat. |
+| `desktopOverlay.locked` | `false` | The lock on the bar below its panel: the window cannot be dragged. |
+| `desktopOverlay.clickThrough` | `false` | The hand on the bar below its panel: clicks on the panel go to VRChat. |
 | `desktopOverlay.showButton` | `true` | Whether Modbot's button shows in VRChat's row of key hints. |
 | `desktopOverlay.wide`, `desktopOverlay.tall` | `1` | How many times wider and taller than ordinary the window was made with its [resize corner](/companion/overlay#the-resize-corner), 1 to 2. |
 | `desktopNotifyOverlay.on` | `true` on a new install, `false` if you already had a settings file | Whether notifications appear in a corner of your screen. See [Notification overlay on a monitor](#notification-overlay-on-a-monitor). |
@@ -469,9 +469,13 @@ The **Dictate** row on the same card records a second shortcut, one that starts 
 }
 ```
 
-The lock and the hand in the window's top strip work like the ones under the headset panel: locked,
-the strip no longer drags the window; with the hand on, clicks on the panel go through to VRChat,
-while the strip itself still takes clicks so you can turn it back off.
+The lock and the hand sit on a bar below the window's list of people, the same bar as under the
+headset panel. The bar is there while **Edit mode** is on. Locked, the window no longer drags;
+with the hand on, clicks on the panel go through to VRChat, while the title strip along the top and
+the bar still take clicks so you can turn the hand back off.
+
+A window dragged partly off the screen goes back inside it when you let go; see
+[the desktop overlay and its bubble](/companion/overlay#the-desktop-overlay-and-its-bubble).
 
 While VRChat's window is showing, the window sits in the free space beside VRChat's Esc menu and
 follows VRChat's size, and a small Modbot bubble with the shortcut's key sits in VRChat's top-left
