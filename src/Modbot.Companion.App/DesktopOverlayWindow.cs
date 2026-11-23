@@ -493,7 +493,13 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 
         // The corner grows the window right and down from its top left, so it can leave the screen, and
         // the bar under the panel with it.
+        var dragged = Height;
         this.FitOnScreen();
+
+        // A height cut to the screen is the height the window has, and the one that is kept and saved.
+        if (Height != dragged)
+            _tall = DesktopPanelSize.TimesOrdinary(Height, _ordinaryHeight);
+
         SaveTheSize();
     }
 
@@ -996,6 +1002,7 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         if (card == _dictate)
             return;
 
+        var before = _dictate;
         _dictate = card;
 
         if (_dictate.DictateMoves)
@@ -1006,6 +1013,16 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         {
             _dictateMotion.Stop();
             _dictateFrame = 0;
+        }
+
+        // The voice level and the percent change often: while the button was there before and is still there,
+        // only it is drawn again, as a step of its picture is.
+        if (before.Dictate is not DictateState.Off
+            && card.Dictate is not DictateState.Off
+            && _panel.Content is Control tree
+            && OverlayView.RedrawDictate(tree, card with { Frame = _dictateFrame }, _look))
+        {
+            return;
         }
 
         DrawScreen();

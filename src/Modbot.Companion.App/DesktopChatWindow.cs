@@ -633,9 +633,8 @@ internal sealed class DesktopChatWindow : Window
 
     private void Put(PixelRect area, int left, int top, int width, int height)
     {
-        var at = new PixelPoint(
-            Math.Clamp(left, area.X, Math.Max(area.X, area.Right - width)),
-            Math.Clamp(top, area.Y, Math.Max(area.Y, area.Bottom - height)));
+        var (x, y) = KeepOnScreen.Inside(new ScreenBox(left, top, width, height), WindowSnap.Box(area));
+        var at = new PixelPoint(x, y);
 
         _placedAt = at;
         Position = at;

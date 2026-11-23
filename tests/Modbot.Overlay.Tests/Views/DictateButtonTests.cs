@@ -168,6 +168,34 @@ public class DictateButtonTests
     }
 
     [Fact]
+    public void ANewPercentRedrawsOnlyTheButtonNotThePanel()
+    {
+        var (found, outsideKept, words) = AvaloniaTestHost.Run(() =>
+        {
+            var preparing = ButtonScreen.Shown with { Dictate = DictateState.GettingReady, Percent = 10 };
+            var root = OverlayView.BuildFramed(Screen(preparing), null, VRChatLook());
+            root.Measure(new Size(Width, Height));
+            root.Arrange(new Rect(0, 0, Width, Height));
+
+            var oldButton = root.GetVisualDescendants().OfType<Border>().Single(b => b.Tag is OverlayTarget.DictateButton);
+            var inside = oldButton.GetVisualDescendants().ToHashSet();
+            var outside = root.GetVisualDescendants().Where(v => v != oldButton && !inside.Contains(v)).ToList();
+
+            var redrawn = OverlayView.RedrawDictate(root, preparing with { Percent = 42 }, VRChatLook());
+
+            var now = root.GetVisualDescendants().ToHashSet();
+            var newButton = root.GetVisualDescendants().OfType<Border>().Single(b => b.Tag is OverlayTarget.DictateButton);
+            var texts = newButton.GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+
+            return (redrawn, outside.All(now.Contains), texts);
+        });
+
+        Assert.True(found);
+        Assert.True(outsideKept, "every other control of the panel is the same one as before");
+        Assert.Contains("42%", words);
+    }
+
+    [Fact]
     public void ATurnOfThePictureOnAPanelWithNoButtonSaysSoAndChangesNothing()
     {
         var redrawn = AvaloniaTestHost.Run(() =>

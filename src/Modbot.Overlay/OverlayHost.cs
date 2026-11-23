@@ -284,8 +284,14 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     {
         ArgumentNullException.ThrowIfNull(card);
 
+        var before = _dictate;
         _dictate = card.Dictate is DictateState.Off ? null : card;
-        Draw();
+
+        // The voice level and the percent change often: the same button swapped in place, as a step of its picture is.
+        if (before is not null && _dictate is not null && before != _dictate)
+            DrawDictateStep();
+        else
+            Draw();
     }
 
     /// <summary>
@@ -718,9 +724,10 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     }
 
     /// <summary>
-    /// Draws the Dictate picture a step on. The tree that drew the last frame is kept laid out, so only the
-    /// button is swapped and the same tree drawn again; when the card is not the one drawn, or the tree has no
-    /// such button, the panel is drawn again from the screen.
+    /// Draws the Dictate button again: a step of its picture, or a new voice level, percent or notice. The tree
+    /// that drew the last frame is kept laid out, so only the button is swapped and the same tree drawn again;
+    /// when the button was drawn in another state, or the tree has no such button, the panel is drawn again
+    /// from the screen.
     /// </summary>
     private void DrawDictateStep()
     {
@@ -728,7 +735,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             && _root is { } root
             && _drawn is { Dictate: { } shown } drawn
             && _dictate is { } card
-            && shown with { Frame = 0 } == card with { Frame = 0 }
+            && shown.Dictate == card.Dictate
             && OverlayView.RedrawDictate(root, card with { Frame = _dictateFrame }, _look))
         {
             _drawn = drawn with { Dictate = card with { Frame = _dictateFrame } };
