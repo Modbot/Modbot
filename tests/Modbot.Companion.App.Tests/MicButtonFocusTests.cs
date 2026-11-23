@@ -1,7 +1,10 @@
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
+using Modbot.Companion.Overlay;
 using Modbot.Companion.Presentation;
+using Modbot.Overlay.Interaction;
+using Modbot.Overlay.Views;
 
 namespace Modbot.Companion.App.Tests;
 
@@ -28,9 +31,16 @@ public sealed class MicButtonFocusTests
         {
             var window = new DesktopOverlayWindow();
 
+            // The Dictate button is part of the shared title strip, which exists once a screen is drawn.
+            window.SetDictate(ButtonScreen.Shown with { Dictate = DictateState.Idle });
+            window.Update(new OverlayScreen(
+                "Cat Lounge",
+                new Cached<InstanceContext>(new InstanceContext("39911", []), Freshness.Fresh, TimeSpan.Zero),
+                Freshness.Fresh));
+
             var dictate = window.GetLogicalDescendants()
-                .OfType<Button>()
-                .Single(button => ToolTip.GetTip(button) as string == "Dictate");
+                .OfType<Control>()
+                .Single(control => control.Tag is OverlayTarget.DictateButton);
 
             Assert.False(dictate.Focusable);
         });

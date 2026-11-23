@@ -116,8 +116,8 @@ public sealed record OverlayStatus(
     string? Holding = null,
     bool On = true)
 {
-    /// <summary>Where the panel is, never null: the default until the host has said.</summary>
-    public OverlayPlacement PlacementOrDefault => Placement ?? OverlayPlacement.Default;
+    /// <summary>Where the main panel is, never null: its start shape until the host has said.</summary>
+    public OverlayPlacement PlacementOrDefault => Placement ?? OverlayPlacement.MainPanelDefault;
 
     /// <summary>Before the overlay exists, or when it could not be set up on this PC.</summary>
     public static OverlayStatus None { get; } = new(

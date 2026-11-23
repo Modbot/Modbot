@@ -105,6 +105,10 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 
     private OverlayScreen? _drawn;
 
+    // Which page and person the body drawn now is, so a redraw of the same one keeps where its own scroll
+    // (the person card's) stood instead of going back to the top.
+    private (OverlayPage Page, string? Person, bool Idle)? _bodyKey;
+
     // Where the Instance list and the Audit Log are scrolled to, in pixels of the panel's layout, and the
     // list each belongs to: another list goes back to its top. Moved by the wheel and the keys, a glide
     // at a time (_glideWatch).
@@ -595,6 +599,16 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         var withDictate = screen with { Dictate = _dictate.Dictate is DictateState.Off ? null : _dictate with { Frame = _dictateFrame } };
         var options = WindowOptions;
 
+        // A page with no list scrolled by pixels scrolls in the frame's own viewer, which a new tree
+        // starts at the top: its place is read from the tree being replaced when it is the same body.
+        Vector? kept = null;
+        var bodyKey = (screen.Page, screen.Person?.SubjectId, screen.IsIdle);
+
+        if (shown is null && _bodyKey == bodyKey && _panel.Content is Control old)
+            kept = old.GetLogicalDescendants().OfType<ScrollViewer>().FirstOrDefault()?.Offset;
+
+        _bodyKey = bodyKey;
+
         _drawnWith = (_look, options);
         var built = OverlayView.BuildFramed(
             screen.IsIdle
@@ -613,6 +627,11 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             _panel.UpdateLayout();
             shown.Clamp(OverlayView.MaxScroll(tree));
             OverlayView.SetScroll(tree, shown.Offset);
+        }
+        else if (kept is { } offset && built.GetLogicalDescendants().OfType<ScrollViewer>().FirstOrDefault() is { } scroll)
+        {
+            _panel.UpdateLayout();
+            scroll.Offset = offset;
         }
 
         // A new tree is drawn unlit, and what was under the mouse may have moved away from it

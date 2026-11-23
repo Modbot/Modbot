@@ -38,7 +38,7 @@ public class OverlaySettingsWhileOffTests
     [Fact]
     public void WithNothingSaidTheDefaultIsWhatTheCardShows()
     {
-        Assert.Equal(OverlayPlacement.Default, OverlayStatus.None.PlacementOrDefault);
+        Assert.Equal(OverlayPlacement.MainPanelDefault, OverlayStatus.None.PlacementOrDefault);
         Assert.Equal(NotifyOverlaySettings.Default, NotifyOverlayStatus.None.SettingsOrDefault);
     }
 

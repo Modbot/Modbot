@@ -3348,7 +3348,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             _desktopOverlay.Apply(settings);
             _desktopOverlay.PanelTapped += target => _overlay?.Tap(target);
 
-            // The strip's lock and hand: saved and applied like any other change to the window.
+            // The bar's lock and hand under the panel: saved and applied like any other change to the window.
             _desktopOverlay.SwitchPressed += SetDesktopOverlay;
             _desktopOverlay.NameTyped += (list, name) => _overlay?.SetName(list, name);
             _desktopOverlay.HeadsUpTyped += words => _overlay?.SetHeadsUpText(words);

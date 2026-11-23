@@ -140,7 +140,7 @@ public static class DesktopOverlayKeys
 /// <param name="On">Whether the overlay window exists and its shortcut is registered.</param>
 /// <param name="Shortcut">The combination, in <see cref="KeyTokens"/> spelling.</param>
 /// <param name="Opacity">How solid the panel's background is, from 20 to 100.</param>
-/// <param name="Locked">The window cannot be dragged by its strip.</param>
+/// <param name="Locked">The window cannot be dragged by its strip or the bar under it.</param>
 /// <param name="ClickThrough">Clicks on the panel go through to the game; the strip still answers.</param>
 /// <param name="ShowButton">Modbot's button in VRChat's Esc row is drawn. On unless switched off; the shortcut works either way.</param>
 /// <param name="DictateShortcut">The combination that starts and stops Dictate, in <see cref="KeyTokens"/> spelling, or null for none. Unlike <see cref="Shortcut"/> it has no default: it claims a combination across the whole machine, so it is asked for.</param>
