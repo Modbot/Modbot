@@ -5,9 +5,11 @@ using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Modbot.Companion.Presentation;
 using Modbot.Overlay;
 using Modbot.Overlay.Driving;
@@ -82,30 +84,24 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     /// <summary>How far in from the screen's edge it sits.</summary>
     private const int EdgeMargin = 32;
 
-    /// <summary>How big the group's icon is drawn in the strip along the top.</summary>
-    private const double IconSize = 22;
-
     private readonly ContentControl _panel = new();
 
     // What the mouse is on and lights up, by the same rule the headset's laser lights things by.
     private readonly Lit _lit = new();
     private OverlayTarget? _litTarget;
     private Point? _mouse;
-    private readonly Image _groupIcon = new() { Width = IconSize, Height = IconSize, Stretch = Stretch.UniformToFill };
-    private readonly Border _groupIconFrame;
-    private readonly TextBlock _groupName = Ui.Text(
-        "", Ui.T.Density.TextBase, Ui.T.TextBrush, FontWeight.SemiBold, wrap: false);
 
-    // The small tag in the strip, in VRChat's look, that says the lists are made from this PC's own
-    // log (OverlayView.NotSyncedWords). Shown only outside a group's instance, in place of a title.
-    private readonly TextBlock _syncTagText = Ui.Text(
-        OverlayView.NotSyncedWords, 13, Ui.T.TextBrush, FontWeight.Bold, wrap: false);
-    private readonly Border _syncTag;
+    // The bar under the panel in edit mode: the lock and the hand, drawn again whenever either changes. It
+    // is in the same window as the panel, so it is on the screen wherever the panel is.
+    private readonly Border _barHost = new() { IsVisible = false, HorizontalAlignment = HorizontalAlignment.Center, Background = Brushes.Transparent };
+    private readonly Lit _barLit = new();
+    private OverlayTarget? _barLitTarget;
 
-    // What the strip is made of, laid out again when the look changes.
-    private readonly DockPanel _title = new() { LastChildFill = true, IsHitTestVisible = false };
-    private StripLayout? _strip;
-    private readonly DockPanel _buttons = new() { LastChildFill = false };
+    // The title strip of the tree drawn now, for the click-through region.
+    private Control? _strip;
+
+    // What the tree was last drawn with, so a different look, opacity or corner draws it again.
+    private (OverlayLook Look, OverlayView.WindowFrame Frame)? _drawnWith;
 
     private OverlayScreen? _drawn;
 
@@ -116,10 +112,6 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     private readonly ListScroll _eventScroll = new();
     private int _rosterListId;
     private int _eventListId;
-
-    // The window's own scrolling, kept for the person card, which is taller than the window; the two lists
-    // scroll themselves and need the room the window has.
-    private ScrollViewer? _body;
 
     private readonly DispatcherTimer _glideWatch = new(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(16) };
     private long _glideStamp;
@@ -143,7 +135,6 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     private double _ordinaryHeight = PanelHeight;
     private double _wide = 1;
     private double _tall = 1;
-    private readonly List<Style> _hoverStyles = [];
 
     // While the window is up: VRChat's selected palette looked at every two seconds, off the UI
     // thread, since it is a read from Windows. At most one look is out at a time.
@@ -162,27 +153,17 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     private int _waitCount;
     private long _waitStartedAt;
 
-    // The strip, and its two switches, repainted whenever the settings change.
-    private Border? _head;
-    private readonly Button _lockButton = SwitchButton();
-    private readonly Button _throughButton = SwitchButton();
-    private readonly Button _closeButton = Ui.Button("Close");
-
-    // The Dictate button next to Close: there only while AI Chat is on. What it shows comes from
+    // The Dictate button in the title strip: there only while AI Chat is on. What it shows comes from
     // the same card the headset's button is drawn from; the picture moves a step every 150 ms
     // while it has something to show (listening, writing, or getting the speech model).
-    private readonly Button _dictateButton = SwitchButton();
     private readonly DispatcherTimer _dictateMotion = new() { Interval = TimeSpan.FromMilliseconds(150) };
     private ButtonScreen _dictate = ButtonScreen.Shown;
     private int _dictateFrame;
 
-    // The Close button's caption, kept so it can stand in for the icon the VRChat look gives it.
-    private readonly object? _closeCaption;
-
     private bool _editMode;
 
     /// <summary>
-    /// Whether the strip shows the lock and the hand. Off by default and set from the window's
+    /// Whether the bar under the panel shows the lock and the hand. Off by default and set from the window's
     /// Edit mode switch, as for the headset panels; what they were left at still holds.
     /// </summary>
     public bool EditMode
@@ -191,8 +172,7 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         set
         {
             _editMode = value;
-            _lockButton.IsVisible = value;
-            _throughButton.IsVisible = value;
+            _barHost.IsVisible = value;
             PaintCorner();
         }
     }
@@ -277,51 +257,23 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
         Background = GroundBrush();
 
-        _groupIconFrame = new Border
-        {
-            Width = IconSize,
-            Height = IconSize,
-            CornerRadius = new CornerRadius(IconSize / 2),
-            ClipToBounds = true,
-            VerticalAlignment = VerticalAlignment.Center,
-            IsVisible = false,
-            Child = _groupIcon,
-        };
-
-        _syncTagText.VerticalAlignment = VerticalAlignment.Center;
-        _syncTag = new Border
-        {
-            Background = VRChatLook.PillGround,
-            CornerRadius = new CornerRadius(VRChatLook.PillRadius),
-            BorderThickness = new Thickness(1),
-            Padding = new Thickness(10, 3),
-            VerticalAlignment = VerticalAlignment.Center,
-            IsVisible = false,
-            Child = _syncTagText,
-        };
-
-        _closeCaption = _closeButton.Content;
-
-        var body = new ScrollViewer
-        {
-            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
-            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
-            Content = _panel,
-        };
-        _body = body;
-
-        var head = Head();
-        _head = head;
-        DockPanel.SetDock(head, Dock.Top);
-
         // The panel is laid out at its own size and then drawn bigger or smaller by the scaler, so
         // layout, scrolling and clicking all work at any size (the transform is undone for a click).
-        // The frame is what VRChat's look draws its rounded edge on; it is bare otherwise.
+        // The panel holds the shared frame and title strip (OverlayView.BuildFramed); the bar with the lock
+        // and the hand sits under it, docked first so the panel's shadow is drawn behind it.
         _corner.Margin = new Thickness(0, 0, 4, 4);
         _corner.PointerPressed += CornerPressed;
         _corner.PointerMoved += CornerMoved;
         _corner.PointerReleased += CornerReleased;
-        _frame.Child = new Grid { Children = { new DockPanel { Children = { head, body } }, _corner } };
+
+        DockPanel.SetDock(_barHost, Dock.Bottom);
+        _barHost.ZIndex = 1;
+        _barHost.PointerPressed += OnBarPressed;
+        _barHost.PointerMoved += OnBarMoved;
+        _barHost.PointerExited += (_, _) => LightBar(null);
+        PaintBar();
+
+        _frame.Child = new Grid { Children = { new DockPanel { Children = { _barHost, _panel } }, _corner } };
         _scaler.Child = _frame;
         Content = _scaler;
 
@@ -353,8 +305,8 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         _throughWatch.Tick += (_, _) => WatchTheMouse();
         _dictateMotion.Tick += (_, _) =>
         {
-            _dictateFrame++;
-            PaintDictate();
+            _dictateFrame = (_dictateFrame + 1) % 8;
+            DrawScreen();
         };
         Closed += (_, _) =>
         {
@@ -445,152 +397,8 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     }
 
     /// <summary>
-    /// The strip along the top: whose community this is, and the way to move the window.
-    /// </summary>
-    /// <remarks>
-    /// <para>The group's icon and the group's name, because that is what a moderator knows their
-    /// community by. It used to say the product's name and then the address of the machine the
-    /// server runs on, which told them nothing they did not already know and nothing they wanted.
-    /// The address is only what the name falls back to.</para>
-    /// <para>Dragging the strip is why it exists — the window has no border to drag — so the drag
-    /// starts on the strip itself and never on the Close button, which used to swallow the press
-    /// that was meant to close the window.</para>
-    /// </remarks>
-    private Border Head()
-    {
-        _groupName.VerticalAlignment = VerticalAlignment.Center;
-
-        var close = _closeButton;
-        close.Click += (_, _) => Dismiss();
-        close.VerticalAlignment = VerticalAlignment.Center;
-
-        _lockButton.Click += (_, _) => SwitchPressed?.Invoke(_settings with { Locked = !_settings.Locked });
-        _throughButton.Click += (_, _) => SwitchPressed?.Invoke(_settings with { ClickThrough = !_settings.ClickThrough });
-        PaintSwitches();
-        _lockButton.IsVisible = _editMode;
-        _throughButton.IsVisible = _editMode;
-
-        var switches = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 6,
-            VerticalAlignment = VerticalAlignment.Center,
-            Children = { _lockButton, _throughButton },
-        };
-        _switches = switches;
-
-        // The buttons sit on the strip's own sides, and the title is its own layer: the layers under
-        // the buttons answer a press by moving the window, the buttons answer for themselves. Where
-        // the buttons go, and where the title goes, is laid out for the look in use (PaintStrip).
-        _title.VerticalAlignment = VerticalAlignment.Center;
-        // The icon and the tag keep their own size and the name takes what they leave, cut with an
-        // ellipsis when the strip is short (the strip gives the title only what the buttons leave).
-        _groupIconFrame.Margin = new Thickness(0, 0, 8, 0);
-        DockPanel.SetDock(_groupIconFrame, Dock.Left);
-        _syncTag.Margin = new Thickness(8, 0, 0, 0);
-        DockPanel.SetDock(_syncTag, Dock.Right);
-        _groupName.HorizontalAlignment = HorizontalAlignment.Left;
-        _title.Children.Add(_groupIconFrame);
-        _title.Children.Add(_syncTag);
-        _title.Children.Add(_groupName);
-
-        var handle = new Border { Background = Brushes.Transparent };
-        handle.PointerPressed += (_, e) =>
-        {
-            if (!_settings.Locked && e.GetCurrentPoint(handle).Properties.IsLeftButtonPressed)
-                BeginMoveDrag(e);
-        };
-
-        _dictateButton.IsVisible = false;
-        _dictateButton.VerticalAlignment = VerticalAlignment.Center;
-        _dictateButton.Click += (_, _) => DictatePressed?.Invoke();
-        ToolTip.SetTip(_dictateButton, "Dictate");
-        DockPanel.SetDock(_dictateButton, Dock.Right);
-
-        _buttons.Children.Add(close);
-        _buttons.Children.Add(_dictateButton);
-        _buttons.Children.Add(switches);
-        _strip = new StripLayout { Children = { handle, _title, _buttons } };
-        PaintClose();
-        PaintStrip();
-
-        return new Border
-        {
-            Padding = new Thickness(12, 8),
-            Background = Ui.T.Surface2Brush,
-            BorderBrush = Ui.T.BorderBrush,
-            BorderThickness = new Thickness(0, 0, 0, Ui.T.Density.Hairline),
-            Child = _strip,
-        };
-    }
-
-    /// <summary>
-    /// The strip: the handle under everything, the buttons on the sides, and the title in what the buttons
-    /// leave. The title is in the middle of the strip when it fits there, and moves over to the free side
-    /// when a wide button (Dictate saying "Getting ready 42%") takes more than its share; what still does
-    /// not fit is cut with an ellipsis, never drawn under a button.
-    /// </summary>
-    private sealed class StripLayout : Panel
-    {
-        /// <summary>The room kept clear of the title at each end whatever the buttons are, so it sits in the middle whether or not the lock and the hand show.</summary>
-        public double MinSide { get; set; }
-
-        /// <summary>Put the title in the middle of the strip (VRChat's look) rather than at its left end.</summary>
-        public bool Centered { get; set; }
-
-        private const double Gap = 8;
-
-        private double _titleLeft;
-        private double _titleWidth;
-
-        protected override Size MeasureOverride(Size availableSize)
-        {
-            var handle = Children[0];
-            var title = Children[1];
-            var buttons = Children[2];
-
-            buttons.Measure(availableSize);
-
-            double left = 0, right = 0;
-            foreach (var button in ((DockPanel)buttons).Children.Where(child => child.IsVisible))
-            {
-                if (DockPanel.GetDock(button) == Dock.Left)
-                    left += button.DesiredSize.Width;
-                else
-                    right += button.DesiredSize.Width;
-            }
-
-            var before = left > 0 ? Math.Max(left + Gap, MinSide) : MinSide;
-            var after = right > 0 ? Math.Max(right + Gap, MinSide) : MinSide;
-
-            var total = double.IsInfinity(availableSize.Width) ? buttons.DesiredSize.Width : availableSize.Width;
-            var span = Math.Max(0, total - before - after);
-
-            title.Measure(new Size(span, availableSize.Height));
-            _titleWidth = Math.Min(title.DesiredSize.Width, span);
-            _titleLeft = Centered
-                ? Math.Clamp((total - _titleWidth) / 2, before, Math.Max(before, total - after - _titleWidth))
-                : before;
-
-            handle.Measure(new Size(total, availableSize.Height));
-
-            return new Size(total, Math.Max(title.DesiredSize.Height, buttons.DesiredSize.Height));
-        }
-
-        protected override Size ArrangeOverride(Size finalSize)
-        {
-            Children[0].Arrange(new Rect(finalSize));
-            Children[1].Arrange(new Rect(_titleLeft, 0, _titleWidth, finalSize.Height));
-            Children[2].Arrange(new Rect(finalSize));
-            return finalSize;
-        }
-    }
-
-    private StackPanel? _switches;
-
-    /// <summary>
-    /// The window's ground, the strip's and the group's name, drawn for the look in use: today's,
-    /// or VRChat's with its bar, its rounded panel and its edge.
+    /// The window's ground, and the panel drawn again when what it is framed with has changed: the look, the
+    /// opacity (VRChat's look), or whether the corners can be rounded.
     /// </summary>
     private void PaintGround()
     {
@@ -601,57 +409,20 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         PaintFrameWidth();
         _frame.HorizontalAlignment = HorizontalAlignment.Left;
 
-        if (_look.VRChat is { } v)
-        {
-            // The panel, thinned out by the opacity setting while everything on it stays solid. Where
-            // the window can be see-through it is drawn a little in from the window's edge, with a
-            // soft shadow falling into the room that leaves; where it cannot, the shadow would be a
-            // dark square, so it has neither.
-            var round = CanRoundTheCorners;
-            _frame.Background = v.Panel(_settings.Alpha);
-            _frame.BorderBrush = v.Edge;
-            _frame.BorderThickness = new Thickness(VRChatLook.EdgeWidth);
-            _frame.CornerRadius = round ? new CornerRadius(VRChatLook.FrameRadius) : default;
-            _frame.Margin = round ? new Thickness(VRChatLook.ShadowRoom) : default;
-            _frame.BoxShadow = round ? v.PanelShadow : default;
-            _frame.ClipToBounds = false;
+        // Where the window can be see-through the panel is drawn a little in from the window's edge (VRChat's
+        // look), with a soft shadow falling into the room that leaves; where it cannot, the shadow would be a
+        // dark square, so it has neither.
+        _frame.Margin = _look.VRChat is not null && CanRoundTheCorners ? new Thickness(VRChatLook.ShadowRoom) : default;
 
-            if (_head is not null)
-            {
-                // The strip's top corners follow the panel's, inside its edge, so nothing has to be
-                // clipped (a clip would take the panel's shadow with it).
-                var inner = round ? VRChatLook.FrameRadius - VRChatLook.EdgeWidth : 0;
-                _head.Background = v.Bar(_settings.Alpha);
-                _head.BorderThickness = default;
-                _head.CornerRadius = new CornerRadius(inner, inner, 0, 0);
-                _head.Padding = new Thickness(14, 8);
-            }
-        }
-        else
-        {
-            _frame.Background = null;
-            _frame.BorderBrush = null;
-            _frame.BorderThickness = default;
-            _frame.CornerRadius = default;
-            _frame.Margin = default;
-            _frame.BoxShadow = default;
-            _frame.ClipToBounds = false;
-
-            if (_head is not null)
-            {
-                _head.Background = Ui.T.Surface2Brush;
-                _head.BorderBrush = Ui.T.BorderBrush;
-                _head.BorderThickness = new Thickness(0, 0, 0, Ui.T.Density.Hairline);
-                _head.CornerRadius = default;
-                _head.Padding = new Thickness(12, 8);
-            }
-        }
-
-        PaintTitle();
-        PaintClose();
-        PaintStrip();
         PaintCorner();
+        PaintBar();
+
+        if (_drawnWith != (_look, WindowOptions))
+            DrawScreen();
     }
+
+    /// <summary>How the shared frame is asked for: the opacity and the rounded corners of the window as it is now.</summary>
+    private OverlayView.WindowFrame WindowOptions => new(_settings.Alpha, CanRoundTheCorners);
 
     /// <summary>
     /// The panel's width: the design width times how many times wider than ordinary the window was
@@ -735,129 +506,6 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         SaveTheSize();
     }
 
-    /// <summary>
-    /// Where the strip's parts go. In VRChat's look it is a header bar like the side panels': the
-    /// title in the middle, the lock and the hand at one end and Close at the other. Otherwise it is
-    /// what it always was: the title at the left and the buttons together at the right.
-    /// </summary>
-    private void PaintStrip()
-    {
-        if (_switches is null)
-            return;
-
-        if (_look.VRChat is not null)
-        {
-            // Room each side for the two buttons the lock and the hand make at most, so the title
-            // is in the middle of the bar whether or not they are showing.
-            var reserve = (VRChatLook.RoundButton * 2) + 6 + 12;
-            _strip!.MinSide = reserve;
-            _strip.Centered = true;
-            _strip.InvalidateMeasure();
-            DockPanel.SetDock(_switches, Dock.Left);
-            _switches.Margin = default;
-            _switches.Spacing = 8;
-            return;
-        }
-
-        _strip!.MinSide = 0;
-        _strip.Centered = false;
-        _strip.InvalidateMeasure();
-        DockPanel.SetDock(_switches, Dock.Right);
-        _switches.Margin = new Thickness(0, 0, 8, 0);
-        _switches.Spacing = 6;
-    }
-
-    /// <summary>
-    /// The strip's words. In VRChat's look, a centred bold title: the group's name inside a group's
-    /// instance, and anywhere else a small tag that says the lists are not synced with the group, with
-    /// no title at all, because the panel's own heading says "Not in a group instance" (or "Another
-    /// group's instance") once. Otherwise
-    /// today's words: the group's name, or what stands in for it.
-    /// </summary>
-    private void PaintTitle()
-    {
-        var group = _drawn?.GroupLabel;
-
-        if (_look.VRChat is { } v)
-        {
-            _groupName.Text = group ?? string.Empty;
-            _groupName.IsVisible = group is not null;
-            _groupName.FontSize = 20;
-            _groupName.FontWeight = FontWeight.ExtraBold;
-
-            // In the look's heading colour, as VRChat's own "Here" is.
-            _groupName.Foreground = v.Heading;
-
-            // The title sits between the buttons' room on both sides; the icon and its gap take 36 of
-            // what is left, and a longer name is cut with an ellipsis rather than run under them.
-            _groupName.MaxWidth = 230;
-
-            _groupIconFrame.Width = _groupIconFrame.Height = VRChatIconSize;
-            _groupIcon.Width = _groupIcon.Height = VRChatIconSize;
-            _groupIconFrame.CornerRadius = new CornerRadius(VRChatLook.PillRadius);
-
-            _syncTag.IsVisible = group is null && _drawn is { NotSynced: true };
-            _syncTag.BorderBrush = v.Edge;
-            _syncTagText.Foreground = v.Text;
-            return;
-        }
-
-        _groupName.Text = _drawn is null ? string.Empty : group ?? _drawn.NoGroupWords;
-        _groupName.IsVisible = true;
-        _groupName.FontSize = Ui.T.Density.TextBase;
-        _groupName.FontWeight = FontWeight.SemiBold;
-        _groupName.Foreground = group is null && _drawn is not null ? Ui.T.TextDimBrush : Ui.T.TextBrush;
-        _groupName.MaxWidth = double.PositiveInfinity;
-
-        _groupIconFrame.Width = _groupIconFrame.Height = IconSize;
-        _groupIcon.Width = _groupIcon.Height = IconSize;
-        _groupIconFrame.CornerRadius = new CornerRadius(IconSize / 2);
-
-        _syncTag.IsVisible = false;
-    }
-
-    /// <summary>How big the group's icon is drawn in the strip in VRChat's look.</summary>
-    private const double VRChatIconSize = 28;
-
-    /// <summary>
-    /// The Close button: a round icon button like the side panels' in VRChat's look, and as
-    /// <see cref="Ui.Button"/> makes it otherwise.
-    /// </summary>
-    private void PaintClose()
-    {
-        _closeButton.Classes.Set("vrchat", _look.VRChat is not null);
-
-        if (_look.VRChat is { } v)
-        {
-            _closeButton.Width = _closeButton.Height = VRChatLook.RoundButton;
-            _closeButton.CornerRadius = new CornerRadius(VRChatLook.RoundButton / 2);
-            _closeButton.Padding = new Thickness(10);
-            _closeButton.Background = v.Button;
-            _closeButton.BorderBrush = v.RaisedEdge;
-            _closeButton.BorderThickness = new Thickness(VRChatLook.EdgeWidth);
-            _closeButton.Content = new Viewbox { Child = CloseIcon(v.Icon) };
-            DockPanel.SetDock(_closeButton, Dock.Right);
-            return;
-        }
-
-        _closeButton.Width = double.NaN;
-        _closeButton.Height = Ui.T.Density.ControlHeight;
-        _closeButton.CornerRadius = new CornerRadius(Ui.T.Density.Radius);
-        _closeButton.Padding = new Thickness(12, 0);
-        _closeButton.Background = Ui.T.Surface2Brush;
-        _closeButton.BorderBrush = Ui.T.Border2Brush;
-        _closeButton.BorderThickness = new Thickness(Ui.T.Density.Hairline);
-        _closeButton.Content = _closeCaption;
-        DockPanel.SetDock(_closeButton, Dock.Right);
-
-        if (_closeButton.Content is TextBlock plain)
-        {
-            plain.FontSize = Ui.T.Density.TextSmall;
-            plain.FontWeight = FontWeight.Medium;
-            plain.Foreground = Ui.T.TextBrush;
-        }
-    }
-
     /// <summary>A cross on a 24-unit square, for the Close button's round icon.</summary>
     internal static Control CloseIcon(IBrush brush)
     {
@@ -872,30 +520,6 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         });
 
         return canvas;
-    }
-
-    /// <summary>
-    /// The three strip buttons light up under the mouse in the palette's own colours rather than
-    /// in the theme's grey. One style, replaced when the look changes.
-    /// </summary>
-    private void PaintHoverStyle()
-    {
-        foreach (var old in _hoverStyles)
-            Styles.Remove(old);
-
-        _hoverStyles.Clear();
-
-        if (_look.VRChat is not { } v)
-            return;
-
-        foreach (var state in new[] { ":pointerover", ":pressed" })
-        {
-            var style = new Style(x => x.OfType<Button>().Class("vrchat").Class(state).Template().OfType<ContentPresenter>().Name("PART_ContentPresenter"));
-            style.Setters.Add(new Setter(ContentPresenter.BackgroundProperty, v.Hover));
-            style.Setters.Add(new Setter(ContentPresenter.BorderBrushProperty, v.RaisedEdge));
-            Styles.Add(style);
-            _hoverStyles.Add(style);
-        }
     }
 
     /// <summary>
@@ -946,12 +570,6 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             _typing = _typingFor is null ? null : screen.ShownFilters?.Name ?? string.Empty;
         }
 
-        PaintTitle();
-
-        var picture = GroupIcon?.Invoke(screen.GroupIconUrl);
-        _groupIcon.Source = picture;
-        _groupIconFrame.IsVisible = picture is not null;
-
         DrawScreen();
 
         return true;
@@ -972,16 +590,22 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         // row kept at the top of the Instance list; the person card is the window's own to scroll.
         var shown = ShownScroll;
 
-        if (_body is not null)
-        {
-            _body.VerticalScrollBarVisibility = shown is null
-                ? Avalonia.Controls.Primitives.ScrollBarVisibility.Auto
-                : Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled;
-        }
+        // The Dictate button is on the strip, from the card the controller last gave; the drive loop's own
+        // screen (_drawn) stays as it sent it, so what looks the same is still told apart.
+        var withDictate = screen with { Dictate = _dictate.Dictate is DictateState.Off ? null : _dictate with { Frame = _dictateFrame } };
+        var options = WindowOptions;
 
-        _panel.Content = screen.IsIdle
-            ? OverlayView.Build(screen with { ShowIdleCard = true }, GroupIcon, _look)
-            : OverlayView.Build(shown is null ? screen : screen with { ScrollOffset = shown.Offset, PinOwnRow = true }, GroupIcon, _look);
+        _drawnWith = (_look, options);
+        var built = OverlayView.BuildFramed(
+            screen.IsIdle
+                ? withDictate with { ShowIdleCard = true }
+                : shown is null ? withDictate : withDictate with { ScrollOffset = shown.Offset, PinOwnRow = true },
+            GroupIcon,
+            _look,
+            window: options);
+
+        _strip = built.GetLogicalDescendants().OfType<Control>().FirstOrDefault(c => c.Name == OverlayView.TitleStripName);
+        _panel.Content = built;
 
         // The list's room is only known once it is laid out; a list that has got shorter is held inside it.
         if (shown is not null && _panel.Content is Control tree)
@@ -1223,10 +847,8 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         _colours = colours;
         _look = colours is null ? OverlayLook.Headset : OverlayLook.FromColours(colours);
 
-        PaintHoverStyle();
+        // The ground, the bar and the panel are all drawn again for the look.
         PaintGround();
-        PaintSwitches();
-        DrawScreen();
         LookChanged?.Invoke();
     }
 
@@ -1310,7 +932,6 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         _tall = tall;
 
         PaintGround();
-        PaintSwitches();
         WatchTheMouseWhileNeeded();
 
         if (resized && IsVisible)
@@ -1340,53 +961,16 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         VerticalContentAlignment = VerticalAlignment.Center,
     };
 
-    /// <summary>The two switches drawn as they stand: the accent colour while on.</summary>
-    /// <remarks>
-    /// In VRChat's look they are round icon buttons the size of the side panels' own, in the icon
-    /// colour, and the highlights colour while on. The lock and the hand are the same two drawings as
-    /// ever, because the mock's own are stand-ins that cannot show on from off.
-    /// </remarks>
-    private void PaintSwitches()
-    {
-        var v = _look.VRChat;
-
-        _lockButton.Classes.Set("vrchat", v is not null);
-        _throughButton.Classes.Set("vrchat", v is not null);
-
-        Paint(_lockButton, _settings.Locked, on => PanelFrame.LockIcon(on, Foreground(on)));
-        Paint(_throughButton, _settings.ClickThrough, on => PanelFrame.HandIcon(on, Foreground(on), Background(on)));
-        PaintDictate();
-
-        IBrush Foreground(bool on) => v is null
-            ? on ? Ui.T.AccentForegroundBrush : Ui.T.TextBrush
-            : on ? v.SelectedText : v.Icon;
-
-        IBrush Background(bool on) => v is null
-            ? on ? Ui.T.AccentBrush : Ui.T.Surface2Brush
-            : on ? v.Selected : v.Button;
-
-        void Paint(Button button, bool on, Func<bool, Control> icon)
-        {
-            button.Background = Background(on);
-            button.BorderBrush = v is null
-                ? on ? Ui.T.AccentBrush : Ui.T.Border2Brush
-                : on ? v.RaisedBrightEdge : v.RaisedEdge;
-            button.Width = button.Height = v is null ? Ui.T.Density.ControlHeight : VRChatLook.RoundButton;
-            button.CornerRadius = new CornerRadius(v is null ? Ui.T.Density.Radius : VRChatLook.RoundButton / 2);
-            button.BorderThickness = new Thickness(v is null ? Ui.T.Density.Hairline : VRChatLook.EdgeWidth);
-            button.Padding = new Thickness(v is null ? 6 : 9);
-            button.Content = new Viewbox { Child = icon(on) };
-        }
-    }
-
     /// <summary>
     /// What the Dictate button on the strip shows, from the card the controller last gave: off hides
     /// it, and the picture moves a step each 150 ms while the card says it has something moving.
     /// </summary>
     public void SetDictate(ButtonScreen card)
     {
+        if (card == _dictate)
+            return;
+
         _dictate = card;
-        _dictateButton.IsVisible = card.Dictate is not DictateState.Off;
 
         if (_dictate.DictateMoves)
         {
@@ -1398,49 +982,56 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             _dictateFrame = 0;
         }
 
-        PaintDictate();
+        DrawScreen();
     }
 
-    /// <summary>The Dictate button drawn as the look in use draws the strip's other buttons, with the picture for its state.</summary>
-    private void PaintDictate()
+    /// <summary>The bar under the panel, drawn as the lock and the hand stand (the headset's bar, in the same look in every palette).</summary>
+    private void PaintBar()
     {
-        var v = _look.VRChat;
+        _barHost.Child = PanelFrame.EditBar(_settings.Locked, _settings.ClickThrough);
+        _barLitTarget = null;
+    }
 
-        _dictateButton.Classes.Set("vrchat", v is not null);
-        _dictateButton.Background = v is null ? Ui.T.Surface2Brush : v.Button;
-        _dictateButton.BorderBrush = v is null ? Ui.T.Border2Brush : v.RaisedEdge;
-        _dictateButton.Height = v is null ? Ui.T.Density.ControlHeight : VRChatLook.RoundButton;
-        _dictateButton.Width = double.NaN;
-        _dictateButton.MinWidth = _dictateButton.Height;
-        _dictateButton.CornerRadius = new CornerRadius(v is null ? Ui.T.Density.Radius : VRChatLook.RoundButton / 2);
-        _dictateButton.BorderThickness = new Thickness(v is null ? Ui.T.Density.Hairline : VRChatLook.EdgeWidth);
-        _dictateButton.Padding = new Thickness(v is null ? 6 : 9);
-        _dictateButton.Margin = new Thickness(0, 0, 8, 0);
+    private void OnBarMoved(object? sender, PointerEventArgs e)
+    {
+        if (_barHost.Child is not Visual root)
+            return;
 
-        var ink = v?.Icon ?? Ui.T.TextBrush;
-        var bright = v?.Bright ?? Ui.T.AccentBrush;
-        var picture = ButtonView.Dictation(_dictate.Dictate, _dictateFrame, ink, bright, _dictate.Level);
-        picture.Width = picture.Height = 24;
+        var under = OverlayTargets.At(root, e.GetPosition(root));
+        LightBar(Lit.Lights(under, editMode: true) ? under : null);
+    }
 
-        var row = new StackPanel
+    private void LightBar(OverlayTarget? target)
+    {
+        if (target == _barLitTarget || _barHost.Child is not Visual root)
+            return;
+
+        _barLitTarget = target;
+        _barLit.Show(root, target, DesignTokens.Vr);
+    }
+
+    /// <summary>A press on the bar: the lock and the hand change the settings; anywhere else on it moves the window, unless it is locked.</summary>
+    private void OnBarPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (_barHost.Child is not Visual root || !e.GetCurrentPoint(_barHost).Properties.IsLeftButtonPressed)
+            return;
+
+        switch (OverlayTargets.At(root, e.GetPosition(root)))
         {
-            Orientation = Orientation.Horizontal,
-            Spacing = 6,
-            VerticalAlignment = VerticalAlignment.Center,
-            Children = { picture },
-        };
+            case OverlayTarget.Lock:
+                SwitchPressed?.Invoke(_settings with { Locked = !_settings.Locked });
+                break;
+            case OverlayTarget.ClickThrough:
+                SwitchPressed?.Invoke(_settings with { ClickThrough = !_settings.ClickThrough });
+                break;
+            default:
+                if (!_settings.Locked)
+                    BeginMoveDrag(e);
 
-        // The picture alone while it is only a microphone; the stage in words as soon as there is one
-        // (or a notice), with how far the model has come, or how loud the voice is.
-        if (_dictate.Dictate is not DictateState.Idle || _dictate.DictateLabel != "Dictate")
-            row.Children.Add(Ui.Text(_dictate.DictateLabel, Ui.T.Density.TextSmall, ink, FontWeight.Medium, wrap: false));
+                break;
+        }
 
-        if (_dictate.DictatePercent.Length > 0)
-            row.Children.Add(Ui.Text(_dictate.DictatePercent, Ui.T.Density.TextSmall, ink, FontWeight.Medium, wrap: false));
-        else if (_dictate.Dictate is DictateState.Listening)
-            row.Children.Add(ButtonView.Meter(_dictate.Level, bright, v?.Edge ?? Ui.T.Surface3Brush, 4, 12));
-
-        _dictateButton.Content = row;
+        e.Handled = true;
     }
 
     /// <summary>Starts or stops watching the mouse, and lets clicks through again only when it should.</summary>
@@ -1458,19 +1049,25 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     }
 
     /// <summary>
-    /// Clicks go through everywhere but the strip: over the strip the window takes them, so the
-    /// hand can be pressed again, and anywhere else the game gets them.
+    /// Clicks go through everywhere but the title strip and the bar under the panel (while it shows): over
+    /// those the window takes them, so the hand can be pressed again, and anywhere else the game gets them.
     /// </summary>
     private void WatchTheMouse()
     {
-        if (_head is null || !GetCursorPos(out var mouse))
+        if (!GetCursorPos(out var mouse))
             return;
 
-        var topLeft = _head.PointToScreen(new Point(0, 0));
-        var bottomRight = _head.PointToScreen(new Point(_head.Bounds.Width, _head.Bounds.Height));
-        var overStrip = mouse.X >= topLeft.X && mouse.X < bottomRight.X && mouse.Y >= topLeft.Y && mouse.Y < bottomRight.Y;
+        PassClicks(!(Over(_strip, mouse) || Over(_barHost, mouse)));
 
-        PassClicks(!overStrip);
+        static bool Over(Control? part, MousePoint at)
+        {
+            if (part is not { IsVisible: true } || part.GetVisualRoot() is null)
+                return false;
+
+            var topLeft = part.PointToScreen(new Point(0, 0));
+            var bottomRight = part.PointToScreen(new Point(part.Bounds.Width, part.Bounds.Height));
+            return at.X >= topLeft.X && at.X < bottomRight.X && at.Y >= topLeft.Y && at.Y < bottomRight.Y;
+        }
     }
 
     private void PassClicks(bool pass)
@@ -1792,6 +1389,30 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
                 StartGliding();
             }
 
+            e.Handled = true;
+            return;
+        }
+
+        // Close and Dictate are on the title strip, and the window answers them itself.
+        if (target is OverlayTarget.ClosePanel)
+        {
+            Dismiss();
+            e.Handled = true;
+            return;
+        }
+
+        if (target is OverlayTarget.DictateButton)
+        {
+            DictatePressed?.Invoke();
+            e.Handled = true;
+            return;
+        }
+
+        // Nothing under the press and it is on the strip: that is the way to move the window.
+        if (target is null && OverlayView.OnStrip(e.Source as Visual) && !_settings.Locked
+            && e.GetCurrentPoint(_panel).Properties.IsLeftButtonPressed)
+        {
+            BeginMoveDrag(e);
             e.Handled = true;
             return;
         }

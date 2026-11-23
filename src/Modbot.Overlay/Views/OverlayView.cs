@@ -273,8 +273,9 @@ public sealed partial class OverlayView
         // server's address is a fallback and never the first thing said. In VRChat's look the
         // title strip above already carries the group's name and icon, so inside a group's instance
         // this says nothing at all, and anywhere else it is the large heading alone: the strip
-        // carries the small "not synced" tag instead of a second copy of the heading.
-        if (V is null)
+        // carries the small "not synced" tag instead of a second copy of the heading. The same goes for the
+        // Modbot look when the desktop window frames it: its strip already says the group.
+        if (V is null && !_stripHoldsDictate)
             stack.Children.Add(GroupLine(screen, icon));
         else if (screen.GroupLabel is null)
             stack.Children.Add(Heading(screen));
