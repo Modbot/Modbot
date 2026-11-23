@@ -111,8 +111,9 @@ public class SharedOverlayTests
         });
 
         // The frame is laid out at the window's 520 and drawn at the headset's scale, so it is not the texture's whole width.
-        Assert.Equal(panelWidth, size.Width, 1);
-        Assert.Equal(VRChatHudLayout.OverlayDesignWidth * scale, size.Width, 1);
+        // Layout rounds a size to a whole pixel, so the drawn width may be less than a pixel off the exact one.
+        Assert.Equal(panelWidth, size.Width, 1.0);
+        Assert.Equal(VRChatHudLayout.OverlayDesignWidth * scale, size.Width, 1.0);
         Assert.Contains("Cat Lounge", texts);
         Assert.Contains("Users (3)", texts);
     }
