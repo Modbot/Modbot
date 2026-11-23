@@ -138,7 +138,7 @@ public class DictateButtonTests
     [Fact]
     public void ATurnOfThePictureRedrawsOnlyTheButtonNotThePanel()
     {
-        var (found, outsideKept, outsideCount, buttonKept, before, after)= AvaloniaTestHost.Run(() =>
+        var (found, outsideKept, outsideCount, buttonKept, before, after) =AvaloniaTestHost.Run(() =>
         {
             var writing = ButtonScreen.Shown with { Dictate = DictateState.Writing };
             var root = OverlayView.BuildFramed(Screen(writing), null, VRChatLook());
