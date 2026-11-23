@@ -199,8 +199,19 @@ public sealed partial class OverlayView
 
         if (V is { } vw)
         {
-            // The window lays the frame out as wide as it is. Nothing is clipped, which would take the
-            // panel's shadow with it.
+            // The window lays the frame out as wide as it is. The frame itself is not clipped, which would
+            // take the panel's shadow with it; the body inside it is, so a long list is cut at the rounded
+            // corners, as the headset's frame cuts it.
+            if (rounded)
+            {
+                body = new Border
+                {
+                    ClipToBounds = true,
+                    CornerRadius = new CornerRadius(VRChatLook.FrameRadius - VRChatLook.EdgeWidth),
+                    Child = body,
+                };
+            }
+
             return new Border
             {
                 HorizontalAlignment = HorizontalAlignment.Stretch,

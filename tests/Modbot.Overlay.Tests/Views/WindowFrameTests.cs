@@ -70,6 +70,24 @@ public class WindowFrameTests
         Assert.Single(targets, t => t.Target is OverlayTarget.DictateButton);
     }
 
+    [Theory]
+    [MemberData(nameof(Looks))]
+    public void TheGroupNameIsOnTheStripOnlyNotInTheBodyToo(bool vrchat)
+    {
+        var count = AvaloniaTestHost.Run(() =>
+        {
+            var root = OverlayView.BuildFramed(Screen(), null, Look(vrchat), window: Window);
+            root.Measure(new Size(Width, Height));
+            root.Arrange(new Rect(0, 0, Width, Height));
+
+            return Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(root)
+                .OfType<TextBlock>()
+                .Count(t => t.Text == "Cat Lounge");
+        });
+
+        Assert.Equal(1, count);
+    }
+
     [Fact]
     public void TheModbotLookIsStillNotFramedWithoutTheWindow()
     {

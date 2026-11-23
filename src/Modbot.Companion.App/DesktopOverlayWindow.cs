@@ -43,12 +43,12 @@ namespace Modbot.Companion.App;
 /// pinned under it, which made the window tall, made the panel small, and told a moderator about
 /// things after the moment had passed. Being told as it happens is the notification overlay's job
 /// now — its own window, in a corner, which this one neither owns nor summons (§7).</para>
-/// <para><strong>The lock and the hand.</strong> The strip carries the same two switches as the bar
-/// under a headset panel. Locked, the strip no longer drags the window. Click-through, a click on
-/// the panel goes to the game underneath instead; the strip itself goes on answering, so the
-/// switch can be turned back off. Windows decides where a click goes before this program hears
-/// of it, so the window watches where the mouse is and lets clicks through everywhere but the
-/// strip.</para>
+/// <para><strong>The lock and the hand.</strong> In edit mode the bar under the panel carries the
+/// same two switches as the bar under a headset panel. Locked, neither the title strip nor the bar
+/// drags the window. Click-through, a click on the panel goes to the game underneath instead; the
+/// title strip and the bar go on answering, so the switch can be turned back off. Windows decides
+/// where a click goes before this program hears of it, so the window watches where the mouse is and
+/// lets clicks through everywhere but the strip and the bar.</para>
 /// <para><strong>Beside VRChat's menu.</strong> When VRChat's window is there, it sits in the free
 /// strip to the right of VRChat's Esc menu, under its top-right column, as wide as that strip allows and
 /// the whole way down to VRChat's bottom edge: the panel is laid out at its own width, taller than its own
@@ -178,7 +178,7 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     }
 
     // While click-through is on: where the mouse is, looked at often enough that reaching for the
-    // strip finds it answering, and whether clicks are going through right now.
+    // strip or the bar finds it answering, and whether clicks are going through right now.
     private readonly DispatcherTimer _throughWatch = new() { Interval = TimeSpan.FromMilliseconds(50) };
     private bool _passingClicks;
 
@@ -208,12 +208,12 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     public event Action<OverlayTarget?>? PanelTapped;
 
     /// <summary>
-    /// The lock or the hand on the strip, pressed, or the resize corner let go: the settings as they
+    /// The lock or the hand on the bar under the panel, pressed, or the resize corner let go: the settings as they
     /// should now be.
     /// </summary>
     public event Action<DesktopOverlaySettings>? SwitchPressed;
 
-    /// <summary>The Dictate button on the strip, pressed.</summary>
+    /// <summary>The Dictate button on the title strip, pressed.</summary>
     public event Action? DictatePressed;
 
     /// <summary>The name searched for, as typed here while the Name filter is open, with its list.</summary>
