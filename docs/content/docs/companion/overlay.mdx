@@ -218,7 +218,7 @@ desktop overlay. The strip holds your group's picture and name, the **Dictate** 
 offered, and a **Close** button, an X, at the right end. In the headset, point at the X and pull the
 trigger to close the panel, as clicking the X does on the desktop. It puts the panel away the same
 way **Hide** on the [show and hide button](#the-show-and-hide-button) does. In the headset the
-strip, and so the X, is there in VRChat's look only, and not while the panel is on a wrist.
+strip, and so the X, is there in VRChat's look only, and not while the panel is blank or on a wrist.
 
 The pop-ups follow the same look. The notification overlay in the headset is drawn in VRChat's
 colours when the headset panel is, and in the Modbot look when it is not. The notification overlay
@@ -605,8 +605,9 @@ server or quit the client.
   your clipboard, and — if you have [Clips](/companion/clips) switched on — saves a clip to your own PC.
   That is all: there are no ban, kick or warn buttons, and the client's token could not do those
   things anyway. To act on something, use the web app.
-- **The panel starts 0.45 metres wide** in the headset, 0.16 metres on a wrist, and is drawn at
-  1024 by 1024 pixels either way.
+- **The panel's picture starts 0.45 metres wide** in the headset, 0.16 metres on a wrist, and is
+  drawn at 1024 by 1024 pixels either way. In VRChat's look the frame takes about 87% of that width
+  (a little under 0.4 metres) and the rest is empty, so the text keeps its size.
 - **The main panel starts tall**, the same portrait shape as the desktop overlay, not a square with
   empty sides. The resize corner still makes it wider or taller.
 - **Long names are cut to one line**, so a display name full of line breaks cannot push the rest of
@@ -641,9 +642,10 @@ held at the edge while you drag, only put back at the end. The chat windows do t
 With **Edit mode** on, the window has the [resize corner](#the-resize-corner) at its bottom right.
 A size you drag it to replaces the automatic fit beside the menu, so a big window can cover VRChat's
 Esc menu. It is a number of times the fit's size, so it still gets bigger or smaller with VRChat's
-window and stays inside the screen. The text keeps its size and the roster and the Audit Log show
-more rows. The size is saved and is there after a restart. Click the corner twice quickly to put the
-automatic fit back.
+window and stays inside the screen: when you let go of the corner the window, with its bar, is put
+back inside the screen if it went over the edge. The text keeps its size and the roster and the Audit
+Log show more rows. The size is saved and is there after a restart. Click the corner twice quickly to
+put the automatic fit back.
 
 The chat window on a monitor has the same corner, drawn the same way, with **Edit mode** on. It is
 not there while the window is locked or click-through. Hold the mouse on it and drag to make the

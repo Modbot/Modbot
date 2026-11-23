@@ -482,7 +482,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         if (dictateStep != _dictateFrame)
         {
             _dictateFrame = dictateStep;
-            Draw();
+            DrawDictateStep();
         }
 
         _lastTracking = _runtime.ReadTracking();
@@ -706,6 +706,32 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             }
 
             _drawn = drawn with { ScrollOffset = offset, Cursor = _cursor };
+            _compositor.Invalidate();
+
+            if (_compositor.DrawIfChanged(root))
+                _runtime.Submit(_compositor.Surface);
+
+            return;
+        }
+
+        Draw();
+    }
+
+    /// <summary>
+    /// Draws the Dictate picture a step on. The tree that drew the last frame is kept laid out, so only the
+    /// button is swapped and the same tree drawn again; when the card is not the one drawn, or the tree has no
+    /// such button, the panel is drawn again from the screen.
+    /// </summary>
+    private void DrawDictateStep()
+    {
+        if (_compositor is not null
+            && _root is { } root
+            && _drawn is { Dictate: { } shown } drawn
+            && _dictate is { } card
+            && shown with { Frame = 0 } == card with { Frame = 0 }
+            && OverlayView.RedrawDictate(root, card with { Frame = _dictateFrame }, _look))
+        {
+            _drawn = drawn with { Dictate = card with { Frame = _dictateFrame } };
             _compositor.Invalidate();
 
             if (_compositor.DrawIfChanged(root))

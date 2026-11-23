@@ -45,10 +45,9 @@ that user id from this PC's registry the same way the window does (Windows only;
 
 ## Limits
 
-- The desktop panel is drawn from the real screen view inside a copy of the window's frame and title
-  strip (group name only: no group picture, Dictate or Close, and no lock and hand bar below the
-  list). The real window's frame is the shared one (`OverlayView.BuildFramed`); `tools/ui-board` draws
-  that. Its list is cut at the window's height, with no scrolling, so a long list shows only its top.
+- The desktop panel is drawn from the real screen view inside the shared frame the window and the
+  headset use (`OverlayView.BuildFramed`), with no lock and hand bar below the list. Its list is cut at
+  the window's height, with no scrolling, so a long list shows only its top.
 - Not the live window: no hover, no cursor, no transparency of the window itself. The headset bar is
   drawn as it is when no controller points at the panel.
 - Times on the Audit Log rows are shown in this PC's time zone.

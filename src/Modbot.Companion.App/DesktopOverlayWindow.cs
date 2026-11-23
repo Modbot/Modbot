@@ -310,7 +310,10 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         _dictateMotion.Tick += (_, _) =>
         {
             _dictateFrame = (_dictateFrame + 1) % 8;
-            DrawScreen();
+
+            // Only the button's picture turns a step: the panel stays as drawn unless it has no such button.
+            if (_panel.Content is not Control tree || !OverlayView.RedrawDictate(tree, _dictate with { Frame = _dictateFrame }, _look))
+                DrawScreen();
         };
         Closed += (_, _) =>
         {

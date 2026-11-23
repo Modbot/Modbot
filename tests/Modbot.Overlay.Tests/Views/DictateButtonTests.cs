@@ -1,5 +1,8 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Shapes;
+using Avalonia.LogicalTree;
+using Avalonia.VisualTree;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Presentation;
 using Modbot.Overlay.Interaction;
@@ -130,6 +133,50 @@ public class DictateButtonTests
 
         Assert.Single(targets, t => t.Target is OverlayTarget.DictateButton);
         Assert.DoesNotContain(targets, t => t.Target is OverlayTarget.Roster);
+    }
+
+    [Fact]
+    public void ATurnOfThePictureRedrawsOnlyTheButtonNotThePanel()
+    {
+        var (found, outsideKept, outsideCount, buttonKept, before, after)= AvaloniaTestHost.Run(() =>
+        {
+            var writing = ButtonScreen.Shown with { Dictate = DictateState.Writing };
+            var root = OverlayView.BuildFramed(Screen(writing), null, VRChatLook());
+            root.Measure(new Size(Width, Height));
+            root.Arrange(new Rect(0, 0, Width, Height));
+
+            var oldButton = root.GetVisualDescendants().OfType<Border>().Single(b => b.Tag is OverlayTarget.DictateButton);
+            var inside = oldButton.GetVisualDescendants().ToHashSet();
+            var outside = root.GetVisualDescendants().Where(v => v != oldButton && !inside.Contains(v)).ToList();
+            var dotsBefore = oldButton.GetLogicalDescendants().OfType<Ellipse>().Select(e => e.Opacity).ToList();
+
+            var redrawn = OverlayView.RedrawDictate(root, writing with { Frame = 3 }, VRChatLook());
+
+            var now = root.GetVisualDescendants().ToHashSet();
+            var newButton = root.GetVisualDescendants().OfType<Border>().Single(b => b.Tag is OverlayTarget.DictateButton);
+            var dotsAfter = newButton.GetLogicalDescendants().OfType<Ellipse>().Select(e => e.Opacity).ToList();
+
+            return (redrawn, outside.All(now.Contains), outside.Count, ReferenceEquals(newButton, oldButton), dotsBefore, dotsAfter);
+        });
+
+        Assert.True(found);
+        Assert.True(outsideKept, "every other control of the panel is the same one as before");
+        Assert.True(outsideCount > 5, "the panel had more than the button in it");
+        Assert.True(buttonKept, "the button's own border is kept, so what lights it stays");
+        Assert.Equal(8, before.Count);
+        Assert.NotEqual(before, after);
+    }
+
+    [Fact]
+    public void ATurnOfThePictureOnAPanelWithNoButtonSaysSoAndChangesNothing()
+    {
+        var redrawn = AvaloniaTestHost.Run(() =>
+        {
+            var root = OverlayView.BuildFramed(Screen(null), null, VRChatLook());
+            return OverlayView.RedrawDictate(root, Offered with { Dictate = DictateState.Writing, Frame = 2 }, VRChatLook());
+        });
+
+        Assert.False(redrawn);
     }
 
     [Fact]
