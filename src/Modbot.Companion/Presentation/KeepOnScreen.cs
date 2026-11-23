@@ -27,6 +27,20 @@ public static class KeepOnScreen
         return Inside(window, area);
     }
 
+    /// <summary>
+    /// The window as it is after a resize: no taller than the free area of the monitor it overlaps most, and
+    /// moved wholly back inside it. Wider than the area it lines up with its top left, as in <see cref="Back"/>.
+    /// </summary>
+    public static ScreenBox Fit(ScreenBox window, IReadOnlyList<ScreenBox> areas)
+    {
+        if (Pick(window, areas) is not { } area)
+            return window;
+
+        var fitted = window with { Height = Math.Min(window.Height, area.Height) };
+        var (x, y) = Inside(fitted, area);
+        return fitted with { X = x, Y = y };
+    }
+
     /// <summary>The window's top-left corner after it is moved inside one area.</summary>
     public static (int X, int Y) Inside(ScreenBox window, ScreenBox area)
     {

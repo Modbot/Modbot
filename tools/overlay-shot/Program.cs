@@ -207,32 +207,11 @@ internal static class Program
             OverlayHost.DefaultNotificationResolution);
 
     /// <summary>
-    /// The desktop window's panel: the title strip and the screen in a rounded frame, laid out at the
-    /// window's design size and drawn at the scale VRChat's window asks for. The strip is a plain
-    /// copy of the window's (group name in the middle) without its buttons; the screen is the real one.
+    /// The desktop window's panel: the shared frame and title strip (<see cref="OverlayView.BuildFramed"/>, the one
+    /// the window hosts), laid out at the window's design size and drawn at the scale VRChat's window asks for.
     /// </summary>
     private static Control DesktopPanel(OverlayScreen screen, OverlayLook look, double scale)
     {
-        var v = look.VRChat ?? throw new InvalidOperationException("Not the VRChat look.");
-        var inner = VRChatLook.FrameRadius - VRChatLook.EdgeWidth;
-
-        var head = new Border
-        {
-            Background = v.Bar(),
-            CornerRadius = new CornerRadius(inner, inner, 0, 0),
-            Padding = new Thickness(14, 8),
-            Child = new TextBlock
-            {
-                Text = screen.GroupLabel,
-                FontSize = 20,
-                FontWeight = FontWeight.ExtraBold,
-                FontFamily = new FontFamily(DesignTokens.FontFamily),
-                Foreground = v.Heading,
-                HorizontalAlignment = HorizontalAlignment.Center,
-            },
-        };
-        DockPanel.SetDock(head, Dock.Top);
-
         var frame = new Border
         {
             Width = VRChatHudLayout.OverlayDesignWidth - (2 * VRChatLook.ShadowRoom),
@@ -240,12 +219,7 @@ internal static class Program
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Top,
             Margin = new Thickness(VRChatLook.ShadowRoom),
-            Background = v.Panel(),
-            BorderBrush = v.Edge,
-            BorderThickness = new Thickness(VRChatLook.EdgeWidth),
-            CornerRadius = new CornerRadius(VRChatLook.FrameRadius),
-            BoxShadow = v.PanelShadow,
-            Child = new DockPanel { Children = { head, new Border { ClipToBounds = true, Child = OverlayView.Build(screen, null, look) } } },
+            Child = OverlayView.BuildFramed(screen, null, look, window: new OverlayView.WindowFrame(255, true)),
         };
 
         return new Viewbox

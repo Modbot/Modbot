@@ -106,6 +106,23 @@ public class ResizeCornerTests
     }
 
     [Fact]
+    public void ADrawnPanelNarrowerThanItsSquareHasTheCornerFollowTheRay()
+    {
+        // The main panel's frame in VRChat's look is 520 of the 600 across: its corner moves 520/600 of a
+        // metre of width for each metre of Wide, so the width is dragged by that and the corner stays under the ray.
+        const float share = 520f / 600f;
+        var interaction = new OverlayInteraction(OverlayPlacement.Default) { IsOnCorner = Corner, AcrossShare = () => share };
+
+        var result = Drag(interaction, 0.225f, -0.225f);
+
+        // The corner is at share * Width * Wide from the left, so a ray 0.225 m on is 0.225 / (0.45 * share) more Wide.
+        Assert.Equal(1f + (0.225f / (0.45f * share)), result.Placement.Wide, Tolerance);
+
+        // The height is not narrowed: the frame takes the panel's whole height.
+        Assert.Equal(1.5f, result.Placement.Tall, Tolerance);
+    }
+
+    [Fact]
     public void ThePanelCannotBeMadeMoreThanTwiceItsShape()
     {
         var interaction = With(OverlayPlacement.Default);

@@ -247,6 +247,15 @@ public sealed class OverlayInteraction
     public float ShapeShare { get; set; } = 1f;
 
     /// <summary>
+    /// How much of the panel's width the drawn panel takes across, asked by the host that drew it: 1 when it
+    /// is as wide as the square it is drawn in, and less when it is drawn narrower (the main panel's frame in
+    /// VRChat's look is 520 of the 600 its words are sized against). The corner moves that much in the room
+    /// for each step of the width, so the width is dragged by it for the corner to stay under the ray.
+    /// Null counts 1.
+    /// </summary>
+    public Func<float>? AcrossShare { get; set; }
+
+    /// <summary>
     /// Whether anything is drawn at a point across and down the panel, asked by the host that drew
     /// it. A ray on the clear ground of the square counts as missing the panel, so the cursor and
     /// the bar go the moment a hand moves off what can be seen. Null counts the whole square.
@@ -524,7 +533,8 @@ public sealed class OverlayInteraction
             return;
 
         var share = Math.Max(_placement.Width * ShapeShare, 1e-4f);
-        var wide = Math.Clamp(resizing.Wide + (((hit.Across * side) - resizing.Start.X) / share), OverlayPlacement.MinShape, OverlayPlacement.MaxShape);
+        var across = Math.Max(share * Math.Clamp(AcrossShare?.Invoke() ?? 1f, 1e-4f, 1f), 1e-4f);
+        var wide = Math.Clamp(resizing.Wide + (((hit.Across * side) - resizing.Start.X) / across), OverlayPlacement.MinShape, OverlayPlacement.MaxShape);
         var tall = Math.Clamp(resizing.Tall + (((hit.Down * side) - resizing.Start.Y) / share), OverlayPlacement.MinShape, OverlayPlacement.MaxShape);
 
         var grown = _placement with { Wide = wide, Tall = tall };

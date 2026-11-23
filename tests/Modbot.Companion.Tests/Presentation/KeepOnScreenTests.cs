@@ -65,4 +65,24 @@ public class KeepOnScreenTests
     [Fact]
     public void With_no_monitors_it_stays_where_it_is()
         => Assert.Equal((10, 20), KeepOnScreen.Back(new ScreenBox(10, 20, 520, 720), []));
+
+    [Fact]
+    public void A_resized_window_that_runs_off_the_bottom_is_moved_back_up()
+        => Assert.Equal(new ScreenBox(100, 140, 520, 900), KeepOnScreen.Fit(new ScreenBox(100, 600, 520, 900), [Left]));
+
+    [Fact]
+    public void A_resized_window_off_the_right_is_moved_back_left()
+        => Assert.Equal(new ScreenBox(1400, 50, 520, 720), KeepOnScreen.Fit(new ScreenBox(1700, 50, 520, 720), [Left]));
+
+    [Fact]
+    public void A_resized_window_taller_than_the_free_area_is_cut_to_it_and_lines_up_with_the_top()
+        => Assert.Equal(new ScreenBox(100, 0, 520, 1040), KeepOnScreen.Fit(new ScreenBox(100, 300, 520, 1440), [Left]));
+
+    [Fact]
+    public void A_resized_window_inside_stays_as_it_is()
+        => Assert.Equal(new ScreenBox(100, 50, 520, 720), KeepOnScreen.Fit(new ScreenBox(100, 50, 520, 720), [Left]));
+
+    [Fact]
+    public void A_resized_window_with_no_monitors_stays_as_it_is()
+        => Assert.Equal(new ScreenBox(10, 20, 520, 720), KeepOnScreen.Fit(new ScreenBox(10, 20, 520, 720), []));
 }

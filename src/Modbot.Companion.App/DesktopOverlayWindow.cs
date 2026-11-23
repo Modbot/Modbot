@@ -487,6 +487,10 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 
         _resizing = null;
         e.Pointer.Capture(null);
+
+        // The corner grows the window right and down from its top left, so it can leave the screen, and
+        // the bar under the panel with it.
+        this.FitOnScreen();
         SaveTheSize();
     }
 
@@ -1247,6 +1251,10 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 
         var area = screen.WorkingArea;
         var scaling = screen.Scaling <= 0 ? 1 : screen.Scaling;
+
+        // A saved size taller than the screen has no more than the free height, as beside the menu.
+        Height = Math.Min(Height, area.Height / scaling);
+
         var width = (int)(Width * scaling);
         var height = (int)(Height * scaling);
         var margin = (int)(EdgeMargin * scaling);

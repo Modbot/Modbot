@@ -169,7 +169,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         Width = surface.Width;
         Height = surface.Height;
         _compositor = new OverlayCompositor(new FrameKeeper(renderer, this), surface);
-        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default) { IsOnBar = IsOnBar, IsOnCorner = IsOnCorner, IsDrawnAt = IsDrawnAt, IsScrollableAt = IsListAt };
+        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default) { IsOnBar = IsOnBar, IsOnCorner = IsOnCorner, IsDrawnAt = IsDrawnAt, IsScrollableAt = IsListAt, AcrossShare = PanelAcrossShare };
         _runtime.Place(_interaction.Placement);
     }
 
@@ -213,7 +213,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             }
         };
 
-        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default) { IsOnBar = IsOnBar, IsOnCorner = IsOnCorner, IsDrawnAt = IsDrawnAt, IsScrollableAt = IsListAt };
+        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default) { IsOnBar = IsOnBar, IsOnCorner = IsOnCorner, IsDrawnAt = IsDrawnAt, IsScrollableAt = IsListAt, AcrossShare = PanelAcrossShare };
         _runtime.Place(_interaction.Placement);
     }
 
@@ -840,6 +840,13 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
     private bool IsOnCorner(float across, float down)
         => EditMode && TargetAt(across, down) is OverlayTarget.ResizeCorner;
+
+    /// <summary>
+    /// How much of its width the panel draws across: the framed screen is narrower than the square (its
+    /// words are sized against a wider one), so the resize corner is that much nearer the left.
+    /// </summary>
+    private float PanelAcrossShare()
+        => (float)(OverlayView.HeadsetPanelWidth(Showing, _look, Width) / Width);
 
     /// <summary>One of the bar's switches, pressed: applied, saved and drawn at once.</summary>
     private void Switch(OverlayPlacement placement)
